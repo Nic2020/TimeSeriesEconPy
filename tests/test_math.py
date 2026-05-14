@@ -1,9 +1,11 @@
 # SPDX-License-Identifier: MIT
-"""Tests for ``tsecon._math``: shift / lag / lead / diff / pct / apct / ytypct.
+"""Tests for ``tsecon._math``: shift / lag / lead / diff / pct / apct / ytypct / moving / undiff.
 
 Ports the relevant cases from ``TimeSeriesEcon.jl``'s ``test/test_tseries.jl``
 (``@testset "Iris"`` shift section, ``@testset "TS.math"`` lag/lead section,
-and ``@testset "pct"``), plus Python-specific edge cases.
+``@testset "pct"``) and the moving/undiff cases from
+``test/test_mvtseries.jl`` (the TSeries-flavored ones — MVTSeries overloads
+land when MVTSeries lands), plus Python-specific edge cases.
 """
 
 from __future__ import annotations
@@ -19,10 +21,15 @@ from tsecon import (
     lead,
     lead_inplace,
     mm,
+    moving,
+    moving_average,
+    moving_sum,
     pct,
     qq,
     shift,
     shift_inplace,
+    undiff,
+    undiff_inplace,
     ytypct,
     yy,
 )
@@ -312,3 +319,337 @@ class TestCrossReferences:
         a = apct(t)
         assert isinstance(a.frequency, Yearly)
         assert np.allclose(a.values, [100.0])
+
+
+# ---------------------------------------------------------------------------
+# moving / moving_average / moving_sum
+# ---------------------------------------------------------------------------
+
+
+class TestMoving:
+    """Ports the Julia ``test_mvtseries.jl`` "moving average" cases.
+
+    Builds ``x = TSeries(1U, 1:10)`` and walks through the windows the Julia
+    tests exercise: 1 / 4 / 2 forward, then 1 / -4 / -2 backward.
+    """
+
+    @pytest.fixture
+    def x(self) -> TSeries:
+        return TSeries(MIT(Unit(), 1), np.arange(1, 11, dtype=np.float64))
+
+    def test_window_of_1_is_identity(self, x: TSeries) -> None:
+        result = moving(x, 1)
+        assert result.range == x.range
+        assert np.allclose(result.values, x.values)
+
+    def test_backward_window_of_4(self, x: TSeries) -> None:
+        # Julia: x_m4.values == collect(4:10) .- 1.5
+        result = moving(x, 4)
+        assert result.range == MITRange(MIT(Unit(), 4), MIT(Unit(), 10))
+        assert np.allclose(result.values, np.arange(4, 11) - 1.5)
+
+    def test_forward_window_of_4(self, x: TSeries) -> None:
+        # Julia: x_m4_forward.values == collect(1:7) .+ 1.5
+        result = moving(x, -4)
+        assert result.range == MITRange(MIT(Unit(), 1), MIT(Unit(), 7))
+        assert np.allclose(result.values, np.arange(1, 8) + 1.5)
+
+    def test_backward_window_of_2(self, x: TSeries) -> None:
+        # Julia: x_m2.values == collect(2:10) .- 0.5
+        result = moving(x, 2)
+        assert result.range == MITRange(MIT(Unit(), 2), MIT(Unit(), 10))
+        assert np.allclose(result.values, np.arange(2, 11) - 0.5)
+
+    def test_forward_window_of_2(self, x: TSeries) -> None:
+        # Julia: x_m2_forward.values == collect(1:9) .+ 0.5
+        result = moving(x, -2)
+        assert result.range == MITRange(MIT(Unit(), 1), MIT(Unit(), 9))
+        assert np.allclose(result.values, np.arange(1, 10) + 0.5)
+
+    def test_moving_equals_moving_average(self, x: TSeries) -> None:
+        # Julia: moving(x, -4) == moving_average(x, -4)
+        assert np.allclose(moving(x, -4).values, moving_average(x, -4).values)
+
+    def test_moving_sum_is_n_times_moving_average(self, x: TSeries) -> None:
+        # Julia: 4 * moving(x, -4) == moving_sum(x, -4)
+        a = moving(x, -4)
+        s = moving_sum(x, -4)
+        assert np.allclose(4.0 * a.values, s.values)
+
+    # -- edge cases -------------------------------------------------------
+
+    def test_quarterly_window(self) -> None:
+        t = TSeries(qq(2020, 1), np.arange(8.0))
+        ma = moving(t, 4)
+        assert ma.firstdate == qq(2020, 4)
+        assert ma.range == MITRange(qq(2020, 4), qq(2021, 4))
+        # Mean of [0,1,2,3] = 1.5; mean of [1,2,3,4]=2.5; ...
+        expected = np.array([1.5, 2.5, 3.5, 4.5, 5.5])
+        assert np.allclose(ma.values, expected)
+
+    def test_window_equals_series_length_is_single_point(self) -> None:
+        t = TSeries(qq(2020, 1), np.arange(4.0))
+        ma = moving(t, 4)
+        assert len(ma) == 1
+        assert ma.firstdate == qq(2020, 4)
+        assert np.allclose(ma.values, [1.5])
+
+    def test_zero_window_raises(self) -> None:
+        t = TSeries(qq(2020, 1), np.arange(4.0))
+        with pytest.raises(ValueError, match="nonzero"):
+            moving(t, 0)
+
+    def test_window_larger_than_series_raises(self) -> None:
+        t = TSeries(qq(2020, 1), np.arange(3.0))
+        with pytest.raises(ValueError, match="exceeds series length"):
+            moving(t, 5)
+        with pytest.raises(ValueError, match="exceeds series length"):
+            moving(t, -5)
+
+    def test_integer_series_yields_float_result(self) -> None:
+        # Matches Julia: zeros(len+1) accumulator promotes to Float64.
+        t = TSeries(MIT(Unit(), 1), np.arange(1, 6, dtype=np.int64))
+        ma = moving(t, 2)
+        assert ma.values.dtype == np.float64
+        assert np.allclose(ma.values, [1.5, 2.5, 3.5, 4.5])
+
+    def test_does_not_alias_source(self) -> None:
+        t = TSeries(qq(2020, 1), np.arange(6.0))
+        ma = moving(t, 3)
+        ma.values[0] = 999.0
+        assert t.values[0] == 0.0  # original untouched
+
+    def test_moving_sum_window_of_1_is_identity(self) -> None:
+        t = TSeries(qq(2020, 1), np.asarray([1.0, 2.0, 3.0, 4.0]))
+        ms = moving_sum(t, 1)
+        assert np.allclose(ms.values, t.values)
+        assert ms.range == t.range
+
+
+# ---------------------------------------------------------------------------
+# undiff
+# ---------------------------------------------------------------------------
+
+
+class TestUndiff:
+    """Ports the Julia ``test_mvtseries.jl`` undiff cases (TSeries flavor)."""
+
+    @pytest.fixture
+    def x_a(self) -> TSeries:
+        # Mirrors `x.a = collect(1:10)` at `1U:10U`.
+        return TSeries(MIT(Unit(), 1), np.arange(1, 11, dtype=np.int64))
+
+    def test_undiff_diff_with_anchor_at_first_recovers_original(self, x_a: TSeries) -> None:
+        # Julia: undiff(diff(x.a), 1U => x.a[1]) == x.a
+        d = diff(x_a)
+        u = undiff(d, (MIT(Unit(), 1), int(x_a.values[0])))
+        assert u.frequency == x_a.frequency
+        assert u.range == x_a.range
+        assert np.allclose(u.values, x_a.values)
+
+    def test_undiff_diff_with_float_anchor_at_first(self, x_a: TSeries) -> None:
+        # Julia: undiff(diff(x.a), 1U => 1.0) == x.a
+        d = diff(x_a)
+        u = undiff(d, (MIT(Unit(), 1), 1.0))
+        assert u.values.dtype == np.float64
+        assert np.allclose(u.values, x_a.values)
+
+    def test_undiff_with_mid_range_anchor_drops_first(self, x_a: TSeries) -> None:
+        # Julia: undiff(diff(x.a), 2U => 2.0) == x.a[2U:10U]
+        d = diff(x_a)
+        u = undiff(d, (MIT(Unit(), 2), 2.0))
+        assert u.range == MITRange(MIT(Unit(), 2), MIT(Unit(), 10))
+        assert np.allclose(u.values, x_a.values[1:])
+
+    def test_undiff_with_anchor_in_middle_offsets_uniformly(self, x_a: TSeries) -> None:
+        # Julia: undiff(diff(x.a), 5U => 5.0) == x.a[2U:10U]
+        d = diff(x_a)
+        u = undiff(d, (MIT(Unit(), 5), 5.0))
+        assert u.range == MITRange(MIT(Unit(), 2), MIT(Unit(), 10))
+        assert np.allclose(u.values, x_a.values[1:])
+
+    def test_undiff_default_anchor_is_zero(self, x_a: TSeries) -> None:
+        # Julia: undiff(diff(x.a)) == collect(0:9)
+        d = diff(x_a)
+        u = undiff(d)
+        assert u.range == MITRange(MIT(Unit(), 1), MIT(Unit(), 10))
+        assert np.allclose(u.values, np.arange(0, 10))
+
+    # -- Quarterly anchor scenarios (port from Julia, deterministic seed) --
+
+    @pytest.fixture
+    def tt(self) -> TSeries:
+        rng = np.random.default_rng(seed=42)
+        return TSeries(qq(2020, 1), rng.standard_normal(20))
+
+    def test_undiff_inserts_anchor_zero_before_firstdate(self, tt: TSeries) -> None:
+        # Julia: undiff(tt)[begin+1:end] ≈ cumsum(tt)
+        u = undiff(tt)
+        assert u.firstdate == qq(2019, 4)
+        assert u.lastdate == qq(2024, 4)
+        # Skip the inserted zero entry; the rest should equal cumsum(tt).
+        assert np.allclose(u.values[1:], np.cumsum(tt.values))
+        assert u.values[0] == 0.0
+
+    def test_undiff_scalar_anchor_shifts_uniformly(self, tt: TSeries) -> None:
+        # Julia: undiff(tt, 7) ≈ undiff(tt) .+ 7
+        a = undiff(tt, 7)
+        b = undiff(tt)
+        assert np.allclose(a.values, b.values + 7.0)
+
+    def test_undiff_pair_anchor_shifts_uniformly(self, tt: TSeries) -> None:
+        # Julia: undiff(tt, 2020Q1 => 7) ≈ undiff(tt, 2020Q1 => 0.0) .+ 7
+        a = undiff(tt, (qq(2020, 1), 7.0))
+        b = undiff(tt, (qq(2020, 1), 0.0))
+        assert np.allclose(a.values, b.values + 7.0)
+
+    def test_undiff_anchor_at_first_matches_cumsum(self, tt: TSeries) -> None:
+        # Julia: undiff(tt, 2020Q1 => tt[begin]) ≈ cumsum(tt)
+        u = undiff(tt, (qq(2020, 1), float(tt.values[0])))
+        assert u.range == tt.range
+        assert np.allclose(u.values, np.cumsum(tt.values))
+
+    def test_undiff_anchor_at_mid_with_tseries_value(self, tt: TSeries) -> None:
+        # Julia: undiff(tt, 2021Q1 => tt) ≈ cumsum(tt) - cumsum(tt)[2021Q1] + tt[2021Q1]
+        u = undiff(tt, (qq(2021, 1), tt))
+        idx_2021q1 = qq(2021, 1).value - tt.firstdate.value
+        cs = np.cumsum(tt.values)
+        expected = cs - cs[idx_2021q1] + tt.values[idx_2021q1]
+        assert np.allclose(u.values, expected)
+
+    def test_undiff_anchor_at_mid_with_wider_tseries(self) -> None:
+        # Julia: tt at 2020Q1:2024Q4; qq_ones at 2019Q1:2050Q4, ones.
+        # undiff(tt, 2021Q1 => qq_ones) ≈ cumsum(tt) - cumsum(tt)[2021Q1] + 1
+        rng = np.random.default_rng(seed=42)
+        tt = TSeries(qq(2020, 1), rng.standard_normal(20))
+        qq_ones = TSeries(MITRange(qq(2019, 1), qq(2050, 4)), 1.0)
+        u = undiff(tt, (qq(2021, 1), qq_ones))
+        idx = qq(2021, 1).value - tt.firstdate.value
+        cs = np.cumsum(tt.values)
+        expected = cs - cs[idx] + 1.0
+        assert np.allclose(u.values, expected)
+
+    def test_undiff_tseries_anchor_uses_default_date(self) -> None:
+        # When anchor is a bare TSeries, date defaults to firstdate(dvar)-1
+        # and value is anchor[that date].
+        dvar = TSeries(qq(2020, 2), np.asarray([1.0, 1.0, 1.0]))
+        anchor_ts = TSeries(qq(2020, 1), np.asarray([5.0]))
+        u = undiff(dvar, anchor_ts)
+        # Default date = 2020Q1, anchor_ts[2020Q1] = 5.0. cumsum + correction.
+        assert u.firstdate == qq(2020, 1)
+        # extended dvar at 2020Q1 = 0, then 1,1,1 -> cumsum [0,1,2,3], + 5 → [5,6,7,8].
+        assert np.allclose(u.values, [5.0, 6.0, 7.0, 8.0])
+
+    # -- error paths -----------------------------------------------------
+
+    def test_undiff_mixed_freq_anchor_raises(self) -> None:
+        d = TSeries(qq(2020, 1), np.asarray([1.0, 1.0]))
+        bad = TSeries(yy(2020), np.asarray([1.0, 1.0]))
+        with pytest.raises(TypeError, match="Mixing frequencies"):
+            undiff(d, bad)
+
+    def test_undiff_bad_anchor_tuple_raises(self) -> None:
+        d = TSeries(qq(2020, 1), np.asarray([1.0, 1.0]))
+        with pytest.raises(TypeError, match="tuple"):
+            undiff(d, (1, 2, 3))  # type: ignore[arg-type]
+        with pytest.raises(TypeError, match="tuple"):
+            undiff(d, ("not-an-MIT", 1.0))  # type: ignore[arg-type]
+
+    def test_undiff_bare_mit_anchor_raises(self) -> None:
+        d = TSeries(qq(2020, 1), np.asarray([1.0, 1.0]))
+        with pytest.raises(TypeError, match="bare MIT"):
+            undiff(d, qq(2020, 1))
+
+
+# ---------------------------------------------------------------------------
+# undiff_inplace
+# ---------------------------------------------------------------------------
+
+
+class TestUndiffInplace:
+    """Ports the Julia ``undiff!`` cases on TSeries."""
+
+    def test_no_effect_when_fromdate_in_tail(self) -> None:
+        # Julia: undiff!(x2.a, diff(x.a * 3); fromdate=6U) → [1,2,3,4,5,6,9,12,15,18]
+        x_a = TSeries(MIT(Unit(), 1), np.arange(1.0, 11.0))
+        d = diff(TSeries(MIT(Unit(), 1), np.arange(1.0, 11.0) * 3.0))
+        target = x_a.copy()
+        undiff_inplace(target, d, fromdate=MIT(Unit(), 6))
+        assert np.allclose(target.values, [1, 2, 3, 4, 5, 6, 9, 12, 15, 18])
+
+    def test_fromdate_earlier_propagates_through_more_periods(self) -> None:
+        # Julia: undiff!(ts1, ts2, fromdate=4U) → [1,2,3,4,7,10,13,16,19,22]
+        ts1 = TSeries(MIT(Unit(), 1), np.arange(1.0, 11.0))
+        ts2 = diff(TSeries(MIT(Unit(), 1), np.arange(1.0, 11.0) * 3.0))
+        undiff_inplace(ts1, ts2, fromdate=MIT(Unit(), 4))
+        assert np.allclose(ts1.values, [1, 2, 3, 4, 7, 10, 13, 16, 19, 22])
+
+    def test_idempotent_when_already_applied(self) -> None:
+        # Julia: after fromdate=4U, calling fromdate=8U leaves the series unchanged.
+        ts1 = TSeries(MIT(Unit(), 1), np.arange(1.0, 11.0))
+        ts2 = diff(TSeries(MIT(Unit(), 1), np.arange(1.0, 11.0) * 3.0))
+        undiff_inplace(ts1, ts2, fromdate=MIT(Unit(), 4))
+        snapshot = ts1.values.copy()
+        undiff_inplace(ts1, ts2, fromdate=MIT(Unit(), 8))
+        assert np.allclose(ts1.values, snapshot)
+
+    def test_extends_var_to_cover_dvar(self) -> None:
+        var = TSeries(qq(2020, 1), np.asarray([10.0]))
+        dvar = TSeries(qq(2020, 2), np.asarray([1.0, 2.0, 3.0]))
+        result = undiff_inplace(var, dvar)
+        # Resized to cover dvar.lastdate = 2020Q4.
+        assert result is var
+        assert var.range == MITRange(qq(2020, 1), qq(2020, 4))
+        # fromdate defaults to firstdate(dvar)-1 = 2020Q1; var[2020Q1] stays 10,
+        # then cumsum: 10+1=11, 11+2=13, 13+3=16.
+        assert np.allclose(var.values, [10.0, 11.0, 13.0, 16.0])
+
+    def test_returns_same_object(self) -> None:
+        var = TSeries(qq(2020, 1), np.asarray([1.0, 2.0, 3.0, 4.0]))
+        dvar = diff(var)
+        assert undiff_inplace(var.copy(), dvar) is not var  # different object
+        # Same object on a single call:
+        v = var.copy()
+        assert undiff_inplace(v, dvar) is v
+
+    def test_fromdate_before_var_firstdate_raises(self) -> None:
+        var = TSeries(qq(2020, 2), np.asarray([1.0, 2.0]))
+        dvar = TSeries(qq(2020, 2), np.asarray([1.0, 1.0]))
+        with pytest.raises(ValueError, match="Range mismatch"):
+            undiff_inplace(var, dvar, fromdate=qq(2020, 1))
+
+    def test_mixed_freq_raises(self) -> None:
+        var = TSeries(qq(2020, 1), np.asarray([1.0]))
+        dvar = TSeries(yy(2020), np.asarray([1.0]))
+        with pytest.raises(TypeError, match="Mixing frequencies"):
+            undiff_inplace(var, dvar)
+
+
+# ---------------------------------------------------------------------------
+# Round-trip: diff / undiff inverse property
+# ---------------------------------------------------------------------------
+
+
+class TestDiffUndiffRoundTrip:
+    def test_undiff_inverts_diff(self) -> None:
+        rng = np.random.default_rng(seed=7)
+        t = TSeries(qq(2020, 1), rng.standard_normal(12))
+        d = diff(t)
+        # Anchor at the first known value of t.
+        u = undiff(d, (t.firstdate, float(t.values[0])))
+        # Result starts at firstdate(d)-1 ... only if firstdate is outside.
+        # Here anchor is at firstdate(t) = firstdate(d) is firstdate(t)+1,
+        # so firstdate(t) is just before d and we extend by one period.
+        assert u.range == t.range
+        assert np.allclose(u.values, t.values)
+
+    def test_undiff_inplace_inverts_diff(self) -> None:
+        rng = np.random.default_rng(seed=11)
+        t = TSeries(qq(2020, 1), rng.standard_normal(12))
+        d = diff(t)
+        # Start with the anchor value at firstdate(t), then let undiff_inplace
+        # fill in the rest.
+        v = TSeries(t.range, dtype=t.values.dtype)
+        v.values[0] = t.values[0]
+        undiff_inplace(v, d, fromdate=t.firstdate)
+        assert np.allclose(v.values, t.values)

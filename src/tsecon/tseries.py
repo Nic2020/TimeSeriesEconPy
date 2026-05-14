@@ -568,6 +568,12 @@ class TSeries:
         if out is not None:
             return NotImplemented
 
+        # If any input is an MVTSeries, defer to its dispatcher (mirrors the
+        # Julia precedence: MVTSeriesStyle > TSeriesStyle when mixed).
+        for x in inputs:
+            if x is not self and type(x).__name__ == "MVTSeries":
+                return NotImplemented
+
         # Reduce / accumulate / outer / etc. — apply to the bare ndarray.
         if method != "__call__":
             arrays = tuple(np.asarray(x) if isinstance(x, TSeries) else x for x in inputs)

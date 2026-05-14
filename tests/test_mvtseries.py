@@ -21,6 +21,7 @@ from tsecon import (
     MVTSeries,
     TSeries,
     diff,
+    hcat,
     lag,
     lead,
     mitrange,
@@ -29,12 +30,15 @@ from tsecon import (
     moving_average,
     moving_sum,
     qq,
+    rename_columns_inplace,
     shift,
     shift_inplace,
     undiff,
+    vcat,
     yy,
 )
 from tsecon.frequencies import Quarterly, Unit
+from tsecon.mvtseries import _format_mvtseries
 
 # ---------------------------------------------------------------------------
 # Construction
@@ -701,3 +705,424 @@ class TestRepr:
         m = MVTSeries(qq(2020, 1))
         r = repr(m)
         assert "no variables" in r
+
+
+# ---------------------------------------------------------------------------
+# Broadcasting (mirrors Julia ``@testset "MV bcast"``)
+# ---------------------------------------------------------------------------
+
+
+class TestBroadcastMVTSeries:
+    def test_add_mvts_same_axes(self) -> None:
+        x = MVTSeries(qq(2020, 1), ("a", "b"), np.array([[1.0, 2.0], [3.0, 4.0]]))
+        y = MVTSeries(qq(2020, 1), ("a", "b"), np.array([[10.0, 20.0], [30.0, 40.0]]))
+        z = x + y
+        assert isinstance(z, MVTSeries)
+        assert z.column_names == ("a", "b")
+        assert np.array_equal(z.values, [[11.0, 22.0], [33.0, 44.0]])
+
+    def test_add_scalar(self) -> None:
+        x = MVTSeries(qq(2020, 1), ("a", "b"), np.array([[1.0, 2.0], [3.0, 4.0]]))
+        z = x + 2.0
+        assert isinstance(z, MVTSeries)
+        assert np.array_equal(z.values, [[3.0, 4.0], [5.0, 6.0]])
+
+    def test_radd_scalar_preserves_type(self) -> None:
+        x = MVTSeries(qq(2020, 1), ("a", "b"), np.array([[1.0, 2.0], [3.0, 4.0]]))
+        z = 2.0 + x
+        assert isinstance(z, MVTSeries)
+        assert z.column_names == ("a", "b")
+
+    def test_sub_mvts(self) -> None:
+        x = MVTSeries(qq(2020, 1), ("a", "b"), np.array([[5.0, 6.0], [7.0, 8.0]]))
+        y = MVTSeries(qq(2020, 1), ("a", "b"), np.array([[1.0, 2.0], [3.0, 4.0]]))
+        z = x - y
+        assert np.array_equal(z.values, [[4.0, 4.0], [4.0, 4.0]])
+
+    def test_mul_div_pow(self) -> None:
+        x = MVTSeries(qq(2020, 1), ("a", "b"), np.array([[2.0, 3.0], [4.0, 5.0]]))
+        assert np.array_equal((x * 2).values, [[4.0, 6.0], [8.0, 10.0]])
+        assert np.array_equal((x / 2).values, [[1.0, 1.5], [2.0, 2.5]])
+        assert np.array_equal((x**2).values, [[4.0, 9.0], [16.0, 25.0]])
+
+    def test_neg_pos_abs(self) -> None:
+        x = MVTSeries(qq(2020, 1), ("a", "b"), np.array([[1.0, -2.0], [-3.0, 4.0]]))
+        assert np.array_equal((-x).values, [[-1.0, 2.0], [3.0, -4.0]])
+        assert np.array_equal(abs(x).values, [[1.0, 2.0], [3.0, 4.0]])
+        assert (+x).equals(x)
+        assert (+x) is not x  # pos returns a copy
+
+    def test_add_tseries_broadcasts_across_columns(self) -> None:
+        x = MVTSeries(qq(2020, 1), ("a", "b"), np.array([[1.0, 2.0], [3.0, 4.0]]))
+        t = TSeries(qq(2020, 1), np.array([10.0, 100.0]))
+        z = x + t
+        assert isinstance(z, MVTSeries)
+        assert z.column_names == ("a", "b")
+        assert np.array_equal(z.values, [[11.0, 12.0], [103.0, 104.0]])
+
+    def test_add_tseries_reversed(self) -> None:
+        x = MVTSeries(qq(2020, 1), ("a", "b"), np.array([[1.0, 2.0], [3.0, 4.0]]))
+        t = TSeries(qq(2020, 1), np.array([10.0, 100.0]))
+        z = t + x
+        assert isinstance(z, MVTSeries)
+        assert np.array_equal(z.values, [[11.0, 12.0], [103.0, 104.0]])
+
+    def test_disjoint_columns_returns_empty_mvts(self) -> None:
+        x = MVTSeries(qq(2020, 1), ("a", "b"), np.array([[1.0, 2.0], [3.0, 4.0]]))
+        y = MVTSeries(qq(2020, 1), ("c", "d"), np.array([[10.0, 20.0], [30.0, 40.0]]))
+        z = x + y
+        assert isinstance(z, MVTSeries)
+        assert z.shape == (2, 0)
+        assert z.column_names == ()
+
+    def test_partial_column_overlap_keeps_intersection(self) -> None:
+        x = MVTSeries(qq(2020, 1), ("a", "b"), np.array([[1.0, 2.0], [3.0, 4.0]]))
+        y = MVTSeries(qq(2020, 1), ("b", "c"), np.array([[10.0, 20.0], [30.0, 40.0]]))
+        z = x + y
+        assert z.column_names == ("b",)
+        assert np.array_equal(z.values, [[12.0], [34.0]])
+
+    def test_partial_range_overlap(self) -> None:
+        x = MVTSeries(
+            qq(2020, 1),
+            ("a", "b"),
+            np.array([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0], [7.0, 8.0]]),
+        )
+        y = MVTSeries(
+            qq(2020, 3),
+            ("a", "b"),
+            np.array([[100.0, 200.0], [300.0, 400.0], [500.0, 600.0]]),
+        )
+        z = x + y
+        assert z.range == mitrange(qq(2020, 3), qq(2020, 4))
+        assert np.array_equal(z.values, [[105.0, 206.0], [307.0, 408.0]])
+
+    def test_no_range_overlap_returns_empty(self) -> None:
+        x = MVTSeries(qq(2020, 1), ("a", "b"), np.array([[1.0, 2.0], [3.0, 4.0]]))
+        y = MVTSeries(qq(2025, 1), ("a", "b"), np.array([[1.0, 2.0], [3.0, 4.0]]))
+        z = x + y
+        assert isinstance(z, MVTSeries)
+        assert z.shape == (0, 2)
+
+    def test_add_ndarray_matching_shape(self) -> None:
+        x = MVTSeries(qq(2020, 1), ("a", "b"), np.array([[1.0, 2.0], [3.0, 4.0]]))
+        arr = np.array([[100.0, 200.0], [300.0, 400.0]])
+        z = x + arr
+        assert isinstance(z, MVTSeries)
+        assert np.array_equal(z.values, [[101.0, 202.0], [303.0, 404.0]])
+
+    def test_add_row_vector_broadcasts(self) -> None:
+        x = MVTSeries(qq(2020, 1), ("a", "b"), np.array([[1.0, 2.0], [3.0, 4.0]]))
+        z = x + np.array([10.0, 100.0])  # shape (2,) → row-broadcast across rows
+        assert isinstance(z, MVTSeries)
+        assert np.array_equal(z.values, [[11.0, 102.0], [13.0, 104.0]])
+
+    def test_add_wrong_shape_raises(self) -> None:
+        x = MVTSeries(qq(2020, 1), ("a", "b"), np.array([[1.0, 2.0], [3.0, 4.0]]))
+        with pytest.raises(ValueError, match="broadcast"):
+            _ = x + np.array([[1.0], [2.0], [3.0]])
+
+    def test_mixed_frequency_raises(self) -> None:
+        x = MVTSeries(qq(2020, 1), ("a", "b"), np.array([[1.0, 2.0], [3.0, 4.0]]))
+        y = MVTSeries(mm(2020, 1), ("a", "b"), np.array([[1.0, 2.0], [3.0, 4.0]]))
+        with pytest.raises(TypeError, match="frequencies not allowed"):
+            _ = x + y
+
+    def test_mixed_frequency_with_tseries_raises(self) -> None:
+        x = MVTSeries(qq(2020, 1), ("a", "b"), np.array([[1.0, 2.0], [3.0, 4.0]]))
+        t = TSeries(mm(2020, 1), np.array([1.0, 2.0]))
+        with pytest.raises(TypeError, match="frequencies not allowed"):
+            _ = x + t
+
+    def test_universal_function(self) -> None:
+        x = MVTSeries(qq(2020, 1), ("a", "b"), np.array([[1.0, 0.0], [0.0, 1.0]]))
+        z = np.exp(x)
+        assert isinstance(z, MVTSeries)
+        assert z.column_names == ("a", "b")
+        assert np.allclose(z.values, np.exp([[1.0, 0.0], [0.0, 1.0]]))
+
+    def test_iadd_writes_through_to_values(self) -> None:
+        x = MVTSeries(qq(2020, 1), ("a", "b"), np.array([[1.0, 2.0], [3.0, 4.0]]))
+        buf = x.values
+        x += 10.0
+        assert x.values is buf  # buffer identity preserved
+        assert np.array_equal(x.values, [[11.0, 12.0], [13.0, 14.0]])
+
+    def test_iadd_with_tseries(self) -> None:
+        x = MVTSeries(qq(2020, 1), ("a", "b"), np.array([[1.0, 2.0], [3.0, 4.0]]))
+        t = TSeries(qq(2020, 1), np.array([10.0, 100.0]))
+        buf = x.values
+        x += t
+        assert x.values is buf
+        assert np.array_equal(x.values, [[11.0, 12.0], [103.0, 104.0]])
+
+    def test_iadd_with_mvts(self) -> None:
+        x = MVTSeries(qq(2020, 1), ("a", "b"), np.array([[1.0, 2.0], [3.0, 4.0]]))
+        y = MVTSeries(qq(2020, 1), ("a", "b"), np.array([[10.0, 20.0], [30.0, 40.0]]))
+        x += y
+        assert np.array_equal(x.values, [[11.0, 22.0], [33.0, 44.0]])
+
+    def test_column_view_writes_through_after_iadd(self) -> None:
+        x = MVTSeries(qq(2020, 1), ("a", "b"), np.array([[1.0, 2.0], [3.0, 4.0]]))
+        a_anchor = x.a
+        x += 5.0
+        # Column anchor sees the updated values because it views the matrix.
+        assert np.array_equal(a_anchor.values, [6.0, 8.0])
+
+    def test_chained_arithmetic(self) -> None:
+        x = MVTSeries(qq(2020, 1), ("a", "b"), np.array([[1.0, 2.0], [3.0, 4.0]]))
+        z = x * 2 + 1
+        assert isinstance(z, MVTSeries)
+        assert np.array_equal(z.values, [[3.0, 5.0], [7.0, 9.0]])
+
+
+# ---------------------------------------------------------------------------
+# rename_columns_inplace (mirrors Julia ``@testset "MV rename"``)
+# ---------------------------------------------------------------------------
+
+
+class TestRenameColumns:
+    def test_full_replacement_with_list(self) -> None:
+        m = MVTSeries(qq(2020, 1), ("a", "b", "c"), np.zeros((2, 3)))
+        out = rename_columns_inplace(m, ["x", "y", "z"])
+        assert out is m
+        assert m.column_names == ("x", "y", "z")
+        # column anchors still view into the matrix
+        m.x[qq(2020, 1)] = 42.0
+        assert m.values[0, 0] == 42.0
+
+    def test_full_replacement_with_tuple(self) -> None:
+        m = MVTSeries(qq(2020, 1), ("a", "b"), np.zeros((2, 2)))
+        rename_columns_inplace(m, ("x", "y"))
+        assert m.column_names == ("x", "y")
+
+    def test_partial_replacement_via_mapping(self) -> None:
+        m = MVTSeries(qq(2020, 1), ("a", "b", "c"), np.zeros((2, 3)))
+        rename_columns_inplace(m, {"a": "alpha", "c": "gamma"})
+        assert m.column_names == ("alpha", "b", "gamma")
+
+    def test_callable_form(self) -> None:
+        m = MVTSeries(qq(2020, 1), ("a", "b"), np.zeros((2, 2)))
+        rename_columns_inplace(m, lambda s: s + "_1")
+        assert m.column_names == ("a_1", "b_1")
+
+    def test_prefix_only(self) -> None:
+        m = MVTSeries(qq(2020, 1), ("alpha", "beta"), np.zeros((2, 2)))
+        rename_columns_inplace(m, prefix="p_")
+        assert m.column_names == ("p_alpha", "p_beta")
+
+    def test_suffix_only(self) -> None:
+        m = MVTSeries(qq(2020, 1), ("alpha", "beta"), np.zeros((2, 2)))
+        rename_columns_inplace(m, suffix="_x")
+        assert m.column_names == ("alpha_x", "beta_x")
+
+    def test_replace_then_prefix_suffix(self) -> None:
+        # Mirrors the Julia chain: replace applies first, then prefix and suffix.
+        m = MVTSeries(qq(2020, 1), ("a_1", "b_1"), np.zeros((2, 2)))
+        rename_columns_inplace(m, replace=("_1", "_2"), prefix="P_", suffix="_S")
+        assert m.column_names == ("P_a_2_S", "P_b_2_S")
+
+    def test_replace_multiple_pairs(self) -> None:
+        m = MVTSeries(qq(2020, 1), ("Q__a_2", "Q__b_2"), np.zeros((2, 2)))
+        rename_columns_inplace(m, replace=[("Q__", ""), ("_2", "")], prefix="O_")
+        assert m.column_names == ("O_a", "O_b")
+
+    def test_wrong_length_raises(self) -> None:
+        m = MVTSeries(qq(2020, 1), ("a", "b"), np.zeros((2, 2)))
+        with pytest.raises(ValueError, match="expected 2 new names"):
+            rename_columns_inplace(m, ["only_one"])
+
+    def test_no_args_raises(self) -> None:
+        m = MVTSeries(qq(2020, 1), ("a", "b"), np.zeros((2, 2)))
+        with pytest.raises(ValueError, match="requires one of"):
+            rename_columns_inplace(m)
+
+    def test_duplicate_result_raises(self) -> None:
+        m = MVTSeries(qq(2020, 1), ("a", "b"), np.zeros((2, 2)))
+        with pytest.raises(ValueError, match="duplicate"):
+            rename_columns_inplace(m, ["x", "x"])
+
+    def test_combining_positional_and_kwargs_raises(self) -> None:
+        m = MVTSeries(qq(2020, 1), ("a", "b"), np.zeros((2, 2)))
+        with pytest.raises(ValueError, match="Cannot combine"):
+            rename_columns_inplace(m, ["x", "y"], prefix="p_")
+
+    def test_dot_access_after_rename(self) -> None:
+        m = MVTSeries(qq(2020, 1), ("alpha", "beta"), np.array([[1.0, 2.0], [3.0, 4.0]]))
+        rename_columns_inplace(m, prefix="p_")
+        # New name accessible via attribute syntax + bracket syntax.
+        assert np.array_equal(m.p_alpha.values, [1.0, 3.0])
+        assert np.array_equal(m["p_beta"].values, [2.0, 4.0])
+        # Old name no longer present.
+        with pytest.raises(AttributeError):
+            _ = m.alpha
+
+
+# ---------------------------------------------------------------------------
+# hcat / vcat (mirrors Julia ``@testset "hcat"`` and ``@testset "hcat 2"``)
+# ---------------------------------------------------------------------------
+
+
+class TestHcat:
+    def test_single_arg_returns_copy(self) -> None:
+        x = MVTSeries(qq(2020, 1), ("a", "b"), np.array([[1.0, 2.0], [3.0, 4.0]]))
+        y = hcat(x)
+        assert isinstance(y, MVTSeries)
+        assert y is not x
+        assert y.equals(x)
+
+    def test_two_mvts_concat_columns(self) -> None:
+        x = MVTSeries(qq(2020, 1), ("a", "b"), np.array([[1.0, 2.0], [3.0, 4.0]]))
+        y = MVTSeries(qq(2020, 1), ("c",), np.array([[10.0], [20.0]]))
+        z = hcat(x, y)
+        assert z.column_names == ("a", "b", "c")
+        assert z.range == x.range
+        assert np.array_equal(z.values, [[1.0, 2.0, 10.0], [3.0, 4.0, 20.0]])
+
+    def test_range_spans_inputs(self) -> None:
+        # Bug-fix mirror from Julia ``hcat 2``: range = span of all inputs.
+        a = MVTSeries(yy(2000), ("a", "b", "c"), np.ones((3, 3)))
+        b = MVTSeries(yy(1998), ("x", "y"), np.ones((4, 2)) * 2)
+        z = hcat(a, b)
+        assert z.range == mitrange(yy(1998), yy(2002))
+        # First two rows (1998, 1999) are NaN-filled for the 'a', 'b', 'c' columns.
+        assert np.isnan(z.values[0, 0])
+        assert z.values[2, 0] == 1.0  # 2000 → first row of `a`
+        assert z.values[0, 3] == 2.0  # 1998 → first row of `b`
+
+    def test_with_kwarg_columns(self) -> None:
+        x = MVTSeries(qq(2020, 1), ("a", "b"), np.array([[1.0, 2.0], [3.0, 4.0]]))
+        z = hcat(x, d=np.array([100.0, 200.0]))
+        assert z.column_names == ("a", "b", "d")
+        assert np.array_equal(z.values[:, 2], [100.0, 200.0])
+
+    def test_kwarg_tseries_aligns(self) -> None:
+        x = MVTSeries(qq(2020, 1), ("a",), np.array([[1.0], [2.0]]))
+        # tseries covers only the second slot
+        t = TSeries(qq(2020, 2), np.array([99.0]))
+        z = hcat(x, t=t)
+        assert z.column_names == ("a", "t")
+        assert np.isnan(z.values[0, 1])
+        assert z.values[1, 1] == 99.0
+
+    def test_duplicate_name_raises(self) -> None:
+        x = MVTSeries(qq(2020, 1), ("a", "b"), np.zeros((2, 2)))
+        y = MVTSeries(qq(2020, 1), ("a",), np.zeros((2, 1)))
+        with pytest.raises(ValueError, match="duplicate"):
+            _ = hcat(x, y)
+
+    def test_mixed_frequency_raises(self) -> None:
+        x = MVTSeries(qq(2020, 1), ("a", "b"), np.zeros((2, 2)))
+        y = MVTSeries(mm(2020, 1), ("c", "d"), np.zeros((2, 2)))
+        with pytest.raises(TypeError, match="frequencies"):
+            _ = hcat(x, y)
+
+    def test_empty_args_raises(self) -> None:
+        with pytest.raises(ValueError, match="at least one"):
+            _ = hcat()
+
+
+class TestVcat:
+    def test_vcat_with_ndarray_block(self) -> None:
+        x = MVTSeries(qq(2020, 1), ("a", "b"), np.array([[1.0, 2.0], [3.0, 4.0]]))
+        z = vcat(x, np.array([[5.0, 6.0], [7.0, 8.0]]))
+        assert z.range == mitrange(qq(2020, 1), qq(2020, 4))
+        assert np.array_equal(z.values, [[1.0, 2.0], [3.0, 4.0], [5.0, 6.0], [7.0, 8.0]])
+
+    def test_vcat_with_mvts_block(self) -> None:
+        x = MVTSeries(qq(2020, 1), ("a", "b"), np.array([[1.0, 2.0]]))
+        y = MVTSeries(qq(2099, 1), ("a", "b"), np.array([[3.0, 4.0]]))
+        z = vcat(x, y)
+        assert z.shape == (2, 2)
+        assert z.column_names == ("a", "b")
+        assert z.range.start == qq(2020, 1)
+
+    def test_vcat_column_count_mismatch_raises(self) -> None:
+        x = MVTSeries(qq(2020, 1), ("a", "b"), np.array([[1.0, 2.0]]))
+        with pytest.raises(ValueError, match="columns, expected"):
+            _ = vcat(x, np.array([[1.0, 2.0, 3.0]]))
+
+
+# ---------------------------------------------------------------------------
+# Pretty-print alignment (mirrors Julia ``@testset "MVTSeries show"``)
+# ---------------------------------------------------------------------------
+
+
+class TestShowAlignment:
+    def test_long_column_names_truncated_with_ellipsis(self) -> None:
+        # Two long names + one short name → exactly two '…' characters on
+        # the column-header line.
+        x = MVTSeries(
+            MIT(Unit(), 1),
+            ("verylongandsuperboringnameitellya", "anothersuperlongnamethisisridiculous", "a"),
+            np.random.rand(20, 3) * 100,
+        )
+        text = _format_mvtseries(x, display_size=(40, 200), limit=False)
+        lines = text.split("\n")
+        header = lines[1]
+        # Two long names get truncated → 2 ellipses on the header.
+        assert header.count("…") == 2
+
+    def test_columns_align_to_label_width(self) -> None:
+        # When the labels are wider than the formatted numbers, the entire
+        # column stretches to fit the label. lines[1] (col-names) should be the
+        # same length as lines[2] (first data row).
+        x = MVTSeries(MIT(Unit(), 1), ("alpha", "beta"), np.zeros((24, 2)))
+        text = _format_mvtseries(x, display_size=(40, 200))
+        lines = text.split("\n")
+        assert len(lines[1]) == len(lines[2])
+
+    @pytest.mark.parametrize("nlines", [3, 4, 5, 6, 7, 8, 22, 23, 24, 25, 26, 30])
+    def test_line_count_with_truncation(self, nlines: int) -> None:
+        # Mirrors Julia's max(3, min(nrow + 2, nlines - 3)) check.
+        nrow = 24
+        x = MVTSeries(qq(2020, 1), ("a", "b", "c"), np.random.rand(nrow, 3))
+        text = _format_mvtseries(x, display_size=(nlines, 80))
+        lines = text.split("\n")
+        expected = max(3, min(nrow + 2, nlines - 3))
+        assert len(lines) == expected
+
+    def test_unlimited_shows_all_rows(self) -> None:
+        x = MVTSeries(qq(2020, 1), ("a", "b"), np.random.rand(50, 2))
+        text = _format_mvtseries(x, display_size=(10, 80), limit=False)
+        lines = text.split("\n")
+        assert len(lines) == 50 + 2  # summary + col-names + 50 data rows
+
+    def test_max_line_width_respects_display_width(self) -> None:
+        # With many columns and a fixed terminal width, each rendered line
+        # must fit within the width budget.
+        names = tuple(chr(ord("a") + i) for i in range(20))
+        x = MVTSeries(qq(2020, 1), names, np.random.rand(10, 20))
+        text = _format_mvtseries(x, display_size=(40, 80))
+        for line in text.split("\n"):
+            assert len(line) <= 80
+
+    def test_repr_smoke_via_format(self) -> None:
+        x = MVTSeries(qq(2020, 1), ("a", "b"), np.array([[1.0, 2.0], [3.0, 4.0]]))
+        text = _format_mvtseries(x)
+        assert "MVTSeries" in text
+        assert "Quarterly" in text
+
+
+# ---------------------------------------------------------------------------
+# array-function dispatch (np.concatenate, np.array_equal, np.allclose)
+# ---------------------------------------------------------------------------
+
+
+class TestArrayFunction:
+    def test_np_concatenate_axis_0_uses_vcat(self) -> None:
+        x = MVTSeries(qq(2020, 1), ("a", "b"), np.array([[1.0, 2.0]]))
+        y = MVTSeries(qq(2099, 1), ("a", "b"), np.array([[3.0, 4.0]]))
+        z = np.concatenate([x, y], axis=0)
+        assert isinstance(z, MVTSeries)
+        assert z.shape == (2, 2)
+
+    def test_np_array_equal(self) -> None:
+        x = MVTSeries(qq(2020, 1), ("a", "b"), np.array([[1.0, 2.0]]))
+        y = MVTSeries(qq(2020, 1), ("a", "b"), np.array([[1.0, 2.0]]))
+        assert np.array_equal(x, y)
+
+    def test_np_allclose(self) -> None:
+        x = MVTSeries(qq(2020, 1), ("a", "b"), np.array([[1.0, 2.0]]))
+        y = MVTSeries(qq(2020, 1), ("a", "b"), np.array([[1.0 + 1e-12, 2.0]]))
+        assert np.allclose(x, y)

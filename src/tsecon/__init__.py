@@ -65,7 +65,7 @@ from tsecon.mit import (
     yy,
 )
 from tsecon.mitrange import MITRange, mitrange, rangeof_span
-from tsecon.mvtseries import MVTSeries
+from tsecon.mvtseries import MVTSeries, hcat, rename_columns_inplace, vcat
 from tsecon.tseries import TSeries, typenan
 from tsecon.workspace import Workspace
 
@@ -97,6 +97,7 @@ __all__ = [
     "diff",
     "endperiod",
     "frequency_of",
+    "hcat",
     "is_bdaily",
     "is_daily",
     "is_halfyearly",
@@ -121,12 +122,14 @@ __all__ = [
     "prettyprint_frequency",
     "qq",
     "rangeof_span",
+    "rename_columns_inplace",
     "sanitize_frequency",
     "shift",
     "shift_inplace",
     "typenan",
     "undiff",
     "undiff_inplace",
+    "vcat",
     "weekly",
     "weekly_from_iso",
     "year",

@@ -114,6 +114,9 @@ convention = "numpy"
 "scripts/**" = ["D", "INP001"]
 # Multi-type arithmetic dispatch on MIT/Duration intentionally has many branches.
 "src/tsecon/mit.py" = ["PLR0911", "PLR0912"]
+# Indexing dispatch on TSeries (MIT / MITRange / slice / int / array / bool TSeries / MIT-slice)
+# fans out into many branches; collapsing them hurts readability.
+"src/tsecon/tseries.py" = ["PLR0911", "PLR0912"]
 # __post_init__ / __new__ are constructor-flavored; D102 (undocumented public method)
 # is noise for them and for slot dunders ruff hasn't classified.
 "src/tsecon/**" = ["D102"]

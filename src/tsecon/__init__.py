@@ -48,6 +48,7 @@ from tsecon.mit import (
     yy,
 )
 from tsecon.mitrange import MITRange, mitrange, rangeof_span
+from tsecon.tseries import TSeries, typenan
 
 __version__ = "0.0.1.dev0"
 
@@ -63,6 +64,7 @@ __all__ = [
     "MITRange",
     "Monthly",
     "Quarterly",
+    "TSeries",
     "Unit",
     "Weekly",
     "YPFrequency",
@@ -89,6 +91,7 @@ __all__ = [
     "qq",
     "rangeof_span",
     "sanitize_frequency",
+    "typenan",
     "weekly",
     "weekly_from_iso",
     "year",

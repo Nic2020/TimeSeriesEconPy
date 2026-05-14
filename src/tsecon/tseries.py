@@ -143,9 +143,7 @@ class TSeries:
                 target_dtype = np.dtype(dtype) if dtype is not None else np.dtype(np.float64)
                 arr = np.full(length, typenan(target_dtype), dtype=target_dtype)
             elif _is_scalar(values):
-                target_dtype = (
-                    np.dtype(dtype) if dtype is not None else np.asarray(values).dtype
-                )
+                target_dtype = np.dtype(dtype) if dtype is not None else np.asarray(values).dtype
                 arr = np.full(length, values, dtype=target_dtype)
             else:
                 arr = np.asarray(values, dtype=dtype)
@@ -573,9 +571,7 @@ class TSeries:
                 if x.ndim == 0 or (x.ndim == 1 and x.shape[0] == n):
                     materialized.append(x)
                     continue
-                msg = (
-                    f"Cannot broadcast array of shape {x.shape} against a TSeries of length {n}."
-                )
+                msg = f"Cannot broadcast array of shape {x.shape} against a TSeries of length {n}."
                 raise ValueError(msg)
             materialized.append(x)
 

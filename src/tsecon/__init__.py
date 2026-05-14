@@ -6,6 +6,18 @@ Ported from `TimeSeriesEcon.jl`_ (Bank of Canada).
 .. _TimeSeriesEcon.jl: https://github.com/bankofcanada/TimeSeriesEcon.jl
 """
 
+from tsecon._math import (
+    apct,
+    diff,
+    lag,
+    lag_inplace,
+    lead,
+    lead_inplace,
+    pct,
+    shift,
+    shift_inplace,
+    ytypct,
+)
 from tsecon._mirror import MIRRORS_JULIA_SHA
 from tsecon.frequencies import (
     BDaily,
@@ -70,8 +82,10 @@ __all__ = [
     "YPFrequency",
     "Yearly",
     "__version__",
+    "apct",
     "bdaily",
     "daily",
+    "diff",
     "endperiod",
     "frequency_of",
     "is_bdaily",
@@ -81,19 +95,27 @@ __all__ = [
     "is_quarterly",
     "is_weekly",
     "is_yearly",
+    "lag",
+    "lag_inplace",
+    "lead",
+    "lead_inplace",
     "mit2yp",
     "mit_to_date",
     "mitrange",
     "mm",
+    "pct",
     "period",
     "ppy",
     "prettyprint_frequency",
     "qq",
     "rangeof_span",
     "sanitize_frequency",
+    "shift",
+    "shift_inplace",
     "typenan",
     "weekly",
     "weekly_from_iso",
     "year",
+    "ytypct",
     "yy",
 ]

@@ -98,6 +98,7 @@ select = [
     "D",   # pydocstyle
 ]
 ignore = [
+    "D105",  # undocumented magic methods — dunders rarely benefit from docstrings
     "D203",  # one-blank-line-before-class (conflicts with D211)
     "D213",  # multi-line-summary-second-line (conflicts with D212)
     "PLR0913",  # too many arguments — common in scientific APIs
@@ -108,9 +109,14 @@ ignore = [
 convention = "numpy"
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["D", "PLR2004", "S101"]
+"tests/**" = ["D", "PLR2004", "S101", "PT011", "PLW0108"]
 "docs/**" = ["D", "INP001"]
 "scripts/**" = ["D", "INP001"]
+# Multi-type arithmetic dispatch on MIT/Duration intentionally has many branches.
+"src/tsecon/mit.py" = ["PLR0911", "PLR0912"]
+# __post_init__ / __new__ are constructor-flavored; D102 (undocumented public method)
+# is noise for them and for slot dunders ruff hasn't classified.
+"src/tsecon/**" = ["D102"]
 
 [tool.ruff.format]
 quote-style = "double"

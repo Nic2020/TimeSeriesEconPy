@@ -18,6 +18,7 @@ from tsecon import (
     MIT,
     Duration,
     MITRange,
+    MVTSeries,
     TSeries,
     Workspace,
     bdaily,
@@ -333,3 +334,70 @@ class TestWireFormat:
         # produce valid JSON output for all-finite inputs.
         text = dumps(Workspace(a=1, ts=TSeries(qq(2020, 1), np.array([1.0, 2.0]))))
         json.loads(text)  # raises on bad JSON
+
+
+# ---------------------------------------------------------------------------
+# MVTSeries round-trip
+# ---------------------------------------------------------------------------
+
+
+class TestMVTSeriesRoundTrip:
+    def test_basic_round_trip(self) -> None:
+        m = MVTSeries(
+            qq(2020, 1),
+            ("a", "b"),
+            np.array([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0], [7.0, 8.0]]),
+        )
+        m_back = loads(dumps(m))
+        assert isinstance(m_back, MVTSeries)
+        assert m.equals(m_back)
+
+    def test_preserves_dtype(self) -> None:
+        m = MVTSeries(qq(2020, 1), ("a",), np.array([[1], [2], [3]], dtype=np.int32))
+        m_back = loads(dumps(m))
+        assert m_back.dtype == np.int32
+
+    def test_preserves_column_order(self) -> None:
+        m = MVTSeries(qq(2020, 1), ("c", "a", "b"), np.zeros((2, 3)))
+        m_back = loads(dumps(m))
+        assert m_back.column_names == ("c", "a", "b")
+
+    def test_preserves_nan(self) -> None:
+        m = MVTSeries(qq(2020, 1), ("a",), np.array([[np.nan], [1.0], [np.inf]]))
+        m_back = loads(dumps(m))
+        assert np.isnan(m_back.values[0, 0])
+        assert m_back.values[1, 0] == 1.0
+        assert np.isinf(m_back.values[2, 0])
+
+    def test_empty_mvts_with_columns(self) -> None:
+        m = MVTSeries(qq(2020, 1), ("a", "b"))
+        m_back = loads(dumps(m))
+        assert m_back.shape == (0, 2)
+        assert m_back.column_names == ("a", "b")
+
+    def test_wire_format_has_type_tag(self) -> None:
+        m = MVTSeries(qq(2020, 1), ("a",), np.zeros((2, 1)))
+        d = to_jsonable(m)
+        assert d["_type"] == "MVTSeries"
+        assert d["names"] == ["a"]
+        assert d["values"] == [[0.0], [0.0]]
+
+    def test_inside_workspace_round_trip(self) -> None:
+        w = Workspace(
+            scalar=42,
+            ts=TSeries(qq(2020, 1), np.array([1.0, 2.0, 3.0])),
+            mvts=MVTSeries(qq(2020, 1), ("a", "b"), np.ones((3, 2))),
+        )
+        w_back = loads(dumps(w))
+        assert isinstance(w_back, Workspace)
+        assert w_back.scalar == 42
+        assert w.ts.equals(w_back.ts)
+        assert w.mvts.equals(w_back.mvts)
+
+    def test_dump_load_stream(self) -> None:
+        m = MVTSeries(qq(2020, 1), ("a", "b"), np.array([[1.0, 2.0], [3.0, 4.0]]))
+        buf = io.StringIO()
+        dump(m, buf)
+        buf.seek(0)
+        m_back = load(buf)
+        assert m.equals(m_back)

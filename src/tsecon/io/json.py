@@ -14,6 +14,8 @@ be added if the schema ever needs to change):
 * ``MITRange``  → ``{"_type": "MITRange", "start": <MIT>, "stop": <MIT>, "step": <int>}``
 * ``TSeries``   → ``{"_type": "TSeries", "firstdate": <MIT>, "dtype": <str>,
   "values": [<scalar>...]}``
+* ``MVTSeries`` → ``{"_type": "MVTSeries", "firstdate": <MIT>, "dtype": <str>,
+  "names": [<str>, ...], "values": [[<scalar>, ...], ...]}`` (row-major)
 * ``Workspace`` → ``{"_type": "Workspace", "items": [[<key>, <value>], ...]}``
 
 Frequencies are encoded as ``{"name": <class>, ...}``, with the extra parameter
@@ -25,7 +27,6 @@ NaN / +Inf / -Inf are emitted as JavaScript-style literals (``NaN`` /
 when ``allow_nan=True``. Strictly-valid-JSON consumers can pass
 ``allow_nan=False`` and supply their own sentinel handling.
 
-MVTSeries support will be added when ``MVTSeries`` lands.
 """
 
 from __future__ import annotations
@@ -49,6 +50,7 @@ from tsecon.frequencies import (
 )
 from tsecon.mit import MIT, Duration
 from tsecon.mitrange import MITRange
+from tsecon.mvtseries import MVTSeries
 from tsecon.tseries import TSeries
 from tsecon.workspace import Workspace
 
@@ -140,6 +142,14 @@ def to_jsonable(obj: Any) -> Any:
             "dtype": str(obj.values.dtype),
             "values": obj.values.tolist(),
         }
+    if isinstance(obj, MVTSeries):
+        return {
+            "_type": "MVTSeries",
+            "firstdate": to_jsonable(obj.firstdate),
+            "dtype": str(obj.values.dtype),
+            "names": list(obj.column_names),
+            "values": obj.values.tolist(),
+        }
     if isinstance(obj, Workspace):
         return {
             "_type": "Workspace",
@@ -194,6 +204,19 @@ def _decode_tagged(tag: Any, obj: dict[str, Any]) -> Any:
         dtype = np.dtype(obj.get("dtype", "float64"))
         values = np.asarray(obj["values"], dtype=dtype)
         return TSeries(firstdate, values)
+    if tag == "MVTSeries":
+        firstdate = from_jsonable(obj["firstdate"])
+        if not isinstance(firstdate, MIT):
+            msg = "Invalid MVTSeries in JSON: firstdate did not decode to MIT."
+            raise ValueError(msg)
+        dtype = np.dtype(obj.get("dtype", "float64"))
+        names = [str(n) for n in obj.get("names", [])]
+        values = np.asarray(obj["values"], dtype=dtype)
+        if values.ndim == 1:
+            # An MVTSeries with 0 rows and 0 columns serializes to ``[]``,
+            # which round-trips as a 1-D empty array — reshape back to 2-D.
+            values = values.reshape(0, len(names))
+        return MVTSeries(firstdate, names, values, dtype=dtype)
     if tag == "Workspace":
         items = obj.get("items", [])
         out = Workspace()

@@ -117,6 +117,14 @@ convention = "numpy"
 # Indexing dispatch on TSeries (MIT / MITRange / slice / int / array / bool TSeries / MIT-slice)
 # fans out into many branches; collapsing them hurts readability.
 "src/tsecon/tseries.py" = ["PLR0911", "PLR0912"]
+# MVTSeries indexing dispatches across an even larger surface than TSeries
+# (rows × columns × MIT / MITRange / int / bool / str / list-of-str), and the
+# constructor enumerates the Julia construction-form union (range / scalar /
+# init-function / TSeries / 2-D / kwargs). Both genuinely need many branches.
+"src/tsecon/mvtseries.py" = ["PLR0911", "PLR0912", "PLR0915"]
+# _math.py grew an anchor-resolution helper for the MVTSeries undiff overload
+# whose Julia counterpart is type-dispatch — keep the readable branch list.
+"src/tsecon/_math.py" = ["PLR0911", "PLR0912"]
 # Pretty-printer + frequency-dispatch helpers fan out across the frequency
 # hierarchy and across the union of supported value types.
 "src/tsecon/workspace.py" = ["PLR0911"]

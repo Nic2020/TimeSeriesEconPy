@@ -65,6 +65,7 @@ from tsecon.mit import (
     yy,
 )
 from tsecon.mitrange import MITRange, mitrange, rangeof_span
+from tsecon.mvtseries import MVTSeries
 from tsecon.tseries import TSeries, typenan
 from tsecon.workspace import Workspace
 
@@ -80,6 +81,7 @@ __all__ = [
     "Frequency",
     "HalfYearly",
     "MITRange",
+    "MVTSeries",
     "Monthly",
     "Quarterly",
     "TSeries",

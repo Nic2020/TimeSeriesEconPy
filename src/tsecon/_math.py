@@ -32,6 +32,7 @@ import numpy as np
 from tsecon.frequencies import Frequency, YPFrequency, ppy, prettyprint_frequency
 from tsecon.mit import MIT
 from tsecon.mitrange import MITRange, rangeof_span
+from tsecon.mvtseries import MVTSeries
 from tsecon.tseries import TSeries
 
 __all__ = [
@@ -59,56 +60,97 @@ __all__ = [
 # the value is read from ``anchor_series[date]``.
 _Number = float | int | bool | np.generic
 _Anchor = _Number | TSeries | tuple[MIT, _Number] | tuple[MIT, TSeries]
+# Anchor accepted by ``undiff`` on an MVTSeries — broader than the TSeries
+# overload (scalar / vector / matrix / TSeries / MVTSeries / (MIT, *)-pair).
+_MVAnchor = (
+    _Number
+    | TSeries
+    | MVTSeries
+    | np.ndarray
+    | tuple[MIT, _Number]
+    | tuple[MIT, np.ndarray]
+    | tuple[MIT, TSeries]
+    | tuple[MIT, MVTSeries]
+)
 
 
-def shift(t: TSeries, k: int) -> TSeries:
+def shift(t: TSeries | MVTSeries, k: int) -> TSeries | MVTSeries:
     """Return a copy of ``t`` with its dates shifted by ``k`` periods.
 
     By convention, positive ``k`` produces the *lead* (the value at ``t+k`` is
-    read at ``t``); negative ``k`` produces the *lag*. The returned TSeries has
+    read at ``t``); negative ``k`` produces the *lag*. The returned series has
     the same values but ``firstdate`` moved by ``-k`` periods.
+
+    Accepts a :class:`~tsecon.tseries.TSeries` or
+    :class:`~tsecon.mvtseries.MVTSeries`.
     """
+    if isinstance(t, MVTSeries):
+        return shift_inplace(t.copy(), int(k))
     new_start = MIT(t.frequency, t.firstdate.value - int(k))
     return TSeries(new_start, t.values.copy())
 
 
-def shift_inplace(t: TSeries, k: int) -> TSeries:
-    """In-place version of :func:`shift`. Mutates ``t.firstdate`` and returns ``t``."""
+def shift_inplace(t: TSeries | MVTSeries, k: int) -> TSeries | MVTSeries:
+    """In-place version of :func:`shift`. Mutates the firstdate(s) and returns the same object."""
+    if isinstance(t, MVTSeries):
+        new_start = MIT(t.frequency, t.firstdate.value - int(k))
+        t._firstdate = new_start
+        for col in t._columns.values():
+            col._firstdate = MIT(col.frequency, col.firstdate.value - int(k))
+        return t
     t._firstdate = MIT(t.frequency, t.firstdate.value - int(k))
     return t
 
 
-def lag(t: TSeries, k: int = 1) -> TSeries:
-    """Return the ``k``-th lag of ``t``. Same as ``shift(t, -k)``."""
+def lag(t: TSeries | MVTSeries, k: int = 1) -> TSeries | MVTSeries:
+    """Return the ``k``-th lag. Same as ``shift(t, -k)``."""
     return shift(t, -int(k))
 
 
-def lag_inplace(t: TSeries, k: int = 1) -> TSeries:
+def lag_inplace(t: TSeries | MVTSeries, k: int = 1) -> TSeries | MVTSeries:
     """In-place version of :func:`lag`."""
     return shift_inplace(t, -int(k))
 
 
-def lead(t: TSeries, k: int = 1) -> TSeries:
-    """Return the ``k``-th lead of ``t``. Same as ``shift(t, k)``."""
+def lead(t: TSeries | MVTSeries, k: int = 1) -> TSeries | MVTSeries:
+    """Return the ``k``-th lead. Same as ``shift(t, k)``."""
     return shift(t, int(k))
 
 
-def lead_inplace(t: TSeries, k: int = 1) -> TSeries:
+def lead_inplace(t: TSeries | MVTSeries, k: int = 1) -> TSeries | MVTSeries:
     """In-place version of :func:`lead`."""
     return shift_inplace(t, int(k))
 
 
-def diff(t: TSeries, k: int = -1) -> TSeries:
+def diff(t: TSeries | MVTSeries, k: int = -1) -> TSeries | MVTSeries:
     """First (or ``k``-th) difference of ``t``.
 
-    Defined as ``t - shift(t, k)``. With the default ``k=-1`` (i.e. subtract
-    the lag), this matches the standard first-difference operator. Positive
-    ``k`` subtracts a lead; negative ``k`` subtracts a lag.
+    Defined as ``t - shift(t, k)``. With the default ``k=-1`` (subtract the
+    lag), this matches the standard first-difference operator.
 
-    The result is a new TSeries whose range is the intersection of ``t.range``
-    and ``shift(t, k).range`` — one period shorter than ``t``.
+    For an :class:`~tsecon.mvtseries.MVTSeries` the operation is performed
+    column-wise; the result is a new MVTSeries one row shorter (for
+    ``|k|=1``).
     """
+    if isinstance(t, MVTSeries):
+        return _diff_mvts(t, int(k))
     return _as_tseries(t - shift(t, int(k)), reference=t)
+
+
+def _diff_mvts(t: MVTSeries, k: int) -> MVTSeries:
+    """Column-wise difference for an MVTSeries (avoids needing MVTSeries arithmetic)."""
+    nrows = t.shape[0]
+    ak = abs(k)
+    if ak >= nrows:
+        msg = f"diff window |k|={ak} is not smaller than the series length {nrows}."
+        raise ValueError(msg)
+    if k < 0:
+        diffs = t.values[ak:, :] - t.values[: nrows - ak, :]
+        new_first = MIT(t.frequency, t.firstdate.value + ak)
+    else:
+        diffs = t.values[: nrows - ak, :] - t.values[ak:, :]
+        new_first = t.firstdate
+    return MVTSeries(new_first, list(t._columns.keys()), diffs)
 
 
 def pct(t: TSeries, shift_value: int = -1, *, islog: bool = False) -> TSeries:
@@ -180,7 +222,7 @@ def _as_tseries(value: object, *, reference: TSeries) -> TSeries:
 # ---------------------------------------------------------------------------
 
 
-def moving(t: TSeries, n: int) -> TSeries:
+def moving(t: TSeries | MVTSeries, n: int) -> TSeries | MVTSeries:
     """Compute the moving average of ``t`` over a window of ``n`` periods.
 
     If ``n > 0`` the window is backward-looking ``(-n+1 .. 0)`` (the result at
@@ -188,26 +230,31 @@ def moving(t: TSeries, n: int) -> TSeries:
     forward-looking ``(0 .. -n-1)`` (the result at ``p`` is the mean of
     ``t[p .. p+|n|-1]``).
 
-    The returned TSeries has length ``len(t) - |n| + 1``. For ``n > 0`` its
+    The returned series has length ``len(t) - |n| + 1``. For ``n > 0`` its
     ``firstdate`` is ``t.firstdate + n - 1``; for ``n < 0`` it is
     ``t.firstdate``.
 
     Identical to :func:`moving_average`; the bare name matches the Julia
-    convention.
+    convention. Accepts a :class:`~tsecon.tseries.TSeries` or
+    :class:`~tsecon.mvtseries.MVTSeries`.
     """
     return moving_average(t, n)
 
 
-def moving_average(t: TSeries, n: int) -> TSeries:
+def moving_average(t: TSeries | MVTSeries, n: int) -> TSeries | MVTSeries:
     """Compute the moving average of ``t`` over a window of ``n`` periods. See :func:`moving`."""
+    if isinstance(t, MVTSeries):
+        return _moving_sum_mvts(t, int(n), avg=True)
     return _moving_sum(t, int(n), avg=True)
 
 
-def moving_sum(t: TSeries, n: int) -> TSeries:
+def moving_sum(t: TSeries | MVTSeries, n: int) -> TSeries | MVTSeries:
     """Compute the rolling sum of ``t`` over a window of ``n`` periods.
 
     Identical to :func:`moving_average` but without dividing by ``|n|``.
     """
+    if isinstance(t, MVTSeries):
+        return _moving_sum_mvts(t, int(n), avg=False)
     return _moving_sum(t, int(n), avg=False)
 
 
@@ -234,12 +281,36 @@ def _moving_sum(t: TSeries, n: int, *, avg: bool) -> TSeries:
     return TSeries(new_first, arr)
 
 
+def _moving_sum_mvts(t: MVTSeries, n: int, *, avg: bool) -> MVTSeries:
+    if n == 0:
+        msg = "moving window size n must be nonzero."
+        raise ValueError(msg)
+    an = abs(n)
+    nrows = t.shape[0]
+    if an > nrows:
+        msg = f"moving window size |n|={an} exceeds series length {nrows}."
+        raise ValueError(msg)
+    out_len = nrows - an + 1
+    arr = np.zeros((out_len, t.shape[1]), dtype=np.float64)
+    src = t.values
+    for i in range(an):
+        arr += src[i : i + out_len, :]
+    if avg:
+        arr /= an
+    offset = n - 1 if n > 0 else 0
+    new_first = MIT(t.frequency, t.firstdate.value + offset)
+    return MVTSeries(new_first, list(t._columns.keys()), arr)
+
+
 # ---------------------------------------------------------------------------
 # undiff / undiff_inplace
 # ---------------------------------------------------------------------------
 
 
-def undiff(dvar: TSeries, anchor: _Anchor = 0) -> TSeries:
+def undiff(
+    dvar: TSeries | MVTSeries,
+    anchor: _Anchor | _MVAnchor = 0,
+) -> TSeries | MVTSeries:
     """Inverse of :func:`diff` (cumulative sum, anchored at a known value).
 
     ``dvar`` is the differenced series. ``anchor`` says what the *integrated*
@@ -261,7 +332,13 @@ def undiff(dvar: TSeries, anchor: _Anchor = 0) -> TSeries:
     shifted by a constant so ``result[date] == value`` — every other period
     moves by the same constant. See ``undiff_inplace`` for the alternative
     semantics where ``dvar`` values at and before ``fromdate`` are ignored.
+
+    On an :class:`~tsecon.mvtseries.MVTSeries`, ``anchor`` may additionally
+    be a vector / matrix (one entry per column) or another MVTSeries; the
+    cumulative sum is performed column-wise.
     """
+    if isinstance(dvar, MVTSeries):
+        return _undiff_mvts(dvar, anchor)
     ad, av = _resolve_undiff_anchor(dvar, anchor)
     # Promote dtype so that an integer dvar + float anchor produces a float
     # series, matching Julia's `Base.promote_eltype(dvar, value)`.
@@ -342,6 +419,90 @@ def undiff_inplace(
 # ---------------------------------------------------------------------------
 # undiff anchor resolution + frequency-mismatch helper
 # ---------------------------------------------------------------------------
+
+
+def _undiff_mvts(dvar: MVTSeries, anchor: object) -> MVTSeries:
+    """``undiff`` for an MVTSeries: column-wise integration with a vector anchor."""
+    ad, av_row = _resolve_undiff_anchor_mvts(dvar, anchor)
+    ncols = dvar.shape[1]
+    # Promote element type to accommodate the anchor.
+    et = np.result_type(dvar.values.dtype, av_row.dtype)
+    rng = dvar.range
+    if not (rng.start <= ad <= rng.stop):
+        # Extend dvar with zeros so the anchor period is inside the range.
+        new_range = rangeof_span(MITRange(ad, ad), rng)
+        new_n = len(new_range)
+        new_arr = np.zeros((new_n, ncols), dtype=et)
+        if not rng.is_empty():
+            off = rng.start.value - new_range.start.value
+            new_arr[off : off + len(rng), :] = dvar.values
+        dvar_values = new_arr
+        rng = new_range
+    else:
+        dvar_values = dvar.values.astype(et, copy=True)
+    result = np.cumsum(dvar_values, axis=0)
+    ad_idx = ad.value - rng.start.value
+    correction = av_row.astype(et, copy=False) - result[ad_idx, :]
+    result = result + correction
+    return MVTSeries(rng.start, list(dvar._columns.keys()), result)
+
+
+def _resolve_undiff_anchor_mvts(dvar: MVTSeries, anchor: object) -> tuple[MIT, np.ndarray]:
+    """Normalize ``anchor`` into a ``(MIT, row-vector)`` pair for ``undiff(MVTSeries)``."""
+    default_date = MIT(dvar.frequency, dvar.firstdate.value - 1)
+    ncols = dvar.shape[1]
+
+    def _broadcast(value: object) -> np.ndarray:
+        if _is_number(value):
+            return np.full(ncols, value)
+        arr = np.asarray(value)
+        if arr.ndim == 2 and arr.shape[0] == 1:
+            arr = arr.reshape(-1)
+        if arr.ndim != 1 or arr.shape[0] != ncols:
+            msg = (
+                f"undiff anchor vector length {arr.shape!r} does not match MVTSeries "
+                f"column count {ncols}."
+            )
+            raise ValueError(msg)
+        return arr
+
+    if isinstance(anchor, MVTSeries):
+        if anchor.frequency != dvar.frequency:
+            raise _mixed_freq(anchor.frequency, dvar.frequency)
+        return default_date, np.asarray(anchor[default_date])
+    if isinstance(anchor, TSeries):
+        if anchor.frequency != dvar.frequency:
+            raise _mixed_freq(anchor.frequency, dvar.frequency)
+        return default_date, np.full(ncols, anchor[default_date])
+    if isinstance(anchor, tuple):
+        if len(anchor) != 2 or not isinstance(anchor[0], MIT):
+            msg = "MVTSeries undiff anchor tuple must start with an MIT."
+            raise TypeError(msg)
+        date, val = anchor
+        if date.frequency != dvar.frequency:
+            raise _mixed_freq(date.frequency, dvar.frequency)
+        if isinstance(val, MVTSeries):
+            if val.frequency != dvar.frequency:
+                raise _mixed_freq(val.frequency, dvar.frequency)
+            return date, np.asarray(val[date])
+        if isinstance(val, TSeries):
+            if val.frequency != dvar.frequency:
+                raise _mixed_freq(val.frequency, dvar.frequency)
+            return date, np.full(ncols, val[date])
+        if _is_number(val):
+            return date, np.full(ncols, val)
+        return date, _broadcast(val)
+    if isinstance(anchor, MIT):
+        msg = "MVTSeries undiff anchor must be paired with a value when given as an MIT."
+        raise TypeError(msg)
+    if _is_number(anchor) or isinstance(anchor, np.ndarray):
+        return default_date, _broadcast(anchor)
+    msg = f"MVTSeries undiff anchor type not supported: {type(anchor).__name__}."
+    raise TypeError(msg)
+
+
+def _is_number(x: object) -> bool:
+    return isinstance(x, (bool, int, float, np.generic))
 
 
 def _resolve_undiff_anchor(dvar: TSeries, anchor: object) -> tuple[MIT, Any]:

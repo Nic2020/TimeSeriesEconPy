@@ -44,3 +44,8 @@ MIT. See [LICENSE](LICENSE).
 The original Julia package, [TimeSeriesEcon.jl](https://github.com/bankofcanada/TimeSeriesEcon.jl),
 is maintained by the Bank of Canada. TimeSeriesEconPy is an independent port
 and is not affiliated with the Bank of Canada.
+
+This Python port was developed in collaboration with Claude Code (Anthropic's
+Claude Opus 4.7), used as an interactive programming assistant. Per-commit
+AI-assistance attribution is recorded via `Co-Authored-By` trailers in the
+git history.

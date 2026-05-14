@@ -61,6 +61,7 @@ from tsecon.mit import (
 )
 from tsecon.mitrange import MITRange, mitrange, rangeof_span
 from tsecon.tseries import TSeries, typenan
+from tsecon.workspace import Workspace
 
 __version__ = "0.0.1.dev0"
 
@@ -79,6 +80,7 @@ __all__ = [
     "TSeries",
     "Unit",
     "Weekly",
+    "Workspace",
     "YPFrequency",
     "Yearly",
     "__version__",

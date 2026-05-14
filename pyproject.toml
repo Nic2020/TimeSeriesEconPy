@@ -1,0 +1,161 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "TimeSeriesEconPy"
+version = "0.0.1.dev0"
+description = "A time-series language for macroeconomics, ported from TimeSeriesEcon.jl"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [
+    { name = "Nicholas Labelle St-Pierre", email = "statespaceecon@gmail.com" },
+]
+keywords = ["time-series", "macroeconomics", "econometrics", "frequencies"]
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering",
+    "Typing :: Typed",
+]
+dependencies = [
+    "numpy>=1.26",
+]
+
+[project.optional-dependencies]
+matplotlib = ["matplotlib>=3.8"]
+plotly = ["plotly>=5.20"]
+pandas = ["pandas>=2.2"]
+polars = ["polars>=1.0"]
+all = [
+    "matplotlib>=3.8",
+    "plotly>=5.20",
+    "pandas>=2.2",
+    "polars>=1.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "pytest-benchmark>=4.0",
+    "hypothesis>=6.100",
+    "ruff>=0.8",
+    "mypy>=1.13",
+    "pre-commit>=4.0",
+    "mkdocs>=1.6",
+    "mkdocs-material>=9.5",
+    "mkdocstrings[python]>=0.27",
+]
+
+[project.urls]
+Homepage = "https://github.com/Nic2020/TimeSeriesEconPy"
+Documentation = "https://Nic2020.github.io/TimeSeriesEconPy/"
+Repository = "https://github.com/Nic2020/TimeSeriesEconPy"
+Issues = "https://github.com/Nic2020/TimeSeriesEconPy/issues"
+"Julia source" = "https://github.com/bankofcanada/TimeSeriesEcon.jl"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/tsecon"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/src",
+    "/tests",
+    "/README.md",
+    "/LICENSE",
+    "/pyproject.toml",
+]
+
+# ---------------------------------------------------------------------------
+# Ruff: lint + format
+# ---------------------------------------------------------------------------
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "B",   # bugbear
+    "C4",  # comprehensions
+    "UP",  # pyupgrade
+    "SIM", # simplify
+    "RUF", # ruff-specific
+    "N",   # pep8-naming
+    "PL",  # pylint subset
+    "PT",  # pytest-style
+    "D",   # pydocstyle
+]
+ignore = [
+    "D203",  # one-blank-line-before-class (conflicts with D211)
+    "D213",  # multi-line-summary-second-line (conflicts with D212)
+    "PLR0913",  # too many arguments — common in scientific APIs
+    "PLR2004",  # magic value comparisons — common in tests / freq math
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "numpy"
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["D", "PLR2004", "S101"]
+"docs/**" = ["D", "INP001"]
+"scripts/**" = ["D", "INP001"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "lf"
+
+# ---------------------------------------------------------------------------
+# mypy: strict on src, relaxed on tests
+# ---------------------------------------------------------------------------
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_unused_configs = true
+warn_redundant_casts = true
+warn_unreachable = true
+show_error_codes = true
+files = ["src/tsecon"]
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+check_untyped_defs = true
+
+[[tool.mypy.overrides]]
+module = [
+    "matplotlib.*",
+    "plotly.*",
+    "pandas.*",
+    "polars.*",
+]
+ignore_missing_imports = true
+
+# ---------------------------------------------------------------------------
+# pytest
+# ---------------------------------------------------------------------------
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+addopts = [
+    "-ra",
+    "--strict-markers",
+    "--strict-config",
+]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "benchmark: marks performance benchmarks",
+]

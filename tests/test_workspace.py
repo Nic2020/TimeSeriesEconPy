@@ -244,6 +244,41 @@ class TestMutation:
         b.x = 99
         assert a.x == 1
 
+    def test_deepcopy_independent_tseries_value(self) -> None:
+        # B1 regression: copy.deepcopy on a Workspace with a TSeries member
+        # must produce an independent TSeries (not aliased) and a fresh
+        # container dict.
+        ts = TSeries(qq(2020, 1), [1.0, 2.0, 3.0])
+        a = Workspace(s=ts)
+        b = copy.deepcopy(a)
+        assert b.s is not a.s
+        b.s.values[0] = 99.0
+        assert a.s.values[0] == 1.0
+
+    def test_deepcopy_honors_memo(self) -> None:
+        # Shared identity inside a Workspace round-trips through deepcopy.
+        shared = [1, 2, 3]
+        a = Workspace(x=shared, y=shared)
+        b = copy.deepcopy(a)
+        assert b.x is b.y
+        assert b.x is not shared
+
+    def test_deepcopy_handles_self_reference(self) -> None:
+        # The memo dict makes the deepcopy cycle-safe.
+        a = Workspace(x=1)
+        a.self_ref = a
+        b = copy.deepcopy(a)
+        assert b.self_ref is b
+        assert b is not a
+
+    def test_copy_deep_kwarg_equivalent_to_deepcopy(self) -> None:
+        ts = TSeries(qq(2020, 1), [1.0, 2.0, 3.0])
+        a = Workspace(s=ts)
+        b = a.copy(deep=True)
+        assert b.s is not a.s
+        b.s.values[0] = 99.0
+        assert a.s.values[0] == 1.0
+
 
 # ---------------------------------------------------------------------------
 # filter / map

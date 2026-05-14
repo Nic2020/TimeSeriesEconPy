@@ -66,12 +66,59 @@ def test_construct_from_mit_and_array() -> None:
     assert s.ndim == 1
 
 
-def test_construct_from_mit_array_copies() -> None:
-    # External mutation must not reach into the series.
+def test_construct_from_mit_array_wraps_by_default() -> None:
+    # Per decision 16, the constructor wraps a compatible ndarray (xarray
+    # pattern). External mutation through the original handle is therefore
+    # visible inside the series.
     data = np.array([1.0, 2.0, 3.0])
     s = TSeries(yy(2000), data)
+    assert s.values is data
+    data[0] = 999.0
+    assert s.values[0] == 999.0
+
+
+def test_construct_from_mit_array_copy_true_breaks_alias() -> None:
+    data = np.array([1.0, 2.0, 3.0])
+    s = TSeries(yy(2000), data, copy=True)
+    assert s.values is not data
     data[0] = 999.0
     assert s.values[0] == 1.0
+
+
+def test_construct_from_mit_array_dtype_conversion_forces_allocation() -> None:
+    # When a dtype conversion is required, np.asarray must allocate even
+    # without copy=True. The output is not aliased to the input.
+    data = np.array([1.0, 2.0, 3.0], dtype=np.float64)
+    s = TSeries(yy(2000), data, dtype=np.float32)
+    assert s.dtype == np.float32
+    assert s.values.base is None or s.values.base is not data
+    data[0] = 999.0
+    assert s.values[0] == 1.0
+
+
+def test_construct_from_range_array_wraps_by_default() -> None:
+    data = np.array([10.0, 20.0, 30.0, 40.0])
+    rng = mitrange(qq(2020, 1), qq(2020, 4))
+    s = TSeries(rng, data)
+    assert s.values is data
+    data[2] = 999.0
+    assert s.values[2] == 999.0
+
+
+def test_construct_from_range_array_copy_true_breaks_alias() -> None:
+    data = np.array([10.0, 20.0, 30.0, 40.0])
+    rng = mitrange(qq(2020, 1), qq(2020, 4))
+    s = TSeries(rng, data, copy=True)
+    assert s.values is not data
+    data[2] = 999.0
+    assert s.values[2] == 30.0
+
+
+def test_construct_from_list_allocates_fresh_buffer() -> None:
+    # A Python list cannot be wrapped — np.asarray must allocate.
+    s = TSeries(yy(2000), [1.0, 2.0, 3.0])
+    assert isinstance(s.values, np.ndarray)
+    assert list(s.values) == [1.0, 2.0, 3.0]
 
 
 def test_construct_from_mit_dtype_conversion() -> None:
@@ -726,6 +773,25 @@ def test_copy_module_copy() -> None:
 def test_deepcopy() -> None:
     s = TSeries(qq(2020, 1), [1.0, 2.0, 3.0])
     c = _copy.deepcopy(s)
+    c.values[0] = 99.0
+    assert s.values[0] == 1.0
+
+
+def test_deepcopy_honors_memo() -> None:
+    # Decision 16: __deepcopy__ must register memo[id(self)] so a shared
+    # TSeries identity round-trips through deepcopy as the same new object.
+    s = TSeries(qq(2020, 1), [1.0, 2.0, 3.0])
+    structure = [s, s]
+    out = _copy.deepcopy(structure)
+    assert out[0] is out[1]
+    assert out[0] is not s
+
+
+def test_copy_deep_kwarg_is_independent() -> None:
+    # On TSeries, deep=True is a semantic no-op — but the kwarg must be
+    # accepted for API uniformity with container types.
+    s = TSeries(qq(2020, 1), [1.0, 2.0, 3.0])
+    c = s.copy(deep=True)
     c.values[0] = 99.0
     assert s.values[0] == 1.0
 

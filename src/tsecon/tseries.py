@@ -102,6 +102,26 @@ def _is_scalar(x: object) -> bool:
     return isinstance(x, np.ndarray) and x.ndim == 0
 
 
+def _coerce_values(
+    values: Any,
+    *,
+    dtype: npt.DTypeLike | None,
+    copy: bool,
+) -> np.ndarray:
+    """Coerce ``values`` to a 1-D ndarray, wrapping by default.
+
+    Without ``copy``, returns a view onto ``values`` whenever
+    ``np.asarray(values, dtype=dtype)`` returns it unchanged (matching dtype,
+    1-D, contiguous). With ``copy=True``, always allocates a fresh,
+    non-aliased buffer in a single allocation.
+    """
+    arr = np.array(values, dtype=dtype, copy=True) if copy else np.asarray(values, dtype=dtype)
+    if arr.ndim != 1:
+        msg = f"values must be 1-D, got ndim={arr.ndim}."
+        raise ValueError(msg)
+    return arr
+
+
 # ---------------------------------------------------------------------------
 # TSeries
 # ---------------------------------------------------------------------------
@@ -135,7 +155,18 @@ class TSeries:
         values: _ArrayLike | float | int | bool | None = None,
         *,
         dtype: npt.DTypeLike | None = None,
+        copy: bool = False,
     ) -> None:
+        """Construct a TSeries.
+
+        Notes
+        -----
+        Passing an already-compatible ``ndarray`` as ``values`` *wraps* the
+        buffer rather than copying it (matching xarray's ``DataArray``;
+        see ``claude_files/decisions/16_constructor_copy_semantics.md``).
+        Set ``copy=True`` to force an independent allocation, or call
+        :meth:`copy` / :func:`copy.deepcopy` post-construction.
+        """
         if isinstance(firstdate_or_range, MITRange):
             rng = firstdate_or_range
             length = len(rng)
@@ -146,18 +177,13 @@ class TSeries:
                 target_dtype = np.dtype(dtype) if dtype is not None else np.asarray(values).dtype
                 arr = np.full(length, values, dtype=target_dtype)
             else:
-                arr = np.asarray(values, dtype=dtype)
-                if arr.ndim != 1:
-                    msg = f"values must be 1-D, got ndim={arr.ndim}."
-                    raise ValueError(msg)
+                arr = _coerce_values(values, dtype=dtype, copy=copy)
                 if arr.shape[0] != length:
                     msg = (
                         f"Range and data lengths mismatch: range has {length} entries, "
                         f"got {arr.shape[0]}."
                     )
                     raise ValueError(msg)
-                # Copy so external mutation can't reach in.
-                arr = arr.copy()
             self._firstdate = rng.start
             self._values = arr
             return
@@ -174,11 +200,7 @@ class TSeries:
                 )
                 raise TypeError(msg)
             else:
-                arr = np.asarray(values, dtype=dtype)
-                if arr.ndim != 1:
-                    msg = f"values must be 1-D, got ndim={arr.ndim}."
-                    raise ValueError(msg)
-                arr = arr.copy()
+                arr = _coerce_values(values, dtype=dtype, copy=copy)
             self._firstdate = fd
             self._values = arr
             return
@@ -304,15 +326,26 @@ class TSeries:
 
     # -- copy / similar ----------------------------------------------------
 
-    def copy(self) -> TSeries:
-        """Return a deep copy."""
+    def copy(self, *, deep: bool = False) -> TSeries:
+        """Return an independent copy with its own storage.
+
+        The ``deep`` kwarg is accepted for API uniformity with container
+        types (:class:`~tsecon.workspace.Workspace`, MVTSeries) where a
+        shallow copy would share value references. TSeries has no nested
+        containers — the underlying ndarray is always copied — so
+        ``deep=True`` is a semantic no-op here. See
+        ``claude_files/decisions/16_constructor_copy_semantics.md``.
+        """
+        del deep  # accepted for uniformity; see docstring
         return TSeries(self._firstdate, self._values.copy())
 
     def __copy__(self) -> TSeries:
         return self.copy()
 
     def __deepcopy__(self, memo: dict[int, Any]) -> TSeries:
-        return self.copy()
+        new = self.copy()
+        memo[id(self)] = new
+        return new
 
     def similar(
         self,
@@ -403,7 +436,9 @@ class TSeries:
                 msg = f"MITRange {key!s} is not contained in stored range {self.range!s}."
                 raise IndexError(msg)
             if key.step == 1:
-                return TSeries(key.start, self._values[i0 : i1 + 1])
+                # ts[range] returns a TSeries with its own buffer (per decision 16
+                # scope note): pass copy=True so the slice view doesn't escape.
+                return TSeries(key.start, self._values[i0 : i1 + 1], copy=True)
             return self._values[i0 : i1 + 1 : key.step].copy()
         if isinstance(key, slice):
             if isinstance(key.start, MIT) or isinstance(key.stop, MIT):

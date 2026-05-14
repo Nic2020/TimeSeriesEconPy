@@ -33,6 +33,7 @@ test port doesn't have to wait.
 from __future__ import annotations
 
 from collections.abc import Callable, ItemsView, Iterable, Iterator, KeysView, Mapping, ValuesView
+from copy import deepcopy
 from typing import Any
 
 import numpy as np
@@ -241,14 +242,30 @@ class Workspace:
         self._c.clear()
         return self
 
-    def copy(self) -> Workspace:
-        """Return a shallow copy: same value references, fresh storage."""
+    def copy(self, *, deep: bool = False) -> Workspace:
+        """Return a copy of the Workspace.
+
+        With ``deep=False`` (the default) the storage dict is fresh but
+        values are shared by reference — Python-dict semantics. With
+        ``deep=True``, every value is recursively :func:`copy.deepcopy`-ed,
+        equivalent to ``copy.deepcopy(self)``. The kwarg matches the
+        :meth:`TSeries.copy` signature for API uniformity; see
+        ``claude_files/decisions/16_constructor_copy_semantics.md``.
+        """
+        if deep:
+            return deepcopy(self)
         out = Workspace()
         out._c.update(self._c)
         return out
 
     def __copy__(self) -> Workspace:
         return self.copy()
+
+    def __deepcopy__(self, memo: dict[int, Any]) -> Workspace:
+        out = Workspace()
+        memo[id(self)] = out
+        out._c.update({k: deepcopy(v, memo) for k, v in self._c.items()})
+        return out
 
     # -- filter / map ------------------------------------------------------
 

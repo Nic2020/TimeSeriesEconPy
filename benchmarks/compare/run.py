@@ -43,6 +43,15 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 from scenarios import DESCRIPTION, RUN, SETUP  # noqa: E402
 
+# Windows console default codec is cp1252 which doesn't cover the Unicode
+# chars (µ, em-dashes, arrows) the descriptions and `format_seconds` emit.
+# Force stdout/stderr to UTF-8 with `replace` fallback so a stray non-ASCII
+# glyph in a description never crashes the harness mid-run.
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[union-attr]
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[union-attr]
+
 REPO_ROOT = HERE.parent.parent
 RESULTS_DIR = HERE / "results"
 JULIA_DIR = HERE / "julia"

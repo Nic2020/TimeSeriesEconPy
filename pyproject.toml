@@ -112,6 +112,7 @@ convention = "numpy"
 "tests/**" = ["D", "PLR2004", "S101", "PT011", "PLW0108"]
 "docs/**" = ["D", "INP001"]
 "scripts/**" = ["D", "INP001"]
+"benchmarks/**" = ["D", "INP001"]
 # Multi-type arithmetic dispatch on MIT/Duration intentionally has many branches.
 "src/tsecon/mit.py" = ["PLR0911", "PLR0912"]
 # Indexing dispatch on TSeries (MIT / MITRange / slice / int / array / bool TSeries / MIT-slice)
@@ -193,6 +194,10 @@ addopts = [
     "-ra",
     "--strict-markers",
     "--strict-config",
+    # Skip pytest-benchmark scenarios in the default test run; the regular
+    # suite is correctness-focused. Use `--benchmark-only` (or
+    # `--benchmark-enable`) when running `tests/benchmarks/` to opt in.
+    "--benchmark-skip",
 ]
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",

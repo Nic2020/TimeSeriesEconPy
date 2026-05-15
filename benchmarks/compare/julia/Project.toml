@@ -1,0 +1,15 @@
+# Environment-only Project.toml for the comparison harness. We don't expose a
+# module from this directory — `scenarios.jl` and `runner.jl` are scripts
+# `include`d by the runner — so this file omits `name`/`uuid` and Julia
+# treats the directory as a bare environment.
+
+[deps]
+BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
+JSON = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
+TimeSeriesEcon = "8b6756d2-c55c-11ea-2998-5f67ea17da60"
+
+[compat]
+BenchmarkTools = "1"
+JSON = "0.21"
+TimeSeriesEcon = "0.7"
+julia = "1.10"

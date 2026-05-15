@@ -34,6 +34,7 @@ from typing import Literal
 import numpy as np
 import numpy.typing as npt
 
+from tsecon._options import getoption
 from tsecon.frequencies import (
     BDaily,
     Daily,
@@ -408,19 +409,28 @@ def _fconvert_using_dates_parts(
     range_from: MITRange,
     *,
     trim: Trim,
+    skip_holidays: bool = False,
+    holidays_map: object | None = None,
 ) -> tuple[MIT, MIT, int, int]:
     """Return ``(fi, li, trunc_start, trunc_end)`` for a date-based range conversion.
 
     ``f_to`` is a YPFrequency or Weekly target; ``range_from`` is any calendar
     or YP source range. ``trim`` is one of ``"both"``, ``"begin"``, ``"end"``.
 
-    Mirrors Julia's ``_fconvert_using_dates_parts`` for the non-BDaily-kwarg
-    case (``skip_holidays=False`` and ``holidays_map=None`` only). We replace
-    the Julia "build predecessor / successor dates and check that the target
-    periods match" idiom with an equivalent MIT-space check: a target period
-    bounds the source range exactly iff the source MIT anchoring the target
-    period's begin/end equals the source range endpoint. This avoids needing
-    to represent dates before 0001-01-01 for ``MIT(Daily, 1)`` and friends.
+    Mirrors Julia's ``_fconvert_using_dates_parts``. The Julia "build
+    predecessor / successor dates and check that the target periods match"
+    idiom becomes an equivalent MIT-space check: a target period bounds the
+    source range exactly iff the source MIT anchoring the target period's
+    begin/end equals the source range endpoint. This avoids needing to
+    represent dates before 0001-01-01 for ``MIT(Daily, 1)`` and friends.
+
+    For BDaily-source lower-frequency conversion, ``skip_holidays=True`` or
+    a provided ``holidays_map`` shifts the predecessor / successor we
+    consult past any consecutive holidays before applying the boundary
+    check (matching Julia's ``while holidays_map[pad] == 0: pad -= 1``
+    loop, see ``fconvert_mit.jl`` lines 239-258). When the global
+    ``bdaily_holidays_map`` option is not set and the user asked for
+    ``skip_holidays=True`` we raise.
     """
     if trim not in ("both", "begin", "end"):
         msg = f"trim argument must be 'both', 'begin', or 'end'. Received: {trim!r}."
@@ -442,6 +452,20 @@ def _fconvert_using_dates_parts(
     out_index = _get_out_indices(f_to, [first_date, last_date])
     fi = out_index[0]
     li = out_index[1]
+    # Resolve a holidays "predecessor adjustment" for BDaily sources: when a
+    # holidays map is in play, the boundary-check predecessor must skip past
+    # holiday days. The adjustment is the count of consecutive holidays
+    # immediately before first_mit / after last_mit.
+    pad_offset_start = 0
+    pad_offset_end = 0
+    if (
+        isinstance(f_from, BDaily)
+        and not _freq_is_higher(f_to, f_from)
+        and (skip_holidays or holidays_map is not None)
+    ):
+        resolved_map = _resolve_holidays_map(holidays_map)
+        pad_offset_start = _count_leading_holidays(resolved_map, first_mit, direction=-1)
+        pad_offset_end = _count_leading_holidays(resolved_map, last_mit, direction=+1)
     trunc_start = 0
     if trim != "end":
         src_anchor_start = _target_to_source_mit(f_from, fi, ref="begin")
@@ -453,7 +477,9 @@ def _fconvert_using_dates_parts(
         # (i.e., the source MIT anchoring the target period's begin is before
         # the actual first source MIT, meaning we're missing input for the
         # start of the target period).
-        elif src_anchor_start < first_mit:
+        # With BDaily holidays: shift the anchor right by the holiday-pad count
+        # so that consecutive holidays before first_mit don't trigger truncation.
+        elif src_anchor_start < MIT(f_from, first_mit.value - pad_offset_start):
             trunc_start = 1
     trunc_end = 0
     if trim != "begin":
@@ -461,9 +487,55 @@ def _fconvert_using_dates_parts(
         if _freq_is_higher(f_to, f_from):
             if src_anchor_end != last_mit:
                 trunc_end = 1
-        elif src_anchor_end > last_mit:
+        elif src_anchor_end > MIT(f_from, last_mit.value + pad_offset_end):
             trunc_end = 1
     return fi, li, trunc_start, trunc_end
+
+
+def _resolve_holidays_map(holidays_map: object | None) -> object:
+    """Return a usable BDaily Boolean TSeries, consulting the global option if needed.
+
+    Raises :class:`ValueError` if ``holidays_map`` is None and the global
+    ``bdaily_holidays_map`` option is unset (mirrors the Julia ArgumentError).
+    """
+    if holidays_map is not None:
+        return holidays_map
+    h_map = getoption("bdaily_holidays_map")
+    if h_map is None:
+        msg = (
+            "skip_holidays=True requires a BDaily TSeries stored under "
+            "getoption('bdaily_holidays_map'); none is currently set."
+        )
+        raise ValueError(msg)
+    return h_map
+
+
+def _count_leading_holidays(
+    holidays_map: object,
+    boundary_mit: MIT,
+    *,
+    direction: int,
+) -> int:
+    """Count consecutive holidays immediately before (or after) ``boundary_mit``.
+
+    Mirrors Julia's
+    ``while holidays_map[pad_start_date] == 0: pad_start_date -= 1`` for
+    ``direction=-1`` and the symmetric forward loop for ``direction=+1``.
+    Returns the number of steps taken before finding a non-holiday business
+    day. Safely returns 0 if walking past the holidays_map bounds.
+    """
+    assert isinstance(holidays_map, TSeries)
+    map_first_v = holidays_map.firstdate.value
+    map_last_v = holidays_map.lastdate.value
+    values = holidays_map.values
+    count = 0
+    pad = boundary_mit.value + direction
+    while map_first_v <= pad <= map_last_v:
+        if bool(values[pad - map_first_v]):
+            break
+        count += 1
+        pad += direction
+    return count
 
 
 def _get_end_truncation_yp(

@@ -29,6 +29,7 @@ import datetime as _dt
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Final, Union, overload
 
+from tsecon._options import getoption
 from tsecon.frequencies import (
     BDaily,
     CalendarFrequency,
@@ -585,20 +586,26 @@ def _date_from_daily(value: int) -> _dt.date:
 
 
 @overload
-def bdaily(d: _dt.date, *, bias: str = ...) -> MIT: ...
+def bdaily(d: _dt.date, *, bias: str | None = ...) -> MIT: ...
 @overload
-def bdaily(d: str, *, bias: str = ...) -> MIT: ...
-def bdaily(d: _dt.date | str, *, bias: str = "strict") -> MIT:
+def bdaily(d: str, *, bias: str | None = ...) -> MIT: ...
+def bdaily(d: _dt.date | str, *, bias: str | None = None) -> MIT:
     """Construct an ``MIT{BDaily}`` from a date or ISO string.
 
     Business-daily MITs index Monday-Friday only. ``bias`` controls how a
     date that lands on a weekend is resolved:
 
-    * ``"strict"`` (default) — raise ``ValueError``.
+    * ``"strict"`` — raise ``ValueError``.
     * ``"previous"`` — return the preceding Friday.
     * ``"next"`` — return the following Monday.
     * ``"nearest"`` — Saturday → Friday, Sunday → Monday.
+
+    When ``bias`` is not supplied, the value falls back to the global option
+    ``bdaily_creation_bias`` (default ``"strict"``). Mirrors Julia's
+    ``bdaily(d::Date; bias::Symbol=getoption(:bdaily_creation_bias))``.
     """
+    if bias is None:
+        bias = getoption("bdaily_creation_bias")
     if bias not in _VALID_BDAILY_BIASES:
         msg = f"bias must be one of {sorted(_VALID_BDAILY_BIASES)}, got {bias!r}"
         raise ValueError(msg)

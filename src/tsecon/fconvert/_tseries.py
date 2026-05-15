@@ -13,7 +13,9 @@ Mirrors ``TimeSeriesEcon.jl/src/fconvert/fconvert_tseries.jl``:
   ``fconvert_helpers.jl`` that operate against a target frequency.
 
 The BDaily-specific kwarg variants (``skip_holidays`` / ``skip_all_nans`` /
-``holidays_map``) block on the ``options.jl`` port and are still ⬜.
+``holidays_map``) for lower-frequency conversion and BDaily-source
+``extend_series`` are wired through :mod:`tsecon._bdaily`'s
+``cleanedvalues`` family.
 """
 
 from __future__ import annotations
@@ -25,6 +27,8 @@ from typing import Any, Literal, cast
 
 import numpy as np
 
+from tsecon._bdaily import cleanedvalues
+from tsecon._options import getoption
 from tsecon.fconvert._helpers import (
     Ref,
     _fconvert_using_dates_parts,
@@ -506,13 +510,26 @@ def _dispatch_lower(
     ref: Ref | None,
     **kwargs: Any,
 ) -> TSeries:
+    f_from = t.frequency
+    # Extract BDaily kwargs (only valid for BDaily source on lower-frequency conversions).
+    skip_all_nans = bool(kwargs.pop("skip_all_nans", False))
+    skip_holidays = bool(kwargs.pop("skip_holidays", False))
+    holidays_map = kwargs.pop("holidays_map", None)
+    if (skip_all_nans or skip_holidays or holidays_map is not None) and not isinstance(
+        f_from, BDaily
+    ):
+        msg = (
+            "fconvert: skip_all_nans / skip_holidays / holidays_map are only valid for "
+            f"BDaily source on lower-frequency conversion; got source frequency "
+            f"{type(f_from).__name__}."
+        )
+        raise TypeError(msg)
     if kwargs:
         msg = (
             f"fconvert: unsupported keyword arguments for lower-frequency conversion: "
             f"{sorted(kwargs)}."
         )
         raise TypeError(msg)
-    f_from = t.frequency
     if (
         f is None
         and method is not None
@@ -550,12 +567,28 @@ def _dispatch_lower(
     # Calendar → YP / Weekly: aggregate per output MIT.
     if isinstance(f_to, (YPFrequency, Weekly)) and isinstance(f_from, CalendarFrequency):
         if f is not None:
-            return _fconvert_lower_calendar_to_yp_or_weekly(f_to, t, f, ref=eff_ref)
+            return _fconvert_lower_calendar_to_yp_or_weekly(
+                f_to,
+                t,
+                f,
+                ref=eff_ref,
+                skip_all_nans=skip_all_nans,
+                skip_holidays=skip_holidays,
+                holidays_map=holidays_map,
+            )
         lower_method2: _LowerMethod = (
             method if method in ("mean", "sum", "min", "max", "point", "begin", "end") else "mean"
         )
         agg = _lower_aggregator_for(lower_method2, eff_ref)
-        return _fconvert_lower_calendar_to_yp_or_weekly(f_to, t, agg.func, ref=agg.ref)
+        return _fconvert_lower_calendar_to_yp_or_weekly(
+            f_to,
+            t,
+            agg.func,
+            ref=agg.ref,
+            skip_all_nans=skip_all_nans,
+            skip_holidays=skip_holidays,
+            holidays_map=holidays_map,
+        )
 
     msg = (
         f"fconvert: lower-frequency conversion from {type(f_from).__name__} to "
@@ -747,6 +780,9 @@ def _fconvert_lower_calendar_to_yp_or_weekly(
     aggregator: Callable[[np.ndarray], Any],
     *,
     ref: Ref,
+    skip_all_nans: bool = False,
+    skip_holidays: bool = False,
+    holidays_map: TSeries | None = None,
 ) -> TSeries:
     f_from = t.frequency
     rng_from = t.range
@@ -772,10 +808,18 @@ def _fconvert_lower_calendar_to_yp_or_weekly(
     if isinstance(f_from, BDaily):
         # BDaily aggregate path: group rng_from by out_index and aggregate the
         # underlying values per group; truncation comes from
-        # _fconvert_using_dates_parts. Mirrors Julia line 416-450 but with
-        # cleanedvalues replaced by raw slicing (no skip_holidays/skip_all_nans
-        # in this milestone).
-        return _fconvert_lower_bdaily_to_yp_or_weekly(f_to, t, aggregator, ref=ref, trim=trim)
+        # _fconvert_using_dates_parts. Mirrors Julia line 416-450 (including
+        # skip_holidays / skip_all_nans / holidays_map kwargs).
+        return _fconvert_lower_bdaily_to_yp_or_weekly(
+            f_to,
+            t,
+            aggregator,
+            ref=ref,
+            trim=trim,
+            skip_all_nans=skip_all_nans,
+            skip_holidays=skip_holidays,
+            holidays_map=holidays_map,
+        )
 
     fi, li, trunc_start, trunc_end = _fconvert_using_dates_parts(f_to, rng_from, trim=trim)
     out_index = _get_out_indices(f_to, dates)
@@ -811,37 +855,122 @@ def _fconvert_lower_bdaily_to_yp_or_weekly(
     *,
     ref: Ref,
     trim: Literal["both", "begin", "end"],
+    skip_all_nans: bool = False,
+    skip_holidays: bool = False,
+    holidays_map: TSeries | None = None,
 ) -> TSeries:
     rng_from = t.range
-    dates = [mit_to_date(m) for m in rng_from]
+    # Mirror Julia's "build dates for every input MIT, then filter by the
+    # effective holidays map" (fconvert_tseries.jl lines 419-425). We keep
+    # MITs and dates in lockstep so we can recover MIT positions for the
+    # group-boundary computation below.
+    all_mits = list(rng_from)
+    all_dates = [mit_to_date(m) for m in all_mits]
+    original_map = holidays_map
+    if original_map is None and skip_holidays:
+        original_map = getoption("bdaily_holidays_map")
+        if not isinstance(original_map, TSeries):
+            msg = (
+                "fconvert: skip_holidays=True requires getoption('bdaily_holidays_map') "
+                "to be a BDaily TSeries; none is currently set."
+            )
+            raise ValueError(msg)
+    if original_map is not None:
+        mask = np.asarray(original_map[rng_from].values, dtype=bool)
+        mits = [m for m, keep in zip(all_mits, mask, strict=True) if keep]
+        dates = [d for d, keep in zip(all_dates, mask, strict=True) if keep]
+    else:
+        mits = all_mits
+        dates = all_dates
+    effective_map = _resolve_effective_bdaily_map(
+        rng_from,
+        t,
+        skip_all_nans=skip_all_nans,
+        skip_holidays=skip_holidays,
+        holidays_map=holidays_map,
+    )
+
+    fi, li, trunc_start, trunc_end = _fconvert_using_dates_parts(
+        f_to,
+        rng_from,
+        trim=trim,
+        skip_holidays=skip_holidays,
+        holidays_map=effective_map,
+    )
+    if not dates:
+        # All inputs were holidays; nothing to aggregate.
+        out_range = MITRange(
+            MIT(fi.frequency, fi.value + trunc_start),
+            MIT(li.frequency, li.value - trunc_end),
+        )
+        return TSeries(out_range.start, np.empty(0, dtype=t.values.dtype))
     out_index = _get_out_indices(f_to, dates)
-    fi, li, trunc_start, trunc_end = _fconvert_using_dates_parts(f_to, rng_from, trim=trim)
-    # Group consecutive input MITs by target output MIT; aggregate per group.
-    vals = np.asarray(t.values)
+    # Group consecutive input MITs by target output MIT; aggregate per group
+    # over ``cleanedvalues(t[lo..hi]; skip_*)`` to honour the user's kwargs.
     out_index_values = np.array([m.value for m in out_index], dtype=np.int64)
     unique_targets, first_idx = np.unique(out_index_values, return_index=True)
     order = np.argsort(first_idx)
     unique_in_order = unique_targets[order]
     aggregated: list[Any] = []
-    rng_from_starts = np.array([m.value for m in rng_from], dtype=np.int64)
+    filtered_mit_values = np.array([m.value for m in mits], dtype=np.int64)
     for target in unique_in_order:
-        mask = out_index_values == target
-        target_indices = rng_from_starts[mask]
-        # Julia's BDaily lower path slices ``t[target_range[begin]:target_range[end]]`` —
-        # the *contiguous* range from first to last input MIT in this group.
-        # Without holidays/skip_all_nans, this matches the plain mask slice.
-        lo_idx = int(target_indices[0] - rng_from_starts[0])
-        hi_idx = int(target_indices[-1] - rng_from_starts[0]) + 1
-        aggregated.append(aggregator(vals[lo_idx:hi_idx]))
+        target_mask = out_index_values == target
+        target_indices = filtered_mit_values[target_mask]
+        # Julia slices ``t[target_range[begin]:target_range[end]]`` — the
+        # contiguous BDaily range from first to last filtered MIT in this
+        # group, then applies cleanedvalues on it.
+        lo_v = int(target_indices[0])
+        hi_v = int(target_indices[-1])
+        sub = t[MITRange(MIT(rng_from.frequency, lo_v), MIT(rng_from.frequency, hi_v))]
+        vals = cleanedvalues(
+            sub,
+            skip_all_nans=skip_all_nans,
+            skip_holidays=skip_holidays,
+            holidays_map=holidays_map,
+        )
+        aggregated.append(aggregator(np.asarray(vals)))
     end = len(aggregated) - trunc_end if trunc_end > 0 else len(aggregated)
     aggregated_trimmed = aggregated[trunc_start:end]
     out_range = MITRange(
         MIT(fi.frequency, fi.value + trunc_start), MIT(li.frequency, li.value - trunc_end)
     )
     if len(aggregated_trimmed) == 0 or out_range.is_empty():
-        return TSeries(out_range.start, np.empty(0, dtype=vals.dtype))
+        return TSeries(out_range.start, np.empty(0, dtype=t.values.dtype))
     out_arr = np.array(aggregated_trimmed)
     return TSeries(out_range.start, out_arr)
+
+
+def _resolve_effective_bdaily_map(
+    rng_from: MITRange,
+    t: TSeries,
+    *,
+    skip_all_nans: bool,
+    skip_holidays: bool,
+    holidays_map: TSeries | None,
+) -> TSeries | None:
+    """Return the holidays_map passed to ``_fconvert_using_dates_parts``.
+
+    Mirrors Julia's branch at ``fconvert_tseries.jl`` lines 428-437: if
+    ``skip_all_nans`` is set, the effective map is the *original* holidays
+    map AND'd with a NaN-validity mask over ``rng_from``. The merged map is
+    what the truncation logic consults. With ``skip_all_nans=False`` and a
+    provided or global holidays_map, the effective map is just that map.
+    """
+    if not (skip_all_nans or skip_holidays or holidays_map is not None):
+        return None
+    effective = holidays_map
+    if effective is None and skip_holidays:
+        effective = getoption("bdaily_holidays_map")
+    if skip_all_nans:
+        nan_map = ~np.isnan(np.asarray(t.values, dtype=float))
+        if effective is None:
+            effective = TSeries(rng_from.first(), np.ones(len(rng_from), dtype=bool))
+        slice_arr = np.asarray(effective[rng_from].values, dtype=bool)
+        merged = slice_arr & nan_map
+        copy = TSeries(effective.firstdate, np.asarray(effective.values, dtype=bool).copy())
+        copy[rng_from] = merged
+        effective = copy
+    return effective
 
 
 # Daily → BDaily lower ------------------------------------------------------
@@ -890,9 +1019,12 @@ def extend_series(
     leading pad — matching Julia's behaviour when there is exactly one value
     in the spanning period).
 
-    Source / target may be any non-Unit frequency. The BDaily-source variant
-    that needs ``cleanedvalues(...; skip_all_nans=true)`` is still ⬜ (blocks
-    on ``options.jl``) and raises :class:`NotImplementedError`.
+    Source / target may be any non-Unit frequency. For a BDaily source the
+    in-range first/last value used by ``method="end"``, and the per-period
+    mean used by ``method="mean"``, are computed via
+    ``cleanedvalues(...; skip_all_nans=True)`` so leading / trailing NaNs do
+    not poison the fill (matches Julia's BDaily branch at
+    ``fconvert_helpers.jl`` lines 309-326).
     """
     if direction not in ("both", "begin", "end"):
         msg = f"direction must be 'both', 'begin', or 'end'. Received: {direction!r}."
@@ -904,12 +1036,6 @@ def extend_series(
     f_from = t.frequency
     _reject_unit(f_to, what="target")
     _reject_unit(f_from, what="source")
-    if isinstance(f_from, BDaily):
-        msg = (
-            "extend_series: BDaily source requires the cleanedvalues / skip_all_nans path, "
-            "which blocks on the options.jl port. Deferred."
-        )
-        raise NotImplementedError(msg)
     out = t.copy()
     if direction in ("begin", "both"):
         _extend_begin(f_to, out, method=method)
@@ -921,12 +1047,20 @@ def extend_series(
 def _extend_begin(f_to: Frequency, t: TSeries, *, method: ExtendMethod) -> None:
     f_from = t.frequency
     first_mit_in_output_freq = fconvert_mit(f_to, t.firstdate)  # ref="end"
-    desired_first_mit = fconvert_mit(f_from, first_mit_in_output_freq, ref="begin")
+    # For BDaily source, the target period's begin date may land on a weekend
+    # (e.g. Weekly{5} begins on Saturday). Snap to the next business day so
+    # ``desired_first_mit`` is always a valid BDaily MIT.
+    if isinstance(f_from, BDaily):
+        desired_first_mit = fconvert_mit(
+            f_from, first_mit_in_output_freq, ref="begin", round_to="next"
+        )
+    else:
+        desired_first_mit = fconvert_mit(f_from, first_mit_in_output_freq, ref="begin")
     if desired_first_mit.value >= t.firstdate.value:
         return
     affected = MITRange(desired_first_mit, MIT(f_from, t.firstdate.value - 1))
     if method == "end":
-        fill = t.values[0]
+        fill = _bdaily_first_clean(t) if isinstance(f_from, BDaily) else t.values[0]
     else:  # method == "mean"
         single = MITRange(first_mit_in_output_freq, first_mit_in_output_freq)
         data_basis = fconvert_range(f_from, single)
@@ -935,19 +1069,28 @@ def _extend_begin(f_to: Frequency, t: TSeries, *, method: ExtendMethod) -> None:
         if lo > hi:
             return
         sub = MITRange(MIT(f_from, lo), MIT(f_from, hi))
-        fill = float(np.mean(t[sub].values))
+        fill = (
+            _bdaily_mean_clean(t[sub])
+            if isinstance(f_from, BDaily)
+            else float(np.mean(t[sub].values))
+        )
     t[affected] = fill
 
 
 def _extend_end(f_to: Frequency, t: TSeries, *, method: ExtendMethod) -> None:
     f_from = t.frequency
     last_mit_in_output_freq = fconvert_mit(f_to, t.lastdate)  # ref="end"
-    desired_last_mit = fconvert_mit(f_from, last_mit_in_output_freq, ref="end")
+    if isinstance(f_from, BDaily):
+        desired_last_mit = fconvert_mit(
+            f_from, last_mit_in_output_freq, ref="end", round_to="previous"
+        )
+    else:
+        desired_last_mit = fconvert_mit(f_from, last_mit_in_output_freq, ref="end")
     if desired_last_mit.value <= t.lastdate.value:
         return
     affected = MITRange(MIT(f_from, t.lastdate.value + 1), desired_last_mit)
     if method == "end":
-        fill = t.values[-1]
+        fill = _bdaily_last_clean(t) if isinstance(f_from, BDaily) else t.values[-1]
     else:  # method == "mean"
         single = MITRange(last_mit_in_output_freq, last_mit_in_output_freq)
         data_basis = fconvert_range(f_from, single)
@@ -956,8 +1099,32 @@ def _extend_end(f_to: Frequency, t: TSeries, *, method: ExtendMethod) -> None:
         if lo > hi:
             return
         sub = MITRange(MIT(f_from, lo), MIT(f_from, hi))
-        fill = float(np.mean(t[sub].values))
+        fill = (
+            _bdaily_mean_clean(t[sub])
+            if isinstance(f_from, BDaily)
+            else float(np.mean(t[sub].values))
+        )
     t[affected] = fill
+
+
+def _bdaily_first_clean(t: TSeries) -> Any:
+    """Return ``cleanedvalues(t; skip_all_nans=True)[0]`` for a BDaily TSeries.
+
+    If every value is NaN, returns NaN (mirrors Julia's silent NaN-result
+    when ``cleanedvalues`` returns an empty vector).
+    """
+    cleaned = cleanedvalues(t, skip_all_nans=True)
+    return cleaned[0] if len(cleaned) > 0 else np.nan
+
+
+def _bdaily_last_clean(t: TSeries) -> Any:
+    cleaned = cleanedvalues(t, skip_all_nans=True)
+    return cleaned[-1] if len(cleaned) > 0 else np.nan
+
+
+def _bdaily_mean_clean(t: TSeries) -> float:
+    cleaned = cleanedvalues(t, skip_all_nans=True)
+    return float(np.mean(cleaned)) if len(cleaned) > 0 else float("nan")
 
 
 def trim_series(

@@ -125,6 +125,11 @@ convention = "numpy"
 # _math.py grew an anchor-resolution helper for the MVTSeries undiff overload
 # whose Julia counterpart is type-dispatch — keep the readable branch list.
 "src/tsecon/_math.py" = ["PLR0911", "PLR0912"]
+# _bdaily.py's replace_nans_if_warranted mirrors Julia's two-direction
+# (k > 0 / k < 0) NaN-infill loops with their full skip_all_nans / skip_holidays
+# / input_is_holiday branch structure; collapsing the branches loses the line-
+# by-line parity with the Julia source.
+"src/tsecon/_bdaily.py" = ["PLR0912"]
 # Pretty-printer + frequency-dispatch helpers fan out across the frequency
 # hierarchy and across the union of supported value types.
 "src/tsecon/workspace.py" = ["PLR0911"]

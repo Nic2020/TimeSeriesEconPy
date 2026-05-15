@@ -40,6 +40,7 @@ from tsecon.frequencies import (
 )
 from tsecon.mit import MIT, bdaily, daily, mit_to_date
 from tsecon.mitrange import MITRange
+from tsecon.tseries import TSeries
 
 __all__ = ["fconvert_mit", "fconvert_parts", "fconvert_range"]
 
@@ -219,6 +220,8 @@ def fconvert_range(
     *,
     trim: Trim = "both",
     parts: Literal[False] = False,
+    skip_holidays: bool = False,
+    holidays_map: TSeries | None = None,
 ) -> MITRange: ...
 
 
@@ -229,6 +232,8 @@ def fconvert_range(
     *,
     trim: Trim = "both",
     parts: Literal[True],
+    skip_holidays: bool = False,
+    holidays_map: TSeries | None = None,
 ) -> tuple[int, int, int, int, int, int]: ...
 
 
@@ -238,6 +243,8 @@ def fconvert_range(
     *,
     trim: Trim = "both",
     parts: bool = False,
+    skip_holidays: bool = False,
+    holidays_map: TSeries | None = None,
 ) -> MITRange | tuple[int, int, int, int, int, int]:
     """Convert ``range_from`` to ``target``.
 
@@ -246,6 +253,15 @@ def fconvert_range(
     period. With ``parts=True`` (YP→YP only) returns the six-tuple
     ``(fi_to_period, fi_from_start_month, fi_to_start_month, li_to_period,
     li_from_end_month, li_to_end_month)`` used by the TSeries conversion path.
+
+    For BDaily-source lower-frequency conversion, ``skip_holidays`` /
+    ``holidays_map`` shift the boundary predecessor / successor past
+    consecutive holidays before applying the truncation check (mirrors
+    ``fconvert_mit.jl`` lines 239-258). ``skip_holidays=True`` consults the
+    global ``getoption('bdaily_holidays_map')`` map; ``holidays_map=t``
+    overrides it. The kwargs are only meaningful when ``range_from``'s
+    frequency is BDaily *and* the conversion is to a lower frequency;
+    elsewhere they're accepted as no-ops to keep the dispatcher uniform.
 
     Examples
     --------
@@ -283,7 +299,13 @@ def fconvert_range(
     if isinstance(f_to, (YPFrequency, Weekly)) and isinstance(
         f_from, (Daily, BDaily, Weekly, YPFrequency)
     ):
-        fi, li, ts, te = _fconvert_using_dates_parts(f_to, range_from, trim=trim)
+        fi, li, ts, te = _fconvert_using_dates_parts(
+            f_to,
+            range_from,
+            trim=trim,
+            skip_holidays=skip_holidays,
+            holidays_map=holidays_map,
+        )
         # The truncation arithmetic differs slightly by direction (higher vs
         # lower). For higher: just add/subtract. For lower: same — `fi` and
         # `li` are already the *inner* indices from _fconvert_using_dates_parts.

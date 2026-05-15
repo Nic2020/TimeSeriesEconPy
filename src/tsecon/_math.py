@@ -19,17 +19,23 @@ In-place variants (``shift_inplace`` / ``lag_inplace`` / ``lead_inplace`` /
 ``undiff!`` family: they only mutate their first argument and reuse its
 existing buffer (resizing as needed).
 
-BDaily-specific ``skip_all_nans`` / ``skip_holidays`` keyword variants are
-deferred until ``options.jl`` is ported (see ``parity/PARITY.md``).
+BDaily ``skip_all_nans`` / ``skip_holidays`` / ``holidays_map`` keyword
+variants (``tsmath.jl`` lines 111+, ``tseries.jl`` line 525+) live on
+``shift`` / ``shift_inplace`` / ``lag`` / ``lag_inplace`` / ``lead`` /
+``lead_inplace`` / ``diff`` / ``pct``. They require a BDaily series and call
+:func:`tsecon._bdaily.replace_nans_if_warranted` after the firstdate shift to
+infill NaN entries. Passing any of these kwargs on a non-BDaily series
+raises :class:`TypeError` to mirror Julia's type-dispatch separation.
 """
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 
-from tsecon.frequencies import Frequency, YPFrequency, ppy, prettyprint_frequency
+from tsecon._bdaily import replace_nans_if_warranted
+from tsecon.frequencies import BDaily, Frequency, YPFrequency, ppy, prettyprint_frequency
 from tsecon.mit import MIT
 from tsecon.mitrange import MITRange, rangeof_span
 from tsecon.mvtseries import MVTSeries
@@ -74,7 +80,14 @@ _MVAnchor = (
 )
 
 
-def shift(t: TSeries | MVTSeries, k: int) -> TSeries | MVTSeries:
+def shift(
+    t: TSeries | MVTSeries,
+    k: int,
+    *,
+    skip_all_nans: bool = False,
+    skip_holidays: bool = False,
+    holidays_map: TSeries | None = None,
+) -> TSeries | MVTSeries:
     """Return a copy of ``t`` with its dates shifted by ``k`` periods.
 
     By convention, positive ``k`` produces the *lead* (the value at ``t+k`` is
@@ -83,46 +96,163 @@ def shift(t: TSeries | MVTSeries, k: int) -> TSeries | MVTSeries:
 
     Accepts a :class:`~tsecon.tseries.TSeries` or
     :class:`~tsecon.mvtseries.MVTSeries`.
+
+    BDaily kwargs (``skip_all_nans`` / ``skip_holidays`` / ``holidays_map``)
+    are accepted only when ``t.frequency`` is :class:`BDaily`; on the shifted
+    result they run :func:`tsecon._bdaily.replace_nans_if_warranted` to
+    infill NaN entries. For an MVTSeries{BDaily} the infill is applied
+    per-column (this extends Julia's TSeries-only overload — Julia's
+    MVTSeries shift has no kwarg path, so a Python user passing kwargs would
+    otherwise just lose them).
     """
+    _check_bdaily_kwargs(t, skip_all_nans, skip_holidays, holidays_map)
     if isinstance(t, MVTSeries):
-        return shift_inplace(t.copy(), int(k))
+        return _shift_mvts_copy(
+            t,
+            int(k),
+            skip_all_nans=skip_all_nans,
+            skip_holidays=skip_holidays,
+            holidays_map=holidays_map,
+        )
     new_start = MIT(t.frequency, t.firstdate.value - int(k))
-    return TSeries(new_start, t.values.copy())
+    new_values = t.values.copy()
+    if _has_bdaily_kwargs(skip_all_nans, skip_holidays, holidays_map):
+        if not np.issubdtype(new_values.dtype, np.floating):
+            new_values = new_values.astype(np.float64)
+        new_ts = TSeries(new_start, new_values)
+        replace_nans_if_warranted(
+            new_ts,
+            int(k),
+            skip_all_nans=skip_all_nans,
+            skip_holidays=skip_holidays,
+            holidays_map=holidays_map,
+        )
+        return new_ts
+    return TSeries(new_start, new_values)
 
 
-def shift_inplace(t: TSeries | MVTSeries, k: int) -> TSeries | MVTSeries:
+def shift_inplace(
+    t: TSeries | MVTSeries,
+    k: int,
+    *,
+    skip_all_nans: bool = False,
+    skip_holidays: bool = False,
+    holidays_map: TSeries | None = None,
+) -> TSeries | MVTSeries:
     """In-place version of :func:`shift`. Mutates the firstdate(s) and returns the same object."""
+    _check_bdaily_kwargs(t, skip_all_nans, skip_holidays, holidays_map)
     if isinstance(t, MVTSeries):
         new_start = MIT(t.frequency, t.firstdate.value - int(k))
         t._firstdate = new_start
         for col in t._columns.values():
             col._firstdate = MIT(col.frequency, col.firstdate.value - int(k))
+        if _has_bdaily_kwargs(skip_all_nans, skip_holidays, holidays_map):
+            _bdaily_infill_mvts_inplace(
+                t,
+                int(k),
+                skip_all_nans=skip_all_nans,
+                skip_holidays=skip_holidays,
+                holidays_map=holidays_map,
+            )
         return t
     t._firstdate = MIT(t.frequency, t.firstdate.value - int(k))
+    if _has_bdaily_kwargs(skip_all_nans, skip_holidays, holidays_map):
+        if not np.issubdtype(t.values.dtype, np.floating):
+            msg = (
+                "shift_inplace with BDaily kwargs requires a float-dtype series; "
+                f"got dtype {t.values.dtype}. Use shift(...) for a fresh allocation."
+            )
+            raise TypeError(msg)
+        replace_nans_if_warranted(
+            t,
+            int(k),
+            skip_all_nans=skip_all_nans,
+            skip_holidays=skip_holidays,
+            holidays_map=holidays_map,
+        )
     return t
 
 
-def lag(t: TSeries | MVTSeries, k: int = 1) -> TSeries | MVTSeries:
+def lag(
+    t: TSeries | MVTSeries,
+    k: int = 1,
+    *,
+    skip_all_nans: bool = False,
+    skip_holidays: bool = False,
+    holidays_map: TSeries | None = None,
+) -> TSeries | MVTSeries:
     """Return the ``k``-th lag. Same as ``shift(t, -k)``."""
-    return shift(t, -int(k))
+    return shift(
+        t,
+        -int(k),
+        skip_all_nans=skip_all_nans,
+        skip_holidays=skip_holidays,
+        holidays_map=holidays_map,
+    )
 
 
-def lag_inplace(t: TSeries | MVTSeries, k: int = 1) -> TSeries | MVTSeries:
+def lag_inplace(
+    t: TSeries | MVTSeries,
+    k: int = 1,
+    *,
+    skip_all_nans: bool = False,
+    skip_holidays: bool = False,
+    holidays_map: TSeries | None = None,
+) -> TSeries | MVTSeries:
     """In-place version of :func:`lag`."""
-    return shift_inplace(t, -int(k))
+    return shift_inplace(
+        t,
+        -int(k),
+        skip_all_nans=skip_all_nans,
+        skip_holidays=skip_holidays,
+        holidays_map=holidays_map,
+    )
 
 
-def lead(t: TSeries | MVTSeries, k: int = 1) -> TSeries | MVTSeries:
+def lead(
+    t: TSeries | MVTSeries,
+    k: int = 1,
+    *,
+    skip_all_nans: bool = False,
+    skip_holidays: bool = False,
+    holidays_map: TSeries | None = None,
+) -> TSeries | MVTSeries:
     """Return the ``k``-th lead. Same as ``shift(t, k)``."""
-    return shift(t, int(k))
+    return shift(
+        t,
+        int(k),
+        skip_all_nans=skip_all_nans,
+        skip_holidays=skip_holidays,
+        holidays_map=holidays_map,
+    )
 
 
-def lead_inplace(t: TSeries | MVTSeries, k: int = 1) -> TSeries | MVTSeries:
+def lead_inplace(
+    t: TSeries | MVTSeries,
+    k: int = 1,
+    *,
+    skip_all_nans: bool = False,
+    skip_holidays: bool = False,
+    holidays_map: TSeries | None = None,
+) -> TSeries | MVTSeries:
     """In-place version of :func:`lead`."""
-    return shift_inplace(t, int(k))
+    return shift_inplace(
+        t,
+        int(k),
+        skip_all_nans=skip_all_nans,
+        skip_holidays=skip_holidays,
+        holidays_map=holidays_map,
+    )
 
 
-def diff(t: TSeries | MVTSeries, k: int = -1) -> TSeries | MVTSeries:
+def diff(
+    t: TSeries | MVTSeries,
+    k: int = -1,
+    *,
+    skip_all_nans: bool = False,
+    skip_holidays: bool = False,
+    holidays_map: TSeries | None = None,
+) -> TSeries | MVTSeries:
     """First (or ``k``-th) difference of ``t``.
 
     Defined as ``t - shift(t, k)``. With the default ``k=-1`` (subtract the
@@ -130,11 +260,34 @@ def diff(t: TSeries | MVTSeries, k: int = -1) -> TSeries | MVTSeries:
 
     For an :class:`~tsecon.mvtseries.MVTSeries` the operation is performed
     column-wise; the result is a new MVTSeries one row shorter (for
-    ``|k|=1``).
+    ``|k|=1``). BDaily kwargs are forwarded to the inner ``lag`` call so
+    NaN/holiday infill is applied to the lag side of the subtraction
+    (mirrors ``Base.diff(::TSeries{BDaily})`` in ``tseries.jl``).
     """
+    _check_bdaily_kwargs(t, skip_all_nans, skip_holidays, holidays_map)
     if isinstance(t, MVTSeries):
-        return _diff_mvts(t, int(k))
-    return _as_tseries(t - shift(t, int(k)), reference=t)
+        if not _has_bdaily_kwargs(skip_all_nans, skip_holidays, holidays_map):
+            return _diff_mvts(t, int(k))
+        # BDaily kwargs path: build the lag (with infill) and subtract via MVTSeries arithmetic.
+        lag_t = cast(
+            "MVTSeries",
+            lag(
+                t,
+                -int(k),
+                skip_all_nans=skip_all_nans,
+                skip_holidays=skip_holidays,
+                holidays_map=holidays_map,
+            ),
+        )
+        return cast("MVTSeries", t - lag_t)
+    lag_ts = lag(
+        t,
+        -int(k),
+        skip_all_nans=skip_all_nans,
+        skip_holidays=skip_holidays,
+        holidays_map=holidays_map,
+    )
+    return _as_tseries(t - lag_ts, reference=t)
 
 
 def _diff_mvts(t: MVTSeries, k: int) -> MVTSeries:
@@ -153,19 +306,51 @@ def _diff_mvts(t: MVTSeries, k: int) -> MVTSeries:
     return MVTSeries(new_first, list(t._columns.keys()), diffs)
 
 
-def pct(t: TSeries, shift_value: int = -1, *, islog: bool = False) -> TSeries:
+def pct(
+    t: TSeries | MVTSeries,
+    shift_value: int = -1,
+    *,
+    islog: bool = False,
+    skip_all_nans: bool = False,
+    skip_holidays: bool = False,
+    holidays_map: TSeries | None = None,
+) -> TSeries | MVTSeries:
     """Observation-to-observation percent rate of change.
 
     When ``islog`` is ``True``, ``t`` is interpreted as a log-series — values
     are exponentiated before differencing.
+
+    For BDaily series, accepts ``skip_all_nans`` / ``skip_holidays`` /
+    ``holidays_map`` kwargs. The kwargs are forwarded to the inner
+    :func:`shift` call (the value that ends up in the denominator), so NaN
+    / holiday infill on the shift result propagates into the resulting
+    percent series.
     """
+    _check_bdaily_kwargs(t, skip_all_nans, skip_holidays, holidays_map)
     if islog:
-        exp_t = TSeries(t.firstdate, np.exp(t.values))
-        a = exp_t
-        b = shift(exp_t, int(shift_value))
+        if isinstance(t, MVTSeries):
+            exp_arr = np.exp(np.asarray(t.values, dtype=np.float64))
+            a: TSeries | MVTSeries = MVTSeries(t.firstdate, list(t._columns.keys()), exp_arr)
+        else:
+            a = TSeries(t.firstdate, np.exp(np.asarray(t.values, dtype=np.float64)))
+        b = shift(
+            a,
+            int(shift_value),
+            skip_all_nans=skip_all_nans,
+            skip_holidays=skip_holidays,
+            holidays_map=holidays_map,
+        )
     else:
         a = t
-        b = shift(t, int(shift_value))
+        b = shift(
+            t,
+            int(shift_value),
+            skip_all_nans=skip_all_nans,
+            skip_holidays=skip_holidays,
+            holidays_map=holidays_map,
+        )
+    if isinstance(t, MVTSeries):
+        return cast("MVTSeries", ((a - b) / b) * 100)
     return _as_tseries(((a - b) / b) * 100, reference=t)
 
 
@@ -551,3 +736,96 @@ def _mixed_freq(left: object, right: object) -> TypeError:
         prettyprint_frequency(right) if isinstance(right, Frequency) else type(right).__name__
     )
     return TypeError(f"Mixing frequencies not allowed: {left_label} and {right_label}.")
+
+
+# ---------------------------------------------------------------------------
+# BDaily kwarg plumbing
+# ---------------------------------------------------------------------------
+
+
+def _has_bdaily_kwargs(
+    skip_all_nans: bool, skip_holidays: bool, holidays_map: TSeries | None
+) -> bool:
+    return bool(skip_all_nans) or bool(skip_holidays) or holidays_map is not None
+
+
+def _check_bdaily_kwargs(
+    t: TSeries | MVTSeries,
+    skip_all_nans: bool,
+    skip_holidays: bool,
+    holidays_map: TSeries | None,
+) -> None:
+    """Reject BDaily kwargs on non-BDaily series.
+
+    Mirrors Julia's type-dispatch separation: the kwargs only exist on the
+    ``TSeries{BDaily}`` overloads of ``shift`` / ``lag`` / ``lead`` /
+    ``diff`` / ``pct``.
+    """
+    if not _has_bdaily_kwargs(skip_all_nans, skip_holidays, holidays_map):
+        return
+    if not isinstance(t.frequency, BDaily):
+        msg = (
+            "skip_all_nans / skip_holidays / holidays_map keywords are only "
+            f"valid on BDaily series; got frequency {type(t.frequency).__name__}."
+        )
+        raise TypeError(msg)
+
+
+def _shift_mvts_copy(
+    t: MVTSeries,
+    k: int,
+    *,
+    skip_all_nans: bool,
+    skip_holidays: bool,
+    holidays_map: TSeries | None,
+) -> MVTSeries:
+    """Shift an MVTSeries by ``k`` periods, applying BDaily infill if requested.
+
+    Without BDaily kwargs this is the original copy + firstdate-shift; with
+    kwargs, the result's underlying values are float-promoted and each column
+    independently gets ``replace_nans_if_warranted`` applied (per-column to
+    mirror what the user would get by calling ``shift`` on each column
+    separately).
+    """
+    out = t.copy()
+    new_start = MIT(t.frequency, t.firstdate.value - int(k))
+    out._firstdate = new_start
+    for col in out._columns.values():
+        col._firstdate = MIT(col.frequency, col.firstdate.value - int(k))
+    if _has_bdaily_kwargs(skip_all_nans, skip_holidays, holidays_map):
+        _bdaily_infill_mvts_inplace(
+            out,
+            int(k),
+            skip_all_nans=skip_all_nans,
+            skip_holidays=skip_holidays,
+            holidays_map=holidays_map,
+        )
+    return out
+
+
+def _bdaily_infill_mvts_inplace(
+    t: MVTSeries,
+    k: int,
+    *,
+    skip_all_nans: bool,
+    skip_holidays: bool,
+    holidays_map: TSeries | None,
+) -> None:
+    """Apply :func:`replace_nans_if_warranted` to each column of an MVTSeries{BDaily}."""
+    if not np.issubdtype(t.values.dtype, np.floating):
+        # MVTSeries inplace currently shares the underlying float array between
+        # the matrix and column views; the column shift path already preserves
+        # the float assumption. Mirror that here by requiring float-dtype input.
+        msg = (
+            "shift with BDaily kwargs on an MVTSeries requires a float-dtype "
+            f"underlying array; got dtype {t.values.dtype}."
+        )
+        raise TypeError(msg)
+    for col in t._columns.values():
+        replace_nans_if_warranted(
+            col,
+            int(k),
+            skip_all_nans=skip_all_nans,
+            skip_holidays=skip_holidays,
+            holidays_map=holidays_map,
+        )

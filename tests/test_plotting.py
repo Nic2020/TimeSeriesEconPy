@@ -22,11 +22,13 @@ import matplotlib
 
 matplotlib.use("Agg")
 
+import warnings
+
 import matplotlib.pyplot as plt
 import numpy as np
 import plotly.graph_objects as go
 import pytest
-from matplotlib.ticker import FuncFormatter
+from matplotlib.ticker import FuncFormatter, MultipleLocator
 
 import tsecon
 import tsecon.plotting as plotting_pkg
@@ -58,6 +60,7 @@ from tsecon.plotting._common import (
     normalize_label,
     normalize_vars,
     panel_grid,
+    pick_yp_stride,
     xaxis_kind,
     yp_tick_positions,
 )
@@ -138,6 +141,24 @@ class TestMitFormatter:
         f = mit_formatter("middle", Quarterly())
         assert f(2020.125) == "2020Q1"
         assert f(2020.375) == "2020Q2"
+
+
+class TestPickYpStride:
+    def test_short_range_uses_per_period_stride(self) -> None:
+        # 8 quarters fits in 8 ticks at stride=1.
+        assert pick_yp_stride(rng_length=8, n=4) == 1
+
+    def test_medium_range_jumps_to_annual_stride(self) -> None:
+        # 16 quarters at stride=1 gives 16 ticks (> target_n=8); stride=4 gives 4.
+        assert pick_yp_stride(rng_length=16, n=4) == 4
+
+    def test_long_range_picks_bigger_year_multiple(self) -> None:
+        # 200 quarters with target_n=8: stride=4 → 50 ticks, stride=20 → 10 ticks
+        # (still >8), stride=40 (10 years) → 5 ticks (<=8). Stride 40 wins.
+        assert pick_yp_stride(rng_length=200, n=4) == 40
+
+    def test_empty_range_returns_one(self) -> None:
+        assert pick_yp_stride(rng_length=0, n=4) == 1
 
 
 class TestYpTickPositions:
@@ -437,6 +458,60 @@ class TestMatplotlibTSeries:
         t = TSeries(qq(2020, 1), [1.0, 2.0, 3.0, 4.0])
         fig = plot(t, backend="matplotlib")
         assert isinstance(fig.axes[0].xaxis.get_major_formatter(), FuncFormatter)
+
+    def test_yp_axis_has_multiplelocator_aligned_to_grid(self) -> None:
+        # The matplotlib backend pairs the FuncFormatter with a MultipleLocator
+        # whose base = stride / N and offset = mit_offset(loc, freq). This makes
+        # auto-ticks land *on* the YP grid, so the off-grid "+" warning only
+        # fires for user-supplied off-grid xticks (not for matplotlib's
+        # default tick choice).
+        rng = mitrange(qq(2020, 1), qq(2023, 4))  # 16 quarters -> stride 4 (annual)
+        t = TSeries(rng, np.arange(len(rng), dtype=float))
+        fig = plot(t, backend="matplotlib", mit_loc="left")
+        loc_obj = fig.axes[0].xaxis.get_major_locator()
+        assert isinstance(loc_obj, MultipleLocator)
+        # MultipleLocator.tick_values(vmin, vmax) returns every multiple
+        # in [vmin, vmax] inclusive, padding outward to nearest multiple.
+        # For base=1.0, offset=0 across [2020.0, 2023.75]: integer years
+        # spanning 2019..2024 (padded outwards by one step on each end).
+        ticks = loc_obj.tick_values(2020.0, 2023.75)
+        np.testing.assert_allclose(ticks, [2019.0, 2020.0, 2021.0, 2022.0, 2023.0, 2024.0])
+
+    def test_yp_axis_locator_respects_mit_loc(self) -> None:
+        rng = mitrange(qq(2020, 1), qq(2023, 4))
+        t = TSeries(rng, np.arange(len(rng), dtype=float))
+        fig = plot(t, backend="matplotlib", mit_loc="middle")
+        loc_obj = fig.axes[0].xaxis.get_major_locator()
+        ticks = loc_obj.tick_values(2020.0, 2023.75)
+        # Middle of each year on Quarterly: 2020.125, 2021.125, ...
+        # tick_values() pads outward to one step beyond the requested window.
+        np.testing.assert_allclose(
+            ticks,
+            [2019.125, 2020.125, 2021.125, 2022.125, 2023.125, 2024.125],
+        )
+
+    def test_yp_default_render_emits_no_offgrid_warning(self) -> None:
+        # With the matching MultipleLocator + FuncFormatter pair, a default
+        # render must NOT raise the "xticks marked with (+)" warning — that
+        # warning is reserved for genuinely user-supplied off-grid ticks.
+        rng = mitrange(qq(2020, 1), qq(2023, 4))
+        t = TSeries(rng, np.arange(len(rng), dtype=float))
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", UserWarning)
+            fig = plot(t, backend="matplotlib")
+            fig.canvas.draw()  # forces locator / formatter to actually run
+
+    def test_yp_user_offgrid_xticks_still_warn(self) -> None:
+        # If the user *overrides* xticks with off-grid values, the formatter
+        # still suffixes "+" and warns once. This is the original contract;
+        # the locator fix only changes the *default* behaviour.
+        rng = mitrange(qq(2020, 1), qq(2023, 4))
+        t = TSeries(rng, np.arange(len(rng), dtype=float))
+        fig = plot(t, backend="matplotlib")
+        ax = fig.axes[0]
+        ax.set_xticks([2020.1, 2021.3])  # neither lands on the Quarterly grid
+        with pytest.warns(UserWarning, match="not aligned"):
+            fig.canvas.draw()
 
     def test_daily_axis_is_date(self) -> None:
         rng = mitrange(daily(_dt.date(2024, 1, 1)), daily(_dt.date(2024, 1, 10)))

@@ -54,6 +54,7 @@ __all__ = [
     "normalize_label",
     "normalize_vars",
     "panel_grid",
+    "pick_yp_stride",
     "xaxis_kind",
     "yp_tick_positions",
 ]
@@ -146,6 +147,27 @@ def mit_formatter(mit_loc: MitLoc, frequency: Frequency) -> Callable[..., str]:
     return _fmt
 
 
+def pick_yp_stride(rng_length: int, n: int, *, target_n: int = 8) -> int:
+    """Return the period-stride that gives ~``target_n`` ticks for a YP range.
+
+    Stride candidates are ``1`` period, ``1`` year (``n`` periods), then
+    ``k`` years for ``k`` in 2/5/10/25/50/100. The first stride whose
+    resulting tick count is ``<= target_n`` wins; fallback is one period
+    per tick (stride 1).
+
+    Shared by :func:`yp_tick_positions` (plotly) and the matplotlib
+    backend's :class:`matplotlib.ticker.MultipleLocator` configuration so
+    both backends pick identical tick positions.
+    """
+    if rng_length <= 0:
+        return 1
+    candidates = [1, n, *(k * n for k in (2, 5, 10, 25, 50, 100))]
+    for c in candidates:
+        if rng_length / c <= target_n:
+            return c
+    return candidates[-1]
+
+
 def yp_tick_positions(
     rng: MITRange,
     mit_loc: MitLoc,
@@ -156,8 +178,8 @@ def yp_tick_positions(
 
     Used by the plotly backend, which (unlike matplotlib's
     ``FuncFormatter``) cannot apply a Python callable to a numeric axis.
-    The stride is chosen so the total tick count lands near ``target_n``;
-    candidates are 1 period, 1 year, ``k`` years for ``k`` in 2/5/10/25/50.
+    The stride is chosen by :func:`pick_yp_stride` so the total tick
+    count lands near ``target_n``.
     """
     if not isinstance(rng.frequency, YPFrequency):
         msg = "yp_tick_positions is YP-only"
@@ -166,12 +188,7 @@ def yp_tick_positions(
     offset = mit_offset(mit_loc, rng.frequency)
     if len(rng) == 0:
         return ([], [])
-    candidates = [1, n] + [k * n for k in (2, 5, 10, 25, 50, 100)]
-    stride = 1
-    for c in candidates:
-        if len(rng) / c <= target_n:
-            stride = c
-            break
+    stride = pick_yp_stride(len(rng), n, target_n=target_n)
     tickvals: list[float] = []
     ticktext: list[str] = []
     for i in range(0, len(rng), stride):

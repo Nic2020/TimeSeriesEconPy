@@ -100,6 +100,19 @@ function rec_ar2_100_run(state)
 end
 
 # ---------------------------------------------------------------------------
+# rec_linear three-flavor scenarios — see ../scenarios.py for the framing.
+# Julia has no kernel split (the @rec macro inlines into native code at
+# compile time), so all Python rec_linear variants share the same Julia
+# counterpart. The aliases below let the harness invoke "Julia for the
+# rec_linear_ar2_100_numpy scenario" without a special-case in run.py.
+# ---------------------------------------------------------------------------
+
+rec_linear_ar2_100_numpy_setup() = rec_ar2_100_setup()
+rec_linear_ar2_100_numpy_run(state) = rec_ar2_100_run(state)
+rec_linear_ar2_100_cython_setup() = rec_ar2_100_setup()
+rec_linear_ar2_100_cython_run(state) = rec_ar2_100_run(state)
+
+# ---------------------------------------------------------------------------
 # Workspace merge (5 series each)
 # ---------------------------------------------------------------------------
 
@@ -132,8 +145,10 @@ const SCENARIOS = Dict{String, Tuple{Function, Function}}(
     "shift_quarterly_lag1"       => (shift_quarterly_lag1_setup,       shift_quarterly_lag1_run),
     "moving_average_quarterly_4" => (moving_average_quarterly_4_setup, moving_average_quarterly_4_run),
     "fconvert_qq_to_yy_mean"     => (fconvert_qq_to_yy_mean_setup,     fconvert_qq_to_yy_mean_run),
-    "rec_ar2_100"                => (rec_ar2_100_setup,                rec_ar2_100_run),
-    "workspace_merge_5_series"   => (workspace_merge_5_series_setup,   workspace_merge_5_series_run),
+    "rec_ar2_100"                    => (rec_ar2_100_setup,                    rec_ar2_100_run),
+    "rec_linear_ar2_100_numpy"       => (rec_linear_ar2_100_numpy_setup,       rec_linear_ar2_100_numpy_run),
+    "rec_linear_ar2_100_cython"      => (rec_linear_ar2_100_cython_setup,      rec_linear_ar2_100_cython_run),
+    "workspace_merge_5_series"       => (workspace_merge_5_series_setup,       workspace_merge_5_series_run),
 )
 
 end  # module Scenarios

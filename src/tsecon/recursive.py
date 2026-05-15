@@ -37,13 +37,28 @@ polynomials).
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Any
+from typing import Any, Final
 
+import numpy as np
+import numpy.typing as npt
+
+from tsecon._rec_kernels import rec_linear_numpy
 from tsecon.mit import MIT
 from tsecon.mitrange import MITRange
 from tsecon.tseries import TSeries
 
-__all__ = ["rec"]
+# Try to load the optional Cython-compiled accelerator. When the wheel was
+# built without the C toolchain (or for editable installs that skipped the
+# build hook), the import fails silently and rec_linear falls back to the
+# NumPy reference. The public surface is otherwise unchanged.
+try:
+    from tsecon._rec_kernels_cy import rec_linear_cython  # type: ignore[import-not-found]
+
+    _CYTHON_AVAILABLE: Final[bool] = True
+except ImportError:
+    _CYTHON_AVAILABLE = False  # type: ignore[misc]
+
+__all__ = ["rec", "rec_linear", "rec_linear_is_cython"]
 
 
 def rec(
@@ -107,3 +122,156 @@ def rec(
         raise TypeError(msg)
     for t in rng:
         target[t] = fn(t)
+
+
+def rec_linear_is_cython() -> bool:
+    """Return True iff the Cython-compiled rec_linear kernel was importable.
+
+    Useful for tests, benchmarks, and diagnostic prints — the public
+    :func:`rec_linear` itself is implementation-agnostic. When this
+    returns ``False`` the same calls go through the pure-NumPy kernel
+    in ``_rec_kernels.py``; behaviour is identical, only speed differs.
+    """
+    return _CYTHON_AVAILABLE
+
+
+def rec_linear(
+    target: TSeries,
+    coeffs: npt.ArrayLike,
+    lags: npt.ArrayLike,
+    rng: MITRange,
+) -> None:
+    """Compute a linear-combination recurrence over ``rng`` in place.
+
+    Specialised closed-form sibling of :func:`rec` for the common case
+    where each step's value is a fixed linear combination of *earlier*
+    values of the *same* series. Covers Fibonacci, AR(p), arbitrary lag
+    polynomials — the recurrences that account for ~80% of pipeline
+    workloads per the M1 benchmark (see
+    ``claude_files/MASTER_PLAN.md`` § M1.5).
+
+    The body of the loop is::
+
+        for i, t in enumerate(rng):
+            target[t] = sum(coeffs[k] * target[t - lags[k]] for k in range(len(coeffs)))
+
+    so each ``lags[k]`` must be ``>= 1`` and ``target`` must already
+    contain valid values for every ``rng.first - lags[k]`` position
+    (the *initial conditions*). The first iteration writes
+    ``target[rng.first]``; ``target`` is resized in place to cover
+    ``rng`` if needed, filling new positions with NaN before the
+    recurrence runs.
+
+    Dispatch
+    --------
+    When the Cython extension ``tsecon._rec_kernels_cy`` is importable
+    (the typical wheel install), this function delegates to the
+    compiled :func:`rec_linear_cython` kernel — same contract,
+    much faster. Without the extension, the call goes through
+    :func:`rec_linear_numpy`, the pure-Python reference. Use
+    :func:`rec_linear_is_cython` to check which path is active.
+
+    Parameters
+    ----------
+    target : TSeries
+        The series being computed. Must have ``float64`` dtype. Mutated
+        in place. Initial conditions for every lagged read must already
+        be present; positions inside ``rng`` are (re)written.
+    coeffs : array-like of float
+        Recurrence weights. Will be coerced to a 1-D ``float64`` array.
+    lags : array-like of int
+        Positive lag offsets, one per coefficient. Must satisfy
+        ``min(lags) >= 1``. Coerced to a 1-D ``int64`` array.
+    rng : MITRange
+        The range to compute, frequency-matched to ``target``.
+
+    Raises
+    ------
+    TypeError
+        If ``rng.frequency`` does not match ``target.frequency``, or if
+        ``target.dtype`` is not ``float64``.
+    ValueError
+        If ``len(coeffs) != len(lags)``, if any lag is ``< 1``, or if
+        ``target`` does not contain the initial-condition positions
+        ``rng.first - lags[k]`` for every ``k``.
+
+    Examples
+    --------
+    Fibonacci over a Unit range::
+
+        >>> import numpy as np
+        >>> from tsecon import MIT, MITRange, TSeries, rec_linear
+        >>> from tsecon.frequencies import Unit
+        >>> s = TSeries(MIT(Unit(), 1), np.array([1.0, 1.0, 0.0, 0.0, 0.0]))
+        >>> rec_linear(s, [1.0, 1.0], [1, 2],
+        ...            MITRange(MIT(Unit(), 3), MIT(Unit(), 5)))
+        >>> s.values.tolist()
+        [1.0, 1.0, 2.0, 3.0, 5.0]
+
+    AR(2) recurrence over quarterly data::
+
+        rec_linear(consumption, [0.5, 0.3], [1, 2], rng)
+
+    See Also
+    --------
+    rec : General higher-order form ``target[t] = fn(t)``. Use it when
+        the recurrence is nonlinear or reads from series other than
+        ``target``.
+    """
+    if rng.frequency != target.frequency:
+        msg = (
+            f"rec_linear: range frequency {type(rng.frequency).__name__} does not "
+            f"match target frequency {type(target.frequency).__name__}."
+        )
+        raise TypeError(msg)
+    if rng.step != 1:
+        msg = f"rec_linear: range must have step=1, got step={rng.step}."
+        raise ValueError(msg)
+    coeffs_arr = np.asarray(coeffs, dtype=np.float64)
+    lags_arr = np.asarray(lags, dtype=np.int64)
+    if coeffs_arr.ndim != 1 or lags_arr.ndim != 1:
+        msg = "rec_linear: coeffs and lags must be 1-D."
+        raise ValueError(msg)
+    if coeffs_arr.shape[0] != lags_arr.shape[0]:
+        msg = (
+            f"rec_linear: coeffs (n={coeffs_arr.shape[0]}) and lags "
+            f"(n={lags_arr.shape[0]}) must have the same length."
+        )
+        raise ValueError(msg)
+    if coeffs_arr.shape[0] == 0:
+        msg = "rec_linear: coeffs/lags must be non-empty."
+        raise ValueError(msg)
+    if int(lags_arr.min()) < 1:
+        msg = f"rec_linear: all lags must be >= 1, got min lag {int(lags_arr.min())}."
+        raise ValueError(msg)
+    if target.dtype != np.float64:
+        msg = (
+            f"rec_linear: target.dtype must be float64 to feed the kernel, "
+            f"got {target.dtype}. Construct with TSeries(..., dtype=np.float64) or "
+            f"call .astype(np.float64) first."
+        )
+        raise TypeError(msg)
+    if len(rng) == 0:
+        return
+
+    rng_first = rng.start
+    max_lag = int(lags_arr.max())
+    earliest_read = rng_first.value - max_lag
+    if earliest_read < target.firstdate.value:
+        earliest_mit = MIT(target.frequency, earliest_read)
+        msg = (
+            f"rec_linear: initial conditions missing — recurrence reads "
+            f"target[{earliest_mit!s}] but target starts at {target.firstdate!s}."
+        )
+        raise ValueError(msg)
+
+    # Ensure target covers rng (auto-extend mirrors `rec`'s setitem behaviour).
+    target._ensure_covers(rng)
+    values = target._values
+    offset = rng_first.value - target.firstdate.value
+    count = len(rng)
+
+    if _CYTHON_AVAILABLE:
+        rec_linear_cython(values, offset, count, coeffs_arr, lags_arr)
+    else:
+        rec_linear_numpy(values, offset, count, coeffs_arr, lags_arr)

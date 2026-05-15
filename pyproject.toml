@@ -1,5 +1,11 @@
 [build-system]
-requires = ["hatchling>=1.27"]
+# Cython + NumPy + setuptools are build-time deps because the wheel ships
+# compiled extension modules (see hatch_build.py / decision 17 /
+# src/tsecon/_rec_kernels_cy.pyx). setuptools.command.build_ext drives the
+# C-compiler invocation; Cython produces the C sources from .pyx; NumPy
+# provides include directories the .pyx imports. At runtime, only NumPy is
+# required — Cython and setuptools are purely build tools.
+requires = ["hatchling>=1.27", "Cython>=3.0", "numpy>=1.26", "setuptools>=68"]
 build-backend = "hatchling.build"
 
 [project]
@@ -52,6 +58,10 @@ dev = [
     "mkdocs>=1.6",
     "mkdocs-material>=9.5",
     "mkdocstrings[python]>=0.27",
+    # Cython is in [build-system].requires for wheel builds; we also list it
+    # in dev so editable installs / `uv run python setup.py build_ext` paths
+    # have it available without an extra activation step.
+    "Cython>=3.0",
 ]
 
 [project.urls]
@@ -63,6 +73,16 @@ Issues = "https://github.com/Nic2020/TimeSeriesEconPy/issues"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/tsecon"]
+# The compiled extensions land next to their .pyx sources in src/tsecon/.
+# hatch_build.py builds them in-place during the wheel build step.
+artifacts = [
+    "src/tsecon/*.so",
+    "src/tsecon/*.pyd",
+]
+
+[tool.hatch.build.targets.wheel.hooks.custom]
+# Cython compilation hook — see hatch_build.py.
+path = "hatch_build.py"
 
 [tool.hatch.build.targets.sdist]
 include = [
@@ -71,6 +91,7 @@ include = [
     "/README.md",
     "/LICENSE",
     "/pyproject.toml",
+    "/hatch_build.py",
 ]
 
 # ---------------------------------------------------------------------------
@@ -113,6 +134,9 @@ convention = "numpy"
 "docs/**" = ["D", "INP001"]
 "scripts/**" = ["D", "INP001"]
 "benchmarks/**" = ["D", "INP001"]
+# Build hook lazy-imports its build-only deps (Cython, NumPy, setuptools)
+# so the file is loadable in environments that have only hatchling.
+"hatch_build.py" = ["D", "INP001", "PLC0415"]
 # Multi-type arithmetic dispatch on MIT/Duration intentionally has many branches.
 "src/tsecon/mit.py" = ["PLR0911", "PLR0912"]
 # Indexing dispatch on TSeries (MIT / MITRange / slice / int / array / bool TSeries / MIT-slice)

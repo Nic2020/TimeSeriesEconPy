@@ -107,7 +107,7 @@ from tsecon.plotting import (
     plot,
     resolve_backend,
 )
-from tsecon.recursive import rec
+from tsecon.recursive import rec, rec_linear, rec_linear_is_cython
 from tsecon.tseries import TSeries, typenan
 from tsecon.workspace import Workspace
 
@@ -187,6 +187,8 @@ __all__ = [
     "quantile",
     "rangeof_span",
     "rec",
+    "rec_linear",
+    "rec_linear_is_cython",
     "rename_columns_inplace",
     "resolve_backend",
     "sanitize_frequency",

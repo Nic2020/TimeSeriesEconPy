@@ -130,6 +130,14 @@ convention = "numpy"
 "src/tsecon/workspace.py" = ["PLR0911"]
 # JSON encode/decode is type-dispatch over the union of supported values.
 "src/tsecon/io/json.py" = ["PLR0911"]
+# fconvert truncation deciders mirror Julia's four Val{ref}*Val{require}
+# overloads as four explicit if-blocks; each branch returns 0 or 1, so
+# collapsing them into nested predicates loses the side-by-side parity
+# with the Julia source.
+"src/tsecon/fconvert/_helpers.py" = ["PLR0911"]
+# fconvert dispatch fans out across (call-shape, direction, method, ref).
+"src/tsecon/fconvert/__init__.py" = ["PLR0911"]
+"src/tsecon/fconvert/_tseries.py" = ["PLR0911", "PLR0912"]
 # __post_init__ / __new__ are constructor-flavored; D102 (undocumented public method)
 # is noise for them and for slot dunders ruff hasn't classified.
 "src/tsecon/**" = ["D102"]

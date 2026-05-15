@@ -24,6 +24,17 @@ from tsecon._math import (
     ytypct,
 )
 from tsecon._mirror import MIRRORS_JULIA_SHA
+from tsecon.fconvert import (
+    extend_series,
+    fconvert,
+    fconvert_mit,
+    fconvert_parts,
+    fconvert_range,
+    fconvert_tseries,
+    strip_tseries,
+    strip_tseries_inplace,
+    trim_series,
+)
 from tsecon.frequencies import (
     BDaily,
     CalendarFrequency,
@@ -96,6 +107,12 @@ __all__ = [
     "daily",
     "diff",
     "endperiod",
+    "extend_series",
+    "fconvert",
+    "fconvert_mit",
+    "fconvert_parts",
+    "fconvert_range",
+    "fconvert_tseries",
     "frequency_of",
     "hcat",
     "is_bdaily",
@@ -126,6 +143,9 @@ __all__ = [
     "sanitize_frequency",
     "shift",
     "shift_inplace",
+    "strip_tseries",
+    "strip_tseries_inplace",
+    "trim_series",
     "typenan",
     "undiff",
     "undiff_inplace",

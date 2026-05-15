@@ -24,10 +24,9 @@ Deferred until later milestones (currently blocked on other ported modules):
 * ``clean_old_frequencies`` — Julia compatibility shim for legacy quarterly
   numbering; no analogue needed in Python.
 
-The standalone ``strip(t::TSeries)`` / ``strip!(t::TSeries)`` helpers live in
-``fconvert_helpers.jl`` upstream and will land in the ``fconvert`` port; for
-the workspace's ``strip_inplace`` we inline the ``_valid_range`` logic so the
-test port doesn't have to wait.
+The standalone ``strip!(t::TSeries)`` helper now lives in the ported fconvert
+subpackage as :func:`tsecon.fconvert.strip_tseries_inplace`; the workspace
+delegates to it.
 """
 
 from __future__ import annotations
@@ -38,10 +37,11 @@ from typing import Any
 
 import numpy as np
 
+from tsecon.fconvert import strip_tseries_inplace
 from tsecon.frequencies import Frequency, prettyprint_frequency
 from tsecon.mit import MIT, Duration
 from tsecon.mitrange import MITRange, rangeof_span
-from tsecon.tseries import TSeries, typenan
+from tsecon.tseries import TSeries
 
 __all__ = ["Workspace"]
 
@@ -299,14 +299,13 @@ class Workspace:
         With ``recursive=True`` (the default) also strips TSeries inside
         nested Workspaces. Mirrors Julia's ``strip!(w; recursive)``.
 
-        The per-TSeries trim mirrors ``strip!(t::TSeries)`` from
-        ``fconvert_helpers.jl``: it resizes the TSeries to its inner range
-        where ``values != typenan(dtype)``. For boolean dtypes the typenan
-        is ``False``, which would strip everything — those are left alone.
+        Delegates the per-TSeries trim to
+        :func:`tsecon.fconvert.strip_tseries_inplace`. Bool-dtype TSeries are
+        left alone (their typenan is ``False``, which would erase the array).
         """
         for value in self._c.values():
             if isinstance(value, TSeries):
-                _strip_tseries_inplace(value)
+                strip_tseries_inplace(value)
             elif recursive and isinstance(value, Workspace):
                 value.strip_inplace(recursive=recursive)
         return self
@@ -409,34 +408,6 @@ class Workspace:
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-
-
-def _strip_tseries_inplace(t: TSeries) -> None:
-    """Trim leading/trailing typenan entries from ``t`` in place.
-
-    Mirrors ``strip!(t::TSeries)`` from ``fconvert_helpers.jl``. Float dtypes
-    use NaN as the sentinel; integer dtypes use ``iinfo(dtype).max``. Bool
-    dtypes are left alone (their typenan is ``False``, which would erase
-    the whole array).
-    """
-    if t.is_empty():
-        return
-    arr = t.values
-    dt = arr.dtype
-    if dt == np.bool_:
-        return
-    sentinel = typenan(dt)
-    valid = ~np.isnan(arr) if np.issubdtype(dt, np.floating) else arr != sentinel
-    if not valid.any():
-        # All entries are NaN: shrink to empty starting at original firstdate.
-        empty = MITRange(t.firstdate, MIT(t.firstdate.frequency, t.firstdate.value - 1))
-        t.resize(empty)
-        return
-    first_valid = int(np.argmax(valid))
-    last_valid = len(arr) - 1 - int(np.argmax(valid[::-1]))
-    new_start = MIT(t.firstdate.frequency, t.firstdate.value + first_valid)
-    new_stop = MIT(t.firstdate.frequency, t.firstdate.value + last_valid)
-    t.resize(MITRange(new_start, new_stop))
 
 
 def _rangeof_member(value: object) -> MITRange | None:

@@ -1,11 +1,13 @@
 # SPDX-License-Identifier: MIT
-"""Frequency-conversion subsystem (YP-only this milestone).
+"""Frequency-conversion subsystem.
 
 Mirrors ``TimeSeriesEcon.jl/src/fconvert/``. The single user-facing entry is
 :func:`fconvert`, which dispatches on the second positional argument:
 
-* ``fconvert(target, mit)`` — convert an :class:`~tsecon.mit.MIT`.
-* ``fconvert(target, mitrange, *, trim=...)`` — convert an :class:`~tsecon.mitrange.MITRange`.
+* ``fconvert(target, mit, *, ref=..., round_to=...)`` — convert an
+  :class:`~tsecon.mit.MIT`. ``round_to`` is only meaningful for BDaily targets.
+* ``fconvert(target, mitrange, *, trim=...)`` — convert an
+  :class:`~tsecon.mitrange.MITRange`.
 * ``fconvert(target, tseries, *, method=..., ref=...)`` — convert a
   :class:`~tsecon.tseries.TSeries` using a built-in aggregator / spreader.
 * ``fconvert(f, target, tseries, *, ref=..., **kwargs)`` — convert a TSeries
@@ -17,8 +19,9 @@ type:
 * :func:`fconvert_mit` / :func:`fconvert_range` / :func:`fconvert_tseries` —
   the per-input-type entry points (no Julia-style multiple-dispatch
   overhead).
-* :func:`fconvert_parts` — internal triple used by the TSeries conversion
-  path (``(period, source_month, target_month)``); exposed for advanced use.
+* :func:`fconvert_parts` — internal triple used by the YP→YP TSeries
+  conversion path (``(period, source_month, target_month)``); exposed for
+  advanced use.
 
 Helpers and series-shape operations:
 
@@ -31,9 +34,9 @@ Helpers and series-shape operations:
   available as the canonical custom-function aliases that mirror
   ``method="const" / "even" / "linear"`` exactly).
 
-The Calendar-frequency variants (Daily / BDaily / Weekly) are deferred to a
-follow-up session. Calls into them currently raise ``NotImplementedError``
-with a pointer back to this comment.
+Currently still ⬜: the BDaily kwarg variants (``skip_holidays`` /
+``skip_all_nans`` / ``holidays_map``) block on the ``options.jl`` port; and
+BDaily-source :func:`extend_series` needs the ``cleanedvalues`` plumbing.
 """
 
 from __future__ import annotations
@@ -80,7 +83,13 @@ __all__ = [
 
 
 @overload
-def fconvert(target: FrequencyLike, what: MIT, *, ref: str = "end") -> MIT: ...
+def fconvert(
+    target: FrequencyLike,
+    what: MIT,
+    *,
+    ref: str = "end",
+    round_to: str = "current",
+) -> MIT: ...
 @overload
 def fconvert(target: FrequencyLike, what: MITRange, *, trim: str = "both") -> MITRange: ...
 @overload

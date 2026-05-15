@@ -193,3 +193,15 @@ markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "benchmark: marks performance benchmarks",
 ]
+# Escalate UserWarning to a test failure. The intent: every UserWarning the
+# code emits should be either (a) an assertion target (`pytest.warns(...)`),
+# (b) explicitly accepted on a single test (`@pytest.mark.filterwarnings`),
+# or (c) suppressed at the source because its cause has been fixed. Letting
+# an unannotated UserWarning land in test output means "we noticed but didn't
+# decide" — and that's how a real bug-in-disguise (e.g. the matplotlib YP
+# auto-tick warning on default renders, fixed 2026-05-15) survives unnoticed
+# until a user files an issue. See claude_files/SESSION_LOG.md session 13
+# follow-up for the originating case study.
+filterwarnings = [
+    "error::UserWarning",
+]

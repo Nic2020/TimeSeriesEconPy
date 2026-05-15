@@ -302,7 +302,12 @@ class TestCrossReferences:
         assert np.allclose(a.values, [(2.0**4 - 1.0) * 100.0])
 
     def test_frequency_propagates(self) -> None:
-        t = TSeries(qq(2020, 1), np.arange(8.0))
+        # Input starts at 1.0 (not 0.0) so pct's t / lag(t) division
+        # never sees a zero divisor — this test asserts the frequency
+        # *tag* propagates, not divide-by-zero semantics. The deliberate
+        # divide-by-zero contract lives in
+        # TestPctZeroSemantics::test_pct_emits_runtimewarning_on_zero.
+        t = TSeries(qq(2020, 1), np.arange(1.0, 9.0))
         assert isinstance(shift(t, 1).frequency, Quarterly)
         assert isinstance(pct(t).frequency, Quarterly)
         assert isinstance(apct(t).frequency, Quarterly)
@@ -319,6 +324,48 @@ class TestCrossReferences:
         a = apct(t)
         assert isinstance(a.frequency, Yearly)
         assert np.allclose(a.values, [100.0])
+
+
+# ---------------------------------------------------------------------------
+# pct divide-by-zero contract — locks in the library decision documented
+# in claude_files/paper/NOTES.md "Performance / NumPy semantics".
+# ---------------------------------------------------------------------------
+
+
+class TestPctZeroSemantics:
+    """Locks in the user-facing contract: ``pct()`` does NOT silence NumPy's
+    ``RuntimeWarning: divide by zero`` when the input contains a zero. We
+    preserve NumPy semantics rather than pandas-style "raise on zero" so
+    users who already understand NumPy aren't re-trained.
+
+    See ``claude_files/paper/NOTES.md`` "Performance / NumPy semantics"
+    for the design rationale. This test is the executable counterpart of
+    that paper note — if a future change accidentally silences the
+    warning (e.g. by wrapping pct in ``np.errstate(divide='ignore')``),
+    this test fires.
+    """
+
+    def test_pct_emits_runtimewarning_on_zero(self) -> None:
+        # Input contains a zero divisor: pct = (t[i] / t[i-1] - 1) * 100,
+        # so the second element divides 1.0 / 0.0 -> inf, and NumPy emits
+        # RuntimeWarning. We assert the warning is observable to callers.
+        t = TSeries(qq(2020, 1), np.asarray([0.0, 1.0, 2.0, 3.0]))
+        with pytest.warns(RuntimeWarning, match="divide by zero"):
+            result = pct(t)
+        # Sanity: the inf landed where we expected; subsequent values are
+        # finite. (Range is 3 long because pct drops the first element.)
+        assert np.isinf(result.values[0])
+        assert np.isfinite(result.values[1:]).all()
+
+    def test_pct_on_clean_input_emits_no_warning(self) -> None:
+        # Non-zero divisors -> no warning. Complementary to the above:
+        # silence is the contract for clean data.
+        t = TSeries(qq(2020, 1), np.asarray([1.0, 2.0, 4.0, 8.0]))
+        # pytest's filterwarnings=error::RuntimeWarning policy (pyproject)
+        # would already fail this test if pct emitted a warning here;
+        # the explicit assertion documents the intent.
+        result = pct(t)
+        np.testing.assert_allclose(result.values, [100.0, 100.0, 100.0])
 
 
 # ---------------------------------------------------------------------------

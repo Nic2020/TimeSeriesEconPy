@@ -138,6 +138,10 @@ convention = "numpy"
 # fconvert dispatch fans out across (call-shape, direction, method, ref).
 "src/tsecon/fconvert/__init__.py" = ["PLR0911"]
 "src/tsecon/fconvert/_tseries.py" = ["PLR0911", "PLR0912"]
+# Panel-plot kernels fan out across (dataset × variable × axis-kind × kwargs)
+# loops; collapsing them into helpers would just move branches around.
+"src/tsecon/plotting/_matplotlib.py" = ["PLR0912"]
+"src/tsecon/plotting/_plotly.py" = ["PLR0912"]
 # __post_init__ / __new__ are constructor-flavored; D102 (undocumented public method)
 # is noise for them and for slot dunders ruff hasn't classified.
 "src/tsecon/**" = ["D102"]

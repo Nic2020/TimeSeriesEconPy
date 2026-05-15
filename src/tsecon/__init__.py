@@ -77,6 +77,12 @@ from tsecon.mit import (
 )
 from tsecon.mitrange import MITRange, mitrange, rangeof_span
 from tsecon.mvtseries import MVTSeries, hcat, rename_columns_inplace, vcat
+from tsecon.plotting import (
+    BackendNotAvailableError,
+    available_backends,
+    plot,
+    resolve_backend,
+)
 from tsecon.tseries import TSeries, typenan
 from tsecon.workspace import Workspace
 
@@ -86,6 +92,7 @@ __all__ = [
     "MIRRORS_JULIA_SHA",
     "MIT",
     "BDaily",
+    "BackendNotAvailableError",
     "CalendarFrequency",
     "Daily",
     "Duration",
@@ -103,6 +110,7 @@ __all__ = [
     "Yearly",
     "__version__",
     "apct",
+    "available_backends",
     "bdaily",
     "daily",
     "diff",
@@ -135,11 +143,13 @@ __all__ = [
     "moving_sum",
     "pct",
     "period",
+    "plot",
     "ppy",
     "prettyprint_frequency",
     "qq",
     "rangeof_span",
     "rename_columns_inplace",
+    "resolve_backend",
     "sanitize_frequency",
     "shift",
     "shift_inplace",

@@ -103,6 +103,7 @@ from tsecon.plotting import (
     plot,
     resolve_backend,
 )
+from tsecon.recursive import rec
 from tsecon.tseries import TSeries, typenan
 from tsecon.workspace import Workspace
 
@@ -179,6 +180,7 @@ __all__ = [
     "qq",
     "quantile",
     "rangeof_span",
+    "rec",
     "rename_columns_inplace",
     "resolve_backend",
     "sanitize_frequency",

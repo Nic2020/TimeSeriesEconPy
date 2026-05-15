@@ -93,7 +93,17 @@ def build_extensions_inplace() -> list[Path]:
         },
     )
 
-    dist = Distribution({"name": "TimeSeriesEconPy", "ext_modules": ext_modules})
+    # package_dir tells setuptools that the `tsecon` package lives under
+    # src/tsecon/; without it, `inplace=1` would try to write the compiled
+    # extension to ./tsecon/_*.pyd (which doesn't exist in our src-layout).
+    dist = Distribution(
+        {
+            "name": "TimeSeriesEconPy",
+            "ext_modules": ext_modules,
+            "package_dir": {"tsecon": "src/tsecon"},
+            "packages": ["tsecon"],
+        }
+    )
     cmd = build_ext(dist)
     cmd.inplace = 1
     cmd.ensure_finalized()

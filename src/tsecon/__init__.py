@@ -79,6 +79,10 @@ from tsecon.frequencies import (
     prettyprint_frequency,
     sanitize_frequency,
 )
+
+# interop must import after TSeries/MVTSeries/Workspace are loaded — it
+# attaches `to_pandas` / `to_polars` method delegates onto those classes.
+from tsecon.interop import from_pandas, from_polars, to_pandas, to_polars
 from tsecon.mit import (
     MIT,
     Duration,
@@ -148,6 +152,8 @@ __all__ = [
     "fconvert_range",
     "fconvert_tseries",
     "frequency_of",
+    "from_pandas",
+    "from_polars",
     "get_holidays_map",
     "getoption",
     "hcat",
@@ -192,6 +198,8 @@ __all__ = [
     "stdm",
     "strip_tseries",
     "strip_tseries_inplace",
+    "to_pandas",
+    "to_polars",
     "trim_series",
     "typenan",
     "undiff",

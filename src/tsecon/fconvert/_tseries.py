@@ -23,11 +23,20 @@ from __future__ import annotations
 import datetime as _dt
 import math
 from collections.abc import Callable
-from typing import Any, Literal, cast
+from typing import Any, Final, Literal, cast
 
 import numpy as np
 
 from tsecon._bdaily import cleanedvalues
+from tsecon._fconvert_kernels import (
+    METHOD_FIRST,
+    METHOD_LAST,
+    METHOD_MAX,
+    METHOD_MEAN,
+    METHOD_MIN,
+    METHOD_SUM,
+    aggregate_groups_numpy,
+)
 from tsecon._options import getoption
 from tsecon.fconvert._helpers import (
     Ref,
@@ -59,7 +68,34 @@ from tsecon.mit import MIT, bdaily, daily, mit_to_date
 from tsecon.mitrange import MITRange
 from tsecon.tseries import TSeries
 
-__all__ = ["extend_series", "fconvert_tseries", "trim_series"]
+# Try to load the optional Cython-compiled accelerator. When the wheel was
+# built without the C toolchain (or for editable installs that skipped the
+# build hook), the import fails silently and the public lower-aggregate
+# path falls back to the NumPy reference. The user-facing surface is
+# otherwise unchanged — this is the "always-fast public API" arm of
+# [decision 17](claude_files/decisions/17_cython_dispatch_strategy.md).
+try:
+    from tsecon._fconvert_kernels_cy import (  # type: ignore[import-not-found]
+        aggregate_groups_cython,
+    )
+
+    _CYTHON_AVAILABLE: Final[bool] = True
+except ImportError:
+    _CYTHON_AVAILABLE = False  # type: ignore[misc]
+
+__all__ = ["extend_series", "fconvert_is_cython", "fconvert_tseries", "trim_series"]
+
+
+def fconvert_is_cython() -> bool:
+    """Return True iff the Cython-compiled fconvert kernel was importable.
+
+    Useful for tests, benchmarks, and diagnostic prints — the public
+    :func:`fconvert_tseries` is implementation-agnostic. When this
+    returns ``False`` the same calls go through the pure-NumPy kernel
+    in ``_fconvert_kernels.py``; behaviour is identical, only speed
+    differs.
+    """
+    return _CYTHON_AVAILABLE
 
 
 _LowerMethod = Literal["mean", "sum", "min", "max", "point", "begin", "end"]
@@ -85,6 +121,50 @@ _LOWER_AGGREGATORS: dict[str, Callable[[np.ndarray], Any]] = {
     "min": lambda col: col.min(),
     "max": lambda col: col.max(),
 }
+
+
+def _aggregator_method_code(aggregator: Callable[[np.ndarray], Any]) -> int | None:
+    """Resolve a built-in aggregator to the kernel's method code.
+
+    Returns ``None`` for custom callables (e.g. user-supplied via
+    :func:`fconvert_tseries(f, target, t, ...)`), in which case the
+    caller falls back to the Python-loop aggregation path. Identity
+    comparison is sound because all six built-in aggregators are
+    module-level objects with stable ``id()``.
+    """
+    if aggregator is _LOWER_AGGREGATORS["mean"]:
+        return METHOD_MEAN
+    if aggregator is _LOWER_AGGREGATORS["sum"]:
+        return METHOD_SUM
+    if aggregator is _LOWER_AGGREGATORS["min"]:
+        return METHOD_MIN
+    if aggregator is _LOWER_AGGREGATORS["max"]:
+        return METHOD_MAX
+    if aggregator is _agg_first:
+        return METHOD_FIRST
+    if aggregator is _agg_last:
+        return METHOD_LAST
+    return None
+
+
+def _aggregate_groups_dispatch(
+    values: np.ndarray,
+    group_starts: np.ndarray,
+    group_lengths: np.ndarray,
+    method_code: int,
+) -> np.ndarray:
+    """Dispatch to the Cython kernel when available, else the NumPy reference.
+
+    Centralises the optional-Cython-import pattern so the call sites
+    in :func:`_fconvert_lower_aggregate_yp` and
+    :func:`_fconvert_lower_calendar_to_yp_or_weekly` stay readable.
+    """
+    if _CYTHON_AVAILABLE:
+        return cast(
+            "np.ndarray",
+            aggregate_groups_cython(values, group_starts, group_lengths, method_code),
+        )
+    return aggregate_groups_numpy(values, group_starts, group_lengths, method_code)
 
 
 def _reject_unit(f: Frequency, *, what: str) -> None:
@@ -682,9 +762,21 @@ def _fconvert_lower_aggregate_yp(
     periods_of_misalignment = math.floor(months_of_misalignment / mpp_from)
     start_index = periods_of_misalignment
     end_index = start_index + np_count * len(out_range)
-    chunk = np.asarray(t.values[start_index:end_index])
     if len(out_range) == 0:
         return TSeries(out_range.start, np.empty(0, dtype=t.dtype))
+    chunk = np.asarray(t.values[start_index:end_index])
+    method_code = _aggregator_method_code(aggregator)
+    # Fast path: the aggregator is one of the six built-ins and the
+    # values are 1-D contiguous float64. The kernel fuses the
+    # outer per-group dispatch loop into C, closing the per-call
+    # overhead the Python list-comp pays. See decision 18 and the
+    # _fconvert_kernels.py module docstring for the framing.
+    if method_code is not None and chunk.dtype == np.float64 and chunk.flags["C_CONTIGUOUS"]:
+        n_out = len(out_range)
+        group_starts = np.arange(0, n_out * np_count, np_count, dtype=np.int64)
+        group_lengths = np.full(n_out, np_count, dtype=np.int64)
+        out = _aggregate_groups_dispatch(chunk, group_starts, group_lengths, method_code)
+        return TSeries(out_range.start, out)
     grouped = chunk.reshape(len(out_range), np_count)
     out = np.array([aggregator(row) for row in grouped])
     return TSeries(out_range.start, out)

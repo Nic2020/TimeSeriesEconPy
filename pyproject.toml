@@ -146,6 +146,12 @@ convention = "numpy"
 # frequency-checks each MIT, and bounds-checks the resulting offsets — the
 # branch fan-out mirrors tseries.py's indexing dispatch.
 "src/tsecon/indexing.py" = ["PLR0912"]
+# The aggregate_groups_numpy reference enumerates six method-code branches
+# (mean/sum/min/max/first/last), each with its own inner per-group loop —
+# the per-method specialisation is the whole point of the reference (it
+# mirrors what the Cython kernel does); collapsing the branches into a
+# dispatch dict would defeat the side-by-side comparison.
+"src/tsecon/_fconvert_kernels.py" = ["PLR0912"]
 # MVTSeries indexing dispatches across an even larger surface than TSeries
 # (rows × columns × MIT / MITRange / int / bool / str / list-of-str), and the
 # constructor enumerates the Julia construction-form union (range / scalar /

@@ -65,6 +65,11 @@ from tsecon import (
     undiff,
     yy,
 )
+from tsecon._fconvert_kernels import (
+    METHOD_MEAN,
+    METHOD_SUM,
+    aggregate_groups_numpy,
+)
 from tsecon._indexing_kernels import gather_numpy
 from tsecon._rec_kernels import rec_linear_numpy
 from tsecon._stats_kernels import cor_numpy, mean_numpy, std_numpy
@@ -93,6 +98,15 @@ try:
     _STATS_CYTHON_AVAILABLE = True
 except ImportError:  # pragma: no cover — depends on wheel-build state
     _STATS_CYTHON_AVAILABLE = False
+
+try:
+    from tsecon._fconvert_kernels_cy import (  # type: ignore[import-not-found]
+        aggregate_groups_cython,
+    )
+
+    _FCONVERT_CYTHON_AVAILABLE = True
+except ImportError:  # pragma: no cover — depends on wheel-build state
+    _FCONVERT_CYTHON_AVAILABLE = False
 
 # ---------------------------------------------------------------------------
 # Construction
@@ -602,6 +616,90 @@ def _run_fconvert_mm_to_qq_mean(state: dict[str, Any]) -> TSeries:
     return fconvert(state["target"], state["t"], method="mean")
 
 
+# ---------------------------------------------------------------------------
+# fconvert kernel-direct scenarios — the M1.5 fourth Cython port (session 21).
+#
+# Three new scenario triples (qq→yy mean / qq→yy sum / mm→qq mean) mirror
+# the rec_linear, indexing, and stats multi-flavor shape:
+#
+# * ``fconvert_qq_to_yy_mean``         — public ``fconvert(Yearly, t,
+#                                        method='mean')`` (now Cython-backed
+#                                        when the kernel is available;
+#                                        falls back to NumPy otherwise).
+# * ``fconvert_qq_to_yy_mean_numpy``   — kernel-direct
+#                                        ``aggregate_groups_numpy(values,
+#                                        starts, lengths, METHOD_MEAN)``
+#                                        skipping the public-API range
+#                                        computation and TSeries
+#                                        construction (option β).
+# * ``fconvert_qq_to_yy_mean_cython``  — kernel-direct Cython
+#                                        (conditional on the compiled
+#                                        extension).
+#
+# The kernel-direct numpy rows skip the truncation arithmetic and
+# TSeries-wrap that the public path pays; the kernel-direct cython rows
+# additionally fuse the outer per-group dispatch loop into C. See
+# ``decisions/18`` and ``paper/NOTES.md`` § "fconvert kernel — the
+# outer-loop tax" for the framing. The Julia side has no kernel split
+# (Julia's frequency conversion inlines directly), so all three Python
+# flavors share a single Julia counterpart.
+# ---------------------------------------------------------------------------
+
+
+def _setup_fconvert_qq_to_yy_kernel() -> dict[str, Any]:
+    # 100 quarters → 25 yearly groups of 4 quarters each.
+    return {
+        "values": np.arange(100, dtype=np.float64),
+        "group_starts": np.arange(0, 100, 4, dtype=np.int64),
+        "group_lengths": np.full(25, 4, dtype=np.int64),
+    }
+
+
+def _run_fconvert_qq_to_yy_mean_numpy(state: dict[str, Any]) -> np.ndarray:
+    return aggregate_groups_numpy(
+        state["values"], state["group_starts"], state["group_lengths"], METHOD_MEAN
+    )
+
+
+def _run_fconvert_qq_to_yy_mean_cython(state: dict[str, Any]) -> np.ndarray:
+    return aggregate_groups_cython(
+        state["values"], state["group_starts"], state["group_lengths"], METHOD_MEAN
+    )
+
+
+def _run_fconvert_qq_to_yy_sum_numpy(state: dict[str, Any]) -> np.ndarray:
+    return aggregate_groups_numpy(
+        state["values"], state["group_starts"], state["group_lengths"], METHOD_SUM
+    )
+
+
+def _run_fconvert_qq_to_yy_sum_cython(state: dict[str, Any]) -> np.ndarray:
+    return aggregate_groups_cython(
+        state["values"], state["group_starts"], state["group_lengths"], METHOD_SUM
+    )
+
+
+def _setup_fconvert_mm_to_qq_kernel() -> dict[str, Any]:
+    # 120 months → 40 quarterly groups of 3 months each.
+    return {
+        "values": np.arange(120, dtype=np.float64),
+        "group_starts": np.arange(0, 120, 3, dtype=np.int64),
+        "group_lengths": np.full(40, 3, dtype=np.int64),
+    }
+
+
+def _run_fconvert_mm_to_qq_mean_numpy(state: dict[str, Any]) -> np.ndarray:
+    return aggregate_groups_numpy(
+        state["values"], state["group_starts"], state["group_lengths"], METHOD_MEAN
+    )
+
+
+def _run_fconvert_mm_to_qq_mean_cython(state: dict[str, Any]) -> np.ndarray:
+    return aggregate_groups_cython(
+        state["values"], state["group_starts"], state["group_lengths"], METHOD_MEAN
+    )
+
+
 def _setup_workspace_filter_5_series() -> dict[str, Any]:
     start = qq(2020, 1)
     arr = np.arange(40, dtype=np.float64)
@@ -680,6 +778,10 @@ SETUP: dict[str, Callable[[], Any]] = {
     "fconvert_qq_to_yy_sum": _setup_fconvert_qq_to_yy_sum,
     "fconvert_yy_to_qq_const": _setup_fconvert_yy_to_qq_const,
     "fconvert_mm_to_qq_mean": _setup_fconvert_mm_to_qq_mean,
+    # fconvert (M1.5 fourth Cython port — kernel-direct + public API)
+    "fconvert_qq_to_yy_mean_numpy": _setup_fconvert_qq_to_yy_kernel,
+    "fconvert_qq_to_yy_sum_numpy": _setup_fconvert_qq_to_yy_kernel,
+    "fconvert_mm_to_qq_mean_numpy": _setup_fconvert_mm_to_qq_kernel,
     # Recursion (general)
     "rec_ar2_100": _setup_rec_ar2_100,
     # Recursion (kernel-direct, three / four flavor)
@@ -729,6 +831,10 @@ RUN: dict[str, Callable[[Any], Any]] = {
     "fconvert_qq_to_yy_sum": _run_fconvert_qq_to_yy_sum,
     "fconvert_yy_to_qq_const": _run_fconvert_yy_to_qq_const,
     "fconvert_mm_to_qq_mean": _run_fconvert_mm_to_qq_mean,
+    # fconvert (M1.5 fourth Cython port — kernel-direct + public API)
+    "fconvert_qq_to_yy_mean_numpy": _run_fconvert_qq_to_yy_mean_numpy,
+    "fconvert_qq_to_yy_sum_numpy": _run_fconvert_qq_to_yy_sum_numpy,
+    "fconvert_mm_to_qq_mean_numpy": _run_fconvert_mm_to_qq_mean_numpy,
     # Recursion (general)
     "rec_ar2_100": _run_rec_ar2_100,
     # Recursion (kernel-direct, three / four flavor)
@@ -771,6 +877,9 @@ DESCRIPTION: dict[str, str] = {
     "fconvert_qq_to_yy_sum": "fconvert(Yearly, t, method='sum')",
     "fconvert_yy_to_qq_const": "fconvert(Quarterly, t, method='const') (higher)",
     "fconvert_mm_to_qq_mean": "fconvert(Quarterly, monthly_t, method='mean')",
+    "fconvert_qq_to_yy_mean_numpy": "aggregate_groups_numpy 25x4 mean - NumPy kernel",
+    "fconvert_qq_to_yy_sum_numpy": "aggregate_groups_numpy 25x4 sum - NumPy kernel",
+    "fconvert_mm_to_qq_mean_numpy": "aggregate_groups_numpy 40x3 mean - NumPy kernel",
     "rec_ar2_100": "AR(2) over 100 quarters — general rec + lambda",
     "rec_linear_ar2_100_pylist": "AR(2) over 100 — rec_linear, pure-Python list",
     "rec_linear_ar2_100_numpy": "AR(2) over 100 — rec_linear NumPy kernel",
@@ -806,5 +915,22 @@ if _STATS_CYTHON_AVAILABLE:
     SETUP["cor_two_tseries_cython"] = _setup_cor_two_kernel
     RUN["cor_two_tseries_cython"] = _run_cor_two_tseries_cython
     DESCRIPTION["cor_two_tseries_cython"] = "cor_cython(x, y) — Cython kernel"
+
+if _FCONVERT_CYTHON_AVAILABLE:
+    SETUP["fconvert_qq_to_yy_mean_cython"] = _setup_fconvert_qq_to_yy_kernel
+    RUN["fconvert_qq_to_yy_mean_cython"] = _run_fconvert_qq_to_yy_mean_cython
+    DESCRIPTION["fconvert_qq_to_yy_mean_cython"] = (
+        "aggregate_groups_cython 25x4 mean - Cython kernel"
+    )
+
+    SETUP["fconvert_qq_to_yy_sum_cython"] = _setup_fconvert_qq_to_yy_kernel
+    RUN["fconvert_qq_to_yy_sum_cython"] = _run_fconvert_qq_to_yy_sum_cython
+    DESCRIPTION["fconvert_qq_to_yy_sum_cython"] = "aggregate_groups_cython 25x4 sum - Cython kernel"
+
+    SETUP["fconvert_mm_to_qq_mean_cython"] = _setup_fconvert_mm_to_qq_kernel
+    RUN["fconvert_mm_to_qq_mean_cython"] = _run_fconvert_mm_to_qq_mean_cython
+    DESCRIPTION["fconvert_mm_to_qq_mean_cython"] = (
+        "aggregate_groups_cython 40x3 mean - Cython kernel"
+    )
 
 assert SETUP.keys() == RUN.keys() == DESCRIPTION.keys(), "scenario registries must agree"

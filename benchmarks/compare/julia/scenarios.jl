@@ -304,6 +304,26 @@ fconvert_mm_to_qq_mean_setup() = (t = TSeries(mm(2020, 1), collect(0.0:119.0)),)
 
 fconvert_mm_to_qq_mean_run(state) = fconvert(Quarterly, state.t; method = :mean)
 
+# fconvert kernel-direct aliases — Julia has no kernel split (frequency
+# conversion inlines directly), so the three Python flavors (public API
+# + NumPy kernel + Cython kernel) all share the same Julia counterpart.
+# Same precedent as the rec_linear / stats *_{numpy,cython} aliases.
+
+fconvert_qq_to_yy_mean_numpy_setup() = fconvert_qq_to_yy_mean_setup()
+fconvert_qq_to_yy_mean_numpy_run(state) = fconvert_qq_to_yy_mean_run(state)
+fconvert_qq_to_yy_mean_cython_setup() = fconvert_qq_to_yy_mean_setup()
+fconvert_qq_to_yy_mean_cython_run(state) = fconvert_qq_to_yy_mean_run(state)
+
+fconvert_qq_to_yy_sum_numpy_setup() = fconvert_qq_to_yy_sum_setup()
+fconvert_qq_to_yy_sum_numpy_run(state) = fconvert_qq_to_yy_sum_run(state)
+fconvert_qq_to_yy_sum_cython_setup() = fconvert_qq_to_yy_sum_setup()
+fconvert_qq_to_yy_sum_cython_run(state) = fconvert_qq_to_yy_sum_run(state)
+
+fconvert_mm_to_qq_mean_numpy_setup() = fconvert_mm_to_qq_mean_setup()
+fconvert_mm_to_qq_mean_numpy_run(state) = fconvert_mm_to_qq_mean_run(state)
+fconvert_mm_to_qq_mean_cython_setup() = fconvert_mm_to_qq_mean_setup()
+fconvert_mm_to_qq_mean_cython_run(state) = fconvert_mm_to_qq_mean_run(state)
+
 function workspace_filter_5_series_setup()
     start = qq(2020, 1)
     arr = collect(0.0:39.0)
@@ -386,6 +406,13 @@ const SCENARIOS = Dict{String, Tuple{Function, Function}}(
     "fconvert_qq_to_yy_sum"        => (fconvert_qq_to_yy_sum_setup,        fconvert_qq_to_yy_sum_run),
     "fconvert_yy_to_qq_const"      => (fconvert_yy_to_qq_const_setup,      fconvert_yy_to_qq_const_run),
     "fconvert_mm_to_qq_mean"       => (fconvert_mm_to_qq_mean_setup,       fconvert_mm_to_qq_mean_run),
+    # fconvert — M1.5 fourth Cython port (kernel-direct + public API)
+    "fconvert_qq_to_yy_mean_numpy"  => (fconvert_qq_to_yy_mean_numpy_setup,  fconvert_qq_to_yy_mean_numpy_run),
+    "fconvert_qq_to_yy_mean_cython" => (fconvert_qq_to_yy_mean_cython_setup, fconvert_qq_to_yy_mean_cython_run),
+    "fconvert_qq_to_yy_sum_numpy"   => (fconvert_qq_to_yy_sum_numpy_setup,   fconvert_qq_to_yy_sum_numpy_run),
+    "fconvert_qq_to_yy_sum_cython"  => (fconvert_qq_to_yy_sum_cython_setup,  fconvert_qq_to_yy_sum_cython_run),
+    "fconvert_mm_to_qq_mean_numpy"  => (fconvert_mm_to_qq_mean_numpy_setup,  fconvert_mm_to_qq_mean_numpy_run),
+    "fconvert_mm_to_qq_mean_cython" => (fconvert_mm_to_qq_mean_cython_setup, fconvert_mm_to_qq_mean_cython_run),
     # Recursion (general)
     "rec_ar2_100"                  => (rec_ar2_100_setup,                  rec_ar2_100_run),
     # Recursion (kernel-direct, four-flavor)

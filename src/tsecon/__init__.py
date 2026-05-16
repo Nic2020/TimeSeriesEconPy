@@ -48,6 +48,7 @@ from tsecon._stats import (
 from tsecon.fconvert import (
     extend_series,
     fconvert,
+    fconvert_is_cython,
     fconvert_mit,
     fconvert_parts,
     fconvert_range,
@@ -149,6 +150,7 @@ __all__ = [
     "endperiod",
     "extend_series",
     "fconvert",
+    "fconvert_is_cython",
     "fconvert_mit",
     "fconvert_parts",
     "fconvert_range",

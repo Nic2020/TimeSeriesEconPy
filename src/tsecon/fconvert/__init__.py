@@ -58,6 +58,7 @@ from tsecon.fconvert._mit import (
 )
 from tsecon.fconvert._tseries import (
     extend_series,
+    fconvert_is_cython,
     fconvert_tseries,
     trim_series,
 )
@@ -70,6 +71,7 @@ __all__ = [
     "divide_uneven",
     "extend_series",
     "fconvert",
+    "fconvert_is_cython",
     "fconvert_mit",
     "fconvert_parts",
     "fconvert_range",

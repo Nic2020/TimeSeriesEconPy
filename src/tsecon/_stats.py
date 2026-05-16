@@ -23,14 +23,33 @@ column orientation matches Julia (variables = columns) by passing
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Final
 
 import numpy as np
 
 from tsecon._bdaily import cleanedvalues
+from tsecon._stats_kernels import cor_numpy, mean_numpy, std_numpy, var_numpy
 from tsecon.frequencies import BDaily
 from tsecon.mvtseries import MVTSeries
 from tsecon.tseries import TSeries
+
+# Try to load the optional Cython-compiled accelerators. When the wheel was
+# built without the C toolchain (or for editable installs that skipped the
+# build hook), the import fails silently and the public API falls back to
+# the NumPy reference. The user-facing surface is otherwise unchanged — this
+# is the "always-fast public API" arm of [decision 17](claude_files/decisions/
+# 17_cython_dispatch_strategy.md).
+try:
+    from tsecon._stats_kernels_cy import (  # type: ignore[import-not-found]
+        cor_cython,
+        mean_cython,
+        std_cython,
+        var_cython,
+    )
+
+    _CYTHON_AVAILABLE: Final[bool] = True
+except ImportError:
+    _CYTHON_AVAILABLE = False  # type: ignore[misc]
 
 __all__ = [
     "cor",
@@ -38,11 +57,41 @@ __all__ = [
     "mean",
     "median",
     "quantile",
+    "stats_is_cython",
     "std",
     "stdm",
     "var",
     "varm",
 ]
+
+
+def stats_is_cython() -> bool:
+    """Return True iff the Cython-compiled stats kernels were importable.
+
+    Useful for tests, benchmarks, and diagnostic prints — the public
+    :func:`mean` / :func:`var` / :func:`std` / :func:`cor` are
+    implementation-agnostic. When this returns ``False`` the same calls
+    go through the pure-NumPy kernels in ``_stats_kernels.py``;
+    behaviour is identical, only speed differs.
+    """
+    return _CYTHON_AVAILABLE
+
+
+def _ravel_for_kernel(values: np.ndarray) -> np.ndarray | None:
+    """Return a 1-D contiguous float64 view of ``values`` or ``None``.
+
+    Mirrors Julia's ``mean(::MVTSeries)`` which iterates the matrix
+    flat: a contiguous 2-D float64 array can be raveled into a 1-D view
+    without copying, so the kernels apply equally to TSeries and to the
+    overall reduction over an MVTSeries.
+    """
+    if values.dtype != np.float64:
+        return None
+    if values.ndim == 1 and values.flags["C_CONTIGUOUS"]:
+        return values
+    if values.ndim == 2 and values.flags["C_CONTIGUOUS"]:
+        return values.ravel()
+    return None
 
 
 def _resolve_values(
@@ -85,6 +134,11 @@ def mean(
     values = _resolve_values(
         t, skip_all_nans=skip_all_nans, skip_holidays=skip_holidays, holidays_map=holidays_map
     )
+    flat = _ravel_for_kernel(values)
+    if flat is not None and flat.shape[0] > 0:
+        if _CYTHON_AVAILABLE:
+            return mean_cython(flat)
+        return mean_numpy(flat)
     return np.mean(values)
 
 
@@ -104,6 +158,11 @@ def std(
     values = _resolve_values(
         t, skip_all_nans=skip_all_nans, skip_holidays=skip_holidays, holidays_map=holidays_map
     )
+    flat = _ravel_for_kernel(values)
+    if flat is not None and flat.shape[0] > 1:
+        if _CYTHON_AVAILABLE:
+            return std_cython(flat, 1)
+        return std_numpy(flat, 1)
     return np.std(values, ddof=1)
 
 
@@ -118,6 +177,11 @@ def var(
     values = _resolve_values(
         t, skip_all_nans=skip_all_nans, skip_holidays=skip_holidays, holidays_map=holidays_map
     )
+    flat = _ravel_for_kernel(values)
+    if flat is not None and flat.shape[0] > 1:
+        if _CYTHON_AVAILABLE:
+            return var_cython(flat, 1)
+        return var_numpy(flat, 1)
     return np.var(values, ddof=1)
 
 
@@ -251,6 +315,15 @@ def cor(
         raise ValueError(msg)
     if xv.shape[0] < 2:
         return float("nan")
+    if (
+        xv.dtype == np.float64
+        and yv.dtype == np.float64
+        and xv.flags["C_CONTIGUOUS"]
+        and yv.flags["C_CONTIGUOUS"]
+    ):
+        if _CYTHON_AVAILABLE:
+            return cor_cython(xv, yv)
+        return cor_numpy(xv, yv)
     return float(np.corrcoef(xv, yv)[0, 1])
 
 

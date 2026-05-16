@@ -247,6 +247,27 @@ end
 
 cor_two_tseries_run(state) = cor(state.a, state.b)
 
+# Stats kernel-direct aliases — Julia has no kernel split (mean / std / cor on
+# a TSeries / Vector all inline directly), so the three Python flavors
+# (public API + NumPy kernel + Cython kernel) all share the same Julia
+# counterpart. Same precedent as the rec_linear_*_{numpy,cython} aliases
+# above.
+
+mean_quarterly_100_numpy_setup() = mean_quarterly_100_setup()
+mean_quarterly_100_numpy_run(state) = mean_quarterly_100_run(state)
+mean_quarterly_100_cython_setup() = mean_quarterly_100_setup()
+mean_quarterly_100_cython_run(state) = mean_quarterly_100_run(state)
+
+std_quarterly_100_numpy_setup() = std_quarterly_100_setup()
+std_quarterly_100_numpy_run(state) = std_quarterly_100_run(state)
+std_quarterly_100_cython_setup() = std_quarterly_100_setup()
+std_quarterly_100_cython_run(state) = std_quarterly_100_run(state)
+
+cor_two_tseries_numpy_setup() = cor_two_tseries_setup()
+cor_two_tseries_numpy_run(state) = cor_two_tseries_run(state)
+cor_two_tseries_cython_setup() = cor_two_tseries_setup()
+cor_two_tseries_cython_run(state) = cor_two_tseries_run(state)
+
 function cor_mvts_5_columns_setup()
     rng = MersenneTwister(20260515)
     mvts = MVTSeries(qq(2020, 1), (:a, :b, :c, :d, :e), randn(rng, 100, 5))
@@ -349,6 +370,13 @@ const SCENARIOS = Dict{String, Tuple{Function, Function}}(
     "cor_two_tseries"              => (cor_two_tseries_setup,              cor_two_tseries_run),
     "cor_mvts_5_columns"           => (cor_mvts_5_columns_setup,           cor_mvts_5_columns_run),
     "cov_mvts_5_columns"           => (cov_mvts_5_columns_setup,           cov_mvts_5_columns_run),
+    # Stats — M1.5 third Cython port (kernel-direct + public API)
+    "mean_quarterly_100_numpy"     => (mean_quarterly_100_numpy_setup,     mean_quarterly_100_numpy_run),
+    "mean_quarterly_100_cython"    => (mean_quarterly_100_cython_setup,    mean_quarterly_100_cython_run),
+    "std_quarterly_100_numpy"      => (std_quarterly_100_numpy_setup,      std_quarterly_100_numpy_run),
+    "std_quarterly_100_cython"     => (std_quarterly_100_cython_setup,     std_quarterly_100_cython_run),
+    "cor_two_tseries_numpy"        => (cor_two_tseries_numpy_setup,        cor_two_tseries_numpy_run),
+    "cor_two_tseries_cython"       => (cor_two_tseries_cython_setup,       cor_two_tseries_cython_run),
     # Moving / undiff
     "moving_average_quarterly_4"   => (moving_average_quarterly_4_setup,   moving_average_quarterly_4_run),
     "moving_sum_quarterly_4"       => (moving_sum_quarterly_4_setup,       moving_sum_quarterly_4_run),

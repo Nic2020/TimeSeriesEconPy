@@ -67,6 +67,7 @@ from tsecon import (
 )
 from tsecon._indexing_kernels import gather_numpy
 from tsecon._rec_kernels import rec_linear_numpy
+from tsecon._stats_kernels import cor_numpy, mean_numpy, std_numpy
 
 try:
     from tsecon._rec_kernels_cy import rec_linear_cython  # type: ignore[import-not-found]
@@ -81,6 +82,17 @@ try:
     _INDEXING_CYTHON_AVAILABLE = True
 except ImportError:  # pragma: no cover — depends on wheel-build state
     _INDEXING_CYTHON_AVAILABLE = False
+
+try:
+    from tsecon._stats_kernels_cy import (  # type: ignore[import-not-found]
+        cor_cython,
+        mean_cython,
+        std_cython,
+    )
+
+    _STATS_CYTHON_AVAILABLE = True
+except ImportError:  # pragma: no cover — depends on wheel-build state
+    _STATS_CYTHON_AVAILABLE = False
 
 # ---------------------------------------------------------------------------
 # Construction
@@ -445,6 +457,70 @@ def _run_cor_two_tseries(state: dict[str, Any]) -> float:
     return float(cor(state["a"], state["b"]))
 
 
+# ---------------------------------------------------------------------------
+# Stats kernel-direct scenarios — the M1.5 third Cython port (session 20).
+#
+# Three new scenario triples (mean / std / cor) mirror the rec_linear and
+# indexing multi-flavor shape:
+#
+# * ``mean_quarterly_100``         — public ``mean(t)`` (now Cython-backed
+#                                    when the kernel is available; falls back
+#                                    to ``np.mean`` otherwise).
+# * ``mean_quarterly_100_numpy``   — kernel-direct ``mean_numpy(values)``
+#                                    = ``float(np.mean(values))`` skipping
+#                                    public-API dispatch and TSeries
+#                                    resolution (option β).
+# * ``mean_quarterly_100_cython``  — kernel-direct ``mean_cython(values)``
+#                                    (conditional on the compiled extension).
+#
+# The same shape applies for ``std`` and ``cor``. The kernel-direct numpy
+# rows skip the ``_resolve_values`` overhead that the public path pays;
+# the kernel-direct cython rows additionally skip NumPy's per-call dispatch
+# and 0-D scalar boxing tax. See ``decisions/18`` and
+# ``paper/NOTES.md`` § "Stats kernels — the scalar-return tax" for the
+# framing. The Julia side has no kernel split (Julia's ``mean(t)`` inlines
+# directly), so all three Python flavors share a single Julia counterpart.
+# ---------------------------------------------------------------------------
+
+
+# Shared kernel-input setups — pre-extract the values ndarray so the timed
+# window is exactly the kernel call (skipping TSeries resolution).
+def _setup_stats_scalar_kernel_100() -> dict[str, Any]:
+    return {"values": np.arange(100, dtype=np.float64)}
+
+
+def _run_mean_quarterly_100_numpy(state: dict[str, Any]) -> float:
+    return mean_numpy(state["values"])
+
+
+def _run_mean_quarterly_100_cython(state: dict[str, Any]) -> float:
+    return mean_cython(state["values"])
+
+
+def _run_std_quarterly_100_numpy(state: dict[str, Any]) -> float:
+    return std_numpy(state["values"], 1)
+
+
+def _run_std_quarterly_100_cython(state: dict[str, Any]) -> float:
+    return std_cython(state["values"], 1)
+
+
+def _setup_cor_two_kernel() -> dict[str, Any]:
+    rng = np.random.default_rng(seed=20260515)
+    return {
+        "x": np.ascontiguousarray(rng.standard_normal(100), dtype=np.float64),
+        "y": np.ascontiguousarray(rng.standard_normal(100), dtype=np.float64),
+    }
+
+
+def _run_cor_two_tseries_numpy(state: dict[str, Any]) -> float:
+    return cor_numpy(state["x"], state["y"])
+
+
+def _run_cor_two_tseries_cython(state: dict[str, Any]) -> float:
+    return cor_cython(state["x"], state["y"])
+
+
 def _setup_cor_mvts_5_columns() -> dict[str, Any]:
     rng = np.random.default_rng(seed=20260515)
     mvts = MVTSeries(
@@ -591,6 +667,10 @@ SETUP: dict[str, Callable[[], Any]] = {
     "cor_two_tseries": _setup_cor_two_tseries,
     "cor_mvts_5_columns": _setup_cor_mvts_5_columns,
     "cov_mvts_5_columns": _setup_cov_mvts_5_columns,
+    # Stats (M1.5 third Cython port — kernel-direct + public API)
+    "mean_quarterly_100_numpy": _setup_stats_scalar_kernel_100,
+    "std_quarterly_100_numpy": _setup_stats_scalar_kernel_100,
+    "cor_two_tseries_numpy": _setup_cor_two_kernel,
     # Moving / undiff
     "moving_average_quarterly_4": _setup_moving_average_quarterly_4,
     "moving_sum_quarterly_4": _setup_moving_sum_quarterly_4,
@@ -636,6 +716,10 @@ RUN: dict[str, Callable[[Any], Any]] = {
     "cor_two_tseries": _run_cor_two_tseries,
     "cor_mvts_5_columns": _run_cor_mvts_5_columns,
     "cov_mvts_5_columns": _run_cov_mvts_5_columns,
+    # Stats (M1.5 third Cython port — kernel-direct + public API)
+    "mean_quarterly_100_numpy": _run_mean_quarterly_100_numpy,
+    "std_quarterly_100_numpy": _run_std_quarterly_100_numpy,
+    "cor_two_tseries_numpy": _run_cor_two_tseries_numpy,
     # Moving / undiff
     "moving_average_quarterly_4": _run_moving_average_quarterly_4,
     "moving_sum_quarterly_4": _run_moving_sum_quarterly_4,
@@ -677,6 +761,9 @@ DESCRIPTION: dict[str, str] = {
     "cor_two_tseries": "cor(a, b) on two TSeries",
     "cor_mvts_5_columns": "cor(mvts) — 5x5 corr matrix",
     "cov_mvts_5_columns": "cov(mvts) — 5x5 cov matrix",
+    "mean_quarterly_100_numpy": "mean_numpy(values) — NumPy kernel",
+    "std_quarterly_100_numpy": "std_numpy(values, 1) — NumPy kernel",
+    "cor_two_tseries_numpy": "cor_numpy(x, y) — NumPy kernel",
     "moving_average_quarterly_4": "moving_average(t, 4)",
     "moving_sum_quarterly_4": "moving_sum(t, 4)",
     "undiff_quarterly": "undiff(t)",
@@ -706,5 +793,18 @@ if _INDEXING_CYTHON_AVAILABLE:
     SETUP["indexing_lookup_100_cython"] = _setup_indexing_gather_100_kernel
     RUN["indexing_lookup_100_cython"] = _run_indexing_gather_100_cython
     DESCRIPTION["indexing_lookup_100_cython"] = "gather_cython(values, ix) — Cython kernel"
+
+if _STATS_CYTHON_AVAILABLE:
+    SETUP["mean_quarterly_100_cython"] = _setup_stats_scalar_kernel_100
+    RUN["mean_quarterly_100_cython"] = _run_mean_quarterly_100_cython
+    DESCRIPTION["mean_quarterly_100_cython"] = "mean_cython(values) — Cython kernel"
+
+    SETUP["std_quarterly_100_cython"] = _setup_stats_scalar_kernel_100
+    RUN["std_quarterly_100_cython"] = _run_std_quarterly_100_cython
+    DESCRIPTION["std_quarterly_100_cython"] = "std_cython(values, 1) — Cython kernel"
+
+    SETUP["cor_two_tseries_cython"] = _setup_cor_two_kernel
+    RUN["cor_two_tseries_cython"] = _run_cor_two_tseries_cython
+    DESCRIPTION["cor_two_tseries_cython"] = "cor_cython(x, y) — Cython kernel"
 
 assert SETUP.keys() == RUN.keys() == DESCRIPTION.keys(), "scenario registries must agree"

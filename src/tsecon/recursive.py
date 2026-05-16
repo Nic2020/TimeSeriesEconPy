@@ -19,7 +19,7 @@ For multi-target recurrences (two series updated together each step),
 write the explicit ``for t in rng`` loop — the wrapper buys nothing once
 there is more than one target.
 
-Performance notes (see also [decision 01](decisions/01_acceleration_strategy.md)
+Performance notes (see also ``claude_files/decisions/01_acceleration_strategy.md``
 and the M1.5 milestone in ``MASTER_PLAN.md``)
 -----------------------------------------------------------------------
 Per-iteration cost is dominated by the lambda call and the

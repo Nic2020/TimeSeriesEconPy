@@ -58,6 +58,11 @@ dev = [
     "mkdocs>=1.6",
     "mkdocs-material>=9.5",
     "mkdocstrings[python]>=0.27",
+    # `markdown-exec` is Python's `Documenter.@repl tse` analogue: it runs
+    # fenced code blocks tagged `python exec="true" source="material-block"
+    # session="tse"` during `mkdocs build`, sharing state across blocks with
+    # the same session id. See docs/PLAN.md for the executable-docs model.
+    "markdown-exec[ansi]>=1.10",
     # Cython is in [build-system].requires for wheel builds; we also list it
     # in dev so editable installs / `uv run python setup.py build_ext` paths
     # have it available without an extra activation step.

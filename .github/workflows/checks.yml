@@ -30,6 +30,24 @@ jobs:
       - name: mypy
         run: uv run mypy
 
+  docs:
+    name: docs build (--strict)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+      - name: Install dependencies
+        run: uv sync --all-extras --group dev
+      # `--strict` upgrades broken links / undocumented references to errors;
+      # `markdown-exec` fails the build on any uncaught exception in an
+      # executable fenced block. Together they catch the failure modes that
+      # the deploy-on-merge `docs.yml` workflow can't see until after merge.
+      - name: mkdocs build --strict
+        run: uv run mkdocs build --strict
+
   test:
     name: tests (py${{ matrix.python }} on ${{ matrix.os }})
     runs-on: ${{ matrix.os }}

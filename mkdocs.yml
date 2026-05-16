@@ -36,6 +36,7 @@ theme:
 
 plugins:
   - search
+  - markdown-exec
   - mkdocstrings:
       handlers:
         python:
@@ -66,3 +67,30 @@ markdown_extensions:
 
 nav:
   - Home: index.md
+  - Tutorials:
+      - "1. TimeSeriesEcon": tutorials/1_timeseriesecon.md
+  - Reference:
+      - Frequencies: reference/frequencies.md
+      - "MIT & MITRange": reference/mit.md
+      - TSeries: reference/tseries.md
+      - MVTSeries: reference/mvtseries.md
+      - Workspace: reference/workspace.md
+      - "Math (shift, diff, moving, undiff)": reference/math.md
+      - "Statistics (mean, std, cor)": reference/stats.md
+      - Indexing (lookup): reference/indexing.md
+      - "Frequency conversion (fconvert)": reference/fconvert.md
+      - Recursive (rec, rec_linear): reference/recursive.md
+      - Options: reference/options.md
+      - Plotting: reference/plotting.md
+      - "Interop (pandas, polars)": reference/interop.md
+      - "JSON I/O": reference/io.md
+      - "Mirror metadata": reference/mirror.md
+  - Design notes:
+      - Overview: design/decisions.md
+      - Frequency model: design/frequency_model.md
+      - TSeries protocols: design/tseries_protocols.md
+      - Cython strategy: design/cython_strategy.md
+      - JSON serialization: design/serialization.md
+      - Migration from Julia: design/migration_from_julia.md
+  - API index: api_index.md
+  - FAQ: faq.md

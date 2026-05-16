@@ -23,6 +23,18 @@ from tsecon import MIT, TSeries, lookup, lookup_is_cython, qq, yy
 from tsecon._indexing_kernels import gather_numpy
 from tsecon.frequencies import Unit, Yearly
 
+# Cython kernel is optional — only present when the wheel was built with a C
+# toolchain. Tests that exercise it skip when ``_CY`` is False; the import is
+# guarded with try/except so the file is loadable on toolchain-less installs.
+try:
+    from tsecon._indexing_kernels_cy import (  # type: ignore[import-not-found]
+        gather_cython,
+    )
+
+    _CY = True
+except ImportError:
+    _CY = False
+
 
 def _unit(i: int) -> MIT:
     return MIT(Unit(), i)
@@ -234,3 +246,79 @@ class TestLookupUnit:
         t = TSeries(_unit(1), np.array([10.0, 20.0, 30.0, 40.0, 50.0]))
         got = lookup(t, [_unit(1), _unit(3), _unit(5)])
         np.testing.assert_array_equal(got, [10.0, 30.0, 50.0])
+
+
+# ---------------------------------------------------------------------------
+# Edge cases for the gather kernel (NaN passthrough, non-contiguous source)
+# ---------------------------------------------------------------------------
+
+
+class TestGatherKernelEdgeCases:
+    """Degenerate inputs follow the documented contract.
+
+    Closes review file ``F06_rec_indexing_edge_case_gaps`` — the edge-case
+    template crystallised by ``test_stats_kernels.py`` (session 20) and
+    ``test_fconvert_kernels.py`` (session 21) was not retrofitted onto
+    ``test_indexing.py`` (session 19). NaN-in-source is realistic
+    (resize-on-assign creates NaN gaps in TSeries storage); a gather
+    must pass through NaN unchanged, not raise or silently substitute.
+    """
+
+    def test_gather_numpy_passes_through_nan(self) -> None:
+        values = np.array([1.0, np.nan, 3.0, np.nan, 5.0])
+        indices = np.array([0, 1, 2, 3, 4], dtype=np.int64)
+        got = gather_numpy(values, indices)
+        # First / third / fifth positions are regular; second and fourth must
+        # remain NaN. Use isnan because NaN != NaN.
+        assert got[0] == 1.0
+        assert got[2] == 3.0
+        assert got[4] == 5.0
+        assert np.isnan(got[1])
+        assert np.isnan(got[3])
+
+    def test_gather_cython_passes_through_nan(self) -> None:
+        if not _CY:
+            pytest.skip("Cython gather kernel not compiled")
+        values = np.array([1.0, np.nan, 3.0, np.nan, 5.0])
+        indices = np.array([0, 1, 2, 3, 4], dtype=np.int64)
+        got = gather_cython(values, indices)
+        assert got[0] == 1.0
+        assert got[2] == 3.0
+        assert got[4] == 5.0
+        assert np.isnan(got[1])
+        assert np.isnan(got[3])
+
+    def test_gather_numpy_handles_non_contiguous_source(self) -> None:
+        """The NumPy reference uses ``np.take``, which handles any stride pattern.
+
+        The matching ``_is_kernel_eligible`` check in
+        ``tsecon._kernel_dispatch`` routes non-contiguous sources to this
+        path (see ``indexing.py`` final ``return gather_numpy`` branch);
+        the Cython kernel rejects non-contiguous views at the typed
+        memoryview cast.
+        """
+        # 10 float64 elements, stride=16 (non-contiguous view of length-20 source).
+        storage = np.arange(20.0)
+        view = storage[::2]
+        assert not view.flags.c_contiguous
+        indices = np.array([0, 5, 9, 0, 2], dtype=np.int64)
+        got = gather_numpy(view, indices)
+        np.testing.assert_array_equal(got, [0.0, 10.0, 18.0, 0.0, 4.0])
+
+    def test_gather_cython_rejects_non_contiguous_source(self) -> None:
+        """Cython memoryview cast rejects non-C-contiguous source arrays.
+
+        Locks the asymmetric-contract observation that motivates the
+        ``_is_kernel_eligible`` contiguity check in
+        ``tsecon._kernel_dispatch``. If a future patch loosens the
+        ``cdef double[::1]`` constraint to ``cdef double[:]``, this test
+        will start failing and the dispatcher's branch will need a
+        reconsider.
+        """
+        if not _CY:
+            pytest.skip("Cython gather kernel not compiled")
+        storage = np.arange(20.0)
+        view = storage[::2]
+        indices = np.array([0, 2, 4], dtype=np.int64)
+        with pytest.raises(ValueError, match="contiguous"):
+            gather_cython(view, indices)

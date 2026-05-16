@@ -25,6 +25,18 @@ from tsecon import (
 from tsecon._rec_kernels import rec_linear_numpy
 from tsecon.frequencies import Unit, Yearly
 
+# Cython kernel is optional — only present when the wheel was built with a C
+# toolchain. Tests that exercise it skip when ``_CY`` is False; the import is
+# guarded with try/except so the file is loadable on toolchain-less installs.
+try:
+    from tsecon._rec_kernels_cy import (  # type: ignore[import-not-found]
+        rec_linear_cython,
+    )
+
+    _CY = True
+except ImportError:
+    _CY = False
+
 
 def _unit(i: int) -> MIT:
     return MIT(Unit(), i)
@@ -281,3 +293,158 @@ class TestRecLinearQuarterly:
         np.testing.assert_allclose(s.values[3], 0.7)
         # The series should be bounded: |coeffs[0]| + |coeffs[1]| < 1 → decay.
         assert abs(s.values[-1]) < 1.0
+
+
+# ---------------------------------------------------------------------------
+# Kernel-direct equivalence: Cython ≡ NumPy reference
+# ---------------------------------------------------------------------------
+
+
+class TestRecLinearKernelsAgreeOnArrays:
+    """Cython kernel matches the NumPy reference output to within FP tolerance.
+
+    Retrofits the kernel-direct equivalence class that ``test_stats_kernels.py``
+    and ``test_fconvert_kernels.py`` have but ``test_recursive.py`` (session 17,
+    the first kernel port) was written without. Closes review file
+    ``F13_rec_linear_kernel_direct_test_missing``: prior coverage compared the
+    high-level ``rec_linear`` wrapper against the lambda-based ``rec``
+    reference, but never the two kernels (``_numpy`` / ``_cython``) against
+    each other on raw arrays. A regression where both diverge from each other
+    by ``O(rtol)`` while both still rounded the same way against ``rec`` at
+    the public-API level would not have been caught.
+    """
+
+    @pytest.mark.parametrize(
+        ("coeffs", "lags"),
+        [
+            ([1.0, 1.0], [1, 2]),  # Fibonacci-shaped
+            ([0.5, 0.3], [1, 2]),  # AR(2) decay
+            ([0.7], [1]),  # AR(1)
+            ([0.4, 0.3, 0.2], [1, 2, 3]),  # AR(3)
+            ([1.0, -0.5], [1, 4]),  # gappy lag polynomial
+            ([0.2, 0.2, 0.2, 0.2, 0.2], [1, 2, 3, 4, 5]),  # AR(5) average
+            ([0.9, -0.4], [2, 5]),  # gappy at lag-2 + lag-5
+            ([0.1, 0.2, 0.3, 0.4], [1, 3, 5, 7]),  # odd-lag polynomial
+        ],
+    )
+    @pytest.mark.parametrize("length", [15, 50, 150])
+    def test_kernels_match_on_arrays(
+        self,
+        length: int,
+        coeffs: list[float],
+        lags: list[int],
+    ) -> None:
+        if not _CY:
+            pytest.skip("Cython rec_linear kernel not compiled")
+        rng = np.random.default_rng(seed=20260516)
+        max_lag = max(lags)
+        if length <= max_lag:
+            pytest.skip(f"length={length} must exceed max_lag={max_lag} to leave room for ≥1 step")
+        # Build the init buffer once, then make two independent copies — the
+        # kernels mutate in place, so a shared buffer would conflate runs.
+        base = np.zeros(length, dtype=np.float64)
+        base[:max_lag] = rng.standard_normal(max_lag)
+        values_numpy = base.copy()
+        values_cython = base.copy()
+        coeffs_arr = np.asarray(coeffs, dtype=np.float64)
+        lags_arr = np.asarray(lags, dtype=np.int64)
+        offset = max_lag
+        count = length - max_lag
+        rec_linear_numpy(values_numpy, offset, count, coeffs_arr, lags_arr)
+        rec_linear_cython(values_cython, offset, count, coeffs_arr, lags_arr)
+        np.testing.assert_allclose(values_numpy, values_cython, rtol=1e-12, atol=1e-15)
+
+
+# ---------------------------------------------------------------------------
+# Edge cases for the rec_linear kernel (NaN, single-element, non-contiguous)
+# ---------------------------------------------------------------------------
+
+
+class TestRecLinearKernelEdgeCases:
+    """Empty / degenerate inputs and NaN propagation follow the contract.
+
+    Closes review file ``F06_rec_indexing_edge_case_gaps`` — the edge-case
+    template crystallised by ``test_stats_kernels.py`` (session 20) and
+    ``test_fconvert_kernels.py`` (session 21) was not retrofitted onto
+    ``test_recursive.py`` (session 17). NaN in initial conditions is the
+    realistic failure mode: TSeries auto-resize fills NaN gaps, so a
+    recurrence over a series with leading NaN should propagate.
+    """
+
+    def test_rec_linear_numpy_propagates_nan_in_init(self) -> None:
+        values = np.array([np.nan, 1.0, 0.0, 0.0, 0.0])
+        rec_linear_numpy(
+            values, 2, 3, np.asarray([1.0, 1.0]), np.asarray([1, 2], dtype=np.int64)
+        )
+        assert np.isnan(values[2])
+        assert np.isnan(values[3])
+        assert np.isnan(values[4])
+
+    def test_rec_linear_cython_propagates_nan_in_init(self) -> None:
+        if not _CY:
+            pytest.skip("Cython rec_linear kernel not compiled")
+        values = np.array([np.nan, 1.0, 0.0, 0.0, 0.0])
+        rec_linear_cython(
+            values, 2, 3, np.asarray([1.0, 1.0]), np.asarray([1, 2], dtype=np.int64)
+        )
+        assert np.isnan(values[2])
+        assert np.isnan(values[3])
+        assert np.isnan(values[4])
+
+    def test_rec_linear_numpy_single_element_range(self) -> None:
+        # count == 1: kernel writes exactly one position.
+        values = np.array([1.0, 2.0, 0.0])
+        rec_linear_numpy(
+            values, 2, 1, np.asarray([1.0, 1.0]), np.asarray([1, 2], dtype=np.int64)
+        )
+        np.testing.assert_array_equal(values, [1.0, 2.0, 3.0])
+
+    def test_rec_linear_cython_single_element_range(self) -> None:
+        if not _CY:
+            pytest.skip("Cython rec_linear kernel not compiled")
+        values = np.array([1.0, 2.0, 0.0])
+        rec_linear_cython(
+            values, 2, 1, np.asarray([1.0, 1.0]), np.asarray([1, 2], dtype=np.int64)
+        )
+        np.testing.assert_array_equal(values, [1.0, 2.0, 3.0])
+
+    def test_rec_linear_numpy_handles_non_contiguous_values(self) -> None:
+        """The NumPy reference uses indexed Python reads/writes, so any 1-D float64 stride works.
+
+        The matching ``_is_kernel_eligible`` check in
+        ``tsecon._kernel_dispatch`` routes non-contiguous buffers to this
+        path; the Cython kernel can't accept a non-contiguous view (typed
+        memoryview cast requires ``[::1]``). This test exercises the
+        kernel directly on ``arr[::2]`` so the fallback path is locked.
+        """
+        # 10 float64 elements, stride=16 (non-contiguous view of length-20 source).
+        storage = np.zeros(20, dtype=np.float64)
+        view = storage[::2]
+        assert not view.flags.c_contiguous
+        view[0] = 1.0
+        view[1] = 1.0
+        rec_linear_numpy(
+            view, 2, 8, np.asarray([1.0, 1.0]), np.asarray([1, 2], dtype=np.int64)
+        )
+        expected_fib = [1.0, 1.0, 2.0, 3.0, 5.0, 8.0, 13.0, 21.0, 34.0, 55.0]
+        np.testing.assert_array_equal(view, expected_fib)
+
+    def test_rec_linear_cython_rejects_non_contiguous_values(self) -> None:
+        """Cython memoryview cast rejects non-C-contiguous arrays.
+
+        Locks the asymmetric-contract observation that motivates the
+        dispatcher's contiguity check in ``_kernel_dispatch``. If a
+        future patch loosens the ``cdef double[::1]`` constraint to
+        ``cdef double[:]``, this test will start failing and the
+        dispatcher's branch will need a reconsider.
+        """
+        if not _CY:
+            pytest.skip("Cython rec_linear kernel not compiled")
+        storage = np.zeros(20, dtype=np.float64)
+        view = storage[::2]
+        view[0] = 1.0
+        view[1] = 1.0
+        with pytest.raises(ValueError, match="contiguous"):
+            rec_linear_cython(
+                view, 2, 8, np.asarray([1.0, 1.0]), np.asarray([1, 2], dtype=np.int64)
+            )

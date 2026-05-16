@@ -79,6 +79,7 @@ from tsecon.frequencies import (
     prettyprint_frequency,
     sanitize_frequency,
 )
+from tsecon.indexing import lookup, lookup_is_cython
 
 # interop must import after TSeries/MVTSeries/Workspace are loaded — it
 # attaches `to_pandas` / `to_polars` method delegates onto those classes.
@@ -168,6 +169,8 @@ __all__ = [
     "lag_inplace",
     "lead",
     "lead_inplace",
+    "lookup",
+    "lookup_is_cython",
     "mean",
     "median",
     "mit2yp",

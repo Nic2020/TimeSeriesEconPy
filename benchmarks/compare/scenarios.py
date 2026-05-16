@@ -52,6 +52,7 @@ from tsecon import (
     cov,
     diff,
     fconvert,
+    lookup,
     mean,
     mm,
     moving_average,
@@ -64,14 +65,22 @@ from tsecon import (
     undiff,
     yy,
 )
+from tsecon._indexing_kernels import gather_numpy
 from tsecon._rec_kernels import rec_linear_numpy
 
 try:
     from tsecon._rec_kernels_cy import rec_linear_cython  # type: ignore[import-not-found]
 
-    _CYTHON_KERNEL_AVAILABLE = True
+    _REC_CYTHON_AVAILABLE = True
 except ImportError:  # pragma: no cover — depends on wheel-build state
-    _CYTHON_KERNEL_AVAILABLE = False
+    _REC_CYTHON_AVAILABLE = False
+
+try:
+    from tsecon._indexing_kernels_cy import gather_cython  # type: ignore[import-not-found]
+
+    _INDEXING_CYTHON_AVAILABLE = True
+except ImportError:  # pragma: no cover — depends on wheel-build state
+    _INDEXING_CYTHON_AVAILABLE = False
 
 # ---------------------------------------------------------------------------
 # Construction
@@ -105,6 +114,60 @@ def _run_indexing_mit_lookup_100(state: dict[str, Any]) -> float:
     for k in keys:
         s += float(t[k])
     return s
+
+
+# ---------------------------------------------------------------------------
+# Vectorised lookup — the M1.5 second Cython port (session 19).
+#
+# Three new scenarios mirror the rec_linear multi-flavor shape:
+#
+# * ``indexing_lookup_100_api``   — full public ``lookup(t, keys)`` including
+#                                   MIT-to-offset translation (the realistic
+#                                   user-facing operation).
+# * ``indexing_lookup_100_numpy`` — kernel-direct ``gather_numpy(values, ix)``
+#                                   skipping public-API validation (option β).
+# * ``indexing_lookup_100_cython`` — kernel-direct Cython gather (conditional
+#                                   on the compiled extension).
+#
+# The existing ``indexing_mit_lookup_100`` (Python for-loop with ``t[k]`` per
+# element) stays as the "naive user pattern" baseline — the 935x row.
+#
+# Unlike rec_linear, the NumPy reference here is *already* vectorised
+# (``np.take`` runs in C). So the kernel-direct numpy/cython columns
+# should land within a small factor of each other; the *big* win is the
+# gap between the per-element loop (935x) and the vectorised public API.
+# See decisions/18 and paper/NOTES.md § "Indexing kernel — vectorised
+# API is the win" for the framing.
+# ---------------------------------------------------------------------------
+
+
+def _setup_indexing_lookup_100_api() -> dict[str, Any]:
+    start = qq(2020, 1)
+    t = TSeries(start, np.arange(100, dtype=np.float64))
+    keys = [start + i for i in range(100)]
+    return {"t": t, "keys": keys}
+
+
+def _run_indexing_lookup_100_api(state: dict[str, Any]) -> np.ndarray:
+    return lookup(state["t"], state["keys"])
+
+
+# Kernel-direct scenarios share a single pre-built (values, indices) pair so
+# the timed window is exactly the gather call. Mirrors the rec_linear
+# kernel-direct setup style (decision 17 § option β).
+def _setup_indexing_gather_100_kernel() -> dict[str, Any]:
+    return {
+        "values": np.arange(100, dtype=np.float64),
+        "indices": np.arange(100, dtype=np.int64),
+    }
+
+
+def _run_indexing_gather_100_numpy(state: dict[str, Any]) -> np.ndarray:
+    return gather_numpy(state["values"], state["indices"])
+
+
+def _run_indexing_gather_100_cython(state: dict[str, Any]) -> np.ndarray:
+    return gather_cython(state["values"], state["indices"])
 
 
 # ---------------------------------------------------------------------------
@@ -511,6 +574,9 @@ SETUP: dict[str, Callable[[], Any]] = {
     "indexing_int_lookup_100": _setup_indexing_int_lookup_100,
     "indexing_mitrange_slice": _setup_indexing_mitrange_slice,
     "indexing_mvts_column": _setup_indexing_mvts_column,
+    # Indexing (M1.5 second Cython port — kernel-direct and public API)
+    "indexing_lookup_100_api": _setup_indexing_lookup_100_api,
+    "indexing_lookup_100_numpy": _setup_indexing_gather_100_kernel,
     # Arithmetic
     "arith_add_misaligned": _setup_arith_add_misaligned,
     "arith_add_aligned": _setup_arith_add_aligned,
@@ -553,6 +619,9 @@ RUN: dict[str, Callable[[Any], Any]] = {
     "indexing_int_lookup_100": _run_indexing_int_lookup_100,
     "indexing_mitrange_slice": _run_indexing_mitrange_slice,
     "indexing_mvts_column": _run_indexing_mvts_column,
+    # Indexing (M1.5 second Cython port — kernel-direct and public API)
+    "indexing_lookup_100_api": _run_indexing_lookup_100_api,
+    "indexing_lookup_100_numpy": _run_indexing_gather_100_numpy,
     # Arithmetic
     "arith_add_misaligned": _run_arith_add_misaligned,
     "arith_add_aligned": _run_arith_add_aligned,
@@ -595,6 +664,8 @@ DESCRIPTION: dict[str, str] = {
     "indexing_int_lookup_100": "Sum t[int] over 100 keys",
     "indexing_mitrange_slice": "t[MITRange] — single 60-period slice",
     "indexing_mvts_column": "mvts['c'] — column access",
+    "indexing_lookup_100_api": "lookup(t, mit_keys) — public vectorised API",
+    "indexing_lookup_100_numpy": "gather_numpy(values, ix) — NumPy kernel",
     "arith_add_misaligned": "100Q + 100Q with 50Q overlap",
     "arith_add_aligned": "100Q + 100Q same range",
     "arith_mul_scalar": "t * 2.5",
@@ -620,15 +691,20 @@ DESCRIPTION: dict[str, str] = {
     "workspace_filter_5_series": "Workspace filter: 10 down to 5 series",
 }
 
-# rec_linear's Cython kernel is conditionally registered: when the wheel
+# Cython kernel scenarios are conditionally registered: when the wheel
 # was built without the C toolchain (Windows installs without the SDK,
 # editable installs that skipped the build hook), the Cython column
 # legitimately reads `n/a`. Adding a scenario only when the kernel is
 # importable keeps the "missing data" honest in the table — see
 # decision 17 on three-flavor reporting.
-if _CYTHON_KERNEL_AVAILABLE:
+if _REC_CYTHON_AVAILABLE:
     SETUP["rec_linear_ar2_100_cython"] = _setup_rec_linear_ar2_100
     RUN["rec_linear_ar2_100_cython"] = _run_rec_linear_ar2_100_cython
     DESCRIPTION["rec_linear_ar2_100_cython"] = "AR(2) over 100 quarters — rec_linear Cython kernel"
+
+if _INDEXING_CYTHON_AVAILABLE:
+    SETUP["indexing_lookup_100_cython"] = _setup_indexing_gather_100_kernel
+    RUN["indexing_lookup_100_cython"] = _run_indexing_gather_100_cython
+    DESCRIPTION["indexing_lookup_100_cython"] = "gather_cython(values, ix) — Cython kernel"
 
 assert SETUP.keys() == RUN.keys() == DESCRIPTION.keys(), "scenario registries must agree"

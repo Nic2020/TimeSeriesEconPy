@@ -47,6 +47,38 @@ function indexing_mit_lookup_100_run(state)
 end
 
 # ---------------------------------------------------------------------------
+# Vectorised lookup — Julia counterpart for the M1.5 second Cython port.
+# Python provides three scenarios (full API / NumPy kernel / Cython kernel)
+# that all map to the same Julia operation: a vectorised fancy-indexing
+# gather. The Julia idiom is just ``state.t.values[state.indices]`` (or
+# equivalently ``state.t[state.keys]`` for MIT keys — both compile to a
+# similar gather). All three Python flavors share the single Julia run
+# here, matching the rec_linear precedent.
+# ---------------------------------------------------------------------------
+
+function indexing_lookup_100_api_setup()
+    start = qq(2020, 1)
+    t = TSeries(start, collect(0.0:99.0))
+    keys = [start + i for i in 0:99]
+    return (t = t, keys = keys)
+end
+
+indexing_lookup_100_api_run(state) = state.t[state.keys]
+
+function indexing_lookup_100_kernel_setup()
+    values = collect(0.0:99.0)
+    indices = collect(1:100)  # Julia is 1-indexed
+    return (values = values, indices = indices)
+end
+
+indexing_lookup_100_kernel_run(state) = state.values[state.indices]
+
+indexing_lookup_100_numpy_setup() = indexing_lookup_100_kernel_setup()
+indexing_lookup_100_numpy_run(state) = indexing_lookup_100_kernel_run(state)
+indexing_lookup_100_cython_setup() = indexing_lookup_100_kernel_setup()
+indexing_lookup_100_cython_run(state) = indexing_lookup_100_kernel_run(state)
+
+# ---------------------------------------------------------------------------
 # Arithmetic with misalignment (50-period overlap)
 # ---------------------------------------------------------------------------
 
@@ -299,6 +331,10 @@ const SCENARIOS = Dict{String, Tuple{Function, Function}}(
     "indexing_int_lookup_100"      => (indexing_int_lookup_100_setup,      indexing_int_lookup_100_run),
     "indexing_mitrange_slice"      => (indexing_mitrange_slice_setup,      indexing_mitrange_slice_run),
     "indexing_mvts_column"         => (indexing_mvts_column_setup,         indexing_mvts_column_run),
+    # Indexing — M1.5 second Cython port (vectorised lookup)
+    "indexing_lookup_100_api"      => (indexing_lookup_100_api_setup,      indexing_lookup_100_api_run),
+    "indexing_lookup_100_numpy"    => (indexing_lookup_100_numpy_setup,    indexing_lookup_100_numpy_run),
+    "indexing_lookup_100_cython"   => (indexing_lookup_100_cython_setup,   indexing_lookup_100_cython_run),
     # Arithmetic
     "arith_add_misaligned"         => (arith_add_misaligned_setup,         arith_add_misaligned_run),
     "arith_add_aligned"            => (arith_add_aligned_setup,            arith_add_aligned_run),

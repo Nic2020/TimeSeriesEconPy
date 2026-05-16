@@ -1,0 +1,469 @@
+{
+  "generated_at": "2026-05-16T01:08:39+00:00",
+  "python_version": "3.11.15 (main, May 10 2026, 19:31:25) [MSC v.1944 64 bit (AMD64)]",
+  "julia_available": true,
+  "scenarios": [
+    {
+      "name": "construct_tseries_qq_100",
+      "description": "TSeries(qq, arr) from length-100 ndarray",
+      "python": {
+        "median_seconds": 1.1767780000002403e-06,
+        "min_seconds": 1.144947499999489e-06,
+        "samples": 1800000
+      },
+      "julia": {
+        "median_seconds": 1.2012012012012012e-08,
+        "min_seconds": 6.806806806806808e-09,
+        "samples": 10000
+      }
+    },
+    {
+      "name": "construct_mvts_qq_100x5",
+      "description": "MVTSeries(qq, 5 cols, 100x5 ndarray)",
+      "python": {
+        "median_seconds": 1.0128884000000654e-05,
+        "min_seconds": 1.0110432000001311e-05,
+        "samples": 200000
+      },
+      "julia": {
+        "median_seconds": 7.239583333333334e-07,
+        "min_seconds": 5.104166666666667e-07,
+        "samples": 10000
+      }
+    },
+    {
+      "name": "indexing_mit_lookup_100",
+      "description": "Sum t[mit] over 100 keys",
+      "python": {
+        "median_seconds": 8.996445999996467e-05,
+        "min_seconds": 8.880474000002323e-05,
+        "samples": 25000
+      },
+      "julia": {
+        "median_seconds": 1.5027085590465873e-07,
+        "min_seconds": 1.1224268689057423e-07,
+        "samples": 10000
+      }
+    },
+    {
+      "name": "indexing_int_lookup_100",
+      "description": "Sum t[int] over 100 keys",
+      "python": {
+        "median_seconds": 6.43848600000183e-05,
+        "min_seconds": 6.212227999999414e-05,
+        "samples": 35000
+      },
+      "julia": {
+        "median_seconds": 1.240343347639485e-07,
+        "min_seconds": 9.291845493562233e-08,
+        "samples": 10000
+      }
+    },
+    {
+      "name": "indexing_mitrange_slice",
+      "description": "t[MITRange] \u2014 single 60-period slice",
+      "python": {
+        "median_seconds": 4.816116000001785e-06,
+        "min_seconds": 4.666697999996359e-06,
+        "samples": 450000
+      },
+      "julia": {
+        "median_seconds": 8.67274569402229e-08,
+        "min_seconds": 4.822695035460993e-08,
+        "samples": 10000
+      }
+    },
+    {
+      "name": "indexing_mvts_column",
+      "description": "mvts['c'] \u2014 column access",
+      "python": {
+        "median_seconds": 4.870948000002499e-07,
+        "min_seconds": 4.592876000001525e-07,
+        "samples": 4500000
+      },
+      "julia": {
+        "median_seconds": 8e-09,
+        "min_seconds": 5.900000000000001e-09,
+        "samples": 10000
+      }
+    },
+    {
+      "name": "indexing_lookup_100_api",
+      "description": "lookup(t, mit_keys) \u2014 public vectorised API",
+      "python": {
+        "median_seconds": 6.39832800000022e-05,
+        "min_seconds": 6.0497420000001514e-05,
+        "samples": 35000
+      },
+      "julia": {
+        "median_seconds": 2.823211875843455e-07,
+        "min_seconds": 1.9568151147098517e-07,
+        "samples": 7979
+      }
+    },
+    {
+      "name": "indexing_lookup_100_numpy",
+      "description": "gather_numpy(values, ix) \u2014 NumPy kernel",
+      "python": {
+        "median_seconds": 2.257786000000124e-06,
+        "min_seconds": 2.157313000000158e-06,
+        "samples": 900000
+      },
+      "julia": {
+        "median_seconds": 1.434873949579832e-07,
+        "min_seconds": 9.464285714285714e-08,
+        "samples": 10000
+      }
+    },
+    {
+      "name": "arith_add_misaligned",
+      "description": "100Q + 100Q with 50Q overlap",
+      "python": {
+        "median_seconds": 1.1978590000001078e-05,
+        "min_seconds": 1.125611500000332e-05,
+        "samples": 180000
+      },
+      "julia": {
+        "median_seconds": 2.15e-06,
+        "min_seconds": 1.7700000000000002e-06,
+        "samples": 10000
+      }
+    },
+    {
+      "name": "arith_add_aligned",
+      "description": "100Q + 100Q same range",
+      "python": {
+        "median_seconds": 1.1925280000002657e-05,
+        "min_seconds": 1.1640684999997575e-05,
+        "samples": 180000
+      },
+      "julia": {
+        "median_seconds": 1.99e-06,
+        "min_seconds": 1.6400000000000002e-06,
+        "samples": 10000
+      }
+    },
+    {
+      "name": "arith_mul_scalar",
+      "description": "t * 2.5",
+      "python": {
+        "median_seconds": 1.0803554999995412e-05,
+        "min_seconds": 1.0081645000002482e-05,
+        "samples": 200000
+      },
+      "julia": {
+        "median_seconds": 1.87e-06,
+        "min_seconds": 1.5e-06,
+        "samples": 10000
+      }
+    },
+    {
+      "name": "shift_quarterly_lag1",
+      "description": "shift(t, -1)",
+      "python": {
+        "median_seconds": 3.4957665000001725e-06,
+        "min_seconds": 3.3709470000007967e-06,
+        "samples": 600000
+      },
+      "julia": {
+        "median_seconds": 1.648796498905908e-07,
+        "min_seconds": 1.2450765864332605e-07,
+        "samples": 10000
+      }
+    },
+    {
+      "name": "diff_quarterly",
+      "description": "diff(t)",
+      "python": {
+        "median_seconds": 1.7327784999997675e-05,
+        "min_seconds": 1.703516000000036e-05,
+        "samples": 120000
+      },
+      "julia": {
+        "median_seconds": 2.6200000000000003e-06,
+        "min_seconds": 1.8800000000000002e-06,
+        "samples": 10000
+      }
+    },
+    {
+      "name": "pct_quarterly",
+      "description": "pct(t)",
+      "python": {
+        "median_seconds": 4.2523060000007715e-05,
+        "min_seconds": 3.964234000000033e-05,
+        "samples": 50000
+      },
+      "julia": {
+        "median_seconds": 3.366666666666667e-06,
+        "min_seconds": 2.666666666666667e-06,
+        "samples": 10000
+      }
+    },
+    {
+      "name": "mean_quarterly_100",
+      "description": "mean(t)",
+      "python": {
+        "median_seconds": 5.763412000001154e-06,
+        "min_seconds": 5.665519999997741e-06,
+        "samples": 350000
+      },
+      "julia": {
+        "median_seconds": 3.049147442326981e-08,
+        "min_seconds": 2.266800401203611e-08,
+        "samples": 10000
+      }
+    },
+    {
+      "name": "std_quarterly_100",
+      "description": "std(t)",
+      "python": {
+        "median_seconds": 1.5429019999999128e-05,
+        "min_seconds": 1.4951770000004672e-05,
+        "samples": 140000
+      },
+      "julia": {
+        "median_seconds": 6.534552845528455e-08,
+        "min_seconds": 4.867886178861789e-08,
+        "samples": 10000
+      }
+    },
+    {
+      "name": "cor_two_tseries",
+      "description": "cor(a, b) on two TSeries",
+      "python": {
+        "median_seconds": 5.5452890000015035e-05,
+        "min_seconds": 5.435119999997369e-05,
+        "samples": 40000
+      },
+      "julia": {
+        "median_seconds": 1.0269151138716357e-07,
+        "min_seconds": 7.660455486542444e-08,
+        "samples": 10000
+      }
+    },
+    {
+      "name": "cor_mvts_5_columns",
+      "description": "cor(mvts) \u2014 5x5 corr matrix",
+      "python": {
+        "median_seconds": 5.432799000000159e-05,
+        "min_seconds": 5.297907999997733e-05,
+        "samples": 40000
+      },
+      "julia": {
+        "median_seconds": 1.48e-05,
+        "min_seconds": 1.1200000000000001e-05,
+        "samples": 10000
+      }
+    },
+    {
+      "name": "cov_mvts_5_columns",
+      "description": "cov(mvts) \u2014 5x5 cov matrix",
+      "python": {
+        "median_seconds": 3.6735090000001944e-05,
+        "min_seconds": 3.625664000001052e-05,
+        "samples": 60000
+      },
+      "julia": {
+        "median_seconds": 1.5300000000000003e-05,
+        "min_seconds": 1.1400000000000001e-05,
+        "samples": 10000
+      }
+    },
+    {
+      "name": "moving_average_quarterly_4",
+      "description": "moving_average(t, 4)",
+      "python": {
+        "median_seconds": 8.127743999998528e-06,
+        "min_seconds": 7.990522000000055e-06,
+        "samples": 250000
+      },
+      "julia": {
+        "median_seconds": 1.11e-05,
+        "min_seconds": 9.3e-06,
+        "samples": 10000
+      }
+    },
+    {
+      "name": "moving_sum_quarterly_4",
+      "description": "moving_sum(t, 4)",
+      "python": {
+        "median_seconds": 7.179558000000269e-06,
+        "min_seconds": 6.895540000000438e-06,
+        "samples": 300000
+      },
+      "julia": {
+        "median_seconds": 8.68e-06,
+        "min_seconds": 6.3200000000000005e-06,
+        "samples": 10000
+      }
+    },
+    {
+      "name": "undiff_quarterly",
+      "description": "undiff(t)",
+      "python": {
+        "median_seconds": 5.002747999999429e-05,
+        "min_seconds": 4.711715999997068e-05,
+        "samples": 40000
+      },
+      "julia": {
+        "median_seconds": 5.3500000000000004e-06,
+        "min_seconds": 3.9250000000000005e-06,
+        "samples": 10000
+      }
+    },
+    {
+      "name": "fconvert_qq_to_yy_mean",
+      "description": "fconvert(Yearly, t, method='mean')",
+      "python": {
+        "median_seconds": 0.00016966435000000503,
+        "min_seconds": 0.00016737265000006118,
+        "samples": 12000
+      },
+      "julia": {
+        "median_seconds": 1.004245283018868e-06,
+        "min_seconds": 7.698113207547171e-07,
+        "samples": 10000
+      }
+    },
+    {
+      "name": "fconvert_qq_to_yy_sum",
+      "description": "fconvert(Yearly, t, method='sum')",
+      "python": {
+        "median_seconds": 7.423272999999427e-05,
+        "min_seconds": 7.111457999999402e-05,
+        "samples": 30000
+      },
+      "julia": {
+        "median_seconds": 1.037878787878788e-06,
+        "min_seconds": 7.227272727272728e-07,
+        "samples": 10000
+      }
+    },
+    {
+      "name": "fconvert_yy_to_qq_const",
+      "description": "fconvert(Quarterly, t, method='const') (higher)",
+      "python": {
+        "median_seconds": 1.2141770000005181e-05,
+        "min_seconds": 1.1784000000000106e-05,
+        "samples": 180000
+      },
+      "julia": {
+        "median_seconds": 3.506896551724138e-07,
+        "min_seconds": 2.410344827586207e-07,
+        "samples": 10000
+      }
+    },
+    {
+      "name": "fconvert_mm_to_qq_mean",
+      "description": "fconvert(Quarterly, monthly_t, method='mean')",
+      "python": {
+        "median_seconds": 0.00027854245000003176,
+        "min_seconds": 0.000257725199999868,
+        "samples": 8000
+      },
+      "julia": {
+        "median_seconds": 1.2512820512820514e-06,
+        "min_seconds": 9.000000000000001e-07,
+        "samples": 10000
+      }
+    },
+    {
+      "name": "rec_ar2_100",
+      "description": "AR(2) over 100 quarters \u2014 general rec + lambda",
+      "python": {
+        "median_seconds": 0.0006131749999999556,
+        "min_seconds": 0.000595307000000048,
+        "samples": 3500
+      },
+      "julia": {
+        "median_seconds": 8.00561797752809e-07,
+        "min_seconds": 6.000000000000001e-07,
+        "samples": 10000
+      }
+    },
+    {
+      "name": "rec_linear_ar2_100_pylist",
+      "description": "AR(2) over 100 \u2014 rec_linear, pure-Python list",
+      "python": {
+        "median_seconds": 1.376313250000294e-05,
+        "min_seconds": 1.3674759999992147e-05,
+        "samples": 160000
+      },
+      "julia": {
+        "median_seconds": 8.00561797752809e-07,
+        "min_seconds": 6.000000000000001e-07,
+        "samples": 10000
+      }
+    },
+    {
+      "name": "rec_linear_ar2_100_numpy",
+      "description": "AR(2) over 100 \u2014 rec_linear NumPy kernel",
+      "python": {
+        "median_seconds": 0.00014385875000004944,
+        "min_seconds": 0.0001386451500000021,
+        "samples": 14000
+      },
+      "julia": {
+        "median_seconds": 8.00561797752809e-07,
+        "min_seconds": 6.000000000000001e-07,
+        "samples": 10000
+      }
+    },
+    {
+      "name": "workspace_merge_5_series",
+      "description": "Workspace merge: 5 + 5 series",
+      "python": {
+        "median_seconds": 2.1537100000000467e-06,
+        "min_seconds": 2.0974440000009054e-06,
+        "samples": 1000000
+      },
+      "julia": {
+        "median_seconds": 5.057142857142857e-06,
+        "min_seconds": 4.1571428571428575e-06,
+        "samples": 10000
+      }
+    },
+    {
+      "name": "workspace_filter_5_series",
+      "description": "Workspace filter: 10 down to 5 series",
+      "python": {
+        "median_seconds": 4.074961000001167e-06,
+        "min_seconds": 3.840037999998458e-06,
+        "samples": 500000
+      },
+      "julia": {
+        "median_seconds": 8.78e-06,
+        "min_seconds": 6.480000000000001e-06,
+        "samples": 10000
+      }
+    },
+    {
+      "name": "rec_linear_ar2_100_cython",
+      "description": "AR(2) over 100 quarters \u2014 rec_linear Cython kernel",
+      "python": {
+        "median_seconds": 2.233389000000443e-06,
+        "min_seconds": 2.1746680000001106e-06,
+        "samples": 900000
+      },
+      "julia": {
+        "median_seconds": 7.633879781420765e-07,
+        "min_seconds": 5.721311475409836e-07,
+        "samples": 10000
+      }
+    },
+    {
+      "name": "indexing_lookup_100_cython",
+      "description": "gather_cython(values, ix) \u2014 Cython kernel",
+      "python": {
+        "median_seconds": 2.0471825000004173e-06,
+        "min_seconds": 1.988069000000223e-06,
+        "samples": 1000000
+      },
+      "julia": {
+        "median_seconds": 1.696808510638298e-07,
+        "min_seconds": 1.0170212765957447e-07,
+        "samples": 10000
+      }
+    }
+  ]
+}

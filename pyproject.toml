@@ -142,6 +142,10 @@ convention = "numpy"
 # Indexing dispatch on TSeries (MIT / MITRange / slice / int / array / bool TSeries / MIT-slice)
 # fans out into many branches; collapsing them hurts readability.
 "src/tsecon/tseries.py" = ["PLR0911", "PLR0912"]
+# The vectorised `lookup` wrapper validates MIT-or-int keys homogeneously,
+# frequency-checks each MIT, and bounds-checks the resulting offsets — the
+# branch fan-out mirrors tseries.py's indexing dispatch.
+"src/tsecon/indexing.py" = ["PLR0912"]
 # MVTSeries indexing dispatches across an even larger surface than TSeries
 # (rows × columns × MIT / MITRange / int / bool / str / list-of-str), and the
 # constructor enumerates the Julia construction-form union (range / scalar /

@@ -1,0 +1,72 @@
+name: wheels
+
+# Build + smoke-test platform wheels via cibuildwheel.
+#
+# The wheels contain compiled Cython extensions for the four M1.5 kernels
+# (rec_linear / lookup / stats_scalar / fconvert_lower_aggregate) — see
+# claude_files/decisions/17_cython_dispatch_strategy.md and 18_cython_port_plan.md.
+# Smoke test verifies the kernels are active in the installed wheel (not
+# only on a `pip install -e .` source tree) and re-runs the four kernel
+# test files against the wheel-installed package.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
+
+concurrency:
+  group: wheels-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build_wheels:
+    name: wheel (${{ matrix.python }} on ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python: [cp311, cp312, cp313]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build wheels
+        uses: pypa/cibuildwheel@v2.21.3
+        env:
+          # One CPython per matrix cell; the `*` covers manylinux/musllinux/win/macos arch suffixes.
+          CIBW_BUILD: "${{ matrix.python }}-*"
+          # Skip non-shipping targets — musllinux/Alpine, 32-bit, exotic arches.
+          # PyPy is auto-skipped because CIBW_BUILD restricts to cp*.
+          CIBW_SKIP: "*-musllinux_* *_i686 *_ppc64le *_s390x *_armv7l"
+          # Stick to the architectures the project's classifiers + dev hardware cover.
+          # macOS arm64 only (macos-latest = macos-14 = Apple Silicon); x86_64 macOS
+          # would require a separate runner and is not in the standard matrix.
+          CIBW_ARCHS_LINUX: x86_64
+          CIBW_ARCHS_WINDOWS: AMD64
+          CIBW_ARCHS_MACOS: arm64
+          CIBW_BUILD_VERBOSITY: 1
+          # Test dependencies installed into the cibuildwheel test venv. numpy is
+          # already a runtime dep of the wheel itself, so it's resolved automatically.
+          CIBW_TEST_REQUIRES: "pytest>=8.0 hypothesis>=6.100"
+          # Smoke test = (1) confirm the four Cython kernels are active in the
+          # installed wheel, (2) run the kernel-specific test files end-to-end.
+          # `--benchmark-skip` honours pyproject's addopts default but is set
+          # explicitly here so the test command is self-contained.
+          CIBW_TEST_COMMAND: >
+            python -c "import tsecon; assert tsecon.rec_linear_is_cython(), 'rec_linear kernel missing'; assert tsecon.lookup_is_cython(), 'lookup kernel missing'; assert tsecon.stats_is_cython(), 'stats kernel missing'; assert tsecon.fconvert_is_cython(), 'fconvert kernel missing'" &&
+            pytest -x --benchmark-skip
+            {project}/tests/test_recursive.py
+            {project}/tests/test_indexing.py
+            {project}/tests/test_stats_kernels.py
+            {project}/tests/test_fconvert_kernels.py
+
+      - name: Upload wheels
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheels-${{ matrix.os }}-${{ matrix.python }}
+          path: ./wheelhouse/*.whl
+          if-no-files-found: error
+          retention-days: 14

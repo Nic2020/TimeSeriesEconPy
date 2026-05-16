@@ -1,0 +1,132 @@
+name: release
+
+# Publish to PyPI on tag push (vX.Y.Z) via PyPI Trusted Publishing (OIDC) —
+# no long-lived API token, see claude_files/decisions/13_github_provisioning.md.
+#
+# Flow on `git push origin vX.Y.Z`:
+#   1. verify-tag    — assert pyproject.toml [project] version == tag (minus the leading 'v').
+#   2. build-wheels  — reuse .github/workflows/wheels.yml (the cibuildwheel matrix).
+#   3. build-sdist   — `uv build --sdist` on ubuntu-latest.
+#   4. publish-pypi  — download every wheel + the sdist into dist/, then
+#                      pypa/gh-action-pypi-publish via OIDC.
+#
+# PyPI-side one-time setup (done outside this repo):
+#   * Reserve the TimeSeriesEconPy project name on PyPI (manual upload of the
+#     first sdist, OR configure a "Pending Publisher" while the project is
+#     still un-claimed).
+#   * Trusted Publishing config on the PyPI project: owner=Nic2020,
+#     repo=TimeSeriesEconPy, workflow=release.yml, environment=pypi.
+#   * Create a GitHub `pypi` environment on this repo (Settings → Environments)
+#     — optional but lets you require manual approval on the publish step.
+#
+# Deliberate scope cuts (extension points, not in this revision):
+#   * No TestPyPI staging. Add a parallel publish-testpypi job + a
+#     workflow_dispatch `target` input when staging becomes useful.
+#   * No auto-attach wheels to a GitHub Release. Would need
+#     `permissions: contents: write` + a softprops/action-gh-release step.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+# Releases must not race. PyPI is idempotent on already-published files (it
+# 400s the second upload of the same filename), but a half-uploaded set is
+# confusing. `cancel-in-progress: false` lets the first publish finish.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  verify-tag:
+    name: verify tag matches pyproject version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check tag == pyproject version
+        # The tag is `vX.Y.Z`; pyproject.toml `[project] version` is `X.Y.Z`.
+        # Mismatch usually means "forgot to bump pyproject before tagging" —
+        # fail here so a wheel labelled 0.0.1.dev0 never reaches PyPI under
+        # the v0.0.1 tag.
+        run: |
+          set -euo pipefail
+          tag_version="${GITHUB_REF_NAME#v}"
+          py_version="$(python3 -c 'import tomllib,sys; print(tomllib.load(open("pyproject.toml","rb"))["project"]["version"])')"
+          echo "Tag version:       ${tag_version}"
+          echo "pyproject version: ${py_version}"
+          if [ "${tag_version}" != "${py_version}" ]; then
+            echo "::error::Tag '${GITHUB_REF_NAME}' does not match pyproject.toml [project] version '${py_version}'. Bump pyproject.toml before tagging."
+            exit 1
+          fi
+
+  build-wheels:
+    name: build wheels
+    needs: [verify-tag]
+    uses: ./.github/workflows/wheels.yml
+    # wheels.yml is parameterless; its CIBW matrix builds the same set of
+    # platform wheels that the PR-time smoke check builds. Same source of
+    # truth = no risk that PR-green diverges from release-published.
+
+  build-sdist:
+    name: build sdist
+    needs: [verify-tag]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+      - name: Build sdist
+        # `uv build --sdist` invokes hatchling's sdist target. The custom
+        # Cython hook in hatch_build.py short-circuits on non-wheel targets,
+        # so the sdist ships the .pyx sources and lets the installing user's
+        # build environment compile them.
+        run: uv build --sdist
+      - name: Upload sdist artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sdist
+          path: dist/*.tar.gz
+          if-no-files-found: error
+          retention-days: 14
+
+  publish-pypi:
+    name: publish to PyPI
+    needs: [build-wheels, build-sdist]
+    runs-on: ubuntu-latest
+    # The `pypi` environment is the GitHub side of Trusted Publishing — PyPI
+    # can be configured to require this exact name as an extra OIDC claim.
+    # The URL gets surfaced on the GitHub Deployments tab once published.
+    environment:
+      name: pypi
+      url: https://pypi.org/project/TimeSeriesEconPy/
+    permissions:
+      # `id-token: write` is the OIDC mint permission that pypa/gh-action-
+      # pypi-publish uses to authenticate. No PyPI API token is needed.
+      id-token: write
+    steps:
+      - name: Download wheel artifacts
+        # wheels.yml uploads one artifact per matrix cell named
+        # `wheels-{os}-{python}` (e.g. `wheels-ubuntu-latest-cp311`).
+        # `pattern` globs them all; `merge-multiple: true` flattens every
+        # cell's wheels into `dist/` instead of per-artifact subdirs.
+        uses: actions/download-artifact@v4
+        with:
+          pattern: wheels-*
+          path: dist/
+          merge-multiple: true
+      - name: Download sdist artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: sdist
+          path: dist/
+      - name: List release artifacts
+        # Sanity log: prints the final upload payload before publishing.
+        # Expect 1 sdist (.tar.gz) + 9 wheels (3 OS × 3 CPython) = 10 files
+        # for the current wheels.yml matrix.
+        run: ls -la dist/
+      - name: Publish to PyPI (Trusted Publishing)
+        uses: pypa/gh-action-pypi-publish@release/v1
+        # No `with:` block — the action picks up OIDC credentials from the
+        # job's `id-token` permission and uploads every dist/* file.

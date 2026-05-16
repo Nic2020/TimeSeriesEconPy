@@ -14,8 +14,10 @@ on:
     branches: [main]
   push:
     branches: [main]
-    tags: ["v*"]
   workflow_dispatch:
+  # Reusable from release.yml on tag pushes — the wheel matrix is the single
+  # source of truth for both PR-time smoke builds and release-time PyPI builds.
+  workflow_call:
 
 concurrency:
   group: wheels-${{ github.ref }}

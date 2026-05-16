@@ -225,8 +225,15 @@ std_quarterly_100_setup() = (t = TSeries(qq(2020, 1), collect(0.0:99.0)),)
 
 std_quarterly_100_run(state) = std(state.t)
 
-# Use deterministic seeded RNG so the per-call work is constant across runs
-# (matches Python's `np.random.default_rng(seed=20260515)`).
+# Use deterministic seeded RNG so the per-call work is constant across runs.
+# The integer seed (20260515) is shared with the Python scenarios for
+# traceability, but the resulting byte-level sequences differ — MersenneTwister
+# (MT19937) and NumPy's `default_rng` (PCG64) are different algorithms, so the
+# same seed yields different floats. This is benign here: every scenario seeded
+# this way (cor / cov / quantile / std on length-100 vectors and 100x5 matrices)
+# is timed on an operation whose cost depends only on array shape and dtype,
+# not on the values. Cross-backend *timing* comparisons are still apples-to-apples;
+# cross-backend *numerical* parity is not asserted from this harness.
 function _seeded_normal(n::Int)
     rng = MersenneTwister(20260515)
     return randn(rng, n)

@@ -10,25 +10,31 @@
       
       
       
+        <link rel="canonical" href="https://Nic2020.github.io/TimeSeriesEconPy/tutorials/1_timeseriesecon/">
       
+      
+        <link rel="prev" href="../..">
+      
+      
+        <link rel="next" href="../../reference/frequencies/">
       
       
         
       
       
-      <link rel="icon" href="/TimeSeriesEconPy/assets/images/favicon.png">
+      <link rel="icon" href="../../assets/images/favicon.png">
       <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
     
     
       
-        <title>TimeSeriesEconPy</title>
+        <title>1. TimeSeriesEcon - TimeSeriesEconPy</title>
       
     
     
-      <link rel="stylesheet" href="/TimeSeriesEconPy/assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
       
         
-        <link rel="stylesheet" href="/TimeSeriesEconPy/assets/stylesheets/palette.ab4e12ef.min.css">
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
       
       
 
@@ -47,13 +53,13 @@
       
     
     
-      <link rel="stylesheet" href="/TimeSeriesEconPy/assets/_markdown_exec_pyodide.css">
+      <link rel="stylesheet" href="../../assets/_markdown_exec_pyodide.css">
     
-      <link rel="stylesheet" href="/TimeSeriesEconPy/assets/_markdown_exec_ansi.css">
+      <link rel="stylesheet" href="../../assets/_markdown_exec_ansi.css">
     
-      <link rel="stylesheet" href="/TimeSeriesEconPy/assets/_mkdocstrings.css">
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
     
-    <script>__md_scope=new URL("/TimeSeriesEconPy/",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
 
@@ -77,6 +83,11 @@
     <label class="md-overlay" for="__drawer"></label>
     <div data-md-component="skip">
       
+        
+        <a href="#tutorial-1-timeseriesecon" class="md-skip">
+          Skip to content
+        </a>
+      
     </div>
     <div data-md-component="announce">
       
@@ -89,7 +100,7 @@
 
 <header class="md-header md-header--shadow" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
-    <a href="/TimeSeriesEconPy/." title="TimeSeriesEconPy" class="md-header__button md-logo" aria-label="TimeSeriesEconPy" data-md-component="logo">
+    <a href="../.." title="TimeSeriesEconPy" class="md-header__button md-logo" aria-label="TimeSeriesEconPy" data-md-component="logo">
       
   
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
@@ -109,7 +120,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              
+              1. TimeSeriesEcon
             
           </span>
         </div>
@@ -227,7 +238,7 @@
 
 <nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href="/TimeSeriesEconPy/." title="TimeSeriesEconPy" class="md-nav__button md-logo" aria-label="TimeSeriesEconPy" data-md-component="logo">
+    <a href="../.." title="TimeSeriesEconPy" class="md-nav__button md-logo" aria-label="TimeSeriesEconPy" data-md-component="logo">
       
   
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
@@ -257,7 +268,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/TimeSeriesEconPy/." class="md-nav__link">
+      <a href="../.." class="md-nav__link">
         
   
   
@@ -281,8 +292,10 @@
       
   
   
+    
   
   
+  
     
     
     
@@ -293,11 +306,11 @@
       
     
     
-    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" checked>
         
           
           <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
@@ -318,7 +331,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_2">
             <span class="md-nav__icon md-icon"></span>
             
@@ -333,10 +346,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="/TimeSeriesEconPy/tutorials/1_timeseriesecon/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    1. TimeSeriesEcon
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -352,6 +392,37 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#section-status" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Section status
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -423,7 +494,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/TimeSeriesEconPy/reference/frequencies/" class="md-nav__link">
+      <a href="../../reference/frequencies/" class="md-nav__link">
         
   
   
@@ -451,7 +522,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/TimeSeriesEconPy/reference/mit/" class="md-nav__link">
+      <a href="../../reference/mit/" class="md-nav__link">
         
   
   
@@ -479,7 +550,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/TimeSeriesEconPy/reference/tseries/" class="md-nav__link">
+      <a href="../../reference/tseries/" class="md-nav__link">
         
   
   
@@ -507,7 +578,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/TimeSeriesEconPy/reference/mvtseries/" class="md-nav__link">
+      <a href="../../reference/mvtseries/" class="md-nav__link">
         
   
   
@@ -535,7 +606,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/TimeSeriesEconPy/reference/workspace/" class="md-nav__link">
+      <a href="../../reference/workspace/" class="md-nav__link">
         
   
   
@@ -563,7 +634,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/TimeSeriesEconPy/reference/math/" class="md-nav__link">
+      <a href="../../reference/math/" class="md-nav__link">
         
   
   
@@ -591,7 +662,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/TimeSeriesEconPy/reference/stats/" class="md-nav__link">
+      <a href="../../reference/stats/" class="md-nav__link">
         
   
   
@@ -619,7 +690,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/TimeSeriesEconPy/reference/indexing/" class="md-nav__link">
+      <a href="../../reference/indexing/" class="md-nav__link">
         
   
   
@@ -647,7 +718,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/TimeSeriesEconPy/reference/fconvert/" class="md-nav__link">
+      <a href="../../reference/fconvert/" class="md-nav__link">
         
   
   
@@ -675,7 +746,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/TimeSeriesEconPy/reference/recursive/" class="md-nav__link">
+      <a href="../../reference/recursive/" class="md-nav__link">
         
   
   
@@ -703,7 +774,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/TimeSeriesEconPy/reference/options/" class="md-nav__link">
+      <a href="../../reference/options/" class="md-nav__link">
         
   
   
@@ -731,7 +802,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/TimeSeriesEconPy/reference/plotting/" class="md-nav__link">
+      <a href="../../reference/plotting/" class="md-nav__link">
         
   
   
@@ -759,7 +830,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/TimeSeriesEconPy/reference/interop/" class="md-nav__link">
+      <a href="../../reference/interop/" class="md-nav__link">
         
   
   
@@ -787,7 +858,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/TimeSeriesEconPy/reference/io/" class="md-nav__link">
+      <a href="../../reference/io/" class="md-nav__link">
         
   
   
@@ -815,7 +886,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/TimeSeriesEconPy/reference/mirror/" class="md-nav__link">
+      <a href="../../reference/mirror/" class="md-nav__link">
         
   
   
@@ -902,7 +973,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/TimeSeriesEconPy/design/decisions/" class="md-nav__link">
+      <a href="../../design/decisions/" class="md-nav__link">
         
   
   
@@ -930,7 +1001,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/TimeSeriesEconPy/design/frequency_model/" class="md-nav__link">
+      <a href="../../design/frequency_model/" class="md-nav__link">
         
   
   
@@ -958,7 +1029,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/TimeSeriesEconPy/design/tseries_protocols/" class="md-nav__link">
+      <a href="../../design/tseries_protocols/" class="md-nav__link">
         
   
   
@@ -986,7 +1057,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/TimeSeriesEconPy/design/cython_strategy/" class="md-nav__link">
+      <a href="../../design/cython_strategy/" class="md-nav__link">
         
   
   
@@ -1014,7 +1085,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/TimeSeriesEconPy/design/serialization/" class="md-nav__link">
+      <a href="../../design/serialization/" class="md-nav__link">
         
   
   
@@ -1042,7 +1113,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/TimeSeriesEconPy/design/migration_from_julia/" class="md-nav__link">
+      <a href="../../design/migration_from_julia/" class="md-nav__link">
         
   
   
@@ -1077,7 +1148,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/TimeSeriesEconPy/api_index/" class="md-nav__link">
+      <a href="../../api_index/" class="md-nav__link">
         
   
   
@@ -1104,7 +1175,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/TimeSeriesEconPy/faq/" class="md-nav__link">
+      <a href="../../faq/" class="md-nav__link">
         
   
   
@@ -1141,6 +1212,27 @@
   
   
   
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#section-status" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Section status
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
   
 </nav>
                   </div>
@@ -1153,8 +1245,161 @@
               
               <article class="md-content__inner md-typeset">
                 
-  <h1>404 - Not found</h1>
+                  
 
+
+  
+  
+
+
+<h1 id="tutorial-1-timeseriesecon">Tutorial 1 — TimeSeriesEcon<a class="headerlink" href="#tutorial-1-timeseriesecon" title="Permanent link">&para;</a></h1>
+<div class="admonition warning">
+<p class="admonition-title">Tutorial in progress</p>
+<p>This page is the scaffold for the section-by-section port of
+<a href="https://bankofcanada.github.io/DocsEcon.jl/dev/Tutorials/1.TimeSeriesEcon/main/">TutorialsEcon.jl/1.TimeSeriesEcon</a>.
+The narrative lands in a follow-up session — see the
+<a href="#section-status">section status table</a> below for what's queued. Until then,
+use the <a href="../../reference/frequencies/">reference pages</a> for the API surface
+and the <a href="../../design/migration_from_julia/">migration guide</a> for the
+Julia ↔ Python idiom map.</p>
+</div>
+<p>This tutorial ports the upstream Julia tutorial section-by-section. Each section
+shows the Python idiom only — the Julia source is linked once per section in a
+side-by-side admonition so a reader migrating from Julia can find the original.
+Code blocks are executed at <code>mkdocs build</code> time via <code>markdown-exec</code> (the same
+trick <code>Documenter.jl</code> plays with <code>@repl tse</code>), so a broken example fails CI.</p>
+<h2 id="section-status">Section status<a class="headerlink" href="#section-status" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Section</th>
+<th style="text-align: center;">Status</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>Frequency and Time</td>
+<td style="text-align: center;">⬜</td>
+<td>Queued. Surface ready.</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Ranges (<code>MITRange</code>)</td>
+<td style="text-align: center;">⬜</td>
+<td>Queued.</td>
+</tr>
+<tr>
+<td>3</td>
+<td>TSeries — Creation</td>
+<td style="text-align: center;">⬜</td>
+<td>Queued. Needs the wrap-vs-copy call-out per <a href="../../design/decisions/#locked-decisions">decision 16</a>.</td>
+</tr>
+<tr>
+<td>4</td>
+<td>TSeries — Access (read / write)</td>
+<td style="text-align: center;">⬜</td>
+<td>Queued.</td>
+</tr>
+<tr>
+<td>5</td>
+<td>Arithmetic with TSeries</td>
+<td style="text-align: center;">⬜</td>
+<td>Queued.</td>
+</tr>
+<tr>
+<td>6</td>
+<td>Shifts (lag / lead)</td>
+<td style="text-align: center;">⬜</td>
+<td>Queued.</td>
+</tr>
+<tr>
+<td>7</td>
+<td>Diff and undiff</td>
+<td style="text-align: center;">⬜</td>
+<td>Queued — both <code>diff</code> and <code>undiff</code> are ported.</td>
+</tr>
+<tr>
+<td>8</td>
+<td>Moving average</td>
+<td style="text-align: center;">⬜</td>
+<td>Queued — <code>moving</code> / <code>moving_average</code> / <code>moving_sum</code> are ported.</td>
+</tr>
+<tr>
+<td>9</td>
+<td>Recursive assignments</td>
+<td style="text-align: center;">⬜</td>
+<td>Queued — <code>tsecon.rec(rng, target, fn)</code> plus <code>tsecon.rec_linear(...)</code> for the AR(p) common case.</td>
+</tr>
+<tr>
+<td>10</td>
+<td>Multi-variate Time Series</td>
+<td style="text-align: center;">⬜</td>
+<td>Queued — <code>MVTSeries</code> is fully ported.</td>
+</tr>
+<tr>
+<td>11</td>
+<td>Plotting</td>
+<td style="text-align: center;">⬜</td>
+<td>Queued — matplotlib will be the default backend on this page.</td>
+</tr>
+<tr>
+<td>12</td>
+<td>Workspaces</td>
+<td style="text-align: center;">⬜</td>
+<td>Queued.</td>
+</tr>
+<tr>
+<td>13</td>
+<td>MVTSeries vs Workspace</td>
+<td style="text-align: center;">⬜</td>
+<td>Queued.</td>
+</tr>
+<tr>
+<td>14</td>
+<td><code>overlay</code></td>
+<td style="text-align: center;">🔵</td>
+<td>Blocked on <code>various.jl</code> (M4).</td>
+</tr>
+<tr>
+<td>15</td>
+<td><code>compare</code> / <code>@compare</code></td>
+<td style="text-align: center;">🔵</td>
+<td>Blocked on <code>various.jl</code> (M4).</td>
+</tr>
+<tr>
+<td>16</td>
+<td>BDaily holidays</td>
+<td style="text-align: center;">🟡</td>
+<td>Options are ported; <code>holidays</code> integration is M4.</td>
+</tr>
+<tr>
+<td>17</td>
+<td>Options</td>
+<td style="text-align: center;">⬜</td>
+<td>Queued — <code>getoption</code> / <code>setoption</code> / <code>option_scope</code> are ported.</td>
+</tr>
+</tbody>
+</table>
+<p>Legend: ⬜ ready to port (no library blocker) · 🟡 partial · 🔵 blocked on later milestone.</p>
+<p>When a section ships, its row moves to a heading on this page with executable
+code blocks (sharing the <code>session="tse"</code> state) and a Julia ↔ Python admonition
+at the bottom.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
               </article>
             </div>
           
@@ -1197,12 +1442,12 @@
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "/TimeSeriesEconPy/", "features": ["navigation.instant", "navigation.tracking", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "content.code.copy", "content.code.annotate"], "search": "/TimeSeriesEconPy/assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.tracking", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "content.code.copy", "content.code.annotate"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="/TimeSeriesEconPy/assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
       
-        <script src="/TimeSeriesEconPy/assets/_markdown_exec_pyodide.js"></script>
+        <script src="../../assets/_markdown_exec_pyodide.js"></script>
       
     
   </body>

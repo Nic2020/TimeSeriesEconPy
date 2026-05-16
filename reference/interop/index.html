@@ -1,0 +1,2858 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="A time-series language for macroeconomics, ported from TimeSeriesEcon.jl.">
+      
+      
+      
+        <link rel="canonical" href="https://Nic2020.github.io/TimeSeriesEconPy/reference/interop/">
+      
+      
+        <link rel="prev" href="../plotting/">
+      
+      
+        <link rel="next" href="../io/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Interop (pandas, polars) - TimeSeriesEconPy</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/_markdown_exec_pyodide.css">
+    
+      <link rel="stylesheet" href="../../assets/_markdown_exec_ansi.css">
+    
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#dataframe-interop-pandas-polars" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="TimeSeriesEconPy" class="md-header__button md-logo" aria-label="TimeSeriesEconPy" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            TimeSeriesEconPy
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Interop (pandas, polars)
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0-7 2.39 3.42C13.65 5.15 12.84 5 12 5s-1.65.15-2.39.42zM3.34 7l4.16-.35A7.2 7.2 0 0 0 5.94 8.5c-.44.74-.69 1.5-.83 2.29zm.02 10 1.76-3.77a7.131 7.131 0 0 0 2.38 4.14zM20.65 7l-1.77 3.79a7.02 7.02 0 0 0-2.38-4.15zm-.01 10-4.14.36c.59-.51 1.12-1.14 1.54-1.86.42-.73.69-1.5.83-2.29zM12 22l-2.41-3.44c.74.27 1.55.44 2.41.44.82 0 1.63-.17 2.37-.44z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m17.75 4.09-2.53 1.94.91 3.06-2.63-1.81-2.63 1.81.91-3.06-2.53-1.94L12.44 4l1.06-3 1.06 3zm3.5 6.91-1.64 1.25.59 1.98-1.7-1.17-1.7 1.17.59-1.98L15.75 11l2.06-.05L18.5 9l.69 1.95zm-2.28 4.95c.83-.08 1.72 1.1 1.19 1.85-.32.45-.66.87-1.08 1.27C15.17 23 8.84 23 4.94 19.07c-3.91-3.9-3.91-10.24 0-14.14.4-.4.82-.76 1.27-1.08.75-.53 1.93.36 1.85 1.19-.27 2.86.69 5.83 2.89 8.02a9.96 9.96 0 0 0 8.02 2.89m-1.64 2.02a12.08 12.08 0 0 1-7.8-3.47c-2.17-2.19-3.33-5-3.49-7.82-2.81 3.14-2.7 7.96.31 10.98 3.02 3.01 7.84 3.12 10.98.31"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/Nic2020/TimeSeriesEconPy" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    Nic2020/TimeSeriesEconPy
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="TimeSeriesEconPy" class="md-nav__button md-logo" aria-label="TimeSeriesEconPy" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    TimeSeriesEconPy
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/Nic2020/TimeSeriesEconPy" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    Nic2020/TimeSeriesEconPy
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorials
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Tutorials
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/1_timeseriesecon/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    1. TimeSeriesEcon
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../frequencies/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Frequencies
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../mit/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MIT & MITRange
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tseries/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    TSeries
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../mvtseries/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MVTSeries
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../workspace/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Workspace
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../math/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Math (shift, diff, moving, undiff)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../stats/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Statistics (mean, std, cor)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../indexing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Indexing (lookup)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../fconvert/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Frequency conversion (fconvert)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../recursive/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Recursive (rec, rec_linear)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../options/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Options
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../plotting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plotting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Interop (pandas, polars)
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Interop (pandas, polars)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#tseconinteroppandas" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        tsecon.interop.pandas
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tsecon.interop.pandas" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        pandas
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="pandas">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tsecon.interop.pandas.to_pandas" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        to_pandas
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tsecon.interop.pandas.from_pandas" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        from_pandas
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tseconinteroppolars" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        tsecon.interop.polars
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tsecon.interop.polars" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        polars
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="polars">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tsecon.interop.polars.to_polars" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        to_polars
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tsecon.interop.polars.from_polars" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        from_polars
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../io/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    JSON I/O
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../mirror/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Mirror metadata
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Design notes
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Design notes
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/decisions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/frequency_model/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Frequency model
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/tseries_protocols/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    TSeries protocols
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/cython_strategy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cython strategy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/serialization/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    JSON serialization
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/migration_from_julia/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Migration from Julia
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api_index/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API index
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../faq/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    FAQ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#tseconinteroppandas" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        tsecon.interop.pandas
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tsecon.interop.pandas" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        pandas
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="pandas">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tsecon.interop.pandas.to_pandas" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        to_pandas
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tsecon.interop.pandas.from_pandas" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        from_pandas
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tseconinteroppolars" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        tsecon.interop.polars
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tsecon.interop.polars" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        polars
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="polars">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tsecon.interop.polars.to_polars" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        to_polars
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tsecon.interop.polars.from_polars" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        from_polars
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="dataframe-interop-pandas-polars">DataFrame interop (pandas, polars)<a class="headerlink" href="#dataframe-interop-pandas-polars" title="Permanent link">&para;</a></h1>
+<p>Lazy-imported converters between <code>TSeries</code> / <code>MVTSeries</code> / <code>Workspace</code> and
+<code>pandas.DataFrame</code> / <code>polars.DataFrame</code>. Neither library is a hard dependency;
+install with the optional extra:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s1">&#39;TimeSeriesEconPy[pandas]&#39;</span><span class="w">   </span><span class="c1"># or [polars], or [all]</span>
+</code></pre></div>
+<p>The pandas surface accepts <code>index="auto" | "mit" | "date"</code>; the polars surface
+keeps the time axis as a column (polars has no row index) and requires explicit
+<code>freq=</code> on <code>from_polars(date_column=...)</code> since polars carries no period semantics.</p>
+<h2 id="tseconinteroppandas">tsecon.interop.pandas<a class="headerlink" href="#tseconinteroppandas" title="Permanent link">&para;</a></h2>
+
+
+<div class="doc doc-object doc-module">
+
+
+
+<h2 id="tsecon.interop.pandas" class="doc doc-heading">
+            <span class="doc doc-object-name doc-module-name">tsecon.interop.pandas</span>
+
+
+<a href="#tsecon.interop.pandas" class="headerlink" title="Permanent link">&para;</a></h2>
+
+    <div class="doc doc-contents first">
+
+        <p>pandas DataFrame interop (lazy / optional).</p>
+<p>See :doc:<code>/decisions/05_dataframe_interop</code> for the design rationale. pandas
+is <em>not</em> a hard dependency: this module raises :class:<code>ImportError</code> with an
+install hint when called without pandas installed.</p>
+
+
+<details class="public-api" open>
+  <summary>Public API</summary>
+  <ul>
+<li>:func:<code>to_pandas</code> — <code>TSeries</code> / <code>MVTSeries</code> / <code>Workspace</code> →
+  <code>pd.Series</code> / <code>pd.DataFrame</code>.</li>
+<li>:func:<code>from_pandas</code> — <code>pd.Series</code> / <code>pd.DataFrame</code> → <code>TSeries</code> /
+  <code>MVTSeries</code> / <code>Workspace</code>.</li>
+</ul>
+</details>
+
+<details class="required-dataframe-shape-(for-:func:`from_pandas`)" open>
+  <summary>Required DataFrame shape (for :func:<code>from_pandas</code>)</summary>
+  <p>The time axis must live on <strong>one</strong> of:</p>
+<ul>
+<li>
+<p>the row <strong>index</strong>, of one of the following types:</p>
+</li>
+<li>
+<p>:class:<code>pd.PeriodIndex</code> — frequency inferred from <code>.freqstr</code>; no
+    <code>freq=</code> kwarg needed. Supports pandas 2.x (<code>Q-DEC</code>, <code>M</code>, ...)
+    <em>and</em> pandas 3.x (<code>QE-DEC</code>, <code>ME</code>, <code>YE-DEC</code>, ...) aliases.</p>
+</li>
+<li>:class:<code>pd.DatetimeIndex</code> — frequency cannot be auto-inferred; the
+    <code>freq=</code> kwarg is <strong>required</strong> (one of :class:<code>~tsecon.Daily</code>,
+    :class:<code>~tsecon.BDaily</code>, :class:<code>~tsecon.Weekly</code>, etc.).</li>
+<li>:class:<code>pd.RangeIndex</code> or any integer index — interpreted as
+    :class:<code>~tsecon.frequencies.Unit</code> by default; pass <code>freq=Unit()</code>
+    explicitly to be explicit.</li>
+<li>
+<p>Object dtype of :class:<code>~tsecon.MIT</code> instances — the frequency is
+    read off the MITs themselves; all MITs must share a single
+    frequency. This is the round-trip target of
+    :func:<code>to_pandas(..., index="mit")</code>.</p>
+</li>
+<li>
+<p>a column named <code>time_col</code> (must be passed explicitly). The same
+  type / dtype rules apply, with a Date / Datetime column matching
+  :class:<code>pd.DatetimeIndex</code>.</p>
+</li>
+</ul>
+<p>The time axis must be <strong>strictly ascending and contiguous</strong> (no gaps, no
+duplicates). Sparse or unsorted inputs raise :class:<code>ValueError</code>; callers
+who need gap-filling should <code>sort_index().asfreq(...)</code> on the pandas
+side first.</p>
+<p>For <strong>wide</strong> DataFrames (default, <code>wide=True</code>), every non-time column
+becomes a variable. For <strong>long</strong> DataFrames (<code>wide=False</code>), <code>time_col</code>,
+<code>name_col</code>, and <code>value_col</code> are all required; the frame is pivoted
+into wide form before conversion.</p>
+</details>
+
+<details class="return-type" open>
+  <summary>Return type</summary>
+  <ul>
+<li>:class:<code>~tsecon.TSeries</code> when the input is a Series.</li>
+<li>:class:<code>~tsecon.Workspace</code> when <code>to_workspace=True</code> (one named
+  TSeries per non-time column, in DataFrame column order; per-column
+  dtypes preserved).</li>
+<li>:class:<code>~tsecon.MVTSeries</code> otherwise (one column per variable, single
+  shared dtype, numeric-only).</li>
+</ul>
+</details>
+
+<details class="output-shape-(for-:func:`to_pandas`)" open>
+  <summary>Output shape (for :func:<code>to_pandas</code>)</summary>
+  <p>The <code>index</code> argument controls how the time axis is materialised:</p>
+<ul>
+<li><code>"auto"</code> — :class:<code>pd.PeriodIndex</code> for Yearly / Quarterly / Monthly /
+  Weekly, :class:<code>pd.DatetimeIndex</code> (period-end dates) for Daily / BDaily,
+  :class:<code>pd.RangeIndex</code> for Unit, and an object-dtype Index of MIT for
+  HalfYearly (which pandas has no period analogue for).</li>
+<li><code>"mit"</code> — always emit an object-dtype Index of MIT instances. The only
+  fully lossless option (re-<code>from_pandas</code> round-trips exactly).</li>
+<li><code>"date"</code> — always emit a :class:<code>pd.DatetimeIndex</code> of period-end dates
+  (or period-begin dates if <code>date_ref="begin"</code>). Lossy for non-Daily
+  frequencies on round-trip unless <code>freq=</code> is passed back to
+  :func:<code>from_pandas</code>.</li>
+</ul>
+</details>
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="tsecon.interop.pandas.to_pandas" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">to_pandas</span>
+
+
+<a href="#tsecon.interop.pandas.to_pandas" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">to_pandas</span><span class="p">(</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">obj</span><span class="p">:</span> <span class="n">TSeries</span> <span class="o">|</span> <span class="n">MVTSeries</span> <span class="o">|</span> <span class="n">Workspace</span><span class="p">,</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="o">*</span><span class="p">,</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">index</span><span class="p">:</span> <span class="n">IndexKind</span> <span class="o">=</span> <span class="s2">&quot;auto&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">date_ref</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;begin&quot;</span><span class="p">,</span> <span class="s2">&quot;end&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;end&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span> <span class="o">|</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Convert a tsecon container to a pandas Series or DataFrame.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>obj</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="TSeries (tsecon.tseries.TSeries)" href="../tseries/#tsecon.tseries.TSeries">TSeries</a> | <a class="autorefs autorefs-internal" title="MVTSeries (tsecon.mvtseries.MVTSeries)" href="../mvtseries/#tsecon.mvtseries.MVTSeries">MVTSeries</a> | <a class="autorefs autorefs-internal" title="Workspace (tsecon.workspace.Workspace)" href="../workspace/#tsecon.workspace.Workspace">Workspace</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>A :class:<code>~tsecon.TSeries</code> (→ <code>pd.Series</code>), a
+:class:<code>~tsecon.MVTSeries</code> (→ <code>pd.DataFrame</code> with one column per
+variable), or a :class:<code>~tsecon.Workspace</code> containing only
+TSeries / MVTSeries members of a common frequency
+(→ <code>pd.DataFrame</code>).</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>index</code>
+            </td>
+            <td>
+                  <code><span title="tsecon.interop.pandas.IndexKind">IndexKind</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Time-axis representation. See module docstring.</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#39;auto&#39;</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>date_ref</code>
+            </td>
+            <td>
+                  <code><span title="typing.Literal">Literal</span>[&#39;begin&#39;, &#39;end&#39;]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Period-anchor when <code>index="date"</code>: <code>"end"</code> (default) uses the
+last calendar day of each period; <code>"begin"</code> uses the first.</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#39;end&#39;</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>name</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Optional <code>Series.name</code> override when converting a TSeries.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="pandas.Series">Series</span> or <span title="pandas.DataFrame">DataFrame</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>A Series for TSeries; a DataFrame otherwise.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+            <details class="mkdocstrings-source">
+              <summary>Source code in <code>src/tsecon/interop/pandas.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-128">128</a></span>
+<span class="normal"><a href="#__codelineno-0-129">129</a></span>
+<span class="normal"><a href="#__codelineno-0-130">130</a></span>
+<span class="normal"><a href="#__codelineno-0-131">131</a></span>
+<span class="normal"><a href="#__codelineno-0-132">132</a></span>
+<span class="normal"><a href="#__codelineno-0-133">133</a></span>
+<span class="normal"><a href="#__codelineno-0-134">134</a></span>
+<span class="normal"><a href="#__codelineno-0-135">135</a></span>
+<span class="normal"><a href="#__codelineno-0-136">136</a></span>
+<span class="normal"><a href="#__codelineno-0-137">137</a></span>
+<span class="normal"><a href="#__codelineno-0-138">138</a></span>
+<span class="normal"><a href="#__codelineno-0-139">139</a></span>
+<span class="normal"><a href="#__codelineno-0-140">140</a></span>
+<span class="normal"><a href="#__codelineno-0-141">141</a></span>
+<span class="normal"><a href="#__codelineno-0-142">142</a></span>
+<span class="normal"><a href="#__codelineno-0-143">143</a></span>
+<span class="normal"><a href="#__codelineno-0-144">144</a></span>
+<span class="normal"><a href="#__codelineno-0-145">145</a></span>
+<span class="normal"><a href="#__codelineno-0-146">146</a></span>
+<span class="normal"><a href="#__codelineno-0-147">147</a></span>
+<span class="normal"><a href="#__codelineno-0-148">148</a></span>
+<span class="normal"><a href="#__codelineno-0-149">149</a></span>
+<span class="normal"><a href="#__codelineno-0-150">150</a></span>
+<span class="normal"><a href="#__codelineno-0-151">151</a></span>
+<span class="normal"><a href="#__codelineno-0-152">152</a></span>
+<span class="normal"><a href="#__codelineno-0-153">153</a></span>
+<span class="normal"><a href="#__codelineno-0-154">154</a></span>
+<span class="normal"><a href="#__codelineno-0-155">155</a></span>
+<span class="normal"><a href="#__codelineno-0-156">156</a></span>
+<span class="normal"><a href="#__codelineno-0-157">157</a></span>
+<span class="normal"><a href="#__codelineno-0-158">158</a></span>
+<span class="normal"><a href="#__codelineno-0-159">159</a></span>
+<span class="normal"><a href="#__codelineno-0-160">160</a></span>
+<span class="normal"><a href="#__codelineno-0-161">161</a></span>
+<span class="normal"><a href="#__codelineno-0-162">162</a></span>
+<span class="normal"><a href="#__codelineno-0-163">163</a></span>
+<span class="normal"><a href="#__codelineno-0-164">164</a></span>
+<span class="normal"><a href="#__codelineno-0-165">165</a></span>
+<span class="normal"><a href="#__codelineno-0-166">166</a></span>
+<span class="normal"><a href="#__codelineno-0-167">167</a></span>
+<span class="normal"><a href="#__codelineno-0-168">168</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-128" name="__codelineno-0-128"></a><span class="k">def</span><span class="w"> </span><span class="nf">to_pandas</span><span class="p">(</span>
+<a id="__codelineno-0-129" name="__codelineno-0-129"></a>    <span class="n">obj</span><span class="p">:</span> <span class="n">TSeries</span> <span class="o">|</span> <span class="n">MVTSeries</span> <span class="o">|</span> <span class="n">Workspace</span><span class="p">,</span>
+<a id="__codelineno-0-130" name="__codelineno-0-130"></a>    <span class="o">*</span><span class="p">,</span>
+<a id="__codelineno-0-131" name="__codelineno-0-131"></a>    <span class="n">index</span><span class="p">:</span> <span class="n">IndexKind</span> <span class="o">=</span> <span class="s2">&quot;auto&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-132" name="__codelineno-0-132"></a>    <span class="n">date_ref</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;begin&quot;</span><span class="p">,</span> <span class="s2">&quot;end&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;end&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-133" name="__codelineno-0-133"></a>    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-134" name="__codelineno-0-134"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span> <span class="o">|</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+<a id="__codelineno-0-135" name="__codelineno-0-135"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Convert a tsecon container to a pandas Series or DataFrame.</span>
+<a id="__codelineno-0-136" name="__codelineno-0-136"></a>
+<a id="__codelineno-0-137" name="__codelineno-0-137"></a><span class="sd">    Parameters</span>
+<a id="__codelineno-0-138" name="__codelineno-0-138"></a><span class="sd">    ----------</span>
+<a id="__codelineno-0-139" name="__codelineno-0-139"></a><span class="sd">    obj</span>
+<a id="__codelineno-0-140" name="__codelineno-0-140"></a><span class="sd">        A :class:`~tsecon.TSeries` (→ ``pd.Series``), a</span>
+<a id="__codelineno-0-141" name="__codelineno-0-141"></a><span class="sd">        :class:`~tsecon.MVTSeries` (→ ``pd.DataFrame`` with one column per</span>
+<a id="__codelineno-0-142" name="__codelineno-0-142"></a><span class="sd">        variable), or a :class:`~tsecon.Workspace` containing only</span>
+<a id="__codelineno-0-143" name="__codelineno-0-143"></a><span class="sd">        TSeries / MVTSeries members of a common frequency</span>
+<a id="__codelineno-0-144" name="__codelineno-0-144"></a><span class="sd">        (→ ``pd.DataFrame``).</span>
+<a id="__codelineno-0-145" name="__codelineno-0-145"></a><span class="sd">    index</span>
+<a id="__codelineno-0-146" name="__codelineno-0-146"></a><span class="sd">        Time-axis representation. See module docstring.</span>
+<a id="__codelineno-0-147" name="__codelineno-0-147"></a><span class="sd">    date_ref</span>
+<a id="__codelineno-0-148" name="__codelineno-0-148"></a><span class="sd">        Period-anchor when ``index=&quot;date&quot;``: ``&quot;end&quot;`` (default) uses the</span>
+<a id="__codelineno-0-149" name="__codelineno-0-149"></a><span class="sd">        last calendar day of each period; ``&quot;begin&quot;`` uses the first.</span>
+<a id="__codelineno-0-150" name="__codelineno-0-150"></a><span class="sd">    name</span>
+<a id="__codelineno-0-151" name="__codelineno-0-151"></a><span class="sd">        Optional ``Series.name`` override when converting a TSeries.</span>
+<a id="__codelineno-0-152" name="__codelineno-0-152"></a>
+<a id="__codelineno-0-153" name="__codelineno-0-153"></a><span class="sd">    Returns</span>
+<a id="__codelineno-0-154" name="__codelineno-0-154"></a><span class="sd">    -------</span>
+<a id="__codelineno-0-155" name="__codelineno-0-155"></a><span class="sd">    pd.Series or pd.DataFrame</span>
+<a id="__codelineno-0-156" name="__codelineno-0-156"></a><span class="sd">        A Series for TSeries; a DataFrame otherwise.</span>
+<a id="__codelineno-0-157" name="__codelineno-0-157"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-158" name="__codelineno-0-158"></a>    <span class="n">pd</span> <span class="o">=</span> <span class="n">_require_pandas</span><span class="p">()</span>
+<a id="__codelineno-0-159" name="__codelineno-0-159"></a>    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">TSeries</span><span class="p">):</span>
+<a id="__codelineno-0-160" name="__codelineno-0-160"></a>        <span class="k">return</span> <span class="n">_tseries_to_series</span><span class="p">(</span><span class="n">pd</span><span class="p">,</span> <span class="n">obj</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">index</span><span class="p">,</span> <span class="n">date_ref</span><span class="o">=</span><span class="n">date_ref</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">)</span>
+<a id="__codelineno-0-161" name="__codelineno-0-161"></a>    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">MVTSeries</span><span class="p">):</span>
+<a id="__codelineno-0-162" name="__codelineno-0-162"></a>        <span class="k">return</span> <span class="n">_mvtseries_to_frame</span><span class="p">(</span><span class="n">pd</span><span class="p">,</span> <span class="n">obj</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">index</span><span class="p">,</span> <span class="n">date_ref</span><span class="o">=</span><span class="n">date_ref</span><span class="p">)</span>
+<a id="__codelineno-0-163" name="__codelineno-0-163"></a>    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">Workspace</span><span class="p">):</span>
+<a id="__codelineno-0-164" name="__codelineno-0-164"></a>        <span class="k">return</span> <span class="n">_workspace_to_frame</span><span class="p">(</span><span class="n">pd</span><span class="p">,</span> <span class="n">obj</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">index</span><span class="p">,</span> <span class="n">date_ref</span><span class="o">=</span><span class="n">date_ref</span><span class="p">)</span>
+<a id="__codelineno-0-165" name="__codelineno-0-165"></a>    <span class="n">msg</span> <span class="o">=</span> <span class="p">(</span>  <span class="c1"># type: ignore[unreachable]</span>
+<a id="__codelineno-0-166" name="__codelineno-0-166"></a>        <span class="sa">f</span><span class="s2">&quot;to_pandas accepts TSeries, MVTSeries, or Workspace; got </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">.&quot;</span>
+<a id="__codelineno-0-167" name="__codelineno-0-167"></a>    <span class="p">)</span>
+<a id="__codelineno-0-168" name="__codelineno-0-168"></a>    <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="tsecon.interop.pandas.from_pandas" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">from_pandas</span>
+
+
+<a href="#tsecon.interop.pandas.from_pandas" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">from_pandas</span><span class="p">(</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">obj</span><span class="p">:</span> <span class="n">Series</span> <span class="o">|</span> <span class="n">DataFrame</span><span class="p">,</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="o">*</span><span class="p">,</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">freq</span><span class="p">:</span> <span class="n">Frequency</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">wide</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">time_col</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="n">name_col</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="n">value_col</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="n">to_workspace</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TSeries</span> <span class="o">|</span> <span class="n">MVTSeries</span> <span class="o">|</span> <span class="n">Workspace</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Convert a pandas Series / DataFrame to a tsecon container.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>obj</code>
+            </td>
+            <td>
+                  <code><span title="pandas.Series">Series</span> | <span title="pandas.DataFrame">DataFrame</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>A <code>pd.Series</code> (→ TSeries) or <code>pd.DataFrame</code>.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>freq</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="Frequency
+
+
+  
+      dataclass
+   (tsecon.frequencies.Frequency)" href="../frequencies/#tsecon.frequencies.Frequency">Frequency</a> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Required when the time axis is a :class:<code>pd.DatetimeIndex</code> (or a
+date-typed column) that has no inferable period semantics — pandas
+DatetimeIndex without <code>.freq</code> cannot be safely auto-classified
+between Daily / Weekly / Monthly / Quarterly / Yearly. Optional
+when the index is a <code>PeriodIndex</code> (frequency inferred from
+<code>.freqstr</code>) or an object index of MIT (frequency inferred from
+the MITs themselves).</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>wide</code>
+            </td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>When <code>True</code> (the default) every non-time column becomes a
+variable of the resulting MVTSeries. When <code>False</code> the DataFrame
+is assumed to be in long format with <code>time_col</code> / <code>name_col</code> /
+<code>value_col</code>, and is pivoted to wide before conversion.</p>
+              </div>
+            </td>
+            <td>
+                  <code>True</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>time_col</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Optional name of the column to use as the time axis. When unset,
+the DataFrame index is used.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>name_col</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Long-format only. Name of the column holding the per-row variable
+name. Required when <code>wide=False</code>.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>value_col</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Long-format only. Name of the column holding the per-row value.
+Required when <code>wide=False</code>.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>to_workspace</code>
+            </td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>When <code>True</code> and <code>obj</code> is a DataFrame, return a
+:class:<code>~tsecon.Workspace</code> with one named TSeries per non-time
+column rather than a single MVTSeries. Useful when round-tripping
+a heterogeneous Workspace through pandas or when downstream code
+expects a Workspace. The default (<code>False</code>) preserves the
+established single-container MVTSeries return for DataFrames.</p>
+              </div>
+            </td>
+            <td>
+                  <code>False</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="TSeries (tsecon.tseries.TSeries)" href="../tseries/#tsecon.tseries.TSeries">TSeries</a> or <a class="autorefs autorefs-internal" title="MVTSeries (tsecon.mvtseries.MVTSeries)" href="../mvtseries/#tsecon.mvtseries.MVTSeries">MVTSeries</a> or <a class="autorefs autorefs-internal" title="Workspace (tsecon.workspace.Workspace)" href="../workspace/#tsecon.workspace.Workspace">Workspace</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>A TSeries when the input is a Series; a Workspace when
+<code>to_workspace=True</code>; an MVTSeries otherwise.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+            <details class="mkdocstrings-source">
+              <summary>Source code in <code>src/tsecon/interop/pandas.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-278">278</a></span>
+<span class="normal"><a href="#__codelineno-0-279">279</a></span>
+<span class="normal"><a href="#__codelineno-0-280">280</a></span>
+<span class="normal"><a href="#__codelineno-0-281">281</a></span>
+<span class="normal"><a href="#__codelineno-0-282">282</a></span>
+<span class="normal"><a href="#__codelineno-0-283">283</a></span>
+<span class="normal"><a href="#__codelineno-0-284">284</a></span>
+<span class="normal"><a href="#__codelineno-0-285">285</a></span>
+<span class="normal"><a href="#__codelineno-0-286">286</a></span>
+<span class="normal"><a href="#__codelineno-0-287">287</a></span>
+<span class="normal"><a href="#__codelineno-0-288">288</a></span>
+<span class="normal"><a href="#__codelineno-0-289">289</a></span>
+<span class="normal"><a href="#__codelineno-0-290">290</a></span>
+<span class="normal"><a href="#__codelineno-0-291">291</a></span>
+<span class="normal"><a href="#__codelineno-0-292">292</a></span>
+<span class="normal"><a href="#__codelineno-0-293">293</a></span>
+<span class="normal"><a href="#__codelineno-0-294">294</a></span>
+<span class="normal"><a href="#__codelineno-0-295">295</a></span>
+<span class="normal"><a href="#__codelineno-0-296">296</a></span>
+<span class="normal"><a href="#__codelineno-0-297">297</a></span>
+<span class="normal"><a href="#__codelineno-0-298">298</a></span>
+<span class="normal"><a href="#__codelineno-0-299">299</a></span>
+<span class="normal"><a href="#__codelineno-0-300">300</a></span>
+<span class="normal"><a href="#__codelineno-0-301">301</a></span>
+<span class="normal"><a href="#__codelineno-0-302">302</a></span>
+<span class="normal"><a href="#__codelineno-0-303">303</a></span>
+<span class="normal"><a href="#__codelineno-0-304">304</a></span>
+<span class="normal"><a href="#__codelineno-0-305">305</a></span>
+<span class="normal"><a href="#__codelineno-0-306">306</a></span>
+<span class="normal"><a href="#__codelineno-0-307">307</a></span>
+<span class="normal"><a href="#__codelineno-0-308">308</a></span>
+<span class="normal"><a href="#__codelineno-0-309">309</a></span>
+<span class="normal"><a href="#__codelineno-0-310">310</a></span>
+<span class="normal"><a href="#__codelineno-0-311">311</a></span>
+<span class="normal"><a href="#__codelineno-0-312">312</a></span>
+<span class="normal"><a href="#__codelineno-0-313">313</a></span>
+<span class="normal"><a href="#__codelineno-0-314">314</a></span>
+<span class="normal"><a href="#__codelineno-0-315">315</a></span>
+<span class="normal"><a href="#__codelineno-0-316">316</a></span>
+<span class="normal"><a href="#__codelineno-0-317">317</a></span>
+<span class="normal"><a href="#__codelineno-0-318">318</a></span>
+<span class="normal"><a href="#__codelineno-0-319">319</a></span>
+<span class="normal"><a href="#__codelineno-0-320">320</a></span>
+<span class="normal"><a href="#__codelineno-0-321">321</a></span>
+<span class="normal"><a href="#__codelineno-0-322">322</a></span>
+<span class="normal"><a href="#__codelineno-0-323">323</a></span>
+<span class="normal"><a href="#__codelineno-0-324">324</a></span>
+<span class="normal"><a href="#__codelineno-0-325">325</a></span>
+<span class="normal"><a href="#__codelineno-0-326">326</a></span>
+<span class="normal"><a href="#__codelineno-0-327">327</a></span>
+<span class="normal"><a href="#__codelineno-0-328">328</a></span>
+<span class="normal"><a href="#__codelineno-0-329">329</a></span>
+<span class="normal"><a href="#__codelineno-0-330">330</a></span>
+<span class="normal"><a href="#__codelineno-0-331">331</a></span>
+<span class="normal"><a href="#__codelineno-0-332">332</a></span>
+<span class="normal"><a href="#__codelineno-0-333">333</a></span>
+<span class="normal"><a href="#__codelineno-0-334">334</a></span>
+<span class="normal"><a href="#__codelineno-0-335">335</a></span>
+<span class="normal"><a href="#__codelineno-0-336">336</a></span>
+<span class="normal"><a href="#__codelineno-0-337">337</a></span>
+<span class="normal"><a href="#__codelineno-0-338">338</a></span>
+<span class="normal"><a href="#__codelineno-0-339">339</a></span>
+<span class="normal"><a href="#__codelineno-0-340">340</a></span>
+<span class="normal"><a href="#__codelineno-0-341">341</a></span>
+<span class="normal"><a href="#__codelineno-0-342">342</a></span>
+<span class="normal"><a href="#__codelineno-0-343">343</a></span>
+<span class="normal"><a href="#__codelineno-0-344">344</a></span>
+<span class="normal"><a href="#__codelineno-0-345">345</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-278" name="__codelineno-0-278"></a><span class="k">def</span><span class="w"> </span><span class="nf">from_pandas</span><span class="p">(</span>
+<a id="__codelineno-0-279" name="__codelineno-0-279"></a>    <span class="n">obj</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span> <span class="o">|</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span>
+<a id="__codelineno-0-280" name="__codelineno-0-280"></a>    <span class="o">*</span><span class="p">,</span>
+<a id="__codelineno-0-281" name="__codelineno-0-281"></a>    <span class="n">freq</span><span class="p">:</span> <span class="n">Frequency</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-282" name="__codelineno-0-282"></a>    <span class="n">wide</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+<a id="__codelineno-0-283" name="__codelineno-0-283"></a>    <span class="n">time_col</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-284" name="__codelineno-0-284"></a>    <span class="n">name_col</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-285" name="__codelineno-0-285"></a>    <span class="n">value_col</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-286" name="__codelineno-0-286"></a>    <span class="n">to_workspace</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<a id="__codelineno-0-287" name="__codelineno-0-287"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TSeries</span> <span class="o">|</span> <span class="n">MVTSeries</span> <span class="o">|</span> <span class="n">Workspace</span><span class="p">:</span>
+<a id="__codelineno-0-288" name="__codelineno-0-288"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Convert a pandas Series / DataFrame to a tsecon container.</span>
+<a id="__codelineno-0-289" name="__codelineno-0-289"></a>
+<a id="__codelineno-0-290" name="__codelineno-0-290"></a><span class="sd">    Parameters</span>
+<a id="__codelineno-0-291" name="__codelineno-0-291"></a><span class="sd">    ----------</span>
+<a id="__codelineno-0-292" name="__codelineno-0-292"></a><span class="sd">    obj</span>
+<a id="__codelineno-0-293" name="__codelineno-0-293"></a><span class="sd">        A ``pd.Series`` (→ TSeries) or ``pd.DataFrame``.</span>
+<a id="__codelineno-0-294" name="__codelineno-0-294"></a><span class="sd">    freq</span>
+<a id="__codelineno-0-295" name="__codelineno-0-295"></a><span class="sd">        Required when the time axis is a :class:`pd.DatetimeIndex` (or a</span>
+<a id="__codelineno-0-296" name="__codelineno-0-296"></a><span class="sd">        date-typed column) that has no inferable period semantics — pandas</span>
+<a id="__codelineno-0-297" name="__codelineno-0-297"></a><span class="sd">        DatetimeIndex without ``.freq`` cannot be safely auto-classified</span>
+<a id="__codelineno-0-298" name="__codelineno-0-298"></a><span class="sd">        between Daily / Weekly / Monthly / Quarterly / Yearly. Optional</span>
+<a id="__codelineno-0-299" name="__codelineno-0-299"></a><span class="sd">        when the index is a ``PeriodIndex`` (frequency inferred from</span>
+<a id="__codelineno-0-300" name="__codelineno-0-300"></a><span class="sd">        ``.freqstr``) or an object index of MIT (frequency inferred from</span>
+<a id="__codelineno-0-301" name="__codelineno-0-301"></a><span class="sd">        the MITs themselves).</span>
+<a id="__codelineno-0-302" name="__codelineno-0-302"></a><span class="sd">    wide</span>
+<a id="__codelineno-0-303" name="__codelineno-0-303"></a><span class="sd">        When ``True`` (the default) every non-time column becomes a</span>
+<a id="__codelineno-0-304" name="__codelineno-0-304"></a><span class="sd">        variable of the resulting MVTSeries. When ``False`` the DataFrame</span>
+<a id="__codelineno-0-305" name="__codelineno-0-305"></a><span class="sd">        is assumed to be in long format with ``time_col`` / ``name_col`` /</span>
+<a id="__codelineno-0-306" name="__codelineno-0-306"></a><span class="sd">        ``value_col``, and is pivoted to wide before conversion.</span>
+<a id="__codelineno-0-307" name="__codelineno-0-307"></a><span class="sd">    time_col</span>
+<a id="__codelineno-0-308" name="__codelineno-0-308"></a><span class="sd">        Optional name of the column to use as the time axis. When unset,</span>
+<a id="__codelineno-0-309" name="__codelineno-0-309"></a><span class="sd">        the DataFrame index is used.</span>
+<a id="__codelineno-0-310" name="__codelineno-0-310"></a><span class="sd">    name_col</span>
+<a id="__codelineno-0-311" name="__codelineno-0-311"></a><span class="sd">        Long-format only. Name of the column holding the per-row variable</span>
+<a id="__codelineno-0-312" name="__codelineno-0-312"></a><span class="sd">        name. Required when ``wide=False``.</span>
+<a id="__codelineno-0-313" name="__codelineno-0-313"></a><span class="sd">    value_col</span>
+<a id="__codelineno-0-314" name="__codelineno-0-314"></a><span class="sd">        Long-format only. Name of the column holding the per-row value.</span>
+<a id="__codelineno-0-315" name="__codelineno-0-315"></a><span class="sd">        Required when ``wide=False``.</span>
+<a id="__codelineno-0-316" name="__codelineno-0-316"></a><span class="sd">    to_workspace</span>
+<a id="__codelineno-0-317" name="__codelineno-0-317"></a><span class="sd">        When ``True`` and ``obj`` is a DataFrame, return a</span>
+<a id="__codelineno-0-318" name="__codelineno-0-318"></a><span class="sd">        :class:`~tsecon.Workspace` with one named TSeries per non-time</span>
+<a id="__codelineno-0-319" name="__codelineno-0-319"></a><span class="sd">        column rather than a single MVTSeries. Useful when round-tripping</span>
+<a id="__codelineno-0-320" name="__codelineno-0-320"></a><span class="sd">        a heterogeneous Workspace through pandas or when downstream code</span>
+<a id="__codelineno-0-321" name="__codelineno-0-321"></a><span class="sd">        expects a Workspace. The default (``False``) preserves the</span>
+<a id="__codelineno-0-322" name="__codelineno-0-322"></a><span class="sd">        established single-container MVTSeries return for DataFrames.</span>
+<a id="__codelineno-0-323" name="__codelineno-0-323"></a>
+<a id="__codelineno-0-324" name="__codelineno-0-324"></a><span class="sd">    Returns</span>
+<a id="__codelineno-0-325" name="__codelineno-0-325"></a><span class="sd">    -------</span>
+<a id="__codelineno-0-326" name="__codelineno-0-326"></a><span class="sd">    TSeries or MVTSeries or Workspace</span>
+<a id="__codelineno-0-327" name="__codelineno-0-327"></a><span class="sd">        A TSeries when the input is a Series; a Workspace when</span>
+<a id="__codelineno-0-328" name="__codelineno-0-328"></a><span class="sd">        ``to_workspace=True``; an MVTSeries otherwise.</span>
+<a id="__codelineno-0-329" name="__codelineno-0-329"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-330" name="__codelineno-0-330"></a>    <span class="n">pd</span> <span class="o">=</span> <span class="n">_require_pandas</span><span class="p">()</span>
+<a id="__codelineno-0-331" name="__codelineno-0-331"></a>    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">):</span>
+<a id="__codelineno-0-332" name="__codelineno-0-332"></a>        <span class="k">if</span> <span class="n">to_workspace</span><span class="p">:</span>
+<a id="__codelineno-0-333" name="__codelineno-0-333"></a>            <span class="n">msg</span> <span class="o">=</span> <span class="s2">&quot;to_workspace=True requires a DataFrame, not a Series.&quot;</span>
+<a id="__codelineno-0-334" name="__codelineno-0-334"></a>            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+<a id="__codelineno-0-335" name="__codelineno-0-335"></a>        <span class="k">return</span> <span class="n">_series_to_tseries</span><span class="p">(</span><span class="n">pd</span><span class="p">,</span> <span class="n">obj</span><span class="p">,</span> <span class="n">freq</span><span class="o">=</span><span class="n">freq</span><span class="p">)</span>
+<a id="__codelineno-0-336" name="__codelineno-0-336"></a>    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">):</span>
+<a id="__codelineno-0-337" name="__codelineno-0-337"></a>        <span class="k">if</span> <span class="ow">not</span> <span class="n">wide</span><span class="p">:</span>
+<a id="__codelineno-0-338" name="__codelineno-0-338"></a>            <span class="n">obj</span> <span class="o">=</span> <span class="n">_long_to_wide</span><span class="p">(</span><span class="n">pd</span><span class="p">,</span> <span class="n">obj</span><span class="p">,</span> <span class="n">time_col</span><span class="o">=</span><span class="n">time_col</span><span class="p">,</span> <span class="n">name_col</span><span class="o">=</span><span class="n">name_col</span><span class="p">,</span> <span class="n">value_col</span><span class="o">=</span><span class="n">value_col</span><span class="p">)</span>
+<a id="__codelineno-0-339" name="__codelineno-0-339"></a>            <span class="c1"># After pivot, the time axis lives on the index.</span>
+<a id="__codelineno-0-340" name="__codelineno-0-340"></a>            <span class="n">time_col</span> <span class="o">=</span> <span class="kc">None</span>
+<a id="__codelineno-0-341" name="__codelineno-0-341"></a>        <span class="k">if</span> <span class="n">to_workspace</span><span class="p">:</span>
+<a id="__codelineno-0-342" name="__codelineno-0-342"></a>            <span class="k">return</span> <span class="n">_frame_to_workspace</span><span class="p">(</span><span class="n">pd</span><span class="p">,</span> <span class="n">obj</span><span class="p">,</span> <span class="n">freq</span><span class="o">=</span><span class="n">freq</span><span class="p">,</span> <span class="n">time_col</span><span class="o">=</span><span class="n">time_col</span><span class="p">)</span>
+<a id="__codelineno-0-343" name="__codelineno-0-343"></a>        <span class="k">return</span> <span class="n">_frame_to_mvtseries</span><span class="p">(</span><span class="n">pd</span><span class="p">,</span> <span class="n">obj</span><span class="p">,</span> <span class="n">freq</span><span class="o">=</span><span class="n">freq</span><span class="p">,</span> <span class="n">time_col</span><span class="o">=</span><span class="n">time_col</span><span class="p">)</span>
+<a id="__codelineno-0-344" name="__codelineno-0-344"></a>    <span class="n">msg</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;from_pandas accepts pd.Series or pd.DataFrame; got </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">.&quot;</span>
+<a id="__codelineno-0-345" name="__codelineno-0-345"></a>    <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div><h2 id="tseconinteroppolars">tsecon.interop.polars<a class="headerlink" href="#tseconinteroppolars" title="Permanent link">&para;</a></h2>
+
+
+<div class="doc doc-object doc-module">
+
+
+
+<h2 id="tsecon.interop.polars" class="doc doc-heading">
+            <span class="doc doc-object-name doc-module-name">tsecon.interop.polars</span>
+
+
+<a href="#tsecon.interop.polars" class="headerlink" title="Permanent link">&para;</a></h2>
+
+    <div class="doc doc-contents first">
+
+        <p>polars DataFrame interop (lazy / optional).</p>
+<p>See :doc:<code>/decisions/05_dataframe_interop</code>. polars is <em>not</em> a hard
+dependency: this module raises :class:<code>ImportError</code> with an install hint
+when called without polars installed.</p>
+<p>polars has no row-index concept, so the time axis is always a regular
+column. The default name is <code>"time"</code> (override with <code>time_col=</code>).</p>
+
+
+<details class="public-api" open>
+  <summary>Public API</summary>
+  <ul>
+<li>:func:<code>to_polars</code> — <code>TSeries</code> / <code>MVTSeries</code> / <code>Workspace</code> →
+  :class:<code>polars.DataFrame</code>.</li>
+<li>:func:<code>from_polars</code> — :class:<code>polars.DataFrame</code> → <code>TSeries</code> /
+  <code>MVTSeries</code> / <code>Workspace</code>.</li>
+</ul>
+</details>
+
+<details class="required-dataframe-shape-(for-:func:`from_polars`)" open>
+  <summary>Required DataFrame shape (for :func:<code>from_polars</code>)</summary>
+  <p>The DataFrame must contain a column named <code>time_col</code> (default
+<code>"time"</code>) of one of the following dtypes:</p>
+<ul>
+<li>:class:<code>polars.Date</code> or :class:<code>polars.Datetime</code> — the <code>freq=</code> kwarg
+  is <strong>required</strong>; polars carries no period semantics so the frequency
+  cannot be auto-inferred. Pass a :class:<code>~tsecon.Daily</code> /
+  :class:<code>~tsecon.BDaily</code> / :class:<code>~tsecon.Weekly</code> / :class:<code>~tsecon.Monthly</code> /
+  :class:<code>~tsecon.Quarterly</code> / :class:<code>~tsecon.HalfYearly</code> /
+  :class:<code>~tsecon.Yearly</code> instance.</li>
+<li>Any integer dtype — interpreted as :class:<code>~tsecon.frequencies.Unit</code>
+  by default; pass <code>freq=Unit()</code> explicitly to be explicit. The
+  column values are taken as the raw <code>MIT.value</code> integers.</li>
+</ul>
+<p>The time column must be <strong>strictly ascending and contiguous</strong> (no gaps,
+no duplicates). Sparse or unsorted input raises :class:<code>ValueError</code>;
+callers who need gap-filling should pre-process with polars before
+calling :func:<code>from_polars</code>.</p>
+<p>For <strong>wide</strong> DataFrames (default, <code>wide=True</code>), every non-time column
+becomes a variable. For <strong>long</strong> DataFrames (<code>wide=False</code>), <code>time_col</code>,
+<code>name_col</code>, and <code>value_col</code> are all required; the frame is pivoted
+into wide form before conversion.</p>
+</details>
+
+<details class="return-type" open>
+  <summary>Return type</summary>
+  <ul>
+<li>:class:<code>~tsecon.Workspace</code> when <code>to_workspace=True</code> (one named
+  TSeries per non-time column, in DataFrame column order; per-column
+  dtypes preserved).</li>
+<li>:class:<code>~tsecon.TSeries</code> when the wide form has a single non-time
+  column (and <code>to_workspace=False</code>).</li>
+<li>:class:<code>~tsecon.MVTSeries</code> otherwise.</li>
+</ul>
+</details>
+
+<details class="output-shape-(for-:func:`to_polars`)" open>
+  <summary>Output shape (for :func:<code>to_polars</code>)</summary>
+  <p>The time column dtype is :class:<code>polars.Date</code> for Daily / BDaily / Weekly
+and YP frequencies (using period-end dates by default; <code>date_ref="begin"</code>
+swaps to period-begin), and :class:<code>polars.Int64</code> for Unit (raw MIT
+values).</p>
+</details>
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="tsecon.interop.polars.to_polars" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">to_polars</span>
+
+
+<a href="#tsecon.interop.polars.to_polars" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">to_polars</span><span class="p">(</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">obj</span><span class="p">:</span> <span class="n">TSeries</span> <span class="o">|</span> <span class="n">MVTSeries</span> <span class="o">|</span> <span class="n">Workspace</span><span class="p">,</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="o">*</span><span class="p">,</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">time_col</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;time&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">date_ref</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;begin&quot;</span><span class="p">,</span> <span class="s2">&quot;end&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;end&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">value_col</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;value&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Convert a tsecon container to a polars DataFrame.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>obj</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="TSeries (tsecon.tseries.TSeries)" href="../tseries/#tsecon.tseries.TSeries">TSeries</a> | <a class="autorefs autorefs-internal" title="MVTSeries (tsecon.mvtseries.MVTSeries)" href="../mvtseries/#tsecon.mvtseries.MVTSeries">MVTSeries</a> | <a class="autorefs autorefs-internal" title="Workspace (tsecon.workspace.Workspace)" href="../workspace/#tsecon.workspace.Workspace">Workspace</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>A :class:<code>~tsecon.TSeries</code> (→ DataFrame with <code>time_col</code> plus a
+single value column named <code>value_col</code>), an
+:class:<code>~tsecon.MVTSeries</code> (→ DataFrame with <code>time_col</code> plus one
+column per variable), or a :class:<code>~tsecon.Workspace</code> of TSeries /
+MVTSeries members of a common frequency.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>time_col</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Name of the emitted time column. Default <code>"time"</code>.</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#39;time&#39;</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>date_ref</code>
+            </td>
+            <td>
+                  <code><span title="typing.Literal">Literal</span>[&#39;begin&#39;, &#39;end&#39;]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Period-anchor for non-Unit frequencies. <code>"end"</code> (default) uses
+the last calendar day of each period; <code>"begin"</code> uses the first.</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#39;end&#39;</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>value_col</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Name of the value column when converting a TSeries (ignored for
+MVTSeries / Workspace). Default <code>"value"</code>.</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#39;value&#39;</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="tsecon.interop.polars.DataFrame">DataFrame</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Annotated as <code>Any</code> because polars's type stubs are not used in
+tsecon's mypy config; the runtime return is always <code>pl.DataFrame</code>.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+            <details class="mkdocstrings-source">
+              <summary>Source code in <code>src/tsecon/interop/polars.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-102">102</a></span>
+<span class="normal"><a href="#__codelineno-0-103">103</a></span>
+<span class="normal"><a href="#__codelineno-0-104">104</a></span>
+<span class="normal"><a href="#__codelineno-0-105">105</a></span>
+<span class="normal"><a href="#__codelineno-0-106">106</a></span>
+<span class="normal"><a href="#__codelineno-0-107">107</a></span>
+<span class="normal"><a href="#__codelineno-0-108">108</a></span>
+<span class="normal"><a href="#__codelineno-0-109">109</a></span>
+<span class="normal"><a href="#__codelineno-0-110">110</a></span>
+<span class="normal"><a href="#__codelineno-0-111">111</a></span>
+<span class="normal"><a href="#__codelineno-0-112">112</a></span>
+<span class="normal"><a href="#__codelineno-0-113">113</a></span>
+<span class="normal"><a href="#__codelineno-0-114">114</a></span>
+<span class="normal"><a href="#__codelineno-0-115">115</a></span>
+<span class="normal"><a href="#__codelineno-0-116">116</a></span>
+<span class="normal"><a href="#__codelineno-0-117">117</a></span>
+<span class="normal"><a href="#__codelineno-0-118">118</a></span>
+<span class="normal"><a href="#__codelineno-0-119">119</a></span>
+<span class="normal"><a href="#__codelineno-0-120">120</a></span>
+<span class="normal"><a href="#__codelineno-0-121">121</a></span>
+<span class="normal"><a href="#__codelineno-0-122">122</a></span>
+<span class="normal"><a href="#__codelineno-0-123">123</a></span>
+<span class="normal"><a href="#__codelineno-0-124">124</a></span>
+<span class="normal"><a href="#__codelineno-0-125">125</a></span>
+<span class="normal"><a href="#__codelineno-0-126">126</a></span>
+<span class="normal"><a href="#__codelineno-0-127">127</a></span>
+<span class="normal"><a href="#__codelineno-0-128">128</a></span>
+<span class="normal"><a href="#__codelineno-0-129">129</a></span>
+<span class="normal"><a href="#__codelineno-0-130">130</a></span>
+<span class="normal"><a href="#__codelineno-0-131">131</a></span>
+<span class="normal"><a href="#__codelineno-0-132">132</a></span>
+<span class="normal"><a href="#__codelineno-0-133">133</a></span>
+<span class="normal"><a href="#__codelineno-0-134">134</a></span>
+<span class="normal"><a href="#__codelineno-0-135">135</a></span>
+<span class="normal"><a href="#__codelineno-0-136">136</a></span>
+<span class="normal"><a href="#__codelineno-0-137">137</a></span>
+<span class="normal"><a href="#__codelineno-0-138">138</a></span>
+<span class="normal"><a href="#__codelineno-0-139">139</a></span>
+<span class="normal"><a href="#__codelineno-0-140">140</a></span>
+<span class="normal"><a href="#__codelineno-0-141">141</a></span>
+<span class="normal"><a href="#__codelineno-0-142">142</a></span>
+<span class="normal"><a href="#__codelineno-0-143">143</a></span>
+<span class="normal"><a href="#__codelineno-0-144">144</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-102" name="__codelineno-0-102"></a><span class="k">def</span><span class="w"> </span><span class="nf">to_polars</span><span class="p">(</span>
+<a id="__codelineno-0-103" name="__codelineno-0-103"></a>    <span class="n">obj</span><span class="p">:</span> <span class="n">TSeries</span> <span class="o">|</span> <span class="n">MVTSeries</span> <span class="o">|</span> <span class="n">Workspace</span><span class="p">,</span>
+<a id="__codelineno-0-104" name="__codelineno-0-104"></a>    <span class="o">*</span><span class="p">,</span>
+<a id="__codelineno-0-105" name="__codelineno-0-105"></a>    <span class="n">time_col</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;time&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-106" name="__codelineno-0-106"></a>    <span class="n">date_ref</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;begin&quot;</span><span class="p">,</span> <span class="s2">&quot;end&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;end&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-107" name="__codelineno-0-107"></a>    <span class="n">value_col</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;value&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-108" name="__codelineno-0-108"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+<a id="__codelineno-0-109" name="__codelineno-0-109"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Convert a tsecon container to a polars DataFrame.</span>
+<a id="__codelineno-0-110" name="__codelineno-0-110"></a>
+<a id="__codelineno-0-111" name="__codelineno-0-111"></a><span class="sd">    Parameters</span>
+<a id="__codelineno-0-112" name="__codelineno-0-112"></a><span class="sd">    ----------</span>
+<a id="__codelineno-0-113" name="__codelineno-0-113"></a><span class="sd">    obj</span>
+<a id="__codelineno-0-114" name="__codelineno-0-114"></a><span class="sd">        A :class:`~tsecon.TSeries` (→ DataFrame with ``time_col`` plus a</span>
+<a id="__codelineno-0-115" name="__codelineno-0-115"></a><span class="sd">        single value column named ``value_col``), an</span>
+<a id="__codelineno-0-116" name="__codelineno-0-116"></a><span class="sd">        :class:`~tsecon.MVTSeries` (→ DataFrame with ``time_col`` plus one</span>
+<a id="__codelineno-0-117" name="__codelineno-0-117"></a><span class="sd">        column per variable), or a :class:`~tsecon.Workspace` of TSeries /</span>
+<a id="__codelineno-0-118" name="__codelineno-0-118"></a><span class="sd">        MVTSeries members of a common frequency.</span>
+<a id="__codelineno-0-119" name="__codelineno-0-119"></a><span class="sd">    time_col</span>
+<a id="__codelineno-0-120" name="__codelineno-0-120"></a><span class="sd">        Name of the emitted time column. Default ``&quot;time&quot;``.</span>
+<a id="__codelineno-0-121" name="__codelineno-0-121"></a><span class="sd">    date_ref</span>
+<a id="__codelineno-0-122" name="__codelineno-0-122"></a><span class="sd">        Period-anchor for non-Unit frequencies. ``&quot;end&quot;`` (default) uses</span>
+<a id="__codelineno-0-123" name="__codelineno-0-123"></a><span class="sd">        the last calendar day of each period; ``&quot;begin&quot;`` uses the first.</span>
+<a id="__codelineno-0-124" name="__codelineno-0-124"></a><span class="sd">    value_col</span>
+<a id="__codelineno-0-125" name="__codelineno-0-125"></a><span class="sd">        Name of the value column when converting a TSeries (ignored for</span>
+<a id="__codelineno-0-126" name="__codelineno-0-126"></a><span class="sd">        MVTSeries / Workspace). Default ``&quot;value&quot;``.</span>
+<a id="__codelineno-0-127" name="__codelineno-0-127"></a>
+<a id="__codelineno-0-128" name="__codelineno-0-128"></a><span class="sd">    Returns</span>
+<a id="__codelineno-0-129" name="__codelineno-0-129"></a><span class="sd">    -------</span>
+<a id="__codelineno-0-130" name="__codelineno-0-130"></a><span class="sd">    polars.DataFrame</span>
+<a id="__codelineno-0-131" name="__codelineno-0-131"></a><span class="sd">        Annotated as ``Any`` because polars&#39;s type stubs are not used in</span>
+<a id="__codelineno-0-132" name="__codelineno-0-132"></a><span class="sd">        tsecon&#39;s mypy config; the runtime return is always ``pl.DataFrame``.</span>
+<a id="__codelineno-0-133" name="__codelineno-0-133"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-134" name="__codelineno-0-134"></a>    <span class="n">pl</span> <span class="o">=</span> <span class="n">_require_polars</span><span class="p">()</span>
+<a id="__codelineno-0-135" name="__codelineno-0-135"></a>    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">TSeries</span><span class="p">):</span>
+<a id="__codelineno-0-136" name="__codelineno-0-136"></a>        <span class="k">return</span> <span class="n">_tseries_to_frame</span><span class="p">(</span><span class="n">pl</span><span class="p">,</span> <span class="n">obj</span><span class="p">,</span> <span class="n">time_col</span><span class="o">=</span><span class="n">time_col</span><span class="p">,</span> <span class="n">value_col</span><span class="o">=</span><span class="n">value_col</span><span class="p">,</span> <span class="n">date_ref</span><span class="o">=</span><span class="n">date_ref</span><span class="p">)</span>
+<a id="__codelineno-0-137" name="__codelineno-0-137"></a>    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">MVTSeries</span><span class="p">):</span>
+<a id="__codelineno-0-138" name="__codelineno-0-138"></a>        <span class="k">return</span> <span class="n">_mvtseries_to_frame</span><span class="p">(</span><span class="n">pl</span><span class="p">,</span> <span class="n">obj</span><span class="p">,</span> <span class="n">time_col</span><span class="o">=</span><span class="n">time_col</span><span class="p">,</span> <span class="n">date_ref</span><span class="o">=</span><span class="n">date_ref</span><span class="p">)</span>
+<a id="__codelineno-0-139" name="__codelineno-0-139"></a>    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">Workspace</span><span class="p">):</span>
+<a id="__codelineno-0-140" name="__codelineno-0-140"></a>        <span class="k">return</span> <span class="n">_workspace_to_frame</span><span class="p">(</span><span class="n">pl</span><span class="p">,</span> <span class="n">obj</span><span class="p">,</span> <span class="n">time_col</span><span class="o">=</span><span class="n">time_col</span><span class="p">,</span> <span class="n">date_ref</span><span class="o">=</span><span class="n">date_ref</span><span class="p">)</span>
+<a id="__codelineno-0-141" name="__codelineno-0-141"></a>    <span class="n">msg</span> <span class="o">=</span> <span class="p">(</span>  <span class="c1"># type: ignore[unreachable]</span>
+<a id="__codelineno-0-142" name="__codelineno-0-142"></a>        <span class="sa">f</span><span class="s2">&quot;to_polars accepts TSeries, MVTSeries, or Workspace; got </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">.&quot;</span>
+<a id="__codelineno-0-143" name="__codelineno-0-143"></a>    <span class="p">)</span>
+<a id="__codelineno-0-144" name="__codelineno-0-144"></a>    <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="tsecon.interop.polars.from_polars" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">from_polars</span>
+
+
+<a href="#tsecon.interop.polars.from_polars" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">from_polars</span><span class="p">(</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">obj</span><span class="p">:</span> <span class="n">DataFrame</span><span class="p">,</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="o">*</span><span class="p">,</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">freq</span><span class="p">:</span> <span class="n">Frequency</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">wide</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">time_col</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;time&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="n">name_col</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="n">value_col</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="n">to_workspace</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TSeries</span> <span class="o">|</span> <span class="n">MVTSeries</span> <span class="o">|</span> <span class="n">Workspace</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Convert a polars DataFrame to a tsecon container.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>obj</code>
+            </td>
+            <td>
+                  <code><span title="polars.DataFrame">DataFrame</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>A :class:<code>polars.DataFrame</code>. Must contain <code>time_col</code>.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>freq</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="Frequency
+
+
+  
+      dataclass
+   (tsecon.frequencies.Frequency)" href="../frequencies/#tsecon.frequencies.Frequency">Frequency</a> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Required when the time column dtype is :class:<code>polars.Date</code> /
+:class:<code>polars.Datetime</code> — polars carries no period semantics, so
+the frequency cannot be auto-inferred. For an integer time column
+the default is :class:<code>~tsecon.frequencies.Unit</code>.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>wide</code>
+            </td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>When <code>True</code> (the default) every non-time column becomes a
+variable. When <code>False</code> the DataFrame is in long format with
+<code>time_col</code> / <code>name_col</code> / <code>value_col</code> and is pivoted to wide.</p>
+              </div>
+            </td>
+            <td>
+                  <code>True</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>time_col</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Name of the time column. Default <code>"time"</code>.</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#39;time&#39;</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>name_col</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Long-format only.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>value_col</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Long-format only. Also used to decide the resulting type: a
+single-value-column wide DataFrame returns a TSeries; otherwise
+an MVTSeries is returned.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>to_workspace</code>
+            </td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>When <code>True</code>, return a :class:<code>~tsecon.Workspace</code> with one named
+TSeries per non-time column. Preserves per-column dtypes (unlike
+the MVTSeries return, which forces a single shared dtype). Wins
+over the single-value-column TSeries shortcut.</p>
+              </div>
+            </td>
+            <td>
+                  <code>False</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="TSeries (tsecon.tseries.TSeries)" href="../tseries/#tsecon.tseries.TSeries">TSeries</a> or <a class="autorefs autorefs-internal" title="MVTSeries (tsecon.mvtseries.MVTSeries)" href="../mvtseries/#tsecon.mvtseries.MVTSeries">MVTSeries</a> or <a class="autorefs autorefs-internal" title="Workspace (tsecon.workspace.Workspace)" href="../workspace/#tsecon.workspace.Workspace">Workspace</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>A Workspace when <code>to_workspace=True</code>; a TSeries when the wide
+form has a single non-time column; otherwise an MVTSeries.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+            <details class="mkdocstrings-source">
+              <summary>Source code in <code>src/tsecon/interop/polars.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-256">256</a></span>
+<span class="normal"><a href="#__codelineno-0-257">257</a></span>
+<span class="normal"><a href="#__codelineno-0-258">258</a></span>
+<span class="normal"><a href="#__codelineno-0-259">259</a></span>
+<span class="normal"><a href="#__codelineno-0-260">260</a></span>
+<span class="normal"><a href="#__codelineno-0-261">261</a></span>
+<span class="normal"><a href="#__codelineno-0-262">262</a></span>
+<span class="normal"><a href="#__codelineno-0-263">263</a></span>
+<span class="normal"><a href="#__codelineno-0-264">264</a></span>
+<span class="normal"><a href="#__codelineno-0-265">265</a></span>
+<span class="normal"><a href="#__codelineno-0-266">266</a></span>
+<span class="normal"><a href="#__codelineno-0-267">267</a></span>
+<span class="normal"><a href="#__codelineno-0-268">268</a></span>
+<span class="normal"><a href="#__codelineno-0-269">269</a></span>
+<span class="normal"><a href="#__codelineno-0-270">270</a></span>
+<span class="normal"><a href="#__codelineno-0-271">271</a></span>
+<span class="normal"><a href="#__codelineno-0-272">272</a></span>
+<span class="normal"><a href="#__codelineno-0-273">273</a></span>
+<span class="normal"><a href="#__codelineno-0-274">274</a></span>
+<span class="normal"><a href="#__codelineno-0-275">275</a></span>
+<span class="normal"><a href="#__codelineno-0-276">276</a></span>
+<span class="normal"><a href="#__codelineno-0-277">277</a></span>
+<span class="normal"><a href="#__codelineno-0-278">278</a></span>
+<span class="normal"><a href="#__codelineno-0-279">279</a></span>
+<span class="normal"><a href="#__codelineno-0-280">280</a></span>
+<span class="normal"><a href="#__codelineno-0-281">281</a></span>
+<span class="normal"><a href="#__codelineno-0-282">282</a></span>
+<span class="normal"><a href="#__codelineno-0-283">283</a></span>
+<span class="normal"><a href="#__codelineno-0-284">284</a></span>
+<span class="normal"><a href="#__codelineno-0-285">285</a></span>
+<span class="normal"><a href="#__codelineno-0-286">286</a></span>
+<span class="normal"><a href="#__codelineno-0-287">287</a></span>
+<span class="normal"><a href="#__codelineno-0-288">288</a></span>
+<span class="normal"><a href="#__codelineno-0-289">289</a></span>
+<span class="normal"><a href="#__codelineno-0-290">290</a></span>
+<span class="normal"><a href="#__codelineno-0-291">291</a></span>
+<span class="normal"><a href="#__codelineno-0-292">292</a></span>
+<span class="normal"><a href="#__codelineno-0-293">293</a></span>
+<span class="normal"><a href="#__codelineno-0-294">294</a></span>
+<span class="normal"><a href="#__codelineno-0-295">295</a></span>
+<span class="normal"><a href="#__codelineno-0-296">296</a></span>
+<span class="normal"><a href="#__codelineno-0-297">297</a></span>
+<span class="normal"><a href="#__codelineno-0-298">298</a></span>
+<span class="normal"><a href="#__codelineno-0-299">299</a></span>
+<span class="normal"><a href="#__codelineno-0-300">300</a></span>
+<span class="normal"><a href="#__codelineno-0-301">301</a></span>
+<span class="normal"><a href="#__codelineno-0-302">302</a></span>
+<span class="normal"><a href="#__codelineno-0-303">303</a></span>
+<span class="normal"><a href="#__codelineno-0-304">304</a></span>
+<span class="normal"><a href="#__codelineno-0-305">305</a></span>
+<span class="normal"><a href="#__codelineno-0-306">306</a></span>
+<span class="normal"><a href="#__codelineno-0-307">307</a></span>
+<span class="normal"><a href="#__codelineno-0-308">308</a></span>
+<span class="normal"><a href="#__codelineno-0-309">309</a></span>
+<span class="normal"><a href="#__codelineno-0-310">310</a></span>
+<span class="normal"><a href="#__codelineno-0-311">311</a></span>
+<span class="normal"><a href="#__codelineno-0-312">312</a></span>
+<span class="normal"><a href="#__codelineno-0-313">313</a></span>
+<span class="normal"><a href="#__codelineno-0-314">314</a></span>
+<span class="normal"><a href="#__codelineno-0-315">315</a></span>
+<span class="normal"><a href="#__codelineno-0-316">316</a></span>
+<span class="normal"><a href="#__codelineno-0-317">317</a></span>
+<span class="normal"><a href="#__codelineno-0-318">318</a></span>
+<span class="normal"><a href="#__codelineno-0-319">319</a></span>
+<span class="normal"><a href="#__codelineno-0-320">320</a></span>
+<span class="normal"><a href="#__codelineno-0-321">321</a></span>
+<span class="normal"><a href="#__codelineno-0-322">322</a></span>
+<span class="normal"><a href="#__codelineno-0-323">323</a></span>
+<span class="normal"><a href="#__codelineno-0-324">324</a></span>
+<span class="normal"><a href="#__codelineno-0-325">325</a></span>
+<span class="normal"><a href="#__codelineno-0-326">326</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-256" name="__codelineno-0-256"></a><span class="k">def</span><span class="w"> </span><span class="nf">from_polars</span><span class="p">(</span>
+<a id="__codelineno-0-257" name="__codelineno-0-257"></a>    <span class="n">obj</span><span class="p">:</span> <span class="n">pl</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span>
+<a id="__codelineno-0-258" name="__codelineno-0-258"></a>    <span class="o">*</span><span class="p">,</span>
+<a id="__codelineno-0-259" name="__codelineno-0-259"></a>    <span class="n">freq</span><span class="p">:</span> <span class="n">Frequency</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-260" name="__codelineno-0-260"></a>    <span class="n">wide</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+<a id="__codelineno-0-261" name="__codelineno-0-261"></a>    <span class="n">time_col</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;time&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-262" name="__codelineno-0-262"></a>    <span class="n">name_col</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-263" name="__codelineno-0-263"></a>    <span class="n">value_col</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-264" name="__codelineno-0-264"></a>    <span class="n">to_workspace</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<a id="__codelineno-0-265" name="__codelineno-0-265"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TSeries</span> <span class="o">|</span> <span class="n">MVTSeries</span> <span class="o">|</span> <span class="n">Workspace</span><span class="p">:</span>
+<a id="__codelineno-0-266" name="__codelineno-0-266"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Convert a polars DataFrame to a tsecon container.</span>
+<a id="__codelineno-0-267" name="__codelineno-0-267"></a>
+<a id="__codelineno-0-268" name="__codelineno-0-268"></a><span class="sd">    Parameters</span>
+<a id="__codelineno-0-269" name="__codelineno-0-269"></a><span class="sd">    ----------</span>
+<a id="__codelineno-0-270" name="__codelineno-0-270"></a><span class="sd">    obj</span>
+<a id="__codelineno-0-271" name="__codelineno-0-271"></a><span class="sd">        A :class:`polars.DataFrame`. Must contain ``time_col``.</span>
+<a id="__codelineno-0-272" name="__codelineno-0-272"></a><span class="sd">    freq</span>
+<a id="__codelineno-0-273" name="__codelineno-0-273"></a><span class="sd">        Required when the time column dtype is :class:`polars.Date` /</span>
+<a id="__codelineno-0-274" name="__codelineno-0-274"></a><span class="sd">        :class:`polars.Datetime` — polars carries no period semantics, so</span>
+<a id="__codelineno-0-275" name="__codelineno-0-275"></a><span class="sd">        the frequency cannot be auto-inferred. For an integer time column</span>
+<a id="__codelineno-0-276" name="__codelineno-0-276"></a><span class="sd">        the default is :class:`~tsecon.frequencies.Unit`.</span>
+<a id="__codelineno-0-277" name="__codelineno-0-277"></a><span class="sd">    wide</span>
+<a id="__codelineno-0-278" name="__codelineno-0-278"></a><span class="sd">        When ``True`` (the default) every non-time column becomes a</span>
+<a id="__codelineno-0-279" name="__codelineno-0-279"></a><span class="sd">        variable. When ``False`` the DataFrame is in long format with</span>
+<a id="__codelineno-0-280" name="__codelineno-0-280"></a><span class="sd">        ``time_col`` / ``name_col`` / ``value_col`` and is pivoted to wide.</span>
+<a id="__codelineno-0-281" name="__codelineno-0-281"></a><span class="sd">    time_col</span>
+<a id="__codelineno-0-282" name="__codelineno-0-282"></a><span class="sd">        Name of the time column. Default ``&quot;time&quot;``.</span>
+<a id="__codelineno-0-283" name="__codelineno-0-283"></a><span class="sd">    name_col</span>
+<a id="__codelineno-0-284" name="__codelineno-0-284"></a><span class="sd">        Long-format only.</span>
+<a id="__codelineno-0-285" name="__codelineno-0-285"></a><span class="sd">    value_col</span>
+<a id="__codelineno-0-286" name="__codelineno-0-286"></a><span class="sd">        Long-format only. Also used to decide the resulting type: a</span>
+<a id="__codelineno-0-287" name="__codelineno-0-287"></a><span class="sd">        single-value-column wide DataFrame returns a TSeries; otherwise</span>
+<a id="__codelineno-0-288" name="__codelineno-0-288"></a><span class="sd">        an MVTSeries is returned.</span>
+<a id="__codelineno-0-289" name="__codelineno-0-289"></a><span class="sd">    to_workspace</span>
+<a id="__codelineno-0-290" name="__codelineno-0-290"></a><span class="sd">        When ``True``, return a :class:`~tsecon.Workspace` with one named</span>
+<a id="__codelineno-0-291" name="__codelineno-0-291"></a><span class="sd">        TSeries per non-time column. Preserves per-column dtypes (unlike</span>
+<a id="__codelineno-0-292" name="__codelineno-0-292"></a><span class="sd">        the MVTSeries return, which forces a single shared dtype). Wins</span>
+<a id="__codelineno-0-293" name="__codelineno-0-293"></a><span class="sd">        over the single-value-column TSeries shortcut.</span>
+<a id="__codelineno-0-294" name="__codelineno-0-294"></a>
+<a id="__codelineno-0-295" name="__codelineno-0-295"></a><span class="sd">    Returns</span>
+<a id="__codelineno-0-296" name="__codelineno-0-296"></a><span class="sd">    -------</span>
+<a id="__codelineno-0-297" name="__codelineno-0-297"></a><span class="sd">    TSeries or MVTSeries or Workspace</span>
+<a id="__codelineno-0-298" name="__codelineno-0-298"></a><span class="sd">        A Workspace when ``to_workspace=True``; a TSeries when the wide</span>
+<a id="__codelineno-0-299" name="__codelineno-0-299"></a><span class="sd">        form has a single non-time column; otherwise an MVTSeries.</span>
+<a id="__codelineno-0-300" name="__codelineno-0-300"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-301" name="__codelineno-0-301"></a>    <span class="n">pl</span> <span class="o">=</span> <span class="n">_require_polars</span><span class="p">()</span>
+<a id="__codelineno-0-302" name="__codelineno-0-302"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">pl</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">):</span>
+<a id="__codelineno-0-303" name="__codelineno-0-303"></a>        <span class="n">msg</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;from_polars accepts pl.DataFrame; got </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">.&quot;</span>
+<a id="__codelineno-0-304" name="__codelineno-0-304"></a>        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+<a id="__codelineno-0-305" name="__codelineno-0-305"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">wide</span><span class="p">:</span>
+<a id="__codelineno-0-306" name="__codelineno-0-306"></a>        <span class="n">obj</span> <span class="o">=</span> <span class="n">_long_to_wide</span><span class="p">(</span><span class="n">pl</span><span class="p">,</span> <span class="n">obj</span><span class="p">,</span> <span class="n">time_col</span><span class="o">=</span><span class="n">time_col</span><span class="p">,</span> <span class="n">name_col</span><span class="o">=</span><span class="n">name_col</span><span class="p">,</span> <span class="n">value_col</span><span class="o">=</span><span class="n">value_col</span><span class="p">)</span>
+<a id="__codelineno-0-307" name="__codelineno-0-307"></a>    <span class="k">if</span> <span class="n">time_col</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">obj</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+<a id="__codelineno-0-308" name="__codelineno-0-308"></a>        <span class="n">msg</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;time_col=</span><span class="si">{</span><span class="n">time_col</span><span class="si">!r}</span><span class="s2"> not found in DataFrame columns (</span><span class="si">{</span><span class="nb">list</span><span class="p">(</span><span class="n">obj</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span><span class="si">}</span><span class="s2">).&quot;</span>
+<a id="__codelineno-0-309" name="__codelineno-0-309"></a>        <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+<a id="__codelineno-0-310" name="__codelineno-0-310"></a>    <span class="n">mits</span> <span class="o">=</span> <span class="n">_column_to_mits</span><span class="p">(</span><span class="n">pl</span><span class="p">,</span> <span class="n">obj</span><span class="p">[</span><span class="n">time_col</span><span class="p">],</span> <span class="n">freq</span><span class="o">=</span><span class="n">freq</span><span class="p">)</span>
+<a id="__codelineno-0-311" name="__codelineno-0-311"></a>    <span class="n">data_df</span> <span class="o">=</span> <span class="n">obj</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span><span class="n">time_col</span><span class="p">)</span>
+<a id="__codelineno-0-312" name="__codelineno-0-312"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">mits</span><span class="p">:</span>
+<a id="__codelineno-0-313" name="__codelineno-0-313"></a>        <span class="n">msg</span> <span class="o">=</span> <span class="s2">&quot;Cannot build a tsecon container from an empty DataFrame.&quot;</span>
+<a id="__codelineno-0-314" name="__codelineno-0-314"></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+<a id="__codelineno-0-315" name="__codelineno-0-315"></a>    <span class="n">_validate_contiguous</span><span class="p">(</span><span class="n">mits</span><span class="p">)</span>
+<a id="__codelineno-0-316" name="__codelineno-0-316"></a>    <span class="n">rng</span> <span class="o">=</span> <span class="n">MITRange</span><span class="p">(</span><span class="n">mits</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">mits</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+<a id="__codelineno-0-317" name="__codelineno-0-317"></a>    <span class="k">if</span> <span class="n">to_workspace</span><span class="p">:</span>
+<a id="__codelineno-0-318" name="__codelineno-0-318"></a>        <span class="n">out</span> <span class="o">=</span> <span class="n">Workspace</span><span class="p">()</span>
+<a id="__codelineno-0-319" name="__codelineno-0-319"></a>        <span class="k">for</span> <span class="n">col_name</span> <span class="ow">in</span> <span class="n">data_df</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+<a id="__codelineno-0-320" name="__codelineno-0-320"></a>            <span class="n">out</span><span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">col_name</span><span class="p">)]</span> <span class="o">=</span> <span class="n">TSeries</span><span class="p">(</span><span class="n">rng</span><span class="p">,</span> <span class="n">data_df</span><span class="p">[</span><span class="n">col_name</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">())</span>
+<a id="__codelineno-0-321" name="__codelineno-0-321"></a>        <span class="k">return</span> <span class="n">out</span>
+<a id="__codelineno-0-322" name="__codelineno-0-322"></a>    <span class="k">if</span> <span class="n">data_df</span><span class="o">.</span><span class="n">width</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+<a id="__codelineno-0-323" name="__codelineno-0-323"></a>        <span class="n">col_name</span> <span class="o">=</span> <span class="n">data_df</span><span class="o">.</span><span class="n">columns</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+<a id="__codelineno-0-324" name="__codelineno-0-324"></a>        <span class="k">return</span> <span class="n">TSeries</span><span class="p">(</span><span class="n">rng</span><span class="p">,</span> <span class="n">data_df</span><span class="p">[</span><span class="n">col_name</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">())</span>
+<a id="__codelineno-0-325" name="__codelineno-0-325"></a>    <span class="n">arr</span> <span class="o">=</span> <span class="n">data_df</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+<a id="__codelineno-0-326" name="__codelineno-0-326"></a>    <span class="k">return</span> <span class="n">MVTSeries</span><span class="p">(</span><span class="n">rng</span><span class="p">,</span> <span class="nb">list</span><span class="p">(</span><span class="n">data_df</span><span class="o">.</span><span class="n">columns</span><span class="p">),</span> <span class="n">arr</span><span class="p">)</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.tracking", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "content.code.copy", "content.code.annotate"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+        <script src="../../assets/_markdown_exec_pyodide.js"></script>
+      
+    
+  </body>
+</html>

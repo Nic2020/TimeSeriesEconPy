@@ -10,25 +10,31 @@
       
       
       
+        <link rel="canonical" href="https://Nic2020.github.io/TimeSeriesEconPy/design/cython_strategy/">
       
+      
+        <link rel="prev" href="../tseries_protocols/">
+      
+      
+        <link rel="next" href="../serialization/">
       
       
         
       
       
-      <link rel="icon" href="/TimeSeriesEconPy/assets/images/favicon.png">
+      <link rel="icon" href="../../assets/images/favicon.png">
       <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
     
     
       
-        <title>TimeSeriesEconPy</title>
+        <title>Cython strategy - TimeSeriesEconPy</title>
       
     
     
-      <link rel="stylesheet" href="/TimeSeriesEconPy/assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
       
         
-        <link rel="stylesheet" href="/TimeSeriesEconPy/assets/stylesheets/palette.ab4e12ef.min.css">
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
       
       
 
@@ -47,13 +53,13 @@
       
     
     
-      <link rel="stylesheet" href="/TimeSeriesEconPy/assets/_markdown_exec_pyodide.css">
+      <link rel="stylesheet" href="../../assets/_markdown_exec_pyodide.css">
     
-      <link rel="stylesheet" href="/TimeSeriesEconPy/assets/_markdown_exec_ansi.css">
+      <link rel="stylesheet" href="../../assets/_markdown_exec_ansi.css">
     
-      <link rel="stylesheet" href="/TimeSeriesEconPy/assets/_mkdocstrings.css">
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
     
-    <script>__md_scope=new URL("/TimeSeriesEconPy/",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
 
@@ -77,6 +83,11 @@
     <label class="md-overlay" for="__drawer"></label>
     <div data-md-component="skip">
       
+        
+        <a href="#cython-strategy" class="md-skip">
+          Skip to content
+        </a>
+      
     </div>
     <div data-md-component="announce">
       
@@ -89,7 +100,7 @@
 
 <header class="md-header md-header--shadow" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
-    <a href="/TimeSeriesEconPy/." title="TimeSeriesEconPy" class="md-header__button md-logo" aria-label="TimeSeriesEconPy" data-md-component="logo">
+    <a href="../.." title="TimeSeriesEconPy" class="md-header__button md-logo" aria-label="TimeSeriesEconPy" data-md-component="logo">
       
   
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
@@ -109,7 +120,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              
+              Cython strategy
             
           </span>
         </div>
@@ -227,7 +238,7 @@
 
 <nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href="/TimeSeriesEconPy/." title="TimeSeriesEconPy" class="md-nav__button md-logo" aria-label="TimeSeriesEconPy" data-md-component="logo">
+    <a href="../.." title="TimeSeriesEconPy" class="md-nav__button md-logo" aria-label="TimeSeriesEconPy" data-md-component="logo">
       
   
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
@@ -257,7 +268,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/TimeSeriesEconPy/." class="md-nav__link">
+      <a href="../.." class="md-nav__link">
         
   
   
@@ -336,7 +347,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/TimeSeriesEconPy/tutorials/1_timeseriesecon/" class="md-nav__link">
+      <a href="../../tutorials/1_timeseriesecon/" class="md-nav__link">
         
   
   
@@ -423,7 +434,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/TimeSeriesEconPy/reference/frequencies/" class="md-nav__link">
+      <a href="../../reference/frequencies/" class="md-nav__link">
         
   
   
@@ -451,7 +462,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/TimeSeriesEconPy/reference/mit/" class="md-nav__link">
+      <a href="../../reference/mit/" class="md-nav__link">
         
   
   
@@ -479,7 +490,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/TimeSeriesEconPy/reference/tseries/" class="md-nav__link">
+      <a href="../../reference/tseries/" class="md-nav__link">
         
   
   
@@ -507,7 +518,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/TimeSeriesEconPy/reference/mvtseries/" class="md-nav__link">
+      <a href="../../reference/mvtseries/" class="md-nav__link">
         
   
   
@@ -535,7 +546,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/TimeSeriesEconPy/reference/workspace/" class="md-nav__link">
+      <a href="../../reference/workspace/" class="md-nav__link">
         
   
   
@@ -563,7 +574,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/TimeSeriesEconPy/reference/math/" class="md-nav__link">
+      <a href="../../reference/math/" class="md-nav__link">
         
   
   
@@ -591,7 +602,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/TimeSeriesEconPy/reference/stats/" class="md-nav__link">
+      <a href="../../reference/stats/" class="md-nav__link">
         
   
   
@@ -619,7 +630,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/TimeSeriesEconPy/reference/indexing/" class="md-nav__link">
+      <a href="../../reference/indexing/" class="md-nav__link">
         
   
   
@@ -647,7 +658,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/TimeSeriesEconPy/reference/fconvert/" class="md-nav__link">
+      <a href="../../reference/fconvert/" class="md-nav__link">
         
   
   
@@ -675,7 +686,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/TimeSeriesEconPy/reference/recursive/" class="md-nav__link">
+      <a href="../../reference/recursive/" class="md-nav__link">
         
   
   
@@ -703,7 +714,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/TimeSeriesEconPy/reference/options/" class="md-nav__link">
+      <a href="../../reference/options/" class="md-nav__link">
         
   
   
@@ -731,7 +742,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/TimeSeriesEconPy/reference/plotting/" class="md-nav__link">
+      <a href="../../reference/plotting/" class="md-nav__link">
         
   
   
@@ -759,7 +770,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/TimeSeriesEconPy/reference/interop/" class="md-nav__link">
+      <a href="../../reference/interop/" class="md-nav__link">
         
   
   
@@ -787,7 +798,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/TimeSeriesEconPy/reference/io/" class="md-nav__link">
+      <a href="../../reference/io/" class="md-nav__link">
         
   
   
@@ -815,7 +826,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/TimeSeriesEconPy/reference/mirror/" class="md-nav__link">
+      <a href="../../reference/mirror/" class="md-nav__link">
         
   
   
@@ -847,8 +858,10 @@
       
   
   
+    
   
   
+  
     
     
     
@@ -859,11 +872,11 @@
       
     
     
-    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
         
           
           <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
@@ -884,7 +897,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_4">
             <span class="md-nav__icon md-icon"></span>
             
@@ -902,7 +915,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/TimeSeriesEconPy/design/decisions/" class="md-nav__link">
+      <a href="../decisions/" class="md-nav__link">
         
   
   
@@ -930,7 +943,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/TimeSeriesEconPy/design/frequency_model/" class="md-nav__link">
+      <a href="../frequency_model/" class="md-nav__link">
         
   
   
@@ -958,7 +971,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/TimeSeriesEconPy/design/tseries_protocols/" class="md-nav__link">
+      <a href="../tseries_protocols/" class="md-nav__link">
         
   
   
@@ -983,10 +996,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="/TimeSeriesEconPy/design/cython_strategy/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cython strategy
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -1002,6 +1042,70 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#the-rule" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The rule
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-n4-operation-shape-classification" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The N=4 operation-shape classification
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-introspection-hooks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The introspection hooks
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-three-flavour-benchmark" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The three-flavour benchmark
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1014,7 +1118,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/TimeSeriesEconPy/design/serialization/" class="md-nav__link">
+      <a href="../serialization/" class="md-nav__link">
         
   
   
@@ -1042,7 +1146,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/TimeSeriesEconPy/design/migration_from_julia/" class="md-nav__link">
+      <a href="../migration_from_julia/" class="md-nav__link">
         
   
   
@@ -1077,7 +1181,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/TimeSeriesEconPy/api_index/" class="md-nav__link">
+      <a href="../../api_index/" class="md-nav__link">
         
   
   
@@ -1104,7 +1208,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/TimeSeriesEconPy/faq/" class="md-nav__link">
+      <a href="../../faq/" class="md-nav__link">
         
   
   
@@ -1141,6 +1245,60 @@
   
   
   
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#the-rule" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The rule
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-n4-operation-shape-classification" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The N=4 operation-shape classification
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-introspection-hooks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The introspection hooks
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-three-flavour-benchmark" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The three-flavour benchmark
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
   
 </nav>
                   </div>
@@ -1153,8 +1311,99 @@
               
               <article class="md-content__inner md-typeset">
                 
-  <h1>404 - Not found</h1>
+                  
 
+
+  
+  
+
+
+<h1 id="cython-strategy">Cython strategy<a class="headerlink" href="#cython-strategy" title="Permanent link">&para;</a></h1>
+<div class="admonition info">
+<p class="admonition-title">Work in progress</p>
+<p>This page is a stub. The full thesis arrives in the JSS paper.
+Decision records: <code>claude_files/decisions/01_acceleration_strategy.md</code>,
+<code>17_cython_dispatch_strategy.md</code>, <code>18_cython_port_plan.md</code>.</p>
+</div>
+<h2 id="the-rule">The rule<a class="headerlink" href="#the-rule" title="Permanent link">&para;</a></h2>
+<p>We reach for a Cython kernel <strong>only when an empirical benchmark says NumPy alone
+isn't enough</strong>. The cross-language harness in <code>benchmarks/compare/</code> is the
+gatekeeper: every hot path runs in three flavours — pure Python (or NumPy + a
+Python loop), Cython-compiled, and Julia — and we Cythonise the path only if the
+NumPy column lags Julia by more than the harness's measurement noise floor.</p>
+<p>Reasons:</p>
+<ul>
+<li>The Python ecosystem has no shortage of "I assumed I needed Cython, then
+  measured and didn't" stories. We don't want to be one.</li>
+<li>Each Cython kernel adds a compiled extension, which adds a per-platform wheel
+  to build and ship. Reading the existing
+  <a href="https://github.com/Nic2020/TimeSeriesEconPy/blob/main/.github/workflows/wheels.yml"><code>wheels.yml</code></a>
+  is one good way to internalise how much that costs.</li>
+<li>The paper's central empirical contribution is the <em>classification</em> below, and
+  the classification is only meaningful if every cell in it was measured.</li>
+</ul>
+<h2 id="the-n4-operation-shape-classification">The N=4 operation-shape classification<a class="headerlink" href="#the-n4-operation-shape-classification" title="Permanent link">&para;</a></h2>
+<p>Four kernels are shipped in <code>M1.5</code>. They line up with four structurally distinct
+operation shapes:</p>
+<table>
+<thead>
+<tr>
+<th>Operation shape</th>
+<th>Example</th>
+<th>Cython-over-NumPy speedup</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Non-vectorisable recurrence</td>
+<td><code>rec_linear</code> (AR(p))</td>
+<td>~65×</td>
+</tr>
+<tr>
+<td>Outer loop of per-group C reductions</td>
+<td><code>fconvert_*_aggregate</code></td>
+<td>~25–80×</td>
+</tr>
+<tr>
+<td>Scalar reduction over a 1-D array</td>
+<td><code>mean</code> / <code>var</code> / <code>cor</code></td>
+<td>~8–40×</td>
+</tr>
+<tr>
+<td>Already-vectorised gather</td>
+<td><code>lookup</code> (<code>np.take</code>)</td>
+<td>~1.1×</td>
+</tr>
+</tbody>
+</table>
+<p>The big takeaway: <strong>the Python ↔ Julia gap is operation-shaped, not language-shaped.</strong>
+For "already-vectorised" operations, Python is <em>already</em> at Julia's speed because
+both end up calling the same BLAS/LAPACK or hand-tuned C routine. For tight
+non-vectorisable recurrences, Python needs Cython to close the gap, and once it
+does, the residual gap is within the microbenchmark noise floor on Julia itself.</p>
+<h2 id="the-introspection-hooks">The introspection hooks<a class="headerlink" href="#the-introspection-hooks" title="Permanent link">&para;</a></h2>
+<p>Every Cython port ships an <code>&lt;op&gt;_is_cython() -&gt; bool</code> helper, re-exported at top
+level. Public code that wants to assert "we're running the fast path" calls
+those helpers. They are also the per-cell smoke-test that the wheel CI matrix
+runs against each built artifact, so a <code>.pyx</code> that silently fails to compile in
+a wheel cell is caught before publish.</p>
+<h2 id="the-three-flavour-benchmark">The three-flavour benchmark<a class="headerlink" href="#the-three-flavour-benchmark" title="Permanent link">&para;</a></h2>
+<p><code>benchmarks/compare/</code> runs each scenario in three flavours and emits a JSON
+record under <code>benchmarks/compare/results/&lt;UTC-timestamp&gt;_&lt;commit&gt;.json</code>. The
+JSS paper draws on these records as the empirical backbone of Section 5.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
               </article>
             </div>
           
@@ -1197,12 +1446,12 @@
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "/TimeSeriesEconPy/", "features": ["navigation.instant", "navigation.tracking", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "content.code.copy", "content.code.annotate"], "search": "/TimeSeriesEconPy/assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.tracking", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "content.code.copy", "content.code.annotate"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="/TimeSeriesEconPy/assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
       
-        <script src="/TimeSeriesEconPy/assets/_markdown_exec_pyodide.js"></script>
+        <script src="../../assets/_markdown_exec_pyodide.js"></script>
       
     
   </body>

@@ -140,6 +140,36 @@ def mean(
     :class:`~tsecon.mvtseries.MVTSeries` returns the overall mean (matching
     Julia's ``mean(::MVTSeries)`` which iterates the matrix flat). Use
     ``np.mean(mvts.values, axis=0)`` for per-column means.
+
+    Parameters
+    ----------
+    t : TSeries or MVTSeries
+        Input series. Any non-Unit frequency. For an MVTSeries the
+        2-D values matrix is reduced flat.
+    skip_all_nans : bool, default False
+        BDaily only. If ``True``, drop entries that are NaN in
+        ``t.values`` before reducing. ``TypeError`` on non-BDaily.
+    skip_holidays : bool, default False
+        BDaily only. If ``True``, drop entries on the dates marked
+        by the holiday map (the explicit ``holidays_map`` if given,
+        otherwise ``getoption('bdaily_holidays_map')``).
+    holidays_map : TSeries, optional
+        BDaily only. Boolean TSeries flagging the business days to
+        include (``True``) / drop (``False``); ``AND``-ed with the
+        NaN mask when ``skip_all_nans=True``.
+
+    Returns
+    -------
+    float
+        The arithmetic mean over the resolved values.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import tsecon as tse
+    >>> t = tse.TSeries(tse.qq(2020, 1), np.array([1.0, 2.0, 3.0, 4.0]))
+    >>> tse.mean(t)
+    2.5
     """
     values = _resolve_values(
         t, skip_all_nans=skip_all_nans, skip_holidays=skip_holidays, holidays_map=holidays_map
@@ -162,6 +192,32 @@ def std(
     Uses ``ddof=1`` to match Julia's ``Statistics.std`` (``corrected=true``
     by default). Pass ``np.std(t.values, ddof=0)`` directly if you need the
     population deviation.
+
+    Parameters
+    ----------
+    t : TSeries or MVTSeries
+        Input series. Any non-Unit frequency. For an MVTSeries the
+        2-D values matrix is reduced flat.
+    skip_all_nans : bool, default False
+        BDaily only. If ``True``, drop NaN entries before reducing.
+    skip_holidays : bool, default False
+        BDaily only. If ``True``, drop entries marked by the holiday map.
+    holidays_map : TSeries, optional
+        BDaily only. Boolean TSeries flagging which business days to keep.
+
+    Returns
+    -------
+    float
+        Sample standard deviation with ``ddof=1``. Returns ``nan`` for
+        an empty or single-element input.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import tsecon as tse
+    >>> t = tse.TSeries(tse.qq(2020, 1), np.array([1.0, 2.0, 3.0]))
+    >>> tse.std(t)
+    1.0
     """
     values = _resolve_values(
         t, skip_all_nans=skip_all_nans, skip_holidays=skip_holidays, holidays_map=holidays_map
@@ -179,7 +235,34 @@ def var(
     skip_holidays: bool = False,
     holidays_map: TSeries | None = None,
 ) -> Any:
-    """Sample variance (``ddof=1`` to match Julia's ``Statistics.var``)."""
+    """Sample variance (``ddof=1`` to match Julia's ``Statistics.var``).
+
+    Parameters
+    ----------
+    t : TSeries or MVTSeries
+        Input series. Any non-Unit frequency. For an MVTSeries the
+        2-D values matrix is reduced flat.
+    skip_all_nans : bool, default False
+        BDaily only. If ``True``, drop NaN entries before reducing.
+    skip_holidays : bool, default False
+        BDaily only. If ``True``, drop entries marked by the holiday map.
+    holidays_map : TSeries, optional
+        BDaily only. Boolean TSeries flagging which business days to keep.
+
+    Returns
+    -------
+    float
+        Sample variance with ``ddof=1``. Returns ``nan`` for an empty
+        or single-element input.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import tsecon as tse
+    >>> t = tse.TSeries(tse.qq(2020, 1), np.array([1.0, 2.0, 3.0]))
+    >>> tse.var(t)
+    1.0
+    """
     values = _resolve_values(
         t, skip_all_nans=skip_all_nans, skip_holidays=skip_holidays, holidays_map=holidays_map
     )
@@ -196,7 +279,36 @@ def median(
     skip_holidays: bool = False,
     holidays_map: TSeries | None = None,
 ) -> Any:
-    """Median value."""
+    """Median value.
+
+    Mirrors Julia's ``Statistics.median``. For an even-length input the
+    midpoint of the two middle values is returned.
+
+    Parameters
+    ----------
+    t : TSeries or MVTSeries
+        Input series. Any non-Unit frequency. For an MVTSeries the
+        2-D values matrix is reduced flat.
+    skip_all_nans : bool, default False
+        BDaily only. If ``True``, drop NaN entries before reducing.
+    skip_holidays : bool, default False
+        BDaily only. If ``True``, drop entries marked by the holiday map.
+    holidays_map : TSeries, optional
+        BDaily only. Boolean TSeries flagging which business days to keep.
+
+    Returns
+    -------
+    float
+        The median of the resolved values.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import tsecon as tse
+    >>> t = tse.TSeries(tse.qq(2020, 1), np.array([1.0, 2.0, 3.0, 4.0]))
+    >>> float(tse.median(t))
+    2.5
+    """
     values = _resolve_values(
         t, skip_all_nans=skip_all_nans, skip_holidays=skip_holidays, holidays_map=holidays_map
     )
@@ -213,8 +325,34 @@ def quantile(
 ) -> Any:
     """``p``-th quantile of the series' values.
 
-    ``p`` is a float in ``[0, 1]`` or an array of such floats. Mirrors
-    Julia's ``Statistics.quantile``.
+    Mirrors Julia's ``Statistics.quantile``.
+
+    Parameters
+    ----------
+    t : TSeries
+        Input series. Any non-Unit frequency.
+    p : float or array-like of float
+        Probability (or probabilities) in ``[0, 1]``.
+    skip_all_nans : bool, default False
+        BDaily only. If ``True``, drop NaN entries before reducing.
+    skip_holidays : bool, default False
+        BDaily only. If ``True``, drop entries marked by the holiday map.
+    holidays_map : TSeries, optional
+        BDaily only. Boolean TSeries flagging which business days to keep.
+
+    Returns
+    -------
+    float or ndarray
+        Scalar when ``p`` is a scalar, ndarray (same shape as ``p``)
+        otherwise.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import tsecon as tse
+    >>> t = tse.TSeries(tse.qq(2020, 1), np.array([1.0, 2.0, 3.0, 4.0]))
+    >>> float(tse.quantile(t, 0.5))
+    2.5
     """
     values = _resolve_values(
         t, skip_all_nans=skip_all_nans, skip_holidays=skip_holidays, holidays_map=holidays_map
@@ -230,7 +368,39 @@ def stdm(
     skip_holidays: bool = False,
     holidays_map: TSeries | None = None,
 ) -> Any:
-    """Sample standard deviation with the mean ``m`` supplied externally."""
+    """Sample standard deviation with the mean ``m`` supplied externally.
+
+    Mirrors Julia's ``Statistics.stdm``. Use this when you already have
+    the mean (perhaps a known population mean, or one shared across
+    several reductions) and want to avoid a redundant pass over ``t``.
+
+    Parameters
+    ----------
+    t : TSeries
+        Input series. Any non-Unit frequency.
+    m : float
+        The mean to centre around. Not validated against ``mean(t)``.
+    skip_all_nans : bool, default False
+        BDaily only. If ``True``, drop NaN entries before reducing.
+    skip_holidays : bool, default False
+        BDaily only. If ``True``, drop entries marked by the holiday map.
+    holidays_map : TSeries, optional
+        BDaily only. Boolean TSeries flagging which business days to keep.
+
+    Returns
+    -------
+    float
+        ``sqrt(sum((t - m)**2) / (n - 1))``. Returns ``nan`` when
+        ``n <= 1``.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import tsecon as tse
+    >>> t = tse.TSeries(tse.qq(2020, 1), np.array([1.0, 2.0, 3.0]))
+    >>> tse.stdm(t, 2.0)
+    1.0
+    """
     values = _resolve_values(
         t, skip_all_nans=skip_all_nans, skip_holidays=skip_holidays, holidays_map=holidays_map
     )
@@ -249,7 +419,37 @@ def varm(
     skip_holidays: bool = False,
     holidays_map: TSeries | None = None,
 ) -> Any:
-    """Sample variance with the mean ``m`` supplied externally."""
+    """Sample variance with the mean ``m`` supplied externally.
+
+    Mirrors Julia's ``Statistics.varm``. The variance counterpart of
+    :func:`stdm`.
+
+    Parameters
+    ----------
+    t : TSeries
+        Input series. Any non-Unit frequency.
+    m : float
+        The mean to centre around. Not validated against ``mean(t)``.
+    skip_all_nans : bool, default False
+        BDaily only. If ``True``, drop NaN entries before reducing.
+    skip_holidays : bool, default False
+        BDaily only. If ``True``, drop entries marked by the holiday map.
+    holidays_map : TSeries, optional
+        BDaily only. Boolean TSeries flagging which business days to keep.
+
+    Returns
+    -------
+    float
+        ``sum((t - m)**2) / (n - 1)``. Returns ``nan`` when ``n <= 1``.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import tsecon as tse
+    >>> t = tse.TSeries(tse.qq(2020, 1), np.array([1.0, 2.0, 3.0]))
+    >>> tse.varm(t, 2.0)
+    1.0
+    """
     values = _resolve_values(
         t, skip_all_nans=skip_all_nans, skip_holidays=skip_holidays, holidays_map=holidays_map
     )
@@ -270,17 +470,54 @@ def cor(
 ) -> Any:
     """Pearson correlation.
 
-    Forms:
-
-    * ``cor(t)`` — for a :class:`~tsecon.tseries.TSeries` this returns 1.0
-      (the trivial self-correlation). For an
-      :class:`~tsecon.mvtseries.MVTSeries` it returns the column-correlation
-      matrix (variables on rows = columns of the input).
-    * ``cor(x, y)`` — two TSeries of the same frequency and firstdate;
-      returns the scalar Pearson correlation between them.
-
     Mirrors Julia's ``Statistics.cor`` overloads in ``tsmath.jl``
-    (lines 249-272 and 297).
+    (lines 249-272 and 297). Two call shapes:
+
+    * ``cor(t)`` — for a :class:`~tsecon.tseries.TSeries` this returns
+      ``1.0`` (the trivial self-correlation). For an
+      :class:`~tsecon.mvtseries.MVTSeries` it returns the column-
+      correlation matrix (variables on rows = columns of the input).
+    * ``cor(x, y)`` — two TSeries of the same frequency, firstdate and
+      length; returns the scalar Pearson correlation between them.
+
+    Parameters
+    ----------
+    x : TSeries or MVTSeries
+        First operand (or sole operand in the ``cor(t)`` / ``cor(mvts)``
+        forms).
+    y : TSeries, optional
+        Second operand. When given, both ``x`` and ``y`` must be
+        TSeries with matching frequency, firstdate, and length.
+    skip_all_nans : bool, default False
+        BDaily only. If ``True``, drop NaN entries before reducing.
+    skip_holidays : bool, default False
+        BDaily only. If ``True``, drop entries marked by the holiday map.
+    holidays_map : TSeries, optional
+        BDaily only. Boolean TSeries flagging which business days to keep.
+
+    Returns
+    -------
+    float or ndarray
+        Scalar in the single-TSeries or two-TSeries forms; an ``(n, n)``
+        correlation matrix in the MVTSeries form. Returns ``nan`` when
+        fewer than two filtered values remain.
+
+    Raises
+    ------
+    TypeError
+        ``cor(x, y)`` called with non-TSeries arguments.
+    ValueError
+        ``cor(x, y)`` arguments differ in frequency, firstdate, or
+        length; or the BDaily filters produce mismatched lengths.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import tsecon as tse
+    >>> x = tse.TSeries(tse.qq(2020, 1), np.array([1.0, 2.0, 3.0, 4.0]))
+    >>> y = tse.TSeries(tse.qq(2020, 1), np.array([2.0, 4.0, 6.0, 8.0]))
+    >>> float(tse.cor(x, y))
+    1.0
     """
     if y is None:
         if isinstance(x, MVTSeries):
@@ -332,10 +569,52 @@ def cov(
     skip_holidays: bool = False,
     holidays_map: TSeries | None = None,
 ) -> Any:
-    """Covariance (sample, ``ddof=1``).
+    """Sample covariance (``ddof=1`` to match Julia's ``Statistics.cov``).
 
-    Same call shapes as :func:`cor`. For a single MVTSeries returns the
-    column-covariance matrix.
+    Same call shapes as :func:`cor`:
+
+    * ``cov(t)`` for a TSeries collapses to :func:`var`.
+    * ``cov(mvts)`` returns the column-covariance matrix.
+    * ``cov(x, y)`` returns the scalar covariance between two TSeries
+      of the same frequency, firstdate, and length.
+
+    Parameters
+    ----------
+    x : TSeries or MVTSeries
+        First operand (or sole operand in the ``cov(t)`` / ``cov(mvts)``
+        forms).
+    y : TSeries, optional
+        Second operand. When given, both ``x`` and ``y`` must be
+        TSeries with matching frequency, firstdate, and length.
+    skip_all_nans : bool, default False
+        BDaily only. If ``True``, drop NaN entries before reducing.
+    skip_holidays : bool, default False
+        BDaily only. If ``True``, drop entries marked by the holiday map.
+    holidays_map : TSeries, optional
+        BDaily only. Boolean TSeries flagging which business days to keep.
+
+    Returns
+    -------
+    float or ndarray
+        Scalar in the TSeries forms; an ``(n, n)`` covariance matrix
+        in the MVTSeries form.
+
+    Raises
+    ------
+    TypeError
+        ``cov(x, y)`` called with non-TSeries arguments.
+    ValueError
+        ``cov(x, y)`` arguments differ in frequency, firstdate, or
+        length; or the BDaily filters produce mismatched lengths.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import tsecon as tse
+    >>> x = tse.TSeries(tse.qq(2020, 1), np.array([1.0, 2.0, 3.0]))
+    >>> y = tse.TSeries(tse.qq(2020, 1), np.array([2.0, 4.0, 6.0]))
+    >>> float(tse.cov(x, y))
+    2.0
     """
     if y is None:
         if isinstance(x, MVTSeries):

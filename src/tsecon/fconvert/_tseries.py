@@ -253,13 +253,71 @@ def fconvert_tseries(
       accept ``(values, output_lengths)`` plus the keyword arguments
       ``ref=...`` and ``outrange=...``.
 
+    Parameters
+    ----------
+    arg1 : FrequencyLike or Callable
+        Either the target frequency (built-in form) or the custom
+        callable (three-positional form).
+    arg2 : TSeries or FrequencyLike
+        The TSeries to convert in the built-in form, or the target
+        frequency in the three-positional form.
+    arg3 : TSeries, optional
+        The TSeries to convert in the three-positional custom-callable
+        form.
+    method : str, optional
+        Aggregator / spreader name. Lower-frequency:
+        ``"mean" / "sum" / "min" / "max" / "point" / "begin" / "end"``.
+        Higher-frequency: ``"const" / "even" / "linear"``. Defaults
+        to ``"mean"`` for lower and ``"const"`` for higher.
+    ref : {"begin", "end"}, optional
+        Boundary anchor used when the source / target periods do not
+        align exactly. Defaults to ``"end"`` (Julia's default).
+    **kwargs
+        Forwarded to the custom callable in the three-positional form.
+        For BDaily source on lower-frequency conversion, also accepts
+        ``skip_all_nans`` / ``skip_holidays`` / ``holidays_map`` —
+        these filter the underlying business days before aggregation
+        via :func:`tsecon._bdaily.cleanedvalues`.
+
+    Returns
+    -------
+    TSeries
+        A new series at the ``target`` frequency. The input is not
+        mutated. When ``target == t.frequency`` the input is returned
+        unchanged (matching Julia's identity overload).
+
+    Raises
+    ------
+    ValueError
+        Source or target is ``Unit`` (not convertible), or ``method``
+        is not one of the documented values for the chosen direction.
+    TypeError
+        The custom-callable form is used incorrectly, or
+        ``skip_all_nans`` / ``skip_holidays`` / ``holidays_map`` is
+        passed on a non-BDaily source.
+    NotImplementedError
+        Conversion direction is not yet implemented.
+
     Examples
     --------
-    >>> from tsecon import qq, mm, TSeries, Quarterly, Monthly, Yearly
-    >>> import numpy as np
-    >>> q = TSeries(qq(5, 1), np.arange(1, 11, dtype=float))
-    >>> fconvert_tseries(Monthly, q, method="const").firstdate
-    5M1
+    Spread a Quarterly series across each quarter's three months
+    using the ``"const"`` (repeat) method::
+
+        >>> from tsecon import qq, TSeries, Monthly, fconvert_tseries
+        >>> import numpy as np
+        >>> q = TSeries(qq(2020, 1), np.arange(1, 11, dtype=float))
+        >>> m = fconvert_tseries(Monthly, q, method="const")
+        >>> m.firstdate
+        2020M1
+        >>> m.lastdate
+        2022M6
+
+    Aggregate a Monthly series to Quarterly with the mean::
+
+        >>> from tsecon import mm, Quarterly
+        >>> series = TSeries(mm(2020, 1), np.arange(1.0, 13.0))
+        >>> fconvert_tseries(Quarterly, series, method="mean").values.tolist()
+        [2.0, 5.0, 8.0, 11.0]
     """
     target, t, f = _normalise_call(arg1, arg2, arg3)
 

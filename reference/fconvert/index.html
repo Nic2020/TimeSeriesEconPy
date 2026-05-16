@@ -2489,83 +2489,83 @@ not poison the fill (matches Julia's BDaily branch at
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>src/tsecon/fconvert/_tseries.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-1155">1155</a></span>
-<span class="normal"><a href="#__codelineno-0-1156">1156</a></span>
-<span class="normal"><a href="#__codelineno-0-1157">1157</a></span>
-<span class="normal"><a href="#__codelineno-0-1158">1158</a></span>
-<span class="normal"><a href="#__codelineno-0-1159">1159</a></span>
-<span class="normal"><a href="#__codelineno-0-1160">1160</a></span>
-<span class="normal"><a href="#__codelineno-0-1161">1161</a></span>
-<span class="normal"><a href="#__codelineno-0-1162">1162</a></span>
-<span class="normal"><a href="#__codelineno-0-1163">1163</a></span>
-<span class="normal"><a href="#__codelineno-0-1164">1164</a></span>
-<span class="normal"><a href="#__codelineno-0-1165">1165</a></span>
-<span class="normal"><a href="#__codelineno-0-1166">1166</a></span>
-<span class="normal"><a href="#__codelineno-0-1167">1167</a></span>
-<span class="normal"><a href="#__codelineno-0-1168">1168</a></span>
-<span class="normal"><a href="#__codelineno-0-1169">1169</a></span>
-<span class="normal"><a href="#__codelineno-0-1170">1170</a></span>
-<span class="normal"><a href="#__codelineno-0-1171">1171</a></span>
-<span class="normal"><a href="#__codelineno-0-1172">1172</a></span>
-<span class="normal"><a href="#__codelineno-0-1173">1173</a></span>
-<span class="normal"><a href="#__codelineno-0-1174">1174</a></span>
-<span class="normal"><a href="#__codelineno-0-1175">1175</a></span>
-<span class="normal"><a href="#__codelineno-0-1176">1176</a></span>
-<span class="normal"><a href="#__codelineno-0-1177">1177</a></span>
-<span class="normal"><a href="#__codelineno-0-1178">1178</a></span>
-<span class="normal"><a href="#__codelineno-0-1179">1179</a></span>
-<span class="normal"><a href="#__codelineno-0-1180">1180</a></span>
-<span class="normal"><a href="#__codelineno-0-1181">1181</a></span>
-<span class="normal"><a href="#__codelineno-0-1182">1182</a></span>
-<span class="normal"><a href="#__codelineno-0-1183">1183</a></span>
-<span class="normal"><a href="#__codelineno-0-1184">1184</a></span>
-<span class="normal"><a href="#__codelineno-0-1185">1185</a></span>
-<span class="normal"><a href="#__codelineno-0-1186">1186</a></span>
-<span class="normal"><a href="#__codelineno-0-1187">1187</a></span>
-<span class="normal"><a href="#__codelineno-0-1188">1188</a></span>
-<span class="normal"><a href="#__codelineno-0-1189">1189</a></span>
-<span class="normal"><a href="#__codelineno-0-1190">1190</a></span>
-<span class="normal"><a href="#__codelineno-0-1191">1191</a></span>
-<span class="normal"><a href="#__codelineno-0-1192">1192</a></span>
-<span class="normal"><a href="#__codelineno-0-1193">1193</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-1155" name="__codelineno-0-1155"></a><span class="k">def</span><span class="w"> </span><span class="nf">extend_series</span><span class="p">(</span>
-<a id="__codelineno-0-1156" name="__codelineno-0-1156"></a>    <span class="n">target</span><span class="p">:</span> <span class="n">FrequencyLike</span><span class="p">,</span>
-<a id="__codelineno-0-1157" name="__codelineno-0-1157"></a>    <span class="n">t</span><span class="p">:</span> <span class="n">TSeries</span><span class="p">,</span>
-<a id="__codelineno-0-1158" name="__codelineno-0-1158"></a>    <span class="o">*</span><span class="p">,</span>
-<a id="__codelineno-0-1159" name="__codelineno-0-1159"></a>    <span class="n">direction</span><span class="p">:</span> <span class="n">ExtendDirection</span> <span class="o">=</span> <span class="s2">&quot;both&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-1160" name="__codelineno-0-1160"></a>    <span class="n">method</span><span class="p">:</span> <span class="n">ExtendMethod</span> <span class="o">=</span> <span class="s2">&quot;mean&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-1161" name="__codelineno-0-1161"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TSeries</span><span class="p">:</span>
-<a id="__codelineno-0-1162" name="__codelineno-0-1162"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Pad a TSeries to align with target-frequency period boundaries.</span>
-<a id="__codelineno-0-1163" name="__codelineno-0-1163"></a>
-<a id="__codelineno-0-1164" name="__codelineno-0-1164"></a><span class="sd">    Returns a new TSeries (the input is not mutated). ``method=&quot;mean&quot;`` fills</span>
-<a id="__codelineno-0-1165" name="__codelineno-0-1165"></a><span class="sd">    each padded section with the mean of the existing values that fall within</span>
-<a id="__codelineno-0-1166" name="__codelineno-0-1166"></a><span class="sd">    the spanned target period; ``method=&quot;end&quot;`` repeats the nearest in-range</span>
-<a id="__codelineno-0-1167" name="__codelineno-0-1167"></a><span class="sd">    value (last value for the trailing pad, first in-range value for the</span>
-<a id="__codelineno-0-1168" name="__codelineno-0-1168"></a><span class="sd">    leading pad — matching Julia&#39;s behaviour when there is exactly one value</span>
-<a id="__codelineno-0-1169" name="__codelineno-0-1169"></a><span class="sd">    in the spanning period).</span>
-<a id="__codelineno-0-1170" name="__codelineno-0-1170"></a>
-<a id="__codelineno-0-1171" name="__codelineno-0-1171"></a><span class="sd">    Source / target may be any non-Unit frequency. For a BDaily source the</span>
-<a id="__codelineno-0-1172" name="__codelineno-0-1172"></a><span class="sd">    in-range first/last value used by ``method=&quot;end&quot;``, and the per-period</span>
-<a id="__codelineno-0-1173" name="__codelineno-0-1173"></a><span class="sd">    mean used by ``method=&quot;mean&quot;``, are computed via</span>
-<a id="__codelineno-0-1174" name="__codelineno-0-1174"></a><span class="sd">    ``cleanedvalues(...; skip_all_nans=True)`` so leading / trailing NaNs do</span>
-<a id="__codelineno-0-1175" name="__codelineno-0-1175"></a><span class="sd">    not poison the fill (matches Julia&#39;s BDaily branch at</span>
-<a id="__codelineno-0-1176" name="__codelineno-0-1176"></a><span class="sd">    ``fconvert_helpers.jl`` lines 309-326).</span>
-<a id="__codelineno-0-1177" name="__codelineno-0-1177"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-1178" name="__codelineno-0-1178"></a>    <span class="k">if</span> <span class="n">direction</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;both&quot;</span><span class="p">,</span> <span class="s2">&quot;begin&quot;</span><span class="p">,</span> <span class="s2">&quot;end&quot;</span><span class="p">):</span>
-<a id="__codelineno-0-1179" name="__codelineno-0-1179"></a>        <span class="n">msg</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;direction must be &#39;both&#39;, &#39;begin&#39;, or &#39;end&#39;. Received: </span><span class="si">{</span><span class="n">direction</span><span class="si">!r}</span><span class="s2">.&quot;</span>
-<a id="__codelineno-0-1180" name="__codelineno-0-1180"></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
-<a id="__codelineno-0-1181" name="__codelineno-0-1181"></a>    <span class="k">if</span> <span class="n">method</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;mean&quot;</span><span class="p">,</span> <span class="s2">&quot;end&quot;</span><span class="p">):</span>
-<a id="__codelineno-0-1182" name="__codelineno-0-1182"></a>        <span class="n">msg</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;method must be &#39;mean&#39; or &#39;end&#39;. Received: </span><span class="si">{</span><span class="n">method</span><span class="si">!r}</span><span class="s2">.&quot;</span>
-<a id="__codelineno-0-1183" name="__codelineno-0-1183"></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
-<a id="__codelineno-0-1184" name="__codelineno-0-1184"></a>    <span class="n">f_to</span> <span class="o">=</span> <span class="n">sanitize_frequency</span><span class="p">(</span><span class="n">target</span><span class="p">)</span>
-<a id="__codelineno-0-1185" name="__codelineno-0-1185"></a>    <span class="n">f_from</span> <span class="o">=</span> <span class="n">t</span><span class="o">.</span><span class="n">frequency</span>
-<a id="__codelineno-0-1186" name="__codelineno-0-1186"></a>    <span class="n">_reject_unit</span><span class="p">(</span><span class="n">f_to</span><span class="p">,</span> <span class="n">what</span><span class="o">=</span><span class="s2">&quot;target&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-1187" name="__codelineno-0-1187"></a>    <span class="n">_reject_unit</span><span class="p">(</span><span class="n">f_from</span><span class="p">,</span> <span class="n">what</span><span class="o">=</span><span class="s2">&quot;source&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-1188" name="__codelineno-0-1188"></a>    <span class="n">out</span> <span class="o">=</span> <span class="n">t</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
-<a id="__codelineno-0-1189" name="__codelineno-0-1189"></a>    <span class="k">if</span> <span class="n">direction</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;begin&quot;</span><span class="p">,</span> <span class="s2">&quot;both&quot;</span><span class="p">):</span>
-<a id="__codelineno-0-1190" name="__codelineno-0-1190"></a>        <span class="n">_extend_begin</span><span class="p">(</span><span class="n">f_to</span><span class="p">,</span> <span class="n">out</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="n">method</span><span class="p">)</span>
-<a id="__codelineno-0-1191" name="__codelineno-0-1191"></a>    <span class="k">if</span> <span class="n">direction</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;end&quot;</span><span class="p">,</span> <span class="s2">&quot;both&quot;</span><span class="p">):</span>
-<a id="__codelineno-0-1192" name="__codelineno-0-1192"></a>        <span class="n">_extend_end</span><span class="p">(</span><span class="n">f_to</span><span class="p">,</span> <span class="n">out</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="n">method</span><span class="p">)</span>
-<a id="__codelineno-0-1193" name="__codelineno-0-1193"></a>    <span class="k">return</span> <span class="n">out</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-1213">1213</a></span>
+<span class="normal"><a href="#__codelineno-0-1214">1214</a></span>
+<span class="normal"><a href="#__codelineno-0-1215">1215</a></span>
+<span class="normal"><a href="#__codelineno-0-1216">1216</a></span>
+<span class="normal"><a href="#__codelineno-0-1217">1217</a></span>
+<span class="normal"><a href="#__codelineno-0-1218">1218</a></span>
+<span class="normal"><a href="#__codelineno-0-1219">1219</a></span>
+<span class="normal"><a href="#__codelineno-0-1220">1220</a></span>
+<span class="normal"><a href="#__codelineno-0-1221">1221</a></span>
+<span class="normal"><a href="#__codelineno-0-1222">1222</a></span>
+<span class="normal"><a href="#__codelineno-0-1223">1223</a></span>
+<span class="normal"><a href="#__codelineno-0-1224">1224</a></span>
+<span class="normal"><a href="#__codelineno-0-1225">1225</a></span>
+<span class="normal"><a href="#__codelineno-0-1226">1226</a></span>
+<span class="normal"><a href="#__codelineno-0-1227">1227</a></span>
+<span class="normal"><a href="#__codelineno-0-1228">1228</a></span>
+<span class="normal"><a href="#__codelineno-0-1229">1229</a></span>
+<span class="normal"><a href="#__codelineno-0-1230">1230</a></span>
+<span class="normal"><a href="#__codelineno-0-1231">1231</a></span>
+<span class="normal"><a href="#__codelineno-0-1232">1232</a></span>
+<span class="normal"><a href="#__codelineno-0-1233">1233</a></span>
+<span class="normal"><a href="#__codelineno-0-1234">1234</a></span>
+<span class="normal"><a href="#__codelineno-0-1235">1235</a></span>
+<span class="normal"><a href="#__codelineno-0-1236">1236</a></span>
+<span class="normal"><a href="#__codelineno-0-1237">1237</a></span>
+<span class="normal"><a href="#__codelineno-0-1238">1238</a></span>
+<span class="normal"><a href="#__codelineno-0-1239">1239</a></span>
+<span class="normal"><a href="#__codelineno-0-1240">1240</a></span>
+<span class="normal"><a href="#__codelineno-0-1241">1241</a></span>
+<span class="normal"><a href="#__codelineno-0-1242">1242</a></span>
+<span class="normal"><a href="#__codelineno-0-1243">1243</a></span>
+<span class="normal"><a href="#__codelineno-0-1244">1244</a></span>
+<span class="normal"><a href="#__codelineno-0-1245">1245</a></span>
+<span class="normal"><a href="#__codelineno-0-1246">1246</a></span>
+<span class="normal"><a href="#__codelineno-0-1247">1247</a></span>
+<span class="normal"><a href="#__codelineno-0-1248">1248</a></span>
+<span class="normal"><a href="#__codelineno-0-1249">1249</a></span>
+<span class="normal"><a href="#__codelineno-0-1250">1250</a></span>
+<span class="normal"><a href="#__codelineno-0-1251">1251</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-1213" name="__codelineno-0-1213"></a><span class="k">def</span><span class="w"> </span><span class="nf">extend_series</span><span class="p">(</span>
+<a id="__codelineno-0-1214" name="__codelineno-0-1214"></a>    <span class="n">target</span><span class="p">:</span> <span class="n">FrequencyLike</span><span class="p">,</span>
+<a id="__codelineno-0-1215" name="__codelineno-0-1215"></a>    <span class="n">t</span><span class="p">:</span> <span class="n">TSeries</span><span class="p">,</span>
+<a id="__codelineno-0-1216" name="__codelineno-0-1216"></a>    <span class="o">*</span><span class="p">,</span>
+<a id="__codelineno-0-1217" name="__codelineno-0-1217"></a>    <span class="n">direction</span><span class="p">:</span> <span class="n">ExtendDirection</span> <span class="o">=</span> <span class="s2">&quot;both&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-1218" name="__codelineno-0-1218"></a>    <span class="n">method</span><span class="p">:</span> <span class="n">ExtendMethod</span> <span class="o">=</span> <span class="s2">&quot;mean&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-1219" name="__codelineno-0-1219"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TSeries</span><span class="p">:</span>
+<a id="__codelineno-0-1220" name="__codelineno-0-1220"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Pad a TSeries to align with target-frequency period boundaries.</span>
+<a id="__codelineno-0-1221" name="__codelineno-0-1221"></a>
+<a id="__codelineno-0-1222" name="__codelineno-0-1222"></a><span class="sd">    Returns a new TSeries (the input is not mutated). ``method=&quot;mean&quot;`` fills</span>
+<a id="__codelineno-0-1223" name="__codelineno-0-1223"></a><span class="sd">    each padded section with the mean of the existing values that fall within</span>
+<a id="__codelineno-0-1224" name="__codelineno-0-1224"></a><span class="sd">    the spanned target period; ``method=&quot;end&quot;`` repeats the nearest in-range</span>
+<a id="__codelineno-0-1225" name="__codelineno-0-1225"></a><span class="sd">    value (last value for the trailing pad, first in-range value for the</span>
+<a id="__codelineno-0-1226" name="__codelineno-0-1226"></a><span class="sd">    leading pad — matching Julia&#39;s behaviour when there is exactly one value</span>
+<a id="__codelineno-0-1227" name="__codelineno-0-1227"></a><span class="sd">    in the spanning period).</span>
+<a id="__codelineno-0-1228" name="__codelineno-0-1228"></a>
+<a id="__codelineno-0-1229" name="__codelineno-0-1229"></a><span class="sd">    Source / target may be any non-Unit frequency. For a BDaily source the</span>
+<a id="__codelineno-0-1230" name="__codelineno-0-1230"></a><span class="sd">    in-range first/last value used by ``method=&quot;end&quot;``, and the per-period</span>
+<a id="__codelineno-0-1231" name="__codelineno-0-1231"></a><span class="sd">    mean used by ``method=&quot;mean&quot;``, are computed via</span>
+<a id="__codelineno-0-1232" name="__codelineno-0-1232"></a><span class="sd">    ``cleanedvalues(...; skip_all_nans=True)`` so leading / trailing NaNs do</span>
+<a id="__codelineno-0-1233" name="__codelineno-0-1233"></a><span class="sd">    not poison the fill (matches Julia&#39;s BDaily branch at</span>
+<a id="__codelineno-0-1234" name="__codelineno-0-1234"></a><span class="sd">    ``fconvert_helpers.jl`` lines 309-326).</span>
+<a id="__codelineno-0-1235" name="__codelineno-0-1235"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-1236" name="__codelineno-0-1236"></a>    <span class="k">if</span> <span class="n">direction</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;both&quot;</span><span class="p">,</span> <span class="s2">&quot;begin&quot;</span><span class="p">,</span> <span class="s2">&quot;end&quot;</span><span class="p">):</span>
+<a id="__codelineno-0-1237" name="__codelineno-0-1237"></a>        <span class="n">msg</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;direction must be &#39;both&#39;, &#39;begin&#39;, or &#39;end&#39;. Received: </span><span class="si">{</span><span class="n">direction</span><span class="si">!r}</span><span class="s2">.&quot;</span>
+<a id="__codelineno-0-1238" name="__codelineno-0-1238"></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+<a id="__codelineno-0-1239" name="__codelineno-0-1239"></a>    <span class="k">if</span> <span class="n">method</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;mean&quot;</span><span class="p">,</span> <span class="s2">&quot;end&quot;</span><span class="p">):</span>
+<a id="__codelineno-0-1240" name="__codelineno-0-1240"></a>        <span class="n">msg</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;method must be &#39;mean&#39; or &#39;end&#39;. Received: </span><span class="si">{</span><span class="n">method</span><span class="si">!r}</span><span class="s2">.&quot;</span>
+<a id="__codelineno-0-1241" name="__codelineno-0-1241"></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+<a id="__codelineno-0-1242" name="__codelineno-0-1242"></a>    <span class="n">f_to</span> <span class="o">=</span> <span class="n">sanitize_frequency</span><span class="p">(</span><span class="n">target</span><span class="p">)</span>
+<a id="__codelineno-0-1243" name="__codelineno-0-1243"></a>    <span class="n">f_from</span> <span class="o">=</span> <span class="n">t</span><span class="o">.</span><span class="n">frequency</span>
+<a id="__codelineno-0-1244" name="__codelineno-0-1244"></a>    <span class="n">_reject_unit</span><span class="p">(</span><span class="n">f_to</span><span class="p">,</span> <span class="n">what</span><span class="o">=</span><span class="s2">&quot;target&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-1245" name="__codelineno-0-1245"></a>    <span class="n">_reject_unit</span><span class="p">(</span><span class="n">f_from</span><span class="p">,</span> <span class="n">what</span><span class="o">=</span><span class="s2">&quot;source&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-1246" name="__codelineno-0-1246"></a>    <span class="n">out</span> <span class="o">=</span> <span class="n">t</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+<a id="__codelineno-0-1247" name="__codelineno-0-1247"></a>    <span class="k">if</span> <span class="n">direction</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;begin&quot;</span><span class="p">,</span> <span class="s2">&quot;both&quot;</span><span class="p">):</span>
+<a id="__codelineno-0-1248" name="__codelineno-0-1248"></a>        <span class="n">_extend_begin</span><span class="p">(</span><span class="n">f_to</span><span class="p">,</span> <span class="n">out</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="n">method</span><span class="p">)</span>
+<a id="__codelineno-0-1249" name="__codelineno-0-1249"></a>    <span class="k">if</span> <span class="n">direction</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;end&quot;</span><span class="p">,</span> <span class="s2">&quot;both&quot;</span><span class="p">):</span>
+<a id="__codelineno-0-1250" name="__codelineno-0-1250"></a>        <span class="n">_extend_end</span><span class="p">(</span><span class="n">f_to</span><span class="p">,</span> <span class="n">out</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="n">method</span><span class="p">)</span>
+<a id="__codelineno-0-1251" name="__codelineno-0-1251"></a>    <span class="k">return</span> <span class="n">out</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -2656,12 +2656,226 @@ differs.</p>
 </ul>
 
 
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>arg1</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="FrequencyLike
+
+
+  
+      module-attribute
+   (tsecon.frequencies.FrequencyLike)" href="../frequencies/#tsecon.frequencies.FrequencyLike">FrequencyLike</a> or <span title="collections.abc.Callable">Callable</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Either the target frequency (built-in form) or the custom
+callable (three-positional form).</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>arg2</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="TSeries (tsecon.tseries.TSeries)" href="../tseries/#tsecon.tseries.TSeries">TSeries</a> or <a class="autorefs autorefs-internal" title="FrequencyLike
+
+
+  
+      module-attribute
+   (tsecon.frequencies.FrequencyLike)" href="../frequencies/#tsecon.frequencies.FrequencyLike">FrequencyLike</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The TSeries to convert in the built-in form, or the target
+frequency in the three-positional form.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>arg3</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="TSeries (tsecon.tseries.TSeries)" href="../tseries/#tsecon.tseries.TSeries">TSeries</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The TSeries to convert in the three-positional custom-callable
+form.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>method</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Aggregator / spreader name. Lower-frequency:
+<code>"mean" / "sum" / "min" / "max" / "point" / "begin" / "end"</code>.
+Higher-frequency: <code>"const" / "even" / "linear"</code>. Defaults
+to <code>"mean"</code> for lower and <code>"const"</code> for higher.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>ref</code>
+            </td>
+            <td>
+                  <code>(&#39;begin&#39;, &#39;end&#39;)</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Boundary anchor used when the source / target periods do not
+align exactly. Defaults to <code>"end"</code> (Julia's default).</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#34;begin&#34;</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>**kwargs</code>
+            </td>
+            <td>
+                  <code><span title="typing.Any">Any</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Forwarded to the custom callable in the three-positional form.
+For BDaily source on lower-frequency conversion, also accepts
+<code>skip_all_nans</code> / <code>skip_holidays</code> / <code>holidays_map</code> —
+these filter the underlying business days before aggregation
+via :func:<code>tsecon._bdaily.cleanedvalues</code>.</p>
+              </div>
+            </td>
+            <td>
+                  <code>{}</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="TSeries (tsecon.tseries.TSeries)" href="../tseries/#tsecon.tseries.TSeries">TSeries</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>A new series at the <code>target</code> frequency. The input is not
+mutated. When <code>target == t.frequency</code> the input is returned
+unchanged (matching Julia's identity overload).</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="ValueError">ValueError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Source or target is <code>Unit</code> (not convertible), or <code>method</code>
+is not one of the documented values for the chosen direction.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="TypeError">TypeError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The custom-callable form is used incorrectly, or
+<code>skip_all_nans</code> / <code>skip_holidays</code> / <code>holidays_map</code> is
+passed on a non-BDaily source.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="NotImplementedError">NotImplementedError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Conversion direction is not yet implemented.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
 <p><span class="doc-section-title">Examples:</span></p>
-    <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">tsecon</span><span class="w"> </span><span class="kn">import</span> <span class="n">qq</span><span class="p">,</span> <span class="n">mm</span><span class="p">,</span> <span class="n">TSeries</span><span class="p">,</span> <span class="n">Quarterly</span><span class="p">,</span> <span class="n">Monthly</span><span class="p">,</span> <span class="n">Yearly</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">q</span> <span class="o">=</span> <span class="n">TSeries</span><span class="p">(</span><span class="n">qq</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">11</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">))</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">fconvert_tseries</span><span class="p">(</span><span class="n">Monthly</span><span class="p">,</span> <span class="n">q</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">&quot;const&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">firstdate</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="go">5M1</span>
+    <p>Spread a Quarterly series across each quarter's three months
+using the <code>"const"</code> (repeat) method::</p>
+<div class="highlight"><pre><span></span><code>&gt;&gt;&gt; from tsecon import qq, TSeries, Monthly, fconvert_tseries
+&gt;&gt;&gt; import numpy as np
+&gt;&gt;&gt; q = TSeries(qq(2020, 1), np.arange(1, 11, dtype=float))
+&gt;&gt;&gt; m = fconvert_tseries(Monthly, q, method=&quot;const&quot;)
+&gt;&gt;&gt; m.firstdate
+2020M1
+&gt;&gt;&gt; m.lastdate
+2022M6
+</code></pre></div>
+<p>Aggregate a Monthly series to Quarterly with the mean::</p>
+<div class="highlight"><pre><span></span><code>&gt;&gt;&gt; from tsecon import mm, Quarterly
+&gt;&gt;&gt; series = TSeries(mm(2020, 1), np.arange(1.0, 13.0))
+&gt;&gt;&gt; fconvert_tseries(Quarterly, series, method=&quot;mean&quot;).values.tolist()
+[2.0, 5.0, 8.0, 11.0]
 </code></pre></div>
 
 
@@ -2710,7 +2924,65 @@ differs.</p>
 <span class="normal"><a href="#__codelineno-0-273">273</a></span>
 <span class="normal"><a href="#__codelineno-0-274">274</a></span>
 <span class="normal"><a href="#__codelineno-0-275">275</a></span>
-<span class="normal"><a href="#__codelineno-0-276">276</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-233" name="__codelineno-0-233"></a><span class="k">def</span><span class="w"> </span><span class="nf">fconvert_tseries</span><span class="p">(</span>
+<span class="normal"><a href="#__codelineno-0-276">276</a></span>
+<span class="normal"><a href="#__codelineno-0-277">277</a></span>
+<span class="normal"><a href="#__codelineno-0-278">278</a></span>
+<span class="normal"><a href="#__codelineno-0-279">279</a></span>
+<span class="normal"><a href="#__codelineno-0-280">280</a></span>
+<span class="normal"><a href="#__codelineno-0-281">281</a></span>
+<span class="normal"><a href="#__codelineno-0-282">282</a></span>
+<span class="normal"><a href="#__codelineno-0-283">283</a></span>
+<span class="normal"><a href="#__codelineno-0-284">284</a></span>
+<span class="normal"><a href="#__codelineno-0-285">285</a></span>
+<span class="normal"><a href="#__codelineno-0-286">286</a></span>
+<span class="normal"><a href="#__codelineno-0-287">287</a></span>
+<span class="normal"><a href="#__codelineno-0-288">288</a></span>
+<span class="normal"><a href="#__codelineno-0-289">289</a></span>
+<span class="normal"><a href="#__codelineno-0-290">290</a></span>
+<span class="normal"><a href="#__codelineno-0-291">291</a></span>
+<span class="normal"><a href="#__codelineno-0-292">292</a></span>
+<span class="normal"><a href="#__codelineno-0-293">293</a></span>
+<span class="normal"><a href="#__codelineno-0-294">294</a></span>
+<span class="normal"><a href="#__codelineno-0-295">295</a></span>
+<span class="normal"><a href="#__codelineno-0-296">296</a></span>
+<span class="normal"><a href="#__codelineno-0-297">297</a></span>
+<span class="normal"><a href="#__codelineno-0-298">298</a></span>
+<span class="normal"><a href="#__codelineno-0-299">299</a></span>
+<span class="normal"><a href="#__codelineno-0-300">300</a></span>
+<span class="normal"><a href="#__codelineno-0-301">301</a></span>
+<span class="normal"><a href="#__codelineno-0-302">302</a></span>
+<span class="normal"><a href="#__codelineno-0-303">303</a></span>
+<span class="normal"><a href="#__codelineno-0-304">304</a></span>
+<span class="normal"><a href="#__codelineno-0-305">305</a></span>
+<span class="normal"><a href="#__codelineno-0-306">306</a></span>
+<span class="normal"><a href="#__codelineno-0-307">307</a></span>
+<span class="normal"><a href="#__codelineno-0-308">308</a></span>
+<span class="normal"><a href="#__codelineno-0-309">309</a></span>
+<span class="normal"><a href="#__codelineno-0-310">310</a></span>
+<span class="normal"><a href="#__codelineno-0-311">311</a></span>
+<span class="normal"><a href="#__codelineno-0-312">312</a></span>
+<span class="normal"><a href="#__codelineno-0-313">313</a></span>
+<span class="normal"><a href="#__codelineno-0-314">314</a></span>
+<span class="normal"><a href="#__codelineno-0-315">315</a></span>
+<span class="normal"><a href="#__codelineno-0-316">316</a></span>
+<span class="normal"><a href="#__codelineno-0-317">317</a></span>
+<span class="normal"><a href="#__codelineno-0-318">318</a></span>
+<span class="normal"><a href="#__codelineno-0-319">319</a></span>
+<span class="normal"><a href="#__codelineno-0-320">320</a></span>
+<span class="normal"><a href="#__codelineno-0-321">321</a></span>
+<span class="normal"><a href="#__codelineno-0-322">322</a></span>
+<span class="normal"><a href="#__codelineno-0-323">323</a></span>
+<span class="normal"><a href="#__codelineno-0-324">324</a></span>
+<span class="normal"><a href="#__codelineno-0-325">325</a></span>
+<span class="normal"><a href="#__codelineno-0-326">326</a></span>
+<span class="normal"><a href="#__codelineno-0-327">327</a></span>
+<span class="normal"><a href="#__codelineno-0-328">328</a></span>
+<span class="normal"><a href="#__codelineno-0-329">329</a></span>
+<span class="normal"><a href="#__codelineno-0-330">330</a></span>
+<span class="normal"><a href="#__codelineno-0-331">331</a></span>
+<span class="normal"><a href="#__codelineno-0-332">332</a></span>
+<span class="normal"><a href="#__codelineno-0-333">333</a></span>
+<span class="normal"><a href="#__codelineno-0-334">334</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-233" name="__codelineno-0-233"></a><span class="k">def</span><span class="w"> </span><span class="nf">fconvert_tseries</span><span class="p">(</span>
 <a id="__codelineno-0-234" name="__codelineno-0-234"></a>    <span class="n">arg1</span><span class="p">:</span> <span class="n">FrequencyLike</span> <span class="o">|</span> <span class="n">Callable</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
 <a id="__codelineno-0-235" name="__codelineno-0-235"></a>    <span class="n">arg2</span><span class="p">:</span> <span class="n">TSeries</span> <span class="o">|</span> <span class="n">FrequencyLike</span><span class="p">,</span>
 <a id="__codelineno-0-236" name="__codelineno-0-236"></a>    <span class="n">arg3</span><span class="p">:</span> <span class="n">TSeries</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -2733,27 +3005,85 @@ differs.</p>
 <a id="__codelineno-0-253" name="__codelineno-0-253"></a><span class="sd">      accept ``(values, output_lengths)`` plus the keyword arguments</span>
 <a id="__codelineno-0-254" name="__codelineno-0-254"></a><span class="sd">      ``ref=...`` and ``outrange=...``.</span>
 <a id="__codelineno-0-255" name="__codelineno-0-255"></a>
-<a id="__codelineno-0-256" name="__codelineno-0-256"></a><span class="sd">    Examples</span>
-<a id="__codelineno-0-257" name="__codelineno-0-257"></a><span class="sd">    --------</span>
-<a id="__codelineno-0-258" name="__codelineno-0-258"></a><span class="sd">    &gt;&gt;&gt; from tsecon import qq, mm, TSeries, Quarterly, Monthly, Yearly</span>
-<a id="__codelineno-0-259" name="__codelineno-0-259"></a><span class="sd">    &gt;&gt;&gt; import numpy as np</span>
-<a id="__codelineno-0-260" name="__codelineno-0-260"></a><span class="sd">    &gt;&gt;&gt; q = TSeries(qq(5, 1), np.arange(1, 11, dtype=float))</span>
-<a id="__codelineno-0-261" name="__codelineno-0-261"></a><span class="sd">    &gt;&gt;&gt; fconvert_tseries(Monthly, q, method=&quot;const&quot;).firstdate</span>
-<a id="__codelineno-0-262" name="__codelineno-0-262"></a><span class="sd">    5M1</span>
-<a id="__codelineno-0-263" name="__codelineno-0-263"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-264" name="__codelineno-0-264"></a>    <span class="n">target</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">f</span> <span class="o">=</span> <span class="n">_normalise_call</span><span class="p">(</span><span class="n">arg1</span><span class="p">,</span> <span class="n">arg2</span><span class="p">,</span> <span class="n">arg3</span><span class="p">)</span>
-<a id="__codelineno-0-265" name="__codelineno-0-265"></a>
-<a id="__codelineno-0-266" name="__codelineno-0-266"></a>    <span class="n">f_to</span> <span class="o">=</span> <span class="n">sanitize_frequency</span><span class="p">(</span><span class="n">target</span><span class="p">)</span>
-<a id="__codelineno-0-267" name="__codelineno-0-267"></a>    <span class="n">f_from</span> <span class="o">=</span> <span class="n">t</span><span class="o">.</span><span class="n">frequency</span>
-<a id="__codelineno-0-268" name="__codelineno-0-268"></a>    <span class="k">if</span> <span class="n">f_to</span> <span class="o">==</span> <span class="n">f_from</span><span class="p">:</span>
-<a id="__codelineno-0-269" name="__codelineno-0-269"></a>        <span class="k">return</span> <span class="n">t</span>  <span class="c1"># mirror Julia&#39;s identity overload (works for Unit too)</span>
-<a id="__codelineno-0-270" name="__codelineno-0-270"></a>    <span class="n">_reject_unit</span><span class="p">(</span><span class="n">f_to</span><span class="p">,</span> <span class="n">what</span><span class="o">=</span><span class="s2">&quot;target&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-271" name="__codelineno-0-271"></a>    <span class="n">_reject_unit</span><span class="p">(</span><span class="n">f_from</span><span class="p">,</span> <span class="n">what</span><span class="o">=</span><span class="s2">&quot;source&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-272" name="__codelineno-0-272"></a>
-<a id="__codelineno-0-273" name="__codelineno-0-273"></a>    <span class="n">direction</span> <span class="o">=</span> <span class="n">_dispatch_direction</span><span class="p">(</span><span class="n">f_to</span><span class="p">,</span> <span class="n">f_from</span><span class="p">)</span>
-<a id="__codelineno-0-274" name="__codelineno-0-274"></a>    <span class="k">if</span> <span class="n">direction</span> <span class="o">==</span> <span class="s2">&quot;higher&quot;</span><span class="p">:</span>
-<a id="__codelineno-0-275" name="__codelineno-0-275"></a>        <span class="k">return</span> <span class="n">_dispatch_higher</span><span class="p">(</span><span class="n">f_to</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="n">method</span><span class="p">,</span> <span class="n">ref</span><span class="o">=</span><span class="n">ref</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
-<a id="__codelineno-0-276" name="__codelineno-0-276"></a>    <span class="k">return</span> <span class="n">_dispatch_lower</span><span class="p">(</span><span class="n">f_to</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="n">method</span><span class="p">,</span> <span class="n">ref</span><span class="o">=</span><span class="n">ref</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+<a id="__codelineno-0-256" name="__codelineno-0-256"></a><span class="sd">    Parameters</span>
+<a id="__codelineno-0-257" name="__codelineno-0-257"></a><span class="sd">    ----------</span>
+<a id="__codelineno-0-258" name="__codelineno-0-258"></a><span class="sd">    arg1 : FrequencyLike or Callable</span>
+<a id="__codelineno-0-259" name="__codelineno-0-259"></a><span class="sd">        Either the target frequency (built-in form) or the custom</span>
+<a id="__codelineno-0-260" name="__codelineno-0-260"></a><span class="sd">        callable (three-positional form).</span>
+<a id="__codelineno-0-261" name="__codelineno-0-261"></a><span class="sd">    arg2 : TSeries or FrequencyLike</span>
+<a id="__codelineno-0-262" name="__codelineno-0-262"></a><span class="sd">        The TSeries to convert in the built-in form, or the target</span>
+<a id="__codelineno-0-263" name="__codelineno-0-263"></a><span class="sd">        frequency in the three-positional form.</span>
+<a id="__codelineno-0-264" name="__codelineno-0-264"></a><span class="sd">    arg3 : TSeries, optional</span>
+<a id="__codelineno-0-265" name="__codelineno-0-265"></a><span class="sd">        The TSeries to convert in the three-positional custom-callable</span>
+<a id="__codelineno-0-266" name="__codelineno-0-266"></a><span class="sd">        form.</span>
+<a id="__codelineno-0-267" name="__codelineno-0-267"></a><span class="sd">    method : str, optional</span>
+<a id="__codelineno-0-268" name="__codelineno-0-268"></a><span class="sd">        Aggregator / spreader name. Lower-frequency:</span>
+<a id="__codelineno-0-269" name="__codelineno-0-269"></a><span class="sd">        ``&quot;mean&quot; / &quot;sum&quot; / &quot;min&quot; / &quot;max&quot; / &quot;point&quot; / &quot;begin&quot; / &quot;end&quot;``.</span>
+<a id="__codelineno-0-270" name="__codelineno-0-270"></a><span class="sd">        Higher-frequency: ``&quot;const&quot; / &quot;even&quot; / &quot;linear&quot;``. Defaults</span>
+<a id="__codelineno-0-271" name="__codelineno-0-271"></a><span class="sd">        to ``&quot;mean&quot;`` for lower and ``&quot;const&quot;`` for higher.</span>
+<a id="__codelineno-0-272" name="__codelineno-0-272"></a><span class="sd">    ref : {&quot;begin&quot;, &quot;end&quot;}, optional</span>
+<a id="__codelineno-0-273" name="__codelineno-0-273"></a><span class="sd">        Boundary anchor used when the source / target periods do not</span>
+<a id="__codelineno-0-274" name="__codelineno-0-274"></a><span class="sd">        align exactly. Defaults to ``&quot;end&quot;`` (Julia&#39;s default).</span>
+<a id="__codelineno-0-275" name="__codelineno-0-275"></a><span class="sd">    **kwargs</span>
+<a id="__codelineno-0-276" name="__codelineno-0-276"></a><span class="sd">        Forwarded to the custom callable in the three-positional form.</span>
+<a id="__codelineno-0-277" name="__codelineno-0-277"></a><span class="sd">        For BDaily source on lower-frequency conversion, also accepts</span>
+<a id="__codelineno-0-278" name="__codelineno-0-278"></a><span class="sd">        ``skip_all_nans`` / ``skip_holidays`` / ``holidays_map`` —</span>
+<a id="__codelineno-0-279" name="__codelineno-0-279"></a><span class="sd">        these filter the underlying business days before aggregation</span>
+<a id="__codelineno-0-280" name="__codelineno-0-280"></a><span class="sd">        via :func:`tsecon._bdaily.cleanedvalues`.</span>
+<a id="__codelineno-0-281" name="__codelineno-0-281"></a>
+<a id="__codelineno-0-282" name="__codelineno-0-282"></a><span class="sd">    Returns</span>
+<a id="__codelineno-0-283" name="__codelineno-0-283"></a><span class="sd">    -------</span>
+<a id="__codelineno-0-284" name="__codelineno-0-284"></a><span class="sd">    TSeries</span>
+<a id="__codelineno-0-285" name="__codelineno-0-285"></a><span class="sd">        A new series at the ``target`` frequency. The input is not</span>
+<a id="__codelineno-0-286" name="__codelineno-0-286"></a><span class="sd">        mutated. When ``target == t.frequency`` the input is returned</span>
+<a id="__codelineno-0-287" name="__codelineno-0-287"></a><span class="sd">        unchanged (matching Julia&#39;s identity overload).</span>
+<a id="__codelineno-0-288" name="__codelineno-0-288"></a>
+<a id="__codelineno-0-289" name="__codelineno-0-289"></a><span class="sd">    Raises</span>
+<a id="__codelineno-0-290" name="__codelineno-0-290"></a><span class="sd">    ------</span>
+<a id="__codelineno-0-291" name="__codelineno-0-291"></a><span class="sd">    ValueError</span>
+<a id="__codelineno-0-292" name="__codelineno-0-292"></a><span class="sd">        Source or target is ``Unit`` (not convertible), or ``method``</span>
+<a id="__codelineno-0-293" name="__codelineno-0-293"></a><span class="sd">        is not one of the documented values for the chosen direction.</span>
+<a id="__codelineno-0-294" name="__codelineno-0-294"></a><span class="sd">    TypeError</span>
+<a id="__codelineno-0-295" name="__codelineno-0-295"></a><span class="sd">        The custom-callable form is used incorrectly, or</span>
+<a id="__codelineno-0-296" name="__codelineno-0-296"></a><span class="sd">        ``skip_all_nans`` / ``skip_holidays`` / ``holidays_map`` is</span>
+<a id="__codelineno-0-297" name="__codelineno-0-297"></a><span class="sd">        passed on a non-BDaily source.</span>
+<a id="__codelineno-0-298" name="__codelineno-0-298"></a><span class="sd">    NotImplementedError</span>
+<a id="__codelineno-0-299" name="__codelineno-0-299"></a><span class="sd">        Conversion direction is not yet implemented.</span>
+<a id="__codelineno-0-300" name="__codelineno-0-300"></a>
+<a id="__codelineno-0-301" name="__codelineno-0-301"></a><span class="sd">    Examples</span>
+<a id="__codelineno-0-302" name="__codelineno-0-302"></a><span class="sd">    --------</span>
+<a id="__codelineno-0-303" name="__codelineno-0-303"></a><span class="sd">    Spread a Quarterly series across each quarter&#39;s three months</span>
+<a id="__codelineno-0-304" name="__codelineno-0-304"></a><span class="sd">    using the ``&quot;const&quot;`` (repeat) method::</span>
+<a id="__codelineno-0-305" name="__codelineno-0-305"></a>
+<a id="__codelineno-0-306" name="__codelineno-0-306"></a><span class="sd">        &gt;&gt;&gt; from tsecon import qq, TSeries, Monthly, fconvert_tseries</span>
+<a id="__codelineno-0-307" name="__codelineno-0-307"></a><span class="sd">        &gt;&gt;&gt; import numpy as np</span>
+<a id="__codelineno-0-308" name="__codelineno-0-308"></a><span class="sd">        &gt;&gt;&gt; q = TSeries(qq(2020, 1), np.arange(1, 11, dtype=float))</span>
+<a id="__codelineno-0-309" name="__codelineno-0-309"></a><span class="sd">        &gt;&gt;&gt; m = fconvert_tseries(Monthly, q, method=&quot;const&quot;)</span>
+<a id="__codelineno-0-310" name="__codelineno-0-310"></a><span class="sd">        &gt;&gt;&gt; m.firstdate</span>
+<a id="__codelineno-0-311" name="__codelineno-0-311"></a><span class="sd">        2020M1</span>
+<a id="__codelineno-0-312" name="__codelineno-0-312"></a><span class="sd">        &gt;&gt;&gt; m.lastdate</span>
+<a id="__codelineno-0-313" name="__codelineno-0-313"></a><span class="sd">        2022M6</span>
+<a id="__codelineno-0-314" name="__codelineno-0-314"></a>
+<a id="__codelineno-0-315" name="__codelineno-0-315"></a><span class="sd">    Aggregate a Monthly series to Quarterly with the mean::</span>
+<a id="__codelineno-0-316" name="__codelineno-0-316"></a>
+<a id="__codelineno-0-317" name="__codelineno-0-317"></a><span class="sd">        &gt;&gt;&gt; from tsecon import mm, Quarterly</span>
+<a id="__codelineno-0-318" name="__codelineno-0-318"></a><span class="sd">        &gt;&gt;&gt; series = TSeries(mm(2020, 1), np.arange(1.0, 13.0))</span>
+<a id="__codelineno-0-319" name="__codelineno-0-319"></a><span class="sd">        &gt;&gt;&gt; fconvert_tseries(Quarterly, series, method=&quot;mean&quot;).values.tolist()</span>
+<a id="__codelineno-0-320" name="__codelineno-0-320"></a><span class="sd">        [2.0, 5.0, 8.0, 11.0]</span>
+<a id="__codelineno-0-321" name="__codelineno-0-321"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-322" name="__codelineno-0-322"></a>    <span class="n">target</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">f</span> <span class="o">=</span> <span class="n">_normalise_call</span><span class="p">(</span><span class="n">arg1</span><span class="p">,</span> <span class="n">arg2</span><span class="p">,</span> <span class="n">arg3</span><span class="p">)</span>
+<a id="__codelineno-0-323" name="__codelineno-0-323"></a>
+<a id="__codelineno-0-324" name="__codelineno-0-324"></a>    <span class="n">f_to</span> <span class="o">=</span> <span class="n">sanitize_frequency</span><span class="p">(</span><span class="n">target</span><span class="p">)</span>
+<a id="__codelineno-0-325" name="__codelineno-0-325"></a>    <span class="n">f_from</span> <span class="o">=</span> <span class="n">t</span><span class="o">.</span><span class="n">frequency</span>
+<a id="__codelineno-0-326" name="__codelineno-0-326"></a>    <span class="k">if</span> <span class="n">f_to</span> <span class="o">==</span> <span class="n">f_from</span><span class="p">:</span>
+<a id="__codelineno-0-327" name="__codelineno-0-327"></a>        <span class="k">return</span> <span class="n">t</span>  <span class="c1"># mirror Julia&#39;s identity overload (works for Unit too)</span>
+<a id="__codelineno-0-328" name="__codelineno-0-328"></a>    <span class="n">_reject_unit</span><span class="p">(</span><span class="n">f_to</span><span class="p">,</span> <span class="n">what</span><span class="o">=</span><span class="s2">&quot;target&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-329" name="__codelineno-0-329"></a>    <span class="n">_reject_unit</span><span class="p">(</span><span class="n">f_from</span><span class="p">,</span> <span class="n">what</span><span class="o">=</span><span class="s2">&quot;source&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-330" name="__codelineno-0-330"></a>
+<a id="__codelineno-0-331" name="__codelineno-0-331"></a>    <span class="n">direction</span> <span class="o">=</span> <span class="n">_dispatch_direction</span><span class="p">(</span><span class="n">f_to</span><span class="p">,</span> <span class="n">f_from</span><span class="p">)</span>
+<a id="__codelineno-0-332" name="__codelineno-0-332"></a>    <span class="k">if</span> <span class="n">direction</span> <span class="o">==</span> <span class="s2">&quot;higher&quot;</span><span class="p">:</span>
+<a id="__codelineno-0-333" name="__codelineno-0-333"></a>        <span class="k">return</span> <span class="n">_dispatch_higher</span><span class="p">(</span><span class="n">f_to</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="n">method</span><span class="p">,</span> <span class="n">ref</span><span class="o">=</span><span class="n">ref</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+<a id="__codelineno-0-334" name="__codelineno-0-334"></a>    <span class="k">return</span> <span class="n">_dispatch_lower</span><span class="p">(</span><span class="n">f_to</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="n">method</span><span class="p">,</span> <span class="n">ref</span><span class="o">=</span><span class="n">ref</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -2785,47 +3115,47 @@ differs.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>src/tsecon/fconvert/_tseries.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-1279">1279</a></span>
-<span class="normal"><a href="#__codelineno-0-1280">1280</a></span>
-<span class="normal"><a href="#__codelineno-0-1281">1281</a></span>
-<span class="normal"><a href="#__codelineno-0-1282">1282</a></span>
-<span class="normal"><a href="#__codelineno-0-1283">1283</a></span>
-<span class="normal"><a href="#__codelineno-0-1284">1284</a></span>
-<span class="normal"><a href="#__codelineno-0-1285">1285</a></span>
-<span class="normal"><a href="#__codelineno-0-1286">1286</a></span>
-<span class="normal"><a href="#__codelineno-0-1287">1287</a></span>
-<span class="normal"><a href="#__codelineno-0-1288">1288</a></span>
-<span class="normal"><a href="#__codelineno-0-1289">1289</a></span>
-<span class="normal"><a href="#__codelineno-0-1290">1290</a></span>
-<span class="normal"><a href="#__codelineno-0-1291">1291</a></span>
-<span class="normal"><a href="#__codelineno-0-1292">1292</a></span>
-<span class="normal"><a href="#__codelineno-0-1293">1293</a></span>
-<span class="normal"><a href="#__codelineno-0-1294">1294</a></span>
-<span class="normal"><a href="#__codelineno-0-1295">1295</a></span>
-<span class="normal"><a href="#__codelineno-0-1296">1296</a></span>
-<span class="normal"><a href="#__codelineno-0-1297">1297</a></span>
-<span class="normal"><a href="#__codelineno-0-1298">1298</a></span>
-<span class="normal"><a href="#__codelineno-0-1299">1299</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-1279" name="__codelineno-0-1279"></a><span class="k">def</span><span class="w"> </span><span class="nf">trim_series</span><span class="p">(</span>
-<a id="__codelineno-0-1280" name="__codelineno-0-1280"></a>    <span class="n">target</span><span class="p">:</span> <span class="n">FrequencyLike</span><span class="p">,</span>
-<a id="__codelineno-0-1281" name="__codelineno-0-1281"></a>    <span class="n">t</span><span class="p">:</span> <span class="n">TSeries</span><span class="p">,</span>
-<a id="__codelineno-0-1282" name="__codelineno-0-1282"></a>    <span class="o">*</span><span class="p">,</span>
-<a id="__codelineno-0-1283" name="__codelineno-0-1283"></a>    <span class="n">direction</span><span class="p">:</span> <span class="n">ExtendDirection</span> <span class="o">=</span> <span class="s2">&quot;both&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-1284" name="__codelineno-0-1284"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TSeries</span><span class="p">:</span>
-<a id="__codelineno-0-1285" name="__codelineno-0-1285"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Trim a TSeries to ranges that align with target-frequency boundaries.</span>
-<a id="__codelineno-0-1286" name="__codelineno-0-1286"></a>
-<a id="__codelineno-0-1287" name="__codelineno-0-1287"></a><span class="sd">    Returns a new TSeries restricted to the inner range produced by</span>
-<a id="__codelineno-0-1288" name="__codelineno-0-1288"></a><span class="sd">    ``fconvert(F_from, fconvert(F_to, rangeof(t), trim=direction))``.</span>
-<a id="__codelineno-0-1289" name="__codelineno-0-1289"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-1290" name="__codelineno-0-1290"></a>    <span class="k">if</span> <span class="n">direction</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;both&quot;</span><span class="p">,</span> <span class="s2">&quot;begin&quot;</span><span class="p">,</span> <span class="s2">&quot;end&quot;</span><span class="p">):</span>
-<a id="__codelineno-0-1291" name="__codelineno-0-1291"></a>        <span class="n">msg</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;direction must be &#39;both&#39;, &#39;begin&#39;, or &#39;end&#39;. Received: </span><span class="si">{</span><span class="n">direction</span><span class="si">!r}</span><span class="s2">.&quot;</span>
-<a id="__codelineno-0-1292" name="__codelineno-0-1292"></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
-<a id="__codelineno-0-1293" name="__codelineno-0-1293"></a>    <span class="n">f_to</span> <span class="o">=</span> <span class="n">sanitize_frequency</span><span class="p">(</span><span class="n">target</span><span class="p">)</span>
-<a id="__codelineno-0-1294" name="__codelineno-0-1294"></a>    <span class="n">f_from</span> <span class="o">=</span> <span class="n">t</span><span class="o">.</span><span class="n">frequency</span>
-<a id="__codelineno-0-1295" name="__codelineno-0-1295"></a>    <span class="n">_reject_unit</span><span class="p">(</span><span class="n">f_to</span><span class="p">,</span> <span class="n">what</span><span class="o">=</span><span class="s2">&quot;target&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-1296" name="__codelineno-0-1296"></a>    <span class="n">_reject_unit</span><span class="p">(</span><span class="n">f_from</span><span class="p">,</span> <span class="n">what</span><span class="o">=</span><span class="s2">&quot;source&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-1297" name="__codelineno-0-1297"></a>    <span class="n">target_range</span> <span class="o">=</span> <span class="n">fconvert_range</span><span class="p">(</span><span class="n">f_to</span><span class="p">,</span> <span class="n">t</span><span class="o">.</span><span class="n">range</span><span class="p">,</span> <span class="n">trim</span><span class="o">=</span><span class="n">direction</span><span class="p">)</span>
-<a id="__codelineno-0-1298" name="__codelineno-0-1298"></a>    <span class="n">back</span> <span class="o">=</span> <span class="n">fconvert_range</span><span class="p">(</span><span class="n">f_from</span><span class="p">,</span> <span class="n">target_range</span><span class="p">)</span>
-<a id="__codelineno-0-1299" name="__codelineno-0-1299"></a>    <span class="k">return</span> <span class="n">cast</span><span class="p">(</span><span class="s2">&quot;TSeries&quot;</span><span class="p">,</span> <span class="n">t</span><span class="p">[</span><span class="n">back</span><span class="p">])</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-1337">1337</a></span>
+<span class="normal"><a href="#__codelineno-0-1338">1338</a></span>
+<span class="normal"><a href="#__codelineno-0-1339">1339</a></span>
+<span class="normal"><a href="#__codelineno-0-1340">1340</a></span>
+<span class="normal"><a href="#__codelineno-0-1341">1341</a></span>
+<span class="normal"><a href="#__codelineno-0-1342">1342</a></span>
+<span class="normal"><a href="#__codelineno-0-1343">1343</a></span>
+<span class="normal"><a href="#__codelineno-0-1344">1344</a></span>
+<span class="normal"><a href="#__codelineno-0-1345">1345</a></span>
+<span class="normal"><a href="#__codelineno-0-1346">1346</a></span>
+<span class="normal"><a href="#__codelineno-0-1347">1347</a></span>
+<span class="normal"><a href="#__codelineno-0-1348">1348</a></span>
+<span class="normal"><a href="#__codelineno-0-1349">1349</a></span>
+<span class="normal"><a href="#__codelineno-0-1350">1350</a></span>
+<span class="normal"><a href="#__codelineno-0-1351">1351</a></span>
+<span class="normal"><a href="#__codelineno-0-1352">1352</a></span>
+<span class="normal"><a href="#__codelineno-0-1353">1353</a></span>
+<span class="normal"><a href="#__codelineno-0-1354">1354</a></span>
+<span class="normal"><a href="#__codelineno-0-1355">1355</a></span>
+<span class="normal"><a href="#__codelineno-0-1356">1356</a></span>
+<span class="normal"><a href="#__codelineno-0-1357">1357</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-1337" name="__codelineno-0-1337"></a><span class="k">def</span><span class="w"> </span><span class="nf">trim_series</span><span class="p">(</span>
+<a id="__codelineno-0-1338" name="__codelineno-0-1338"></a>    <span class="n">target</span><span class="p">:</span> <span class="n">FrequencyLike</span><span class="p">,</span>
+<a id="__codelineno-0-1339" name="__codelineno-0-1339"></a>    <span class="n">t</span><span class="p">:</span> <span class="n">TSeries</span><span class="p">,</span>
+<a id="__codelineno-0-1340" name="__codelineno-0-1340"></a>    <span class="o">*</span><span class="p">,</span>
+<a id="__codelineno-0-1341" name="__codelineno-0-1341"></a>    <span class="n">direction</span><span class="p">:</span> <span class="n">ExtendDirection</span> <span class="o">=</span> <span class="s2">&quot;both&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-1342" name="__codelineno-0-1342"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TSeries</span><span class="p">:</span>
+<a id="__codelineno-0-1343" name="__codelineno-0-1343"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Trim a TSeries to ranges that align with target-frequency boundaries.</span>
+<a id="__codelineno-0-1344" name="__codelineno-0-1344"></a>
+<a id="__codelineno-0-1345" name="__codelineno-0-1345"></a><span class="sd">    Returns a new TSeries restricted to the inner range produced by</span>
+<a id="__codelineno-0-1346" name="__codelineno-0-1346"></a><span class="sd">    ``fconvert(F_from, fconvert(F_to, rangeof(t), trim=direction))``.</span>
+<a id="__codelineno-0-1347" name="__codelineno-0-1347"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-1348" name="__codelineno-0-1348"></a>    <span class="k">if</span> <span class="n">direction</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;both&quot;</span><span class="p">,</span> <span class="s2">&quot;begin&quot;</span><span class="p">,</span> <span class="s2">&quot;end&quot;</span><span class="p">):</span>
+<a id="__codelineno-0-1349" name="__codelineno-0-1349"></a>        <span class="n">msg</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;direction must be &#39;both&#39;, &#39;begin&#39;, or &#39;end&#39;. Received: </span><span class="si">{</span><span class="n">direction</span><span class="si">!r}</span><span class="s2">.&quot;</span>
+<a id="__codelineno-0-1350" name="__codelineno-0-1350"></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+<a id="__codelineno-0-1351" name="__codelineno-0-1351"></a>    <span class="n">f_to</span> <span class="o">=</span> <span class="n">sanitize_frequency</span><span class="p">(</span><span class="n">target</span><span class="p">)</span>
+<a id="__codelineno-0-1352" name="__codelineno-0-1352"></a>    <span class="n">f_from</span> <span class="o">=</span> <span class="n">t</span><span class="o">.</span><span class="n">frequency</span>
+<a id="__codelineno-0-1353" name="__codelineno-0-1353"></a>    <span class="n">_reject_unit</span><span class="p">(</span><span class="n">f_to</span><span class="p">,</span> <span class="n">what</span><span class="o">=</span><span class="s2">&quot;target&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-1354" name="__codelineno-0-1354"></a>    <span class="n">_reject_unit</span><span class="p">(</span><span class="n">f_from</span><span class="p">,</span> <span class="n">what</span><span class="o">=</span><span class="s2">&quot;source&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-1355" name="__codelineno-0-1355"></a>    <span class="n">target_range</span> <span class="o">=</span> <span class="n">fconvert_range</span><span class="p">(</span><span class="n">f_to</span><span class="p">,</span> <span class="n">t</span><span class="o">.</span><span class="n">range</span><span class="p">,</span> <span class="n">trim</span><span class="o">=</span><span class="n">direction</span><span class="p">)</span>
+<a id="__codelineno-0-1356" name="__codelineno-0-1356"></a>    <span class="n">back</span> <span class="o">=</span> <span class="n">fconvert_range</span><span class="p">(</span><span class="n">f_from</span><span class="p">,</span> <span class="n">target_range</span><span class="p">)</span>
+<a id="__codelineno-0-1357" name="__codelineno-0-1357"></a>    <span class="k">return</span> <span class="n">cast</span><span class="p">(</span><span class="s2">&quot;TSeries&quot;</span><span class="p">,</span> <span class="n">t</span><span class="p">[</span><span class="n">back</span><span class="p">])</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>

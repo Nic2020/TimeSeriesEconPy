@@ -55,6 +55,7 @@ import numpy as np
 import numpy.typing as npt
 
 from tsecon._indexing_kernels import gather_numpy
+from tsecon._kernel_dispatch import _dispatch_kernel, _is_kernel_eligible
 from tsecon.mit import MIT
 from tsecon.tseries import TSeries
 
@@ -68,6 +69,9 @@ try:
     _CYTHON_AVAILABLE: Final[bool] = True
 except ImportError:
     _CYTHON_AVAILABLE = False  # type: ignore[misc]
+    # Stub matches the cython name so `_dispatch_kernel` resolves cleanly
+    # when the extension isn't built (see `_kernel_dispatch.py` docstring).
+    gather_cython = gather_numpy
 
 __all__ = ["lookup", "lookup_is_cython"]
 
@@ -220,12 +224,18 @@ def lookup(
             raise IndexError(msg)
 
     values = t.values
-    if values.dtype == np.float64 and _CYTHON_AVAILABLE:
-        return gather_cython(values, offsets)  # type: ignore[no-any-return]
-    if values.dtype == np.float64:
-        return gather_numpy(values, offsets)
-    # Non-float64 dtypes go through NumPy's native fancy indexing — the
-    # kernels are float64-specialised for the hot path; other dtypes are
-    # uncommon enough that the per-call overhead doesn't justify a
-    # parallel kernel family.
-    return values.take(offsets)
+    if values.dtype != np.float64:
+        # Non-float64 dtypes go through NumPy's native fancy indexing — the
+        # kernels are float64-specialised for the hot path; other dtypes are
+        # uncommon enough that the per-call overhead doesn't justify a
+        # parallel kernel family.
+        return values.take(offsets)
+    if _is_kernel_eligible(values):
+        return _dispatch_kernel(  # type: ignore[no-any-return]
+            _CYTHON_AVAILABLE, gather_cython, gather_numpy, values, offsets
+        )
+    # float64 but non-contiguous (e.g. a sliced ``arr[::2]`` view): the
+    # Cython kernel would raise BufferError on its typed-memoryview cast,
+    # so route to the NumPy reference (which uses ``np.take`` and handles
+    # any stride pattern). See F11 review file.
+    return gather_numpy(values, offsets)

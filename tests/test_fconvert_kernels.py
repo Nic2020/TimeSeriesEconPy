@@ -16,13 +16,17 @@ fconvert_lower_aggregate_kernel".
 
 from __future__ import annotations
 
+from unittest import mock
+
 import numpy as np
 import pytest
 
 from tsecon import (
+    Monthly,
     Quarterly,
     TSeries,
     Yearly,
+    daily,
     fconvert,
     fconvert_is_cython,
     mm,
@@ -37,6 +41,7 @@ from tsecon._fconvert_kernels import (
     METHOD_SUM,
     aggregate_groups_numpy,
 )
+from tsecon.fconvert._tseries import _aggregate_groups_dispatch
 
 try:
     from tsecon._fconvert_kernels_cy import (  # type: ignore[import-not-found]
@@ -271,3 +276,60 @@ class TestFconvertKernelEdgeCases:
         y = fconvert(Yearly(), t, method="sum")
         expected = np.arange(100).reshape(25, 4).sum(axis=1)
         np.testing.assert_allclose(np.asarray(y.values), expected, rtol=1e-12, atol=1e-15)
+
+
+# ---------------------------------------------------------------------------
+# Scope cut — kernel is YP-only; calendar inputs must use the fallback path
+# ---------------------------------------------------------------------------
+
+
+class TestKernelScopeCut:
+    """Lock the session-21 YP-only scope cut for the aggregate-groups kernel.
+
+    The kernel signature is integer-offset group-based and was wired
+    only for YPFrequency → YPFrequency aggregation
+    (Quarterly→Yearly, Monthly→Quarterly, Monthly→Yearly). The calendar
+    aggregate path (``_fconvert_lower_calendar_to_yp_or_weekly``) has
+    irregular group spec and deliberately does not call the dispatcher
+    — see ``claude_files/parity/PARITY.md:86`` and
+    ``claude_files/decisions/18_cython_port_plan.md``.
+
+    Without these tests, a future patch could accidentally route a
+    calendar input through the kernel; the integer-offset group-start
+    arithmetic would silently produce plausible-looking-but-wrong
+    aggregates with no signal in CI. The two tests below lock both
+    directions: (1) the runtime guard fires on a non-YP caller; (2) the
+    calendar code path never invokes the dispatcher.
+    """
+
+    def test_yp_target_false_raises_assertion(self) -> None:
+        """Direct call with ``is_yp_target=False`` raises ``AssertionError``."""
+        v = np.arange(20.0)
+        starts, lengths = _uniform_groups(4, 5)
+        with pytest.raises(AssertionError, match="YP-only"):
+            _aggregate_groups_dispatch(v, starts, lengths, METHOD_MEAN, is_yp_target=False)
+
+    def test_daily_to_monthly_does_not_call_kernel_dispatcher(self) -> None:
+        """A calendar→YP fconvert must aggregate per-target without the kernel.
+
+        The calendar path's irregular group spec would silently produce
+        wrong output if the kernel were called; this test mock-patches
+        the dispatcher and asserts the calendar fconvert never reaches it.
+        """
+        # 91 days starting 2024-01-01 — covers a complete Jan / Feb / Mar
+        # (2024 is a leap year, so 31 + 29 + 31 = 91). Non-uniform group
+        # sizes make this structurally incompatible with the YP kernel's
+        # uniform-stride group_starts arithmetic.
+        t = TSeries(daily("2024-01-01"), np.arange(91, dtype=np.float64))
+        with mock.patch(
+            "tsecon.fconvert._tseries._aggregate_groups_dispatch"
+        ) as spy:
+            result = fconvert(Monthly(), t, method="mean")
+        spy.assert_not_called()
+        # Sanity: the calendar path still produced the right answer.
+        expected_jan = np.arange(31).mean()
+        expected_feb = np.arange(31, 31 + 29).mean()
+        expected_mar = np.arange(31 + 29, 91).mean()
+        np.testing.assert_allclose(
+            result.values, [expected_jan, expected_feb, expected_mar], rtol=1e-12
+        )

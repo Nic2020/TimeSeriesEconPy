@@ -42,6 +42,7 @@ from typing import Any, Final
 import numpy as np
 import numpy.typing as npt
 
+from tsecon._kernel_dispatch import _dispatch_kernel
 from tsecon._rec_kernels import rec_linear_numpy
 from tsecon.mit import MIT
 from tsecon.mitrange import MITRange
@@ -57,6 +58,9 @@ try:
     _CYTHON_AVAILABLE: Final[bool] = True
 except ImportError:
     _CYTHON_AVAILABLE = False  # type: ignore[misc]
+    # Stub matches the cython name so `_dispatch_kernel` resolves cleanly
+    # when the extension isn't built (see `_kernel_dispatch.py` docstring).
+    rec_linear_cython = rec_linear_numpy
 
 __all__ = ["rec", "rec_linear", "rec_linear_is_cython"]
 
@@ -271,7 +275,18 @@ def rec_linear(
     offset = rng_first.value - target.firstdate.value
     count = len(rng)
 
-    if _CYTHON_AVAILABLE:
-        rec_linear_cython(values, offset, count, coeffs_arr, lags_arr)
-    else:
-        rec_linear_numpy(values, offset, count, coeffs_arr, lags_arr)
+    # `target.dtype == np.float64` was validated above; `target._ensure_covers`
+    # has just produced a 1-D contiguous buffer; coeffs/lags were created via
+    # `np.asarray(..., dtype=...)` with explicit dtypes. The fast-path
+    # contract from `_is_kernel_eligible` is satisfied unconditionally here,
+    # so the dispatcher's only decision is Cython vs NumPy reference.
+    _dispatch_kernel(
+        _CYTHON_AVAILABLE,
+        rec_linear_cython,
+        rec_linear_numpy,
+        values,
+        offset,
+        count,
+        coeffs_arr,
+        lags_arr,
+    )

@@ -28,6 +28,7 @@ from typing import Any, Final
 import numpy as np
 
 from tsecon._bdaily import cleanedvalues
+from tsecon._kernel_dispatch import _dispatch_kernel, _is_kernel_eligible
 from tsecon._stats_kernels import cor_numpy, mean_numpy, std_numpy, var_numpy
 from tsecon.frequencies import BDaily
 from tsecon.mvtseries import MVTSeries
@@ -50,6 +51,15 @@ try:
     _CYTHON_AVAILABLE: Final[bool] = True
 except ImportError:
     _CYTHON_AVAILABLE = False  # type: ignore[misc]
+    # Stub the cython names to their NumPy siblings so call sites that pass
+    # `<op>_cython` into `_dispatch_kernel` resolve cleanly when the
+    # extension isn't built. `_CYTHON_AVAILABLE` remains the single truth
+    # of which path actually runs; the stubs are never reached because the
+    # dispatcher short-circuits on the flag.
+    cor_cython = cor_numpy
+    mean_cython = mean_numpy
+    std_cython = std_numpy
+    var_cython = var_numpy
 
 __all__ = [
     "cor",
@@ -136,9 +146,7 @@ def mean(
     )
     flat = _ravel_for_kernel(values)
     if flat is not None and flat.shape[0] > 0:
-        if _CYTHON_AVAILABLE:
-            return mean_cython(flat)
-        return mean_numpy(flat)
+        return _dispatch_kernel(_CYTHON_AVAILABLE, mean_cython, mean_numpy, flat)
     return np.mean(values)
 
 
@@ -160,9 +168,7 @@ def std(
     )
     flat = _ravel_for_kernel(values)
     if flat is not None and flat.shape[0] > 1:
-        if _CYTHON_AVAILABLE:
-            return std_cython(flat, 1)
-        return std_numpy(flat, 1)
+        return _dispatch_kernel(_CYTHON_AVAILABLE, std_cython, std_numpy, flat, 1)
     return np.std(values, ddof=1)
 
 
@@ -179,9 +185,7 @@ def var(
     )
     flat = _ravel_for_kernel(values)
     if flat is not None and flat.shape[0] > 1:
-        if _CYTHON_AVAILABLE:
-            return var_cython(flat, 1)
-        return var_numpy(flat, 1)
+        return _dispatch_kernel(_CYTHON_AVAILABLE, var_cython, var_numpy, flat, 1)
     return np.var(values, ddof=1)
 
 
@@ -315,15 +319,8 @@ def cor(
         raise ValueError(msg)
     if xv.shape[0] < 2:
         return float("nan")
-    if (
-        xv.dtype == np.float64
-        and yv.dtype == np.float64
-        and xv.flags["C_CONTIGUOUS"]
-        and yv.flags["C_CONTIGUOUS"]
-    ):
-        if _CYTHON_AVAILABLE:
-            return cor_cython(xv, yv)
-        return cor_numpy(xv, yv)
+    if _is_kernel_eligible(xv, yv):
+        return _dispatch_kernel(_CYTHON_AVAILABLE, cor_cython, cor_numpy, xv, yv)
     return float(np.corrcoef(xv, yv)[0, 1])
 
 

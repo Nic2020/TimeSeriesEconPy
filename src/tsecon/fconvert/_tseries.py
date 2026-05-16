@@ -37,6 +37,7 @@ from tsecon._fconvert_kernels import (
     METHOD_SUM,
     aggregate_groups_numpy,
 )
+from tsecon._kernel_dispatch import _dispatch_kernel, _is_kernel_eligible
 from tsecon._options import getoption
 from tsecon.fconvert._helpers import (
     Ref,
@@ -82,6 +83,9 @@ try:
     _CYTHON_AVAILABLE: Final[bool] = True
 except ImportError:
     _CYTHON_AVAILABLE = False  # type: ignore[misc]
+    # Stub matches the cython name so `_dispatch_kernel` resolves cleanly
+    # when the extension isn't built (see `_kernel_dispatch.py` docstring).
+    aggregate_groups_cython = aggregate_groups_numpy
 
 __all__ = ["extend_series", "fconvert_is_cython", "fconvert_tseries", "trim_series"]
 
@@ -152,18 +156,66 @@ def _aggregate_groups_dispatch(
     group_starts: np.ndarray,
     group_lengths: np.ndarray,
     method_code: int,
+    *,
+    is_yp_target: bool,
 ) -> np.ndarray:
-    """Dispatch to the Cython kernel when available, else the NumPy reference.
+    """Dispatch to the Cython aggregate-groups kernel when eligible, else the NumPy reference.
 
-    Centralises the optional-Cython-import pattern so the call sites
-    in :func:`_fconvert_lower_aggregate_yp` and
-    :func:`_fconvert_lower_calendar_to_yp_or_weekly` stay readable.
+    Routes through the shared :func:`_dispatch_kernel` /
+    :func:`_is_kernel_eligible` helpers from :mod:`tsecon._kernel_dispatch`
+    so the four M1.5 ports share one fast-path contract (``float64`` AND
+    ``C_CONTIGUOUS`` AND ``_CYTHON_AVAILABLE``); see
+    ``claude_files/decisions/20_kernel_dispatch_template.md``.
+
+    The ``is_yp_target`` guard codifies the session-21 scope cut
+    documented in ``claude_files/parity/PARITY.md:86`` and
+    ``claude_files/decisions/18_cython_port_plan.md``: the kernel is
+    only wired for ``YPFrequency → YPFrequency`` aggregation
+    (Quarterly→Yearly, Monthly→Quarterly, Monthly→Yearly). The calendar
+    aggregation path (``_fconvert_lower_calendar_to_yp_or_weekly``)
+    deliberately does NOT call this dispatcher — its group spec is
+    irregular (per-target masks rather than uniform-size groups) and
+    the kernel's integer-offset group-start arithmetic would silently
+    misinterpret it. The guard fires before the kernel call so a future
+    accidental wiring from the calendar path raises immediately, rather
+    than producing plausible-looking-but-wrong aggregates.
+
+    Parameters
+    ----------
+    values, group_starts, group_lengths, method_code
+        Forwarded verbatim to the chosen kernel.
+    is_yp_target : bool
+        ``True`` iff the caller has confirmed both source and target
+        frequencies are :class:`~tsecon.frequencies.YPFrequency`. The
+        guard asserts this — non-YP callers must NOT route through this
+        dispatcher.
     """
-    if _CYTHON_AVAILABLE:
+    if not is_yp_target:
+        msg = (
+            "fconvert: aggregate-groups kernel is YP-only (session-21 scope cut). "
+            "Calendar inputs must use _fconvert_lower_calendar_to_yp_or_weekly's "
+            "per-target aggregation loop, not this dispatcher. "
+            "See claude_files/decisions/18_cython_port_plan.md."
+        )
+        raise AssertionError(msg)
+    if _is_kernel_eligible(values, group_starts, group_lengths):
         return cast(
             "np.ndarray",
-            aggregate_groups_cython(values, group_starts, group_lengths, method_code),
+            _dispatch_kernel(
+                _CYTHON_AVAILABLE,
+                aggregate_groups_cython,
+                aggregate_groups_numpy,
+                values,
+                group_starts,
+                group_lengths,
+                method_code,
+            ),
         )
+    # Eligibility failure (non-float64 values, non-contiguous, or non-int64
+    # group arrays) routes to the NumPy reference, which mirrors the kernel
+    # contract and handles the slow-path shapes. In practice the caller in
+    # `_fconvert_lower_aggregate_yp` already guarantees eligibility, so this
+    # branch is a defensive fallback.
     return aggregate_groups_numpy(values, group_starts, group_lengths, method_code)
 
 
@@ -775,7 +827,12 @@ def _fconvert_lower_aggregate_yp(
         n_out = len(out_range)
         group_starts = np.arange(0, n_out * np_count, np_count, dtype=np.int64)
         group_lengths = np.full(n_out, np_count, dtype=np.int64)
-        out = _aggregate_groups_dispatch(chunk, group_starts, group_lengths, method_code)
+        # `is_yp_target=True`: caller is `_fconvert_lower_aggregate_yp`, which is
+        # only reached when both `f_to` and `t.frequency` are YPFrequency
+        # (see the dispatch in `_fconvert_lower` lines 635-641).
+        out = _aggregate_groups_dispatch(
+            chunk, group_starts, group_lengths, method_code, is_yp_target=True
+        )
         return TSeries(out_range.start, out)
     grouped = chunk.reshape(len(out_range), np_count)
     out = np.array([aggregator(row) for row in grouped])

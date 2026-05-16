@@ -139,6 +139,10 @@ convention = "numpy"
 "docs/**" = ["D", "INP001"]
 "scripts/**" = ["D", "INP001"]
 "benchmarks/**" = ["D", "INP001"]
+# The 4-column harness driver branches over (julia_avail × pandas_avail ×
+# polars_avail × julia_only × python_only) and per-scenario logging — the
+# fan-out is intentional and collapsing it hurts readability.
+"benchmarks/compare/run.py" = ["D", "INP001", "PLR0912", "PLR0915"]
 # Build hook lazy-imports its build-only deps (Cython, NumPy, setuptools)
 # so the file is loadable in environments that have only hatchling.
 "hatch_build.py" = ["D", "INP001", "PLC0415"]

@@ -1,28 +1,35 @@
 # SPDX-License-Identifier: MIT
-"""Drive the Julia ↔ Python comparison harness.
+"""Drive the 4-column (tsecon / Julia / pandas / polars) comparison harness.
 
-Reads the scenario registry from :mod:`scenarios`, times each scenario in
-Python with :mod:`timeit`, invokes ``julia/runner.jl`` for each scenario via
-:mod:`subprocess`, and writes a side-by-side comparison table.
+Reads the scenario registries from :mod:`scenarios` (tsecon),
+:mod:`scenarios_pandas`, and :mod:`scenarios_polars`; invokes
+``julia/runner.jl`` for each scenario via :mod:`subprocess`; and writes a
+side-by-side comparison table. Pandas / polars scenarios are optional —
+the harness lights up additional columns automatically when each module
+imports successfully. A scenario that isn't implemented in a given backend
+appears as ``n/a`` in its column.
 
 Two output forms:
 
-* ``results/<date>_<sha>.json`` — full numerical record.
+* ``results/<date>_<sha>.json`` — full numerical record, one record per
+  scenario with one block per available backend.
 * Markdown table to stdout (and optionally to a file via ``--markdown``).
 
 Usage::
 
-    uv run python benchmarks/compare/run.py                 # all scenarios
+    uv run python benchmarks/compare/run.py                 # all backends, all scenarios
     uv run python benchmarks/compare/run.py --only rec_ar2_100,shift_quarterly_lag1
-    uv run python benchmarks/compare/run.py --python-only   # skip Julia (fast smoke)
+    uv run python benchmarks/compare/run.py --python-only   # tsecon column only (fast smoke)
     uv run python benchmarks/compare/run.py --julia-only    # skip Python
+    uv run python benchmarks/compare/run.py --no-pandas     # drop the pandas column
+    uv run python benchmarks/compare/run.py --no-polars     # drop the polars column
     uv run python benchmarks/compare/run.py --seconds 2     # cap per-scenario budget
 
 If ``julia`` is not on ``PATH``, the script prints a warning and runs only
-the Python column; the Julia column is reported as ``n/a``. The intent: the
-script is always runnable on a developer machine, even one without Julia
-installed — the cross-language number lights up automatically once Julia is
-available.
+the Python columns; the Julia column is reported as ``n/a``. The intent:
+the script is always runnable on a developer machine, even one without
+Julia / pandas / polars installed — extra columns light up automatically
+once those backends are available.
 """
 
 from __future__ import annotations
@@ -35,13 +42,38 @@ import subprocess
 import sys
 import tempfile
 import timeit
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 from scenarios import DESCRIPTION, RUN, SETUP  # noqa: E402
+
+# Optional DataFrame-backend scenario modules. Imported lazily so missing
+# libraries (pandas / polars not installed) degrade gracefully to "n/a"
+# columns in the comparison table.
+try:
+    from scenarios_pandas import RUN as RUN_PD
+    from scenarios_pandas import SETUP as SETUP_PD
+
+    _PANDAS_AVAILABLE = True
+except ImportError:  # pragma: no cover — depends on optional install
+    SETUP_PD = {}
+    RUN_PD = {}
+    _PANDAS_AVAILABLE = False
+
+try:
+    from scenarios_polars import RUN as RUN_PL
+    from scenarios_polars import SETUP as SETUP_PL
+
+    _POLARS_AVAILABLE = True
+except ImportError:  # pragma: no cover — depends on optional install
+    SETUP_PL = {}
+    RUN_PL = {}
+    _POLARS_AVAILABLE = False
 
 # Windows console default codec is cp1252 which doesn't cover the Unicode
 # chars (µ, em-dashes, arrows) the descriptions and `format_seconds` emit.
@@ -66,16 +98,24 @@ class TimingResult:
     samples: int
 
 
-def time_python_scenario(name: str, seconds: float) -> TimingResult:
-    """Time ``RUN[name](SETUP[name]())`` in Python.
+def _time_in_process(
+    name: str,
+    seconds: float,
+    setup_registry: dict[str, Callable[[], Any]],
+    run_registry: dict[str, Callable[[Any], Any]],
+) -> TimingResult:
+    """Time ``run_registry[name](setup_registry[name]())`` in the current process.
 
     Uses :func:`timeit.Timer.autorange` to find a sample size whose total
     cost is ~0.2 s, then runs ``repeat`` rounds until the total wall time
     exceeds ``seconds`` (capped). Records minimum + median of the per-sample
     cost, matching the statistics ``BenchmarkTools.@benchmark`` reports.
+
+    Shared by the tsecon / pandas / polars columns — only Julia goes
+    through ``time_julia_scenario`` and its subprocess boundary.
     """
-    state = SETUP[name]()
-    run = RUN[name]
+    state = setup_registry[name]()
+    run = run_registry[name]
 
     def _stmt() -> None:
         run(state)
@@ -100,6 +140,25 @@ def time_python_scenario(name: str, seconds: float) -> TimingResult:
         min_seconds=min(raw),
         samples=len(raw) * number,
     )
+
+
+def time_python_scenario(name: str, seconds: float) -> TimingResult:
+    """Time the tsecon scenario ``name``. See :func:`_time_in_process`."""
+    return _time_in_process(name, seconds, SETUP, RUN)
+
+
+def time_pandas_scenario(name: str, seconds: float) -> TimingResult | None:
+    """Time the pandas scenario ``name``, or return ``None`` if absent."""
+    if name not in SETUP_PD:
+        return None
+    return _time_in_process(name, seconds, SETUP_PD, RUN_PD)
+
+
+def time_polars_scenario(name: str, seconds: float) -> TimingResult | None:
+    """Time the polars scenario ``name``, or return ``None`` if absent."""
+    if name not in SETUP_PL:
+        return None
+    return _time_in_process(name, seconds, SETUP_PL, RUN_PL)
 
 
 def time_julia_scenario(name: str, seconds: float, julia_exe: str) -> TimingResult | None:
@@ -166,62 +225,107 @@ def format_seconds(s: float) -> str:
     return f"{s:.3f} s"
 
 
+def _cell(t: TimingResult | None) -> str:
+    """Render one timing into a Markdown table cell (``n/a`` if absent)."""
+    return "n/a" if t is None else format_seconds(t.median_seconds)
+
+
+def _ratio(py: TimingResult | None, jl: TimingResult | None) -> str:
+    """Render a Python/Julia ratio (``n/a`` if either side is absent)."""
+    if py is None or jl is None:
+        return "n/a"
+    return f"{py.median_seconds / jl.median_seconds:.2f}x"
+
+
 def render_markdown(
     scenarios: list[str],
     py_results: dict[str, TimingResult],
     jl_results: dict[str, TimingResult | None],
+    pd_results: dict[str, TimingResult | None],
+    pl_results: dict[str, TimingResult | None],
+    include_pandas: bool,
+    include_polars: bool,
 ) -> str:
-    """Render the comparison table as a Markdown string."""
+    """Render the comparison table as a Markdown string.
+
+    Columns: Scenario | Description | tsecon | Julia | (Pandas | Polars |)
+    Ratio (Py / Jl). Pandas / polars columns are emitted only when their
+    backend imported successfully.
+    """
+    headers = ["Scenario", "Description", "tsecon (median)", "Julia (median)"]
+    aligns = ["", "", "---:", "---:"]
+    if include_pandas:
+        headers.append("Pandas (median)")
+        aligns.append("---:")
+    if include_polars:
+        headers.append("Polars (median)")
+        aligns.append("---:")
+    headers.append("Ratio (Py / Jl)")
+    aligns.append("---:")
     lines = [
-        "| Scenario | Description | Python (median) | Julia (median) | Ratio (Py / Jl) |",
-        "|---|---|---:|---:|---:|",
+        "| " + " | ".join(headers) + " |",
+        "|---|---|" + "|".join(aligns[2:]) + "|",
     ]
     for name in scenarios:
-        py = py_results[name]
+        py = py_results.get(name)
         jl = jl_results.get(name)
-        if jl is None:
-            ratio = "n/a"
-            jl_cell = "n/a"
-        else:
-            ratio = f"{py.median_seconds / jl.median_seconds:.2f}x"
-            jl_cell = format_seconds(jl.median_seconds)
-        lines.append(
-            f"| `{name}` | {DESCRIPTION[name]} | "
-            f"{format_seconds(py.median_seconds)} | {jl_cell} | {ratio} |"
-        )
+        cells = [
+            f"`{name}`",
+            DESCRIPTION[name],
+            _cell(py),
+            _cell(jl),
+        ]
+        if include_pandas:
+            cells.append(_cell(pd_results.get(name)))
+        if include_polars:
+            cells.append(_cell(pl_results.get(name)))
+        cells.append(_ratio(py, jl))
+        lines.append("| " + " | ".join(cells) + " |")
     return "\n".join(lines)
+
+
+def _timing_dict(t: TimingResult | None) -> dict[str, float | int] | None:
+    if t is None:
+        return None
+    return {
+        "median_seconds": t.median_seconds,
+        "min_seconds": t.min_seconds,
+        "samples": t.samples,
+    }
 
 
 def build_payload(
     py_results: dict[str, TimingResult],
     jl_results: dict[str, TimingResult | None],
+    pd_results: dict[str, TimingResult | None],
+    pl_results: dict[str, TimingResult | None],
     julia_available: bool,
+    pandas_available: bool,
+    polars_available: bool,
 ) -> dict[str, object]:
-    """Build the JSON payload for ``results/``."""
+    """Build the JSON payload for ``results/``.
+
+    One record per scenario; each record holds one block per backend
+    (``python`` / ``julia`` / ``pandas`` / ``polars``). Absent backends
+    serialise as JSON ``null`` rather than being omitted, so future
+    consumers can rely on the schema shape.
+    """
     return {
         "generated_at": datetime.now(UTC).isoformat(timespec="seconds"),
         "python_version": sys.version,
         "julia_available": julia_available,
+        "pandas_available": pandas_available,
+        "polars_available": polars_available,
         "scenarios": [
             {
                 "name": name,
                 "description": DESCRIPTION[name],
-                "python": {
-                    "median_seconds": py.median_seconds,
-                    "min_seconds": py.min_seconds,
-                    "samples": py.samples,
-                },
-                "julia": (
-                    None
-                    if jl_results.get(name) is None
-                    else {
-                        "median_seconds": jl_results[name].median_seconds,  # type: ignore[union-attr]
-                        "min_seconds": jl_results[name].min_seconds,  # type: ignore[union-attr]
-                        "samples": jl_results[name].samples,  # type: ignore[union-attr]
-                    }
-                ),
+                "python": _timing_dict(py_results.get(name)),
+                "julia": _timing_dict(jl_results.get(name)),
+                "pandas": _timing_dict(pd_results.get(name)),
+                "polars": _timing_dict(pl_results.get(name)),
             }
-            for name, py in py_results.items()
+            for name in py_results
         ],
     }
 
@@ -241,8 +345,22 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default=2.0,
         help="Per-scenario time budget in seconds (default: 2.0).",
     )
-    parser.add_argument("--python-only", action="store_true", help="Skip Julia invocations.")
+    parser.add_argument(
+        "--python-only",
+        action="store_true",
+        help="Run only the tsecon column (skip Julia, pandas, polars).",
+    )
     parser.add_argument("--julia-only", action="store_true", help="Skip Python timing.")
+    parser.add_argument(
+        "--no-pandas",
+        action="store_true",
+        help="Skip the pandas column even if pandas is installed.",
+    )
+    parser.add_argument(
+        "--no-polars",
+        action="store_true",
+        help="Skip the polars column even if polars is installed.",
+    )
     parser.add_argument(
         "--markdown",
         type=Path,
@@ -274,9 +392,25 @@ def main(argv: list[str] | None = None) -> int:
             "to enable side-by-side numbers.",
             file=sys.stderr,
         )
+    include_pandas = _PANDAS_AVAILABLE and not args.no_pandas and not args.python_only
+    include_polars = _POLARS_AVAILABLE and not args.no_polars and not args.python_only
+    if not args.python_only and not _PANDAS_AVAILABLE:
+        print(
+            "note: `pandas` not importable — pandas column will read n/a. "
+            "Install with `uv sync --extra pandas` to enable it.",
+            file=sys.stderr,
+        )
+    if not args.python_only and not _POLARS_AVAILABLE:
+        print(
+            "note: `polars` not importable — polars column will read n/a. "
+            "Install with `uv sync --extra polars` to enable it.",
+            file=sys.stderr,
+        )
 
     py_results: dict[str, TimingResult] = {}
     jl_results: dict[str, TimingResult | None] = {}
+    pd_results: dict[str, TimingResult | None] = {}
+    pl_results: dict[str, TimingResult | None] = {}
 
     for name in scenarios:
         print(f"running {name} ...", flush=True)
@@ -295,9 +429,37 @@ def main(argv: list[str] | None = None) -> int:
                     f"(min={format_seconds(jl_results[name].min_seconds)}, "  # type: ignore[union-attr]
                     f"samples={jl_results[name].samples})"  # type: ignore[union-attr]
                 )
+        if include_pandas and not args.julia_only:
+            pd_results[name] = time_pandas_scenario(name, args.seconds)
+            if pd_results[name] is not None:
+                print(
+                    f"  pandas: median={format_seconds(pd_results[name].median_seconds)} "  # type: ignore[union-attr]
+                    f"(min={format_seconds(pd_results[name].min_seconds)}, "  # type: ignore[union-attr]
+                    f"samples={pd_results[name].samples})"  # type: ignore[union-attr]
+                )
+            else:
+                print("  pandas: n/a (not registered for this scenario)")
+        if include_polars and not args.julia_only:
+            pl_results[name] = time_polars_scenario(name, args.seconds)
+            if pl_results[name] is not None:
+                print(
+                    f"  polars: median={format_seconds(pl_results[name].median_seconds)} "  # type: ignore[union-attr]
+                    f"(min={format_seconds(pl_results[name].min_seconds)}, "  # type: ignore[union-attr]
+                    f"samples={pl_results[name].samples})"  # type: ignore[union-attr]
+                )
+            else:
+                print("  polars: n/a (not registered for this scenario)")
 
     if not args.julia_only:
-        table = render_markdown(scenarios, py_results, jl_results)
+        table = render_markdown(
+            scenarios,
+            py_results,
+            jl_results,
+            pd_results,
+            pl_results,
+            include_pandas=include_pandas,
+            include_polars=include_polars,
+        )
         print()
         print(table)
         if args.markdown is not None:
@@ -306,7 +468,15 @@ def main(argv: list[str] | None = None) -> int:
             print(f"\nWrote markdown table to {args.markdown}", file=sys.stderr)
 
     if not args.no_json and not args.julia_only:
-        payload = build_payload(py_results, jl_results, julia_exe is not None)
+        payload = build_payload(
+            py_results,
+            jl_results,
+            pd_results,
+            pl_results,
+            julia_available=julia_exe is not None,
+            pandas_available=include_pandas,
+            polars_available=include_polars,
+        )
         RESULTS_DIR.mkdir(exist_ok=True)
         try:
             sha = subprocess.run(

@@ -1,22 +1,29 @@
-# Julia ↔ Python comparison harness
+# 4-column comparison harness — tsecon / Julia / pandas / polars
 
 This is the cross-language benchmark suite called out in
 [decision 08](../../../claude_files/decisions/08_test_and_benchmark_stack.md)
-and the M1 exit criteria. It runs the same set of scenarios in both
-`TimeSeriesEconPy` (Python) and `TimeSeriesEcon.jl` (Julia) and writes a
-side-by-side comparison table.
+and the M1 exit criteria. It runs the same set of scenarios in
+`TimeSeriesEconPy` (Python) and `TimeSeriesEcon.jl` (Julia), and — for the
+paper-strategic subset — also in pandas and polars, then writes a
+side-by-side comparison table. The pandas / polars columns underwrite the
+JSS Section-1 framing ("a time-series language is needed because
+mixed-frequency operations are awkward on a DataFrame, and even where they
+work the cost is high"); the Julia column underwrites the Section-5
+performance claims.
 
 ## How it works
 
-Each scenario is defined twice — once in `scenarios.py` and once in
-`julia/scenarios.jl`. The two files are intentionally kept side-by-side so
-that diffing them by eye verifies semantic parity:
+Each scenario is defined once per backend, in adjacent files kept
+deliberately parallel so a reviewer can diff them by eye:
 
 ```
 benchmarks/compare/
-├── scenarios.py        # Python definitions (SETUP[name], RUN[name])
-├── run.py              # Python driver — times Python via `timeit`,
-│                       #   invokes the Julia runner via `subprocess`
+├── scenarios.py        # tsecon definitions     (SETUP[name], RUN[name])
+├── scenarios_pandas.py # pandas definitions     (paper-strategic subset)
+├── scenarios_polars.py # polars definitions     (paper-strategic subset)
+├── run.py              # Python driver — times all in-process Python
+│                       #   backends via `timeit`, invokes the Julia
+│                       #   runner via `subprocess`
 ├── README.md           # this file
 ├── results/            # date-stamped JSON history
 └── julia/
@@ -24,6 +31,12 @@ benchmarks/compare/
     ├── scenarios.jl    # Julia definitions (SCENARIOS dict)
     └── runner.jl       # Julia CLI — times one scenario via `BenchmarkTools`
 ```
+
+`scenarios.py` (tsecon) covers the full 40+ scenario surface; pandas and
+polars cover the ~21 paper-strategic scenarios for which a natural
+DataFrame idiom exists. Scenarios absent from a backend's registry
+appear as `n/a` cells in the comparison table — those `n/a`s are
+themselves paper findings, not gaps.
 
 The Python driver invokes Julia per-scenario via `subprocess`. We chose
 subprocess over `juliacall` (the in-process bridge) because the harness runs
@@ -36,6 +49,12 @@ over by the cleaner CI story.
 
 ## Scenarios
 
+The full scenario list (40+ rows) lives in `scenarios.py`; the table
+below names the load-bearing rows that drive the paper narrative. The
+two **mixed-frequency** rows at the bottom were added 2026-05-16
+specifically to expose the friction DataFrame pipelines hit when data
+spans multiple frequencies — the Section-1 framing question.
+
 | Name | Description |
 |---|---|
 | `construct_tseries_qq_100` | `TSeries(qq, arr)` from a length-100 ndarray. |
@@ -46,6 +65,8 @@ over by the cleaner CI story.
 | `fconvert_qq_to_yy_mean` | Quarterly → Yearly with `method="mean"`. |
 | `rec_ar2_100` | 100-step AR(2) recurrence (the M1.5 Cython candidate). |
 | `workspace_merge_5_series` | Merge two Workspaces each holding five TSeries. |
+| `mixed_freq_qq_minus_mm_mean` | `qq_gdp − fconvert(Q, mm_cpi, mean)` — single-conversion mixed-freq op. |
+| `mixed_freq_pipeline_three_freq` | Y + Q + M → quarterly via two `fconvert` calls — three-frequency pipeline. |
 
 ## Running
 
@@ -61,10 +82,18 @@ Run a subset (debugging / focused runs):
 uv run python benchmarks/compare/run.py --only rec_ar2_100,shift_quarterly_lag1
 ```
 
-Run only the Python column (fast smoke; works without Julia installed):
+Run only the tsecon column (fast smoke; works without Julia / pandas /
+polars installed):
 
 ```bash
 uv run python benchmarks/compare/run.py --python-only
+```
+
+Drop pandas / polars columns even when they're installed (e.g. for the
+tsecon-vs-Julia-only summary the paper has historically used):
+
+```bash
+uv run python benchmarks/compare/run.py --no-pandas --no-polars
 ```
 
 Increase the per-scenario time budget for stabler numbers (default 2 s):
@@ -73,8 +102,9 @@ Increase the per-scenario time budget for stabler numbers (default 2 s):
 uv run python benchmarks/compare/run.py --seconds 5
 ```
 
-If `julia` is not on `PATH`, the script prints a one-line warning and runs
-only the Python column. The Julia column then reads `n/a`. No error.
+If `julia` is not on `PATH`, or `pandas` / `polars` aren't importable, the
+script prints a one-line warning per missing backend and continues with
+the remaining columns. Each absent backend's cells read `n/a`. No error.
 
 ## First-time setup
 
@@ -89,7 +119,10 @@ This downloads BenchmarkTools.jl, JSON.jl, and TimeSeriesEcon.jl and writes
 a `Manifest.toml`. The first run after instantiation pays a one-time
 precompilation cost (~30 s); subsequent runs are fast.
 
-Python deps come from `pyproject.toml` (`uv sync --all-extras` covers it).
+Python deps come from `pyproject.toml`. `uv sync --all-extras` covers the
+4-column harness fully (tsecon + pandas + polars in one shot). If you
+only want a subset, `uv sync --extra pandas` / `--extra polars` install
+each backend individually.
 
 ## Outputs
 
@@ -99,7 +132,8 @@ Each successful run writes two artefacts:
   file.
 * **JSON snapshot** to `results/<UTC-timestamp>_<short-sha>.json` with the
   full per-scenario record (median, min, sample count for each language).
-  Use `--no-json` to suppress.
+  Each scenario has `python` / `julia` / `pandas` / `polars` blocks;
+  absent backends serialise as `null`. Use `--no-json` to suppress.
 
 Results are committed to the repo so the history of measurements is
 auditable. Treat the JSON files as a time series — the paper draws

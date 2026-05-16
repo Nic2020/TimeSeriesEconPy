@@ -715,6 +715,52 @@ def _run_workspace_filter_5_series(state: dict[str, Any]) -> Workspace:
 
 
 # ---------------------------------------------------------------------------
+# Mixed-frequency scenarios — added 2026-05-17 (this session) for the
+# pandas/polars 4-column comparison. These scenarios exist specifically to
+# expose the friction that DataFrame-based pipelines hit when the data
+# spans multiple frequencies. tsecon represents the result of mixed-freq
+# work explicitly (every series carries its own ``frequency``); pandas and
+# polars represent it implicitly through index alignment / time-column
+# joins, and the user pays for the conversion. The two scenarios below are
+# the smallest non-toy macro patterns that surface the cost.
+#
+# Result types are identical across tsecon / Julia / pandas / polars (a
+# single quarterly time series); only the *path* to the result differs
+# per backend.
+# ---------------------------------------------------------------------------
+
+
+def _setup_mixed_freq_qq_minus_mm_mean() -> dict[str, Any]:
+    return {
+        "target": Quarterly(),
+        "gdp": TSeries(qq(2020, 1), np.arange(100, dtype=np.float64)),
+        "cpi": TSeries(mm(2020, 1), np.arange(300, dtype=np.float64)),
+    }
+
+
+def _run_mixed_freq_qq_minus_mm_mean(state: dict[str, Any]) -> TSeries:
+    return state["gdp"] - fconvert(state["target"], state["cpi"], method="mean")
+
+
+def _setup_mixed_freq_pipeline_three_freq() -> dict[str, Any]:
+    return {
+        "target": Quarterly(),
+        "unemp": TSeries(yy(2020), np.arange(25, dtype=np.float64)),
+        "gdp": TSeries(qq(2020, 1), np.arange(100, dtype=np.float64)),
+        "cpi": TSeries(mm(2020, 1), np.arange(300, dtype=np.float64)),
+    }
+
+
+def _run_mixed_freq_pipeline_three_freq(state: dict[str, Any]) -> TSeries:
+    q = state["target"]
+    return (
+        fconvert(q, state["unemp"], method="const")
+        + state["gdp"]
+        + fconvert(q, state["cpi"], method="mean")
+    )
+
+
+# ---------------------------------------------------------------------------
 # Workspace merge (5 series each)
 # ---------------------------------------------------------------------------
 
@@ -790,6 +836,9 @@ SETUP: dict[str, Callable[[], Any]] = {
     # Workspace
     "workspace_merge_5_series": _setup_workspace_merge_5_series,
     "workspace_filter_5_series": _setup_workspace_filter_5_series,
+    # Mixed-frequency (pandas/polars friction demonstrators)
+    "mixed_freq_qq_minus_mm_mean": _setup_mixed_freq_qq_minus_mm_mean,
+    "mixed_freq_pipeline_three_freq": _setup_mixed_freq_pipeline_three_freq,
 }
 
 RUN: dict[str, Callable[[Any], Any]] = {
@@ -843,6 +892,9 @@ RUN: dict[str, Callable[[Any], Any]] = {
     # Workspace
     "workspace_merge_5_series": _run_workspace_merge_5_series,
     "workspace_filter_5_series": _run_workspace_filter_5_series,
+    # Mixed-frequency (pandas/polars friction demonstrators)
+    "mixed_freq_qq_minus_mm_mean": _run_mixed_freq_qq_minus_mm_mean,
+    "mixed_freq_pipeline_three_freq": _run_mixed_freq_pipeline_three_freq,
 }
 
 # Description rendered into the comparison table; keep terse, the scenario
@@ -885,6 +937,8 @@ DESCRIPTION: dict[str, str] = {
     "rec_linear_ar2_100_numpy": "AR(2) over 100 — rec_linear NumPy kernel",
     "workspace_merge_5_series": "Workspace merge: 5 + 5 series",
     "workspace_filter_5_series": "Workspace filter: 10 down to 5 series",
+    "mixed_freq_qq_minus_mm_mean": "qq_gdp - fconvert(Q, mm_cpi, mean) — mixed freq",
+    "mixed_freq_pipeline_three_freq": "Y+Q+M → quarterly via fconvert — mixed freq",
 }
 
 # Cython kernel scenarios are conditionally registered: when the wheel

@@ -358,6 +358,37 @@ end
 workspace_merge_5_series_run(state) = merge(state.w1, state.w2)
 
 # ---------------------------------------------------------------------------
+# Mixed-frequency scenarios — added 2026-05-17 for the pandas/polars
+# 4-column comparison. Julia counterparts to the Python scenarios in
+# ../scenarios.py § "Mixed-frequency". Julia's TSeries carries its own
+# frequency type-parameter, so the mixed-freq pipeline reads exactly the
+# same as the Python tsecon form: fconvert + ordinary arithmetic.
+# ---------------------------------------------------------------------------
+
+function mixed_freq_qq_minus_mm_mean_setup()
+    return (
+        gdp = TSeries(qq(2020, 1), collect(0.0:99.0)),
+        cpi = TSeries(mm(2020, 1), collect(0.0:299.0)),
+    )
+end
+
+mixed_freq_qq_minus_mm_mean_run(state) =
+    state.gdp .- fconvert(Quarterly, state.cpi; method = :mean)
+
+function mixed_freq_pipeline_three_freq_setup()
+    return (
+        unemp = TSeries(yy(2020), collect(0.0:24.0)),
+        gdp = TSeries(qq(2020, 1), collect(0.0:99.0)),
+        cpi = TSeries(mm(2020, 1), collect(0.0:299.0)),
+    )
+end
+
+mixed_freq_pipeline_three_freq_run(state) =
+    fconvert(Quarterly, state.unemp; method = :const) .+
+    state.gdp .+
+    fconvert(Quarterly, state.cpi; method = :mean)
+
+# ---------------------------------------------------------------------------
 # Registry
 # ---------------------------------------------------------------------------
 
@@ -422,6 +453,9 @@ const SCENARIOS = Dict{String, Tuple{Function, Function}}(
     # Workspace
     "workspace_merge_5_series"     => (workspace_merge_5_series_setup,     workspace_merge_5_series_run),
     "workspace_filter_5_series"    => (workspace_filter_5_series_setup,    workspace_filter_5_series_run),
+    # Mixed-frequency (pandas/polars friction demonstrators)
+    "mixed_freq_qq_minus_mm_mean"     => (mixed_freq_qq_minus_mm_mean_setup,     mixed_freq_qq_minus_mm_mean_run),
+    "mixed_freq_pipeline_three_freq"  => (mixed_freq_pipeline_three_freq_setup,  mixed_freq_pipeline_three_freq_run),
 )
 
 end  # module Scenarios

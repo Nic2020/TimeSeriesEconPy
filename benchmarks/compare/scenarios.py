@@ -52,6 +52,7 @@ from tsecon import (
     cov,
     diff,
     fconvert,
+    lead,
     lookup,
     mean,
     mm,
@@ -59,10 +60,12 @@ from tsecon import (
     moving_sum,
     pct,
     qq,
+    quantile,
     rec,
     shift,
     std,
     undiff,
+    ytypct,
     yy,
 )
 from tsecon._fconvert_kernels import (
@@ -443,6 +446,23 @@ def _run_pct_quarterly(state: dict[str, Any]) -> TSeries:
     return pct(state["t"])
 
 
+def _setup_lead_quarterly_lag1() -> dict[str, Any]:
+    return {"t": TSeries(qq(2020, 1), np.arange(100, dtype=np.float64))}
+
+
+def _run_lead_quarterly_lag1(state: dict[str, Any]) -> TSeries:
+    return lead(state["t"], 1)
+
+
+def _setup_ytypct_quarterly_100() -> dict[str, Any]:
+    # ytypct divides by shift(t, -ppy) — start at 1.0 to avoid zero-division.
+    return {"t": TSeries(qq(2020, 1), np.arange(1.0, 101.0))}
+
+
+def _run_ytypct_quarterly_100(state: dict[str, Any]) -> TSeries:
+    return ytypct(state["t"])
+
+
 def _setup_mean_quarterly_100() -> dict[str, Any]:
     return {"t": TSeries(qq(2020, 1), np.arange(100, dtype=np.float64))}
 
@@ -563,6 +583,34 @@ def _run_cov_mvts_5_columns(state: dict[str, Any]) -> np.ndarray:
     return cov(state["mvts"])
 
 
+# ---------------------------------------------------------------------------
+# F14 expansion (session 30) — quantile / cov(x,y) / ytypct / lead, plus
+# the two missing higher-freq fconvert methods (linear, even). See
+# claude_files/reviews/2026-05-16_holistic/F14_benchmark_coverage_gaps.md.
+# ---------------------------------------------------------------------------
+
+
+def _setup_quantile_quarterly_100() -> dict[str, Any]:
+    rng = np.random.default_rng(seed=20260515)
+    return {"t": TSeries(qq(2020, 1), rng.standard_normal(100))}
+
+
+def _run_quantile_quarterly_100(state: dict[str, Any]) -> float:
+    return float(quantile(state["t"], 0.5))
+
+
+def _setup_cov_two_tseries() -> dict[str, Any]:
+    start = qq(2020, 1)
+    rng = np.random.default_rng(seed=20260515)
+    a = TSeries(start, rng.standard_normal(100))
+    b = TSeries(start, rng.standard_normal(100))
+    return {"a": a, "b": b}
+
+
+def _run_cov_two_tseries(state: dict[str, Any]) -> float:
+    return float(cov(state["a"], state["b"]))
+
+
 def _setup_moving_sum_quarterly_4() -> dict[str, Any]:
     return {"t": TSeries(qq(2020, 1), np.arange(100, dtype=np.float64))}
 
@@ -603,6 +651,30 @@ def _run_fconvert_yy_to_qq_const(state: dict[str, Any]) -> TSeries:
     # Higher-freq direction (yearly → quarterly); default method is "const"
     # which broadcasts each year's value across its four quarters.
     return fconvert(state["target"], state["t"], method="const")
+
+
+def _setup_fconvert_yy_to_qq_linear() -> dict[str, Any]:
+    return {
+        "target": Quarterly(),
+        "t": TSeries(yy(2020), np.arange(25, dtype=np.float64)),
+    }
+
+
+def _run_fconvert_yy_to_qq_linear(state: dict[str, Any]) -> TSeries:
+    # Higher-freq direction with linear interpolation between yearly values.
+    return fconvert(state["target"], state["t"], method="linear")
+
+
+def _setup_fconvert_yy_to_qq_even() -> dict[str, Any]:
+    return {
+        "target": Quarterly(),
+        "t": TSeries(yy(2020), np.arange(25, dtype=np.float64)),
+    }
+
+
+def _run_fconvert_yy_to_qq_even(state: dict[str, Any]) -> TSeries:
+    # Higher-freq direction; each year's value divided evenly across 4 quarters.
+    return fconvert(state["target"], state["t"], method="even")
 
 
 def _setup_fconvert_mm_to_qq_mean() -> dict[str, Any]:
@@ -803,12 +875,16 @@ SETUP: dict[str, Callable[[], Any]] = {
     "arith_mul_scalar": _setup_arith_mul_scalar,
     # Shift family
     "shift_quarterly_lag1": _setup_shift_quarterly_lag1,
+    "lead_quarterly_lag1": _setup_lead_quarterly_lag1,
     "diff_quarterly": _setup_diff_quarterly,
     "pct_quarterly": _setup_pct_quarterly,
+    "ytypct_quarterly_100": _setup_ytypct_quarterly_100,
     # Stats
     "mean_quarterly_100": _setup_mean_quarterly_100,
     "std_quarterly_100": _setup_std_quarterly_100,
+    "quantile_quarterly_100": _setup_quantile_quarterly_100,
     "cor_two_tseries": _setup_cor_two_tseries,
+    "cov_two_tseries": _setup_cov_two_tseries,
     "cor_mvts_5_columns": _setup_cor_mvts_5_columns,
     "cov_mvts_5_columns": _setup_cov_mvts_5_columns,
     # Stats (M1.5 third Cython port — kernel-direct + public API)
@@ -823,6 +899,8 @@ SETUP: dict[str, Callable[[], Any]] = {
     "fconvert_qq_to_yy_mean": _setup_fconvert_qq_to_yy_mean,
     "fconvert_qq_to_yy_sum": _setup_fconvert_qq_to_yy_sum,
     "fconvert_yy_to_qq_const": _setup_fconvert_yy_to_qq_const,
+    "fconvert_yy_to_qq_linear": _setup_fconvert_yy_to_qq_linear,
+    "fconvert_yy_to_qq_even": _setup_fconvert_yy_to_qq_even,
     "fconvert_mm_to_qq_mean": _setup_fconvert_mm_to_qq_mean,
     # fconvert (M1.5 fourth Cython port — kernel-direct + public API)
     "fconvert_qq_to_yy_mean_numpy": _setup_fconvert_qq_to_yy_kernel,
@@ -859,12 +937,16 @@ RUN: dict[str, Callable[[Any], Any]] = {
     "arith_mul_scalar": _run_arith_mul_scalar,
     # Shift family
     "shift_quarterly_lag1": _run_shift_quarterly_lag1,
+    "lead_quarterly_lag1": _run_lead_quarterly_lag1,
     "diff_quarterly": _run_diff_quarterly,
     "pct_quarterly": _run_pct_quarterly,
+    "ytypct_quarterly_100": _run_ytypct_quarterly_100,
     # Stats
     "mean_quarterly_100": _run_mean_quarterly_100,
     "std_quarterly_100": _run_std_quarterly_100,
+    "quantile_quarterly_100": _run_quantile_quarterly_100,
     "cor_two_tseries": _run_cor_two_tseries,
+    "cov_two_tseries": _run_cov_two_tseries,
     "cor_mvts_5_columns": _run_cor_mvts_5_columns,
     "cov_mvts_5_columns": _run_cov_mvts_5_columns,
     # Stats (M1.5 third Cython port — kernel-direct + public API)
@@ -879,6 +961,8 @@ RUN: dict[str, Callable[[Any], Any]] = {
     "fconvert_qq_to_yy_mean": _run_fconvert_qq_to_yy_mean,
     "fconvert_qq_to_yy_sum": _run_fconvert_qq_to_yy_sum,
     "fconvert_yy_to_qq_const": _run_fconvert_yy_to_qq_const,
+    "fconvert_yy_to_qq_linear": _run_fconvert_yy_to_qq_linear,
+    "fconvert_yy_to_qq_even": _run_fconvert_yy_to_qq_even,
     "fconvert_mm_to_qq_mean": _run_fconvert_mm_to_qq_mean,
     # fconvert (M1.5 fourth Cython port — kernel-direct + public API)
     "fconvert_qq_to_yy_mean_numpy": _run_fconvert_qq_to_yy_mean_numpy,
@@ -912,11 +996,15 @@ DESCRIPTION: dict[str, str] = {
     "arith_add_aligned": "100Q + 100Q same range",
     "arith_mul_scalar": "t * 2.5",
     "shift_quarterly_lag1": "shift(t, -1)",
+    "lead_quarterly_lag1": "lead(t, 1)",
     "diff_quarterly": "diff(t)",
     "pct_quarterly": "pct(t)",
+    "ytypct_quarterly_100": "ytypct(t) — year-on-year %",
     "mean_quarterly_100": "mean(t)",
     "std_quarterly_100": "std(t)",
+    "quantile_quarterly_100": "quantile(t, 0.5) — median",
     "cor_two_tseries": "cor(a, b) on two TSeries",
+    "cov_two_tseries": "cov(a, b) on two TSeries",
     "cor_mvts_5_columns": "cor(mvts) — 5x5 corr matrix",
     "cov_mvts_5_columns": "cov(mvts) — 5x5 cov matrix",
     "mean_quarterly_100_numpy": "mean_numpy(values) — NumPy kernel",
@@ -928,6 +1016,8 @@ DESCRIPTION: dict[str, str] = {
     "fconvert_qq_to_yy_mean": "fconvert(Yearly, t, method='mean')",
     "fconvert_qq_to_yy_sum": "fconvert(Yearly, t, method='sum')",
     "fconvert_yy_to_qq_const": "fconvert(Quarterly, t, method='const') (higher)",
+    "fconvert_yy_to_qq_linear": "fconvert(Quarterly, t, method='linear') (higher)",
+    "fconvert_yy_to_qq_even": "fconvert(Quarterly, t, method='even') (higher)",
     "fconvert_mm_to_qq_mean": "fconvert(Quarterly, monthly_t, method='mean')",
     "fconvert_qq_to_yy_mean_numpy": "aggregate_groups_numpy 25x4 mean - NumPy kernel",
     "fconvert_qq_to_yy_sum_numpy": "aggregate_groups_numpy 25x4 sum - NumPy kernel",

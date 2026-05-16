@@ -147,6 +147,15 @@ def _run_shift_quarterly_lag1(state: dict[str, Any]) -> pd.Series:
     return state["s"].shift(-1)
 
 
+def _setup_lead_quarterly_lag1() -> dict[str, Any]:
+    return {"s": pd.Series(np.arange(100, dtype=np.float64), index=_QQ_IDX_100)}
+
+
+def _run_lead_quarterly_lag1(state: dict[str, Any]) -> pd.Series:
+    # tsecon's lead(t, 1) == shift(t, +1); pandas's analogue is .shift(+1).
+    return state["s"].shift(1)
+
+
 def _setup_diff_quarterly() -> dict[str, Any]:
     return {"s": pd.Series(np.arange(100, dtype=np.float64), index=_QQ_IDX_100)}
 
@@ -161,6 +170,15 @@ def _setup_pct_quarterly() -> dict[str, Any]:
 
 def _run_pct_quarterly(state: dict[str, Any]) -> pd.Series:
     return state["s"].pct_change()
+
+
+def _setup_ytypct_quarterly_100() -> dict[str, Any]:
+    # Quarterly year-on-year: ppy(Quarterly)=4, mirrors tsecon's ytypct.
+    return {"s": pd.Series(np.arange(1.0, 101.0), index=_QQ_IDX_100)}
+
+
+def _run_ytypct_quarterly_100(state: dict[str, Any]) -> pd.Series:
+    return state["s"].pct_change(periods=4) * 100.0
 
 
 # ---------------------------------------------------------------------------
@@ -194,6 +212,26 @@ def _setup_cor_two_tseries() -> dict[str, Any]:
 
 def _run_cor_two_tseries(state: dict[str, Any]) -> float:
     return float(state["a"].corr(state["b"]))
+
+
+def _setup_cov_two_tseries() -> dict[str, Any]:
+    rng = np.random.default_rng(seed=20260515)
+    a = pd.Series(rng.standard_normal(100), index=_QQ_IDX_100)
+    b = pd.Series(rng.standard_normal(100), index=_QQ_IDX_100)
+    return {"a": a, "b": b}
+
+
+def _run_cov_two_tseries(state: dict[str, Any]) -> float:
+    return float(state["a"].cov(state["b"]))
+
+
+def _setup_quantile_quarterly_100() -> dict[str, Any]:
+    rng = np.random.default_rng(seed=20260515)
+    return {"s": pd.Series(rng.standard_normal(100), index=_QQ_IDX_100)}
+
+
+def _run_quantile_quarterly_100(state: dict[str, Any]) -> float:
+    return float(state["s"].quantile(0.5))
 
 
 # ---------------------------------------------------------------------------
@@ -249,6 +287,26 @@ def _setup_fconvert_yy_to_qq_const() -> dict[str, Any]:
 
 def _run_fconvert_yy_to_qq_const(state: dict[str, Any]) -> pd.Series:
     return state["s"].resample("Q-DEC").ffill()
+
+
+def _setup_fconvert_yy_to_qq_linear() -> dict[str, Any]:
+    return {"s": pd.Series(np.arange(25, dtype=np.float64), index=_YY_IDX_25)}
+
+
+def _run_fconvert_yy_to_qq_linear(state: dict[str, Any]) -> pd.Series:
+    # Mirrors tsecon's higher-freq linear method: upsample then linearly
+    # interpolate between yearly anchors.
+    return state["s"].resample("Q-DEC").interpolate(method="linear")
+
+
+def _setup_fconvert_yy_to_qq_even() -> dict[str, Any]:
+    return {"s": pd.Series(np.arange(25, dtype=np.float64), index=_YY_IDX_25)}
+
+
+def _run_fconvert_yy_to_qq_even(state: dict[str, Any]) -> pd.Series:
+    # tsecon's "even" divides each yearly value across its 4 quarters; the
+    # closest natural pandas idiom is ffill then divide-by-ppy.
+    return state["s"].resample("Q-DEC").ffill() / 4.0
 
 
 def _setup_fconvert_mm_to_qq_mean() -> dict[str, Any]:
@@ -336,16 +394,22 @@ SETUP: dict[str, Callable[[], Any]] = {
     "arith_add_aligned": _setup_arith_add_aligned,
     "arith_mul_scalar": _setup_arith_mul_scalar,
     "shift_quarterly_lag1": _setup_shift_quarterly_lag1,
+    "lead_quarterly_lag1": _setup_lead_quarterly_lag1,
     "diff_quarterly": _setup_diff_quarterly,
     "pct_quarterly": _setup_pct_quarterly,
+    "ytypct_quarterly_100": _setup_ytypct_quarterly_100,
     "mean_quarterly_100": _setup_mean_quarterly_100,
     "std_quarterly_100": _setup_std_quarterly_100,
+    "quantile_quarterly_100": _setup_quantile_quarterly_100,
     "cor_two_tseries": _setup_cor_two_tseries,
+    "cov_two_tseries": _setup_cov_two_tseries,
     "moving_average_quarterly_4": _setup_moving_average_quarterly_4,
     "moving_sum_quarterly_4": _setup_moving_sum_quarterly_4,
     "fconvert_qq_to_yy_mean": _setup_fconvert_qq_to_yy_mean,
     "fconvert_qq_to_yy_sum": _setup_fconvert_qq_to_yy_sum,
     "fconvert_yy_to_qq_const": _setup_fconvert_yy_to_qq_const,
+    "fconvert_yy_to_qq_linear": _setup_fconvert_yy_to_qq_linear,
+    "fconvert_yy_to_qq_even": _setup_fconvert_yy_to_qq_even,
     "fconvert_mm_to_qq_mean": _setup_fconvert_mm_to_qq_mean,
     "rec_ar2_100": _setup_rec_ar2_100,
     "mixed_freq_qq_minus_mm_mean": _setup_mixed_freq_qq_minus_mm_mean,
@@ -360,16 +424,22 @@ RUN: dict[str, Callable[[Any], Any]] = {
     "arith_add_aligned": _run_arith_add_aligned,
     "arith_mul_scalar": _run_arith_mul_scalar,
     "shift_quarterly_lag1": _run_shift_quarterly_lag1,
+    "lead_quarterly_lag1": _run_lead_quarterly_lag1,
     "diff_quarterly": _run_diff_quarterly,
     "pct_quarterly": _run_pct_quarterly,
+    "ytypct_quarterly_100": _run_ytypct_quarterly_100,
     "mean_quarterly_100": _run_mean_quarterly_100,
     "std_quarterly_100": _run_std_quarterly_100,
+    "quantile_quarterly_100": _run_quantile_quarterly_100,
     "cor_two_tseries": _run_cor_two_tseries,
+    "cov_two_tseries": _run_cov_two_tseries,
     "moving_average_quarterly_4": _run_moving_average_quarterly_4,
     "moving_sum_quarterly_4": _run_moving_sum_quarterly_4,
     "fconvert_qq_to_yy_mean": _run_fconvert_qq_to_yy_mean,
     "fconvert_qq_to_yy_sum": _run_fconvert_qq_to_yy_sum,
     "fconvert_yy_to_qq_const": _run_fconvert_yy_to_qq_const,
+    "fconvert_yy_to_qq_linear": _run_fconvert_yy_to_qq_linear,
+    "fconvert_yy_to_qq_even": _run_fconvert_yy_to_qq_even,
     "fconvert_mm_to_qq_mean": _run_fconvert_mm_to_qq_mean,
     "rec_ar2_100": _run_rec_ar2_100,
     "mixed_freq_qq_minus_mm_mean": _run_mixed_freq_qq_minus_mm_mean,

@@ -284,6 +284,48 @@ end
 
 cov_mvts_5_columns_run(state) = cov(state.mvts)
 
+# ---------------------------------------------------------------------------
+# F14 expansion (session 30) — quantile / cov(x,y) / ytypct / lead, plus the
+# two missing higher-freq fconvert methods (linear, even). See
+# claude_files/reviews/2026-05-16_holistic/F14_benchmark_coverage_gaps.md.
+# ---------------------------------------------------------------------------
+
+function quantile_quarterly_100_setup()
+    rng = MersenneTwister(20260515)
+    return (t = TSeries(qq(2020, 1), randn(rng, 100)),)
+end
+
+# Statistics.quantile rejects offset arrays — TSeries is offset-indexed via
+# its MIT axis, so we pass the raw values vector. Python tsecon's quantile
+# does the same internally (np.quantile on the underlying ndarray).
+quantile_quarterly_100_run(state) = quantile(state.t.values, 0.5)
+
+function cov_two_tseries_setup()
+    rng = MersenneTwister(20260515)
+    start = qq(2020, 1)
+    a = TSeries(start, randn(rng, 100))
+    b = TSeries(start, randn(rng, 100))
+    return (a = a, b = b)
+end
+
+cov_two_tseries_run(state) = cov(state.a, state.b)
+
+ytypct_quarterly_100_setup() = (t = TSeries(qq(2020, 1), collect(1.0:100.0)),)
+
+ytypct_quarterly_100_run(state) = ytypct(state.t)
+
+lead_quarterly_lag1_setup() = (t = TSeries(qq(2020, 1), collect(0.0:99.0)),)
+
+lead_quarterly_lag1_run(state) = lead(state.t, 1)
+
+fconvert_yy_to_qq_linear_setup() = (t = TSeries(yy(2020), collect(0.0:24.0)),)
+
+fconvert_yy_to_qq_linear_run(state) = fconvert(Quarterly, state.t; method = :linear)
+
+fconvert_yy_to_qq_even_setup() = (t = TSeries(yy(2020), collect(0.0:24.0)),)
+
+fconvert_yy_to_qq_even_run(state) = fconvert(Quarterly, state.t; method = :even)
+
 moving_sum_quarterly_4_setup() = (t = TSeries(qq(2020, 1), collect(0.0:99.0)),)
 
 moving_sum_quarterly_4_run(state) = moving_sum(state.t, 4)
@@ -413,12 +455,16 @@ const SCENARIOS = Dict{String, Tuple{Function, Function}}(
     "arith_mul_scalar"             => (arith_mul_scalar_setup,             arith_mul_scalar_run),
     # Shift family
     "shift_quarterly_lag1"         => (shift_quarterly_lag1_setup,         shift_quarterly_lag1_run),
+    "lead_quarterly_lag1"          => (lead_quarterly_lag1_setup,          lead_quarterly_lag1_run),
     "diff_quarterly"               => (diff_quarterly_setup,               diff_quarterly_run),
     "pct_quarterly"                => (pct_quarterly_setup,                pct_quarterly_run),
+    "ytypct_quarterly_100"         => (ytypct_quarterly_100_setup,         ytypct_quarterly_100_run),
     # Stats
     "mean_quarterly_100"           => (mean_quarterly_100_setup,           mean_quarterly_100_run),
     "std_quarterly_100"            => (std_quarterly_100_setup,            std_quarterly_100_run),
+    "quantile_quarterly_100"       => (quantile_quarterly_100_setup,       quantile_quarterly_100_run),
     "cor_two_tseries"              => (cor_two_tseries_setup,              cor_two_tseries_run),
+    "cov_two_tseries"              => (cov_two_tseries_setup,              cov_two_tseries_run),
     "cor_mvts_5_columns"           => (cor_mvts_5_columns_setup,           cor_mvts_5_columns_run),
     "cov_mvts_5_columns"           => (cov_mvts_5_columns_setup,           cov_mvts_5_columns_run),
     # Stats — M1.5 third Cython port (kernel-direct + public API)
@@ -436,6 +482,8 @@ const SCENARIOS = Dict{String, Tuple{Function, Function}}(
     "fconvert_qq_to_yy_mean"       => (fconvert_qq_to_yy_mean_setup,       fconvert_qq_to_yy_mean_run),
     "fconvert_qq_to_yy_sum"        => (fconvert_qq_to_yy_sum_setup,        fconvert_qq_to_yy_sum_run),
     "fconvert_yy_to_qq_const"      => (fconvert_yy_to_qq_const_setup,      fconvert_yy_to_qq_const_run),
+    "fconvert_yy_to_qq_linear"     => (fconvert_yy_to_qq_linear_setup,     fconvert_yy_to_qq_linear_run),
+    "fconvert_yy_to_qq_even"       => (fconvert_yy_to_qq_even_setup,       fconvert_yy_to_qq_even_run),
     "fconvert_mm_to_qq_mean"       => (fconvert_mm_to_qq_mean_setup,       fconvert_mm_to_qq_mean_run),
     # fconvert — M1.5 fourth Cython port (kernel-direct + public API)
     "fconvert_qq_to_yy_mean_numpy"  => (fconvert_qq_to_yy_mean_numpy_setup,  fconvert_qq_to_yy_mean_numpy_run),

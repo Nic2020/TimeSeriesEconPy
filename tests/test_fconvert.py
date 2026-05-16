@@ -725,3 +725,101 @@ class TestFconvertParts:
         # Target Yearly{12} period for begin-of-22Q2 → year 22, target month 22*12+1 = 265
         assert tgt_month == 265
         assert period == 22
+
+
+# ---------------------------------------------------------------------------
+# Public fconvert helpers — repeat_uneven / divide_uneven / linear_uneven
+#
+# These three helpers are re-exported from ``tsecon.fconvert`` as drop-in
+# callables for the ``method=<callable>`` higher-frequency custom-function
+# dispatch. They are exercised indirectly through the public fconvert path
+# but lacked unit-level direct tests. The Julia upstream accepts arbitrary
+# kwargs (slurped by the function signature) so that the same callable can
+# stand in for any of the built-in method names without changing the
+# dispatch call site; the Python ports preserve that contract via
+# ``**_kwargs`` — these tests lock the slurp + the numerical contract for
+# each helper. See review finding F07.
+# ---------------------------------------------------------------------------
+
+
+class TestUnevenHelpers:
+    # ---- repeat_uneven --------------------------------------------------
+
+    def test_repeat_uneven_basic_docstring_example(self):
+        # Mirrors the Julia and Python docstrings:
+        # repeat_uneven([1, 2, 4], [2, 1, 4]) == [1, 1, 2, 4, 4, 4, 4]
+        out = repeat_uneven([1, 2, 4], [2, 1, 4])
+        np.testing.assert_array_equal(out, [1, 1, 2, 4, 4, 4, 4])
+
+    def test_repeat_uneven_kwargs_slurp_accepts_unknown_keys(self):
+        # Locks the documented `**_kwargs` slurp — the fconvert dispatch
+        # passes `ref=` and `outrange=` to every method callable, so any
+        # custom helper must accept (and ignore) unknown keys without
+        # raising. If a future patch tightens this signature, downstream
+        # users of the method=<callable> extension point break silently.
+        out = repeat_uneven([1, 2, 4], [2, 1, 4], ref="end", outrange=None, anything_at_all=42)
+        np.testing.assert_array_equal(out, [1, 1, 2, 4, 4, 4, 4])
+
+    def test_repeat_uneven_length_mismatch_raises(self):
+        with pytest.raises(ValueError, match="repeat_uneven"):
+            repeat_uneven([1, 2, 4], [2, 1])
+
+    # ---- divide_uneven --------------------------------------------------
+
+    def test_divide_uneven_basic_docstring_example(self):
+        # divide_uneven([1, 2, 4], [2, 1, 4]) ==
+        #     [0.5, 0.5, 2.0, 1.0, 1.0, 1.0, 1.0]
+        out = divide_uneven([1, 2, 4], [2, 1, 4])
+        np.testing.assert_array_almost_equal(out, [0.5, 0.5, 2.0, 1.0, 1.0, 1.0, 1.0])
+
+    def test_divide_uneven_uniform_counts_equals_repeat_of_quotient(self):
+        # When every input shares the same output count N, divide_uneven
+        # collapses to `np.repeat(x/N, N)`. This is the invariant the
+        # custom-method dispatch relies on for the "even" higher-freq path.
+        x = np.array([4.0, 8.0, 12.0])
+        counts = np.full(3, 4, dtype=np.int64)
+        out = divide_uneven(x, counts)
+        np.testing.assert_array_equal(out, np.repeat(x / 4.0, 4))
+
+    def test_divide_uneven_kwargs_slurp_accepts_unknown_keys(self):
+        out = divide_uneven([1, 2, 4], [2, 1, 4], ref="begin", outrange=None, junk=True)
+        np.testing.assert_array_almost_equal(out, [0.5, 0.5, 2.0, 1.0, 1.0, 1.0, 1.0])
+
+    def test_divide_uneven_length_mismatch_raises(self):
+        with pytest.raises(ValueError, match="divide_uneven"):
+            divide_uneven([1, 2, 4], [2, 1])
+
+    # ---- linear_uneven --------------------------------------------------
+
+    def test_linear_uneven_two_period_split_ref_end(self):
+        # With ref="end", each input value is the end-point of its output
+        # segment. For x=[10, 30], counts=[2, 2], the first segment
+        # extrapolates back with the second segment's slope ((30-10)/2 = 10)
+        # so it lands at 0 then 10; the second segment interpolates from
+        # arr[0]=10 to arr[1]=30 → 20, 30.
+        out = linear_uneven([10.0, 30.0], [2, 2])
+        np.testing.assert_array_almost_equal(out, [0.0, 10.0, 20.0, 30.0])
+
+    def test_linear_uneven_three_period_ref_begin(self):
+        # ref="begin": each input is the start of its segment. For
+        # x=[10, 20, 30] with counts=[2, 2, 2] the first two segments
+        # interpolate between consecutive inputs; the last extrapolates
+        # forward with the preceding segment's slope.
+        out = linear_uneven([10.0, 20.0, 30.0], [2, 2, 2], ref="begin")
+        np.testing.assert_array_almost_equal(out, [10.0, 15.0, 20.0, 25.0, 30.0, 35.0])
+
+    def test_linear_uneven_kwargs_slurp_accepts_unknown_keys(self):
+        # Same contract as repeat_uneven / divide_uneven: the fconvert
+        # dispatch forwards arbitrary kwargs and the helper must swallow
+        # them silently. ref= is consumed (it's the documented kwarg);
+        # outrange / anything else is slurped via **_kwargs.
+        out = linear_uneven([10.0, 30.0], [2, 2], ref="end", outrange=None, surprise_kwarg="ok")
+        np.testing.assert_array_almost_equal(out, [0.0, 10.0, 20.0, 30.0])
+
+    def test_linear_uneven_invalid_ref_raises(self):
+        with pytest.raises(ValueError, match="ref must be 'begin' or 'end'"):
+            linear_uneven([10.0, 30.0], [2, 2], ref="middle")  # type: ignore[arg-type]
+
+    def test_linear_uneven_length_mismatch_raises(self):
+        with pytest.raises(ValueError, match="linear_uneven"):
+            linear_uneven([10.0, 20.0, 30.0], [2, 2])

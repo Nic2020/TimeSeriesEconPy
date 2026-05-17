@@ -318,7 +318,7 @@ A **negative `step`** walks the range backward, mirroring Julia's
 `10U:-1:1U` (`StepRange{MIT}` form). This is the natural way to write a
 backcasting recurrence — see § *Recursive assignments* below — and is
 also how reversed iteration order survives into downstream consumers
-like [`rec`](#recursive-assignments) and indexing without needing a
+like [`rec`](#9-recursive-assignments) and indexing without needing a
 separate "is this iteration reversed?" flag.
 
 ```python exec="true" source="material-block" session="tut1"
@@ -776,7 +776,7 @@ print(back)
 The same idiom works for `rec_linear` with negative lags: a reversed
 range plus same-sign lags reads "already-written" future positions and
 backfills the series. See the
-[`rec_linear` docstring](../reference/recursive.md#rec_linear) for the
+[`rec_linear` docstring](../reference/recursive.md#tsecon.recursive.rec_linear) for the
 sign-of-lag-matches-sign-of-step contract.
 
 For multi-target recurrences (two series updated together each

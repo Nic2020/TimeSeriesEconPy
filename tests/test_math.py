@@ -609,6 +609,78 @@ class TestUndiff:
 
 
 # ---------------------------------------------------------------------------
+# undiff: backward integration via anchor placement (M1.6.1)
+#
+# The math is direction-agnostic — ``undiff`` computes a cumulative sum
+# and shifts it so ``result[anchor_date] == anchor_value``. Forward
+# integration anchors before the data; backward integration anchors at
+# or after the data. These tests lock the symmetric behaviour the M1.6.1
+# session promised in the docstring.
+# ---------------------------------------------------------------------------
+
+
+class TestUndiffBackwardIntegration:
+    def test_anchor_at_lastdate_recovers_backward_from_end(self) -> None:
+        # dvar over [1U..5U] with values [1, 1, 1, 1, 1]; anchor at 5U=10.
+        # result[5] = 10, result[4] = 10 - dvar[5] = 9, ..., result[1] = 6.
+        d = TSeries(MIT(Unit(), 1), np.array([1.0, 1.0, 1.0, 1.0, 1.0]))
+        u = undiff(d, (MIT(Unit(), 5), 10.0))
+        assert isinstance(u, TSeries)
+        assert u.range == MITRange(MIT(Unit(), 1), MIT(Unit(), 5))
+        np.testing.assert_array_equal(u.values, [6.0, 7.0, 8.0, 9.0, 10.0])
+
+    def test_anchor_at_lastdate_plus_one_extends_with_zero(self) -> None:
+        # Anchor strictly after data: dvar is extended with zeros so the
+        # anchor falls inside the new range. The tail position equals the
+        # anchor (flat tail because dvar[anchor_date] is filled with 0).
+        d = TSeries(MIT(Unit(), 1), np.array([1.0, 1.0, 1.0]))
+        u = undiff(d, (MIT(Unit(), 4), 10.0))
+        assert isinstance(u, TSeries)
+        assert u.range == MITRange(MIT(Unit(), 1), MIT(Unit(), 4))
+        # cumsum([1, 1, 1, 0]) = [1, 2, 3, 3]; correction = 10 - 3 = 7;
+        # final = [8, 9, 10, 10].
+        np.testing.assert_array_equal(u.values, [8.0, 9.0, 10.0, 10.0])
+
+    def test_undiff_inverts_diff_via_terminal_anchor(self) -> None:
+        # Round-trip: t → diff(t) → undiff(diff, (t.lastdate, t.values[-1]))
+        # reconstructs t on diff(t)'s range (one period shorter than t since
+        # diff drops the leading period). Anchoring at the terminal value
+        # locks the constant of integration to t's actual endpoint.
+        rng_ = np.random.default_rng(seed=42)
+        t = TSeries(qq(2020, 1), rng_.standard_normal(12))
+        d = diff(t)
+        u = undiff(d, (t.lastdate, float(t.values[-1])))
+        assert u.range == d.range
+        # Compare against t restricted to diff's range.
+        np.testing.assert_allclose(u.values, t.values[1:], rtol=1e-12)
+
+    def test_quarterly_terminal_anchor(self) -> None:
+        # Quarterly: dvar = [2, -1, 0.5]; anchor at 2020Q4 = 100.
+        # Working backward: result[Q4]=100, result[Q3]=100-0.5=99.5,
+        # result[Q2]=99.5-(-1)=100.5, result[Q1]=100.5-2=98.5.
+        d = TSeries(qq(2020, 2), np.array([2.0, -1.0, 0.5]))
+        u = undiff(d, (qq(2020, 4), 100.0))
+        assert isinstance(u, TSeries)
+        assert u.range == MITRange(qq(2020, 2), qq(2020, 4))
+        np.testing.assert_allclose(u.values, [100.5, 99.5, 100.0], rtol=1e-12)
+
+    def test_anchor_at_default_then_at_end_differ_only_in_constant(self) -> None:
+        # Both forward and backward anchoring produce series with identical
+        # slope (= dvar). The only difference is the constant of integration.
+        d = TSeries(MIT(Unit(), 1), np.array([1.0, 2.0, -1.0, 0.5, 3.0]))
+        u_fwd = undiff(d, 0)  # default: anchor at firstdate-1=0U, value 0
+        u_bwd = undiff(d, (MIT(Unit(), 5), 0.0))  # anchor at end, value 0
+        # Trim u_fwd to the inner range so shapes match.
+        common = u_fwd[MITRange(MIT(Unit(), 1), MIT(Unit(), 5))]
+        assert isinstance(common, TSeries)
+        # Their first differences are identical (== dvar).
+        np.testing.assert_allclose(np.diff(common.values), np.diff(u_bwd.values))
+        # And the constant offset between the two is uniform.
+        offset = common.values - u_bwd.values
+        np.testing.assert_allclose(offset, offset[0] * np.ones_like(offset))
+
+
+# ---------------------------------------------------------------------------
 # undiff_inplace
 # ---------------------------------------------------------------------------
 

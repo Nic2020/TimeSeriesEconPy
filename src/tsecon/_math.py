@@ -512,6 +512,23 @@ def undiff(
     * ``anchor=(date, other_tseries)`` — value is read from
       ``other_tseries[date]``.
 
+    Forward vs. backward integration
+    --------------------------------
+    The math is direction-agnostic: ``undiff`` computes a cumulative sum and
+    chooses the constant of integration so ``result[anchor_date] == anchor_value``.
+    The anchor's position determines the user-visible direction:
+
+    * **Forward** — anchor at or before ``firstdate(dvar) - 1`` (the default
+      ``anchor=v`` form). Values past the anchor are accumulated forward.
+    * **Backward (backcasting)** — anchor at ``lastdate(dvar)`` or later,
+      e.g. ``undiff(dvar, (dvar.lastdate, terminal_value))``. Values
+      before the anchor are recovered by walking the same cumulative-sum
+      curve backward; result spans ``dvar.range``.
+
+    An anchor strictly *after* ``lastdate(dvar)`` extends ``dvar`` with zeros
+    so the anchor falls inside the new range — the tail (positions strictly
+    between ``lastdate(dvar)`` and the anchor) is flat at the anchor value.
+
     Note on a mid-range anchor: when ``date`` falls inside ``dvar.range``, the
     cumulative sum is still computed over the full range; the result is then
     shifted by a constant so ``result[date] == value`` — every other period

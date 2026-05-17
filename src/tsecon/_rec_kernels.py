@@ -28,28 +28,38 @@ Kernel contract
 Both kernels share a low-level signature that excludes any TSeries
 dispatch or MIT arithmetic from the timed window::
 
-    rec_linear_numpy(values, offset, count, coeffs, lags) -> None
-    rec_linear_cython(values, offset, count, coeffs, lags) -> None
+    rec_linear_numpy(values, offset, count, step, coeffs, lags) -> None
+    rec_linear_cython(values, offset, count, step, coeffs, lags) -> None
 
 * ``values`` — 1-D ``float64`` array, mutated in place. Both source
   reads and destination writes go through this buffer.
 * ``offset`` — integer position of the *first* destination index. The
-  kernel writes positions ``offset, offset + 1, ..., offset + count - 1``.
+  kernel writes positions ``offset, offset + step, ..., offset + (count-1) * step``.
 * ``count`` — number of destination steps to execute.
+* ``step`` — direction of iteration, ``+1`` for forward or ``-1`` for
+  backward. Other strides are rejected by the wrapper; the kernel is
+  written as if any signed nonzero step worked, but bounds-validation
+  upstream only certifies ``±1``.
 * ``coeffs`` — 1-D ``float64`` array of recurrence weights.
-* ``lags`` — 1-D ``int64`` array of positive lag offsets (each ``>= 1``
-  so every read references an earlier-written position). ``coeffs``
+* ``lags`` — 1-D ``int64`` array of nonzero lag offsets. ``coeffs``
   and ``lags`` are zip-aligned: step ``i`` computes
-  ``values[offset + i] = Σ_k coeffs[k] * values[offset + i - lags[k]]``.
+  ``values[offset + i*step] = Σ_k coeffs[k] * values[offset + i*step - lags[k]]``.
+  For correctness, every ``lags[k]`` must have the same sign as
+  ``step`` (forward step + positive lag reads an earlier-written
+  position; backward step + negative lag reads a later-written one).
 
 The kernels perform no input validation — the public
 :func:`tsecon.recursive.rec_linear` wrapper handles shape and bounds
 checks before invoking the kernel. The kernel assumes:
 
 * ``coeffs.shape == lags.shape``
-* ``min(lags) >= 1``
-* ``offset - max(lags) >= 0`` (every read is in-range)
-* ``offset + count <= len(values)`` (every write is in-range)
+* ``sign(lags[k]) == sign(step)`` for every ``k`` (so each read
+  references an already-written or initial-condition position).
+* For forward iteration: ``offset - max(lags) >= 0`` and
+  ``offset + (count - 1) >= 0`` (every read and write is in-range).
+* For backward iteration: ``offset - min(lags) < len(values)`` (the
+  furthest read forward in array index space is in-range) and
+  ``offset - (count - 1) >= 0`` (the furthest write back is in-range).
 """
 
 from __future__ import annotations
@@ -64,10 +74,11 @@ def rec_linear_numpy(
     values: npt.NDArray[np.float64],
     offset: int,
     count: int,
+    step: int,
     coeffs: npt.NDArray[np.float64],
     lags: npt.NDArray[np.int64],
 ) -> None:
-    """Compute ``values[offset + i] = Σ_k coeffs[k] * values[offset + i - lags[k]]``.
+    """Compute ``values[offset + i*step] = Σ_k coeffs[k] * values[offset + i*step - lags[k]]``.
 
     Pure-Python / NumPy reference. See module docstring for the kernel
     contract; the matching Cython kernel in ``_rec_kernels_cy.pyx``
@@ -75,7 +86,7 @@ def rec_linear_numpy(
     """
     n_terms = coeffs.shape[0]
     for i in range(count):
-        out_idx = offset + i
+        out_idx = offset + i * step
         acc = 0.0
         for k in range(n_terms):
             acc += coeffs[k] * values[out_idx - lags[k]]

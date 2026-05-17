@@ -96,11 +96,119 @@ def test_step_range_via_duration_mixed_freq_raises() -> None:
         mitrange(qq(2020, 1), qq(2021, 4), step=Duration(Monthly(), 2))
 
 
-def test_step_must_be_positive() -> None:
-    with pytest.raises(ValueError):
+def test_step_zero_raises() -> None:
+    with pytest.raises(ValueError, match="nonzero"):
         MITRange(qq(2020, 1), qq(2020, 4), step=0)
-    with pytest.raises(ValueError):
-        MITRange(qq(2020, 1), qq(2020, 4), step=-1)
+
+
+# -- negative-step ranges (M1.6.1) ----------------------------------------
+
+
+def test_negative_step_basic_iteration() -> None:
+    rng = MITRange(MIT(Unit(), 10), MIT(Unit(), 1), step=-1)
+    items = list(rng)
+    assert items == [MIT(Unit(), v) for v in (10, 9, 8, 7, 6, 5, 4, 3, 2, 1)]
+    assert len(rng) == 10
+    assert rng.first() == MIT(Unit(), 10)
+    assert rng.last() == MIT(Unit(), 1)
+
+
+def test_negative_step_quarterly() -> None:
+    rng = MITRange(qq(2021, 4), qq(2020, 1), step=-1)
+    items = list(rng)
+    assert items == [qq(2021, 4), qq(2021, 3), qq(2021, 2), qq(2021, 1),
+                     qq(2020, 4), qq(2020, 3), qq(2020, 2), qq(2020, 1)]
+    assert len(rng) == 8
+
+
+def test_negative_step_multistep() -> None:
+    # 10, 7, 4 — three elements; stop=2 is not reached because step skips it.
+    rng = MITRange(MIT(Unit(), 10), MIT(Unit(), 2), step=-3)
+    assert len(rng) == 3
+    assert list(rng) == [MIT(Unit(), 10), MIT(Unit(), 7), MIT(Unit(), 4)]
+    assert rng.last() == MIT(Unit(), 4)
+
+
+def test_negative_step_empty_when_sign_mismatch() -> None:
+    # start < stop with negative step is empty (the symmetric Julia behaviour).
+    rng = MITRange(MIT(Unit(), 1), MIT(Unit(), 10), step=-1)
+    assert rng.is_empty()
+    assert len(rng) == 0
+    assert list(rng) == []
+
+
+def test_positive_step_empty_when_sign_mismatch() -> None:
+    # start > stop with positive step is empty (existing behaviour, retained).
+    rng = MITRange(MIT(Unit(), 10), MIT(Unit(), 1), step=1)
+    assert rng.is_empty()
+    assert len(rng) == 0
+
+
+def test_negative_step_single_element() -> None:
+    rng = MITRange(qq(2020, 2), qq(2020, 2), step=-1)
+    assert len(rng) == 1
+    assert list(rng) == [qq(2020, 2)]
+    assert rng.first() == rng.last() == qq(2020, 2)
+
+
+def test_negative_step_membership() -> None:
+    rng = MITRange(MIT(Unit(), 10), MIT(Unit(), 1), step=-1)
+    assert MIT(Unit(), 10) in rng
+    assert MIT(Unit(), 1) in rng
+    assert MIT(Unit(), 5) in rng
+    assert MIT(Unit(), 11) not in rng
+    assert MIT(Unit(), 0) not in rng
+    # multi-step: 10, 7, 4 — 8 is between 4 and 10 but not on the stride.
+    rng2 = MITRange(MIT(Unit(), 10), MIT(Unit(), 2), step=-3)
+    assert MIT(Unit(), 7) in rng2
+    assert MIT(Unit(), 4) in rng2
+    assert MIT(Unit(), 8) not in rng2
+
+
+def test_negative_step_indexing() -> None:
+    rng = MITRange(MIT(Unit(), 10), MIT(Unit(), 1), step=-1)
+    assert rng[0] == MIT(Unit(), 10)
+    assert rng[1] == MIT(Unit(), 9)
+    assert rng[-1] == MIT(Unit(), 1)
+    assert rng[-2] == MIT(Unit(), 2)
+    with pytest.raises(IndexError):
+        _ = rng[10]
+
+
+def test_negative_step_slice_subrange() -> None:
+    rng = MITRange(MIT(Unit(), 10), MIT(Unit(), 1), step=-1)
+    sub = rng[1:4]
+    # Slice indices 1..3 in iteration order are MITs 9, 8, 7.
+    assert isinstance(sub, MITRange)
+    assert list(sub) == [MIT(Unit(), 9), MIT(Unit(), 8), MIT(Unit(), 7)]
+    assert sub.step == -1
+
+
+def test_negative_step_repr() -> None:
+    rng = MITRange(MIT(Unit(), 10), MIT(Unit(), 1), step=-1)
+    assert repr(rng) == "10U:-1:1U"
+
+
+def test_negative_step_via_mitrange_helper() -> None:
+    rng = mitrange(qq(2021, 4), qq(2020, 1), step=-1)
+    assert rng.step == -1
+    assert rng.first() == qq(2021, 4)
+    assert rng.last() == qq(2020, 1)
+
+
+def test_negative_step_via_duration() -> None:
+    rng = mitrange(qq(2021, 4), qq(2020, 1), step=Duration(Quarterly(), -1))
+    assert rng.step == -1
+    assert len(rng) == 8
+
+
+def test_negative_step_equality() -> None:
+    a = MITRange(MIT(Unit(), 10), MIT(Unit(), 1), step=-1)
+    b = MITRange(MIT(Unit(), 10), MIT(Unit(), 1), step=-1)
+    assert a == b
+    # Different direction → not equal even though the value set is the same.
+    fwd = MITRange(MIT(Unit(), 1), MIT(Unit(), 10), step=1)
+    assert a != fwd
 
 
 def test_equality() -> None:

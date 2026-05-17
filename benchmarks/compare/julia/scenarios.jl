@@ -134,6 +134,28 @@ function rec_ar2_100_run(state)
 end
 
 # ---------------------------------------------------------------------------
+# rec — backcasting via reversed range (M1.6.1). Julia's `@rec` macro
+# handles the negative-step `start:-1:stop` range natively, so the Julia
+# row is one line. See ../scenarios.py for the Python counterpart.
+# ---------------------------------------------------------------------------
+
+function rec_backcasting_via_lambda_setup()
+    start = qq(2020, 1)
+    n = 100
+    target = TSeries(start, zeros(Float64, n))
+    target[start + (n - 1)] = 100.0
+    return (target = target, start = start, n = n)
+end
+
+function rec_backcasting_via_lambda_run(state)
+    target = state.target
+    start = state.start
+    n = state.n
+    @rec t = (start + (n - 2)):-1:start target[t] = target[t + 1] - 0.5
+    return target
+end
+
+# ---------------------------------------------------------------------------
 # rec_linear three-flavor scenarios — see ../scenarios.py for the framing.
 # Julia has no kernel split (the @rec macro inlines into native code at
 # compile time), so all Python rec_linear variants share the same Julia
@@ -501,6 +523,7 @@ const SCENARIOS = Dict{String, Tuple{Function, Function}}(
     "fconvert_mm_to_qq_mean_cython" => (fconvert_mm_to_qq_mean_cython_setup, fconvert_mm_to_qq_mean_cython_run),
     # Recursion (general)
     "rec_ar2_100"                  => (rec_ar2_100_setup,                  rec_ar2_100_run),
+    "rec_backcasting_via_lambda"   => (rec_backcasting_via_lambda_setup,   rec_backcasting_via_lambda_run),
     # Recursion (kernel-direct, four-flavor)
     "rec_linear_ar2_100_pylist"    => (rec_linear_ar2_100_pylist_setup,    rec_linear_ar2_100_pylist_run),
     "rec_linear_ar2_100_numpy"     => (rec_linear_ar2_100_numpy_setup,     rec_linear_ar2_100_numpy_run),

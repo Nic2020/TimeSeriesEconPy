@@ -306,7 +306,7 @@ shift directly on the endpoints:
 print(MITRange(rng.start + 6, rng.stop + 6))
 ```
 
-For step ranges, pass `step=`. The step is a positive integer in the
+For step ranges, pass `step=`. The step is a nonzero integer in the
 range's own frequency.
 
 ```python exec="true" source="material-block" session="tut1"
@@ -314,7 +314,20 @@ rng2 = MITRange(mm(2000, 1), mm(2000, 8), step=2)
 print(list(rng2))
 ```
 
-To iterate backwards, wrap with `reversed`:
+A **negative `step`** walks the range backward, mirroring Julia's
+`10U:-1:1U` (`StepRange{MIT}` form). This is the natural way to write a
+backcasting recurrence — see § *Recursive assignments* below — and is
+also how reversed iteration order survives into downstream consumers
+like [`rec`](#recursive-assignments) and indexing without needing a
+separate "is this iteration reversed?" flag.
+
+```python exec="true" source="material-block" session="tut1"
+back_rng = MITRange(qq(2021, 4), qq(2020, 1), step=-1)
+print(list(back_rng)[:4], "...")
+```
+
+For one-shot iteration in reverse without changing the range's identity,
+wrap with `reversed`:
 
 ```python exec="true" source="material-block" session="tut1"
 print(list(reversed(MITRange(mm(2020, 1), mm(2020, 4)))))
@@ -739,6 +752,32 @@ print("a.range:           ", a.range)
 print("drop=1 (forward):  ", MITRange(a.firstdate + 1, a.lastdate))
 print("drop=-1 (backward):", MITRange(a.firstdate, a.lastdate - 1))
 ```
+
+### Backcasting (reversed range) { #9b-backcasting }
+
+A *backcast* runs the same recurrence machinery backward in time — the
+classic case is "we know the terminal value, what was the path that led
+to it." In Julia this reads `@rec t=10U:-1:1U s[t] = s[t+1] - g`. The
+Python port works by feeding `rec` a reversed `MITRange` (`step=-1`); no
+new entry point is needed because `rec` iterates `for t in rng` and
+`MITRange` carries the direction:
+
+```python exec="true" source="material-block" session="tut1"
+# Backcast: anchor `a_ss` at the end, walk backward applying
+# s[t] = s[t+1] - g for a constant drift g.
+g = 0.05
+back = TSeries(MITRange(qq(2020, 1), qq(2022, 4)), 0.0)
+back[back.lastdate] = a_ss
+rec(MITRange(back.lastdate - 1, back.firstdate, step=-1), back,
+    lambda t: back[t + 1] - g)
+print(back)
+```
+
+The same idiom works for `rec_linear` with negative lags: a reversed
+range plus same-sign lags reads "already-written" future positions and
+backfills the series. See the
+[`rec_linear` docstring](../reference/recursive.md#rec_linear) for the
+sign-of-lag-matches-sign-of-step contract.
 
 For multi-target recurrences (two series updated together each
 step), write the explicit `for t in rng:` loop — `rec` only handles

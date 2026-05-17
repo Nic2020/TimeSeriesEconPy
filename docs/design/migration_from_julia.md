@@ -24,6 +24,7 @@ differences — what the spellings, not the semantics, look like.
 | Linear recurrence                  | `@rec`-via-AR(p) idiom             | `tsecon.rec_linear(target, coeffs, lags, rng)` |
 | Workspace deletion                 | `delete!(w, :start)`               | `del w.start`                           |
 | Range step                         | `2000M1:2:2000M8`                  | `MITRange(mm(2000, 1), mm(2000, 8), step=2)` |
+| Reversed range (backcast)          | `10U:-1:1U`                        | `MITRange(MIT(Unit(),10), MIT(Unit(),1), step=-1)` |
 | Last element                       | `x[end]`                           | `x[x.lastdate]`                         |
 
 ## Semantics that are identical

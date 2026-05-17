@@ -117,6 +117,16 @@ def rec(
 
         rec(rng, consumption,
             lambda t: beta * consumption[t - 1] + (1 - beta) * income[t])
+
+    Backcasting over a reversed range (Julia's
+    ``@rec t=10U:-1:1U s[t] = s[t+1] - g``)::
+
+        >>> s = TSeries(MIT(Unit(), 1), np.zeros(10))
+        >>> s[MIT(Unit(), 10)] = 20.0
+        >>> rec(MITRange(MIT(Unit(), 9), MIT(Unit(), 1), step=-1), s,
+        ...     lambda t: s[t + 1] - 2.0)
+        >>> s.values.tolist()
+        [2.0, 4.0, 6.0, 8.0, 10.0, 12.0, 14.0, 16.0, 18.0, 20.0]
     """
     if rng.frequency != target.frequency:
         msg = (
@@ -148,23 +158,36 @@ def rec_linear(
     """Compute a linear-combination recurrence over ``rng`` in place.
 
     Specialised closed-form sibling of :func:`rec` for the common case
-    where each step's value is a fixed linear combination of *earlier*
-    values of the *same* series. Covers Fibonacci, AR(p), arbitrary lag
-    polynomials — the recurrences that account for ~80% of pipeline
-    workloads per the M1 benchmark (see
+    where each step's value is a fixed linear combination of *earlier-
+    written* values of the *same* series. Covers Fibonacci, AR(p),
+    arbitrary lag polynomials — the recurrences that account for ~80%
+    of pipeline workloads per the M1 benchmark (see
     ``claude_files/MASTER_PLAN.md`` § M1.5).
 
     The body of the loop is::
 
-        for i, t in enumerate(rng):
+        for t in rng:
             target[t] = sum(coeffs[k] * target[t - lags[k]] for k in range(len(coeffs)))
 
-    so each ``lags[k]`` must be ``>= 1`` and ``target`` must already
-    contain valid values for every ``rng.first - lags[k]`` position
-    (the *initial conditions*). The first iteration writes
-    ``target[rng.first]``; ``target`` is resized in place to cover
-    ``rng`` if needed, filling new positions with NaN before the
-    recurrence runs.
+    Both forward (``rng.step == +1``) and backward (``rng.step == -1``)
+    iteration are supported. The contract on ``lags`` matches the
+    direction so that every read references an already-written or
+    initial-condition position:
+
+    * **Forward** (``rng.step == +1``, walking from ``rng.first`` up to
+      ``rng.last``): all ``lags[k] >= 1``; ``target`` must contain
+      valid values for every ``rng.first - lags[k]`` position before
+      the call (the *initial conditions* at the start).
+    * **Backward** (``rng.step == -1``, walking from ``rng.first`` down
+      to ``rng.last``): all ``lags[k] <= -1``; ``target`` must contain
+      valid values for every ``rng.first - lags[k]`` position
+      (= ``rng.first + |lags[k]|``, the initial conditions at the end —
+      this is *backcasting*).
+
+    ``target`` is resized in place to cover ``rng`` if needed (NaN
+    padding for new positions inside ``rng`` is overwritten by the
+    recurrence; positions outside ``rng`` keep whatever they had,
+    which is where the initial conditions live).
 
     Dispatch
     --------
@@ -184,10 +207,12 @@ def rec_linear(
     coeffs : array-like of float
         Recurrence weights. Will be coerced to a 1-D ``float64`` array.
     lags : array-like of int
-        Positive lag offsets, one per coefficient. Must satisfy
-        ``min(lags) >= 1``. Coerced to a 1-D ``int64`` array.
+        Nonzero lag offsets, one per coefficient. Sign must match
+        ``rng.step``: all ``>= 1`` for a forward range, all ``<= -1``
+        for a backward range. Coerced to a 1-D ``int64`` array.
     rng : MITRange
-        The range to compute, frequency-matched to ``target``.
+        The range to compute, frequency-matched to ``target``. ``step``
+        must be ``+1`` (forward) or ``-1`` (backward).
 
     Raises
     ------
@@ -195,7 +220,8 @@ def rec_linear(
         If ``rng.frequency`` does not match ``target.frequency``, or if
         ``target.dtype`` is not ``float64``.
     ValueError
-        If ``len(coeffs) != len(lags)``, if any lag is ``< 1``, or if
+        If ``rng.step`` is not ``±1``, if ``len(coeffs) != len(lags)``,
+        if any ``lags[k]`` has the wrong sign for ``rng.step``, or if
         ``target`` does not contain the initial-condition positions
         ``rng.first - lags[k]`` for every ``k``.
 
@@ -216,6 +242,13 @@ def rec_linear(
 
         rec_linear(consumption, [0.5, 0.3], [1, 2], rng)
 
+    Backcasting via a reversed range (Julia's
+    ``@rec t=10U:-1:1U s[t] = s[t+1] - g`` with ``g = 0`` constant
+    drift becomes ``s[t] = s[t+1]``)::
+
+        rec_linear(s, [1.0], [-1],
+                   MITRange(MIT(Unit(), 10), MIT(Unit(), 1), step=-1))
+
     See Also
     --------
     rec : General higher-order form ``target[t] = fn(t)``. Use it when
@@ -228,8 +261,11 @@ def rec_linear(
             f"match target frequency {type(target.frequency).__name__}."
         )
         raise TypeError(msg)
-    if rng.step != 1:
-        msg = f"rec_linear: range must have step=1, got step={rng.step}."
+    if rng.step not in (1, -1):
+        msg = (
+            f"rec_linear: rng.step must be +1 (forward) or -1 (backward), "
+            f"got step={rng.step}."
+        )
         raise ValueError(msg)
     coeffs_arr = np.asarray(coeffs, dtype=np.float64)
     lags_arr = np.asarray(lags, dtype=np.int64)
@@ -245,9 +281,27 @@ def rec_linear(
     if coeffs_arr.shape[0] == 0:
         msg = "rec_linear: coeffs/lags must be non-empty."
         raise ValueError(msg)
-    if int(lags_arr.min()) < 1:
-        msg = f"rec_linear: all lags must be >= 1, got min lag {int(lags_arr.min())}."
-        raise ValueError(msg)
+    step = int(rng.step)
+    if step > 0:
+        # Forward iteration reads earlier positions; lags must be >= 1.
+        min_lag = int(lags_arr.min())
+        if min_lag < 1:
+            msg = (
+                f"rec_linear: with a forward range (step=+1), all lags must be "
+                f">= 1; got min lag {min_lag}. For backward recurrences use a "
+                f"reversed range (step=-1) and negative lags."
+            )
+            raise ValueError(msg)
+    else:
+        # Backward iteration reads later positions; lags must be <= -1.
+        max_lag = int(lags_arr.max())
+        if max_lag > -1:
+            msg = (
+                f"rec_linear: with a backward range (step=-1), all lags must be "
+                f"<= -1; got max lag {max_lag}. For forward recurrences use a "
+                f"forward range (step=+1) and positive lags."
+            )
+            raise ValueError(msg)
     if target.dtype != np.float64:
         msg = (
             f"rec_linear: target.dtype must be float64 to feed the kernel, "
@@ -259,15 +313,28 @@ def rec_linear(
         return
 
     rng_first = rng.start
-    max_lag = int(lags_arr.max())
-    earliest_read = rng_first.value - max_lag
-    if earliest_read < target.firstdate.value:
-        earliest_mit = MIT(target.frequency, earliest_read)
-        msg = (
-            f"rec_linear: initial conditions missing — recurrence reads "
-            f"target[{earliest_mit!s}] but target starts at {target.firstdate!s}."
-        )
-        raise ValueError(msg)
+    # The kernel reads target[out_idx - lags[k]] at each step. The extremes:
+    #   forward (step=+1, lags>0): earliest read is rng.first - max(lags).
+    #   backward (step=-1, lags<0): latest read is rng.first - min(lags)
+    #     (= rng.first + |min(lags)|, a position past rng.first).
+    if step > 0:
+        earliest_read = rng_first.value - int(lags_arr.max())
+        if earliest_read < target.firstdate.value:
+            earliest_mit = MIT(target.frequency, earliest_read)
+            msg = (
+                f"rec_linear: initial conditions missing — recurrence reads "
+                f"target[{earliest_mit!s}] but target starts at {target.firstdate!s}."
+            )
+            raise ValueError(msg)
+    else:
+        latest_read = rng_first.value - int(lags_arr.min())
+        if latest_read > target.lastdate.value:
+            latest_mit = MIT(target.frequency, latest_read)
+            msg = (
+                f"rec_linear: initial conditions missing — backward recurrence "
+                f"reads target[{latest_mit!s}] but target ends at {target.lastdate!s}."
+            )
+            raise ValueError(msg)
 
     # Ensure target covers rng (auto-extend mirrors `rec`'s setitem behaviour).
     target._ensure_covers(rng)
@@ -287,6 +354,7 @@ def rec_linear(
         values,
         offset,
         count,
+        step,
         coeffs_arr,
         lags_arr,
     )

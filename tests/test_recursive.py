@@ -135,6 +135,64 @@ class TestRecQuarterlyArithmetic:
 
 
 # ---------------------------------------------------------------------------
+# rec backcasting via lambda over a reversed MITRange (M1.6.1).
+#
+# Julia's ``@rec t=10U:-1:1U s[t] = s[t+1] - g`` was the seed case for
+# the M1.6.1 negative-step plumbing — the general ``rec`` function
+# composes with a reversed range with no signature change.
+# ---------------------------------------------------------------------------
+
+
+class TestRecBackcastingViaLambda:
+    def test_backcast_constant_drift_unit(self) -> None:
+        # Julia: anchored at 10U=20, walk t=9U:-1:1U applying s[t] = s[t+1] - 2.
+        # Excluding the anchor itself: range is 9U..1U with step=-1.
+        s = TSeries(_unit(1), np.zeros(10))
+        s[_unit(10)] = 20.0
+        rec(MITRange(_unit(9), _unit(1), step=-1), s, lambda t: s[t + 1] - 2.0)
+        # s[9] = 20 - 2 = 18, s[8] = 18 - 2 = 16, ..., s[1] = 4 - 2 = 2.
+        np.testing.assert_array_equal(
+            s.values, [2.0, 4.0, 6.0, 8.0, 10.0, 12.0, 14.0, 16.0, 18.0, 20.0]
+        )
+
+    def test_backcast_quarterly_anchored_at_end(self) -> None:
+        # Quarterly: anchor at 2022Q4 with value 100; walk backward applying
+        # a multiplicative discount of 0.95 per quarter, i.e. s[t] = s[t+1] / 0.95.
+        rng = mitrange(qq(2020, 1), qq(2022, 4))
+        s = TSeries(qq(2020, 1), np.zeros(len(rng)))
+        s[qq(2022, 4)] = 100.0
+        rec(
+            MITRange(qq(2022, 3), qq(2020, 1), step=-1),
+            s,
+            lambda t: s[t + 1] / 0.95,
+        )
+        # Reference: forward via division, last value is 100, step back by /0.95.
+        expected = np.empty(len(rng))
+        expected[-1] = 100.0
+        for i in range(len(rng) - 2, -1, -1):
+            expected[i] = expected[i + 1] / 0.95
+        np.testing.assert_allclose(s.values, expected, rtol=1e-12)
+
+    def test_backcast_reads_second_series(self) -> None:
+        # s[t] = s[t+1] - g[t+1], where g is a known per-period change.
+        rng = mitrange(qq(2020, 1), qq(2021, 4))
+        g = TSeries(qq(2020, 1), np.arange(1.0, len(rng) + 1.0))
+        s = TSeries(qq(2020, 1), np.zeros(len(rng)))
+        s[qq(2021, 4)] = 50.0
+        rec(
+            MITRange(qq(2021, 3), qq(2020, 1), step=-1),
+            s,
+            lambda t: s[t + 1] - g[t + 1],
+        )
+        # Reference: hand-roll the same loop.
+        expected = np.zeros(len(rng))
+        expected[-1] = 50.0
+        for i in range(len(rng) - 2, -1, -1):
+            expected[i] = expected[i + 1] - g.values[i + 1]
+        np.testing.assert_allclose(s.values, expected, rtol=1e-12)
+
+
+# ---------------------------------------------------------------------------
 # rec_linear — Cython-backed specialisation for closed-form linear recurrences.
 # Decision 17 / MASTER_PLAN § M1.5. The same tests cover both the Cython
 # path (when the compiled extension is importable) and the pure-NumPy
@@ -155,6 +213,61 @@ class TestRecLinearFibonacci:
         s = TSeries(_unit(1), np.array([1.0, 1.0, 0.0, 0.0]))
         result = rec_linear(s, [1.0, 1.0], [1, 2], MITRange(_unit(3), _unit(4)))
         assert result is None
+
+
+# ---------------------------------------------------------------------------
+# rec_linear over a reversed range — backward (backcasting) recurrence (M1.6.1).
+# ---------------------------------------------------------------------------
+
+
+class TestRecLinearBackward:
+    """rec_linear over a reversed range with negative lags matches the lambda form."""
+
+    def test_backward_unit_lag_constant(self) -> None:
+        # Backcast: s[t] = 1.0 * s[t+1] (a flat backcast — terminal value
+        # propagates back). Anchor s[10] = 7.0; expect s[1..9] = 7.0 too.
+        s = TSeries(_unit(1), np.zeros(10))
+        s[_unit(10)] = 7.0
+        rec_linear(s, [1.0], [-1], MITRange(_unit(9), _unit(1), step=-1))
+        np.testing.assert_array_equal(s.values, [7.0] * 10)
+
+    def test_backward_matches_lambda_rec(self) -> None:
+        # An "anti-AR(2)" backcast: s[t] = 0.5 * s[t+1] + 0.3 * s[t+2].
+        # Compare rec_linear against the lambda form running over the same
+        # reversed range.
+        rng = MITRange(_unit(8), _unit(1), step=-1)
+        # Initial conditions: s[9] and s[10] populated as terminal values.
+        init_via_lambda = TSeries(_unit(1), np.zeros(10))
+        init_via_lambda[_unit(9)] = 2.0
+        init_via_lambda[_unit(10)] = 3.0
+        rec(rng, init_via_lambda, lambda t: 0.5 * init_via_lambda[t + 1] + 0.3 * init_via_lambda[t + 2])
+        init_via_kernel = TSeries(_unit(1), np.zeros(10))
+        init_via_kernel[_unit(9)] = 2.0
+        init_via_kernel[_unit(10)] = 3.0
+        rec_linear(init_via_kernel, [0.5, 0.3], [-1, -2], rng)
+        np.testing.assert_allclose(
+            init_via_kernel.values, init_via_lambda.values, rtol=1e-12, atol=0.0
+        )
+
+    def test_backward_initial_conditions_missing_raises(self) -> None:
+        # rng = 8U:-1:1U reads s[t-(-1)] = s[t+1] up to s[9]; target ends at 8U.
+        s = TSeries(_unit(1), np.zeros(8))
+        with pytest.raises(ValueError, match="initial conditions"):
+            rec_linear(s, [1.0], [-1], MITRange(_unit(8), _unit(1), step=-1))
+
+    def test_backward_wrong_sign_lag_raises(self) -> None:
+        # Backward range with positive lags is rejected.
+        s = TSeries(_unit(1), np.zeros(12))
+        s[_unit(11)] = 1.0
+        s[_unit(12)] = 1.0
+        with pytest.raises(ValueError, match=r"all lags must be <= -1"):
+            rec_linear(s, [1.0, 1.0], [1, 2], MITRange(_unit(10), _unit(1), step=-1))
+
+    def test_forward_wrong_sign_lag_raises(self) -> None:
+        # Forward range with negative lag is rejected (existing behaviour kept).
+        s = TSeries(_unit(1), np.array([1.0, 1.0, 0.0, 0.0]))
+        with pytest.raises(ValueError, match=r"all lags must be >= 1"):
+            rec_linear(s, [1.0], [-1], MITRange(_unit(3), _unit(4)))
 
 
 class TestRecLinearAgreesWithRec:
@@ -204,7 +317,7 @@ class TestRecLinearKernelFallback:
 
     def test_numpy_kernel_fibonacci(self) -> None:
         values = np.array([1.0, 1.0, 0.0, 0.0, 0.0, 0.0])
-        rec_linear_numpy(values, 2, 4, np.array([1.0, 1.0]), np.array([1, 2], dtype=np.int64))
+        rec_linear_numpy(values, 2, 4, 1, np.array([1.0, 1.0]), np.array([1, 2], dtype=np.int64))
         np.testing.assert_array_equal(values, [1.0, 1.0, 2.0, 3.0, 5.0, 8.0])
 
     def test_is_cython_flag_is_boolean(self) -> None:
@@ -222,7 +335,7 @@ class TestRecLinearValidation:
     def test_non_unit_step_raises(self) -> None:
         target = TSeries(qq(2020, 1), np.array([1.0, 1.0, 0.0, 0.0, 0.0]))
         rng = MITRange(qq(2020, 1), qq(2021, 4), step=2)
-        with pytest.raises(ValueError, match="step=1"):
+        with pytest.raises(ValueError, match=r"\+1 \(forward\) or -1 \(backward\)"):
             rec_linear(target, [1.0], [1], rng)
 
     def test_mismatched_coeffs_lags_raises(self) -> None:
@@ -350,8 +463,8 @@ class TestRecLinearKernelsAgreeOnArrays:
         lags_arr = np.asarray(lags, dtype=np.int64)
         offset = max_lag
         count = length - max_lag
-        rec_linear_numpy(values_numpy, offset, count, coeffs_arr, lags_arr)
-        rec_linear_cython(values_cython, offset, count, coeffs_arr, lags_arr)
+        rec_linear_numpy(values_numpy, offset, count, 1, coeffs_arr, lags_arr)
+        rec_linear_cython(values_cython, offset, count, 1, coeffs_arr, lags_arr)
         np.testing.assert_allclose(values_numpy, values_cython, rtol=1e-12, atol=1e-15)
 
 
@@ -374,7 +487,7 @@ class TestRecLinearKernelEdgeCases:
     def test_rec_linear_numpy_propagates_nan_in_init(self) -> None:
         values = np.array([np.nan, 1.0, 0.0, 0.0, 0.0])
         rec_linear_numpy(
-            values, 2, 3, np.asarray([1.0, 1.0]), np.asarray([1, 2], dtype=np.int64)
+            values, 2, 3, 1, np.asarray([1.0, 1.0]), np.asarray([1, 2], dtype=np.int64)
         )
         assert np.isnan(values[2])
         assert np.isnan(values[3])
@@ -385,7 +498,7 @@ class TestRecLinearKernelEdgeCases:
             pytest.skip("Cython rec_linear kernel not compiled")
         values = np.array([np.nan, 1.0, 0.0, 0.0, 0.0])
         rec_linear_cython(
-            values, 2, 3, np.asarray([1.0, 1.0]), np.asarray([1, 2], dtype=np.int64)
+            values, 2, 3, 1, np.asarray([1.0, 1.0]), np.asarray([1, 2], dtype=np.int64)
         )
         assert np.isnan(values[2])
         assert np.isnan(values[3])
@@ -395,7 +508,7 @@ class TestRecLinearKernelEdgeCases:
         # count == 1: kernel writes exactly one position.
         values = np.array([1.0, 2.0, 0.0])
         rec_linear_numpy(
-            values, 2, 1, np.asarray([1.0, 1.0]), np.asarray([1, 2], dtype=np.int64)
+            values, 2, 1, 1, np.asarray([1.0, 1.0]), np.asarray([1, 2], dtype=np.int64)
         )
         np.testing.assert_array_equal(values, [1.0, 2.0, 3.0])
 
@@ -404,7 +517,7 @@ class TestRecLinearKernelEdgeCases:
             pytest.skip("Cython rec_linear kernel not compiled")
         values = np.array([1.0, 2.0, 0.0])
         rec_linear_cython(
-            values, 2, 1, np.asarray([1.0, 1.0]), np.asarray([1, 2], dtype=np.int64)
+            values, 2, 1, 1, np.asarray([1.0, 1.0]), np.asarray([1, 2], dtype=np.int64)
         )
         np.testing.assert_array_equal(values, [1.0, 2.0, 3.0])
 
@@ -424,7 +537,7 @@ class TestRecLinearKernelEdgeCases:
         view[0] = 1.0
         view[1] = 1.0
         rec_linear_numpy(
-            view, 2, 8, np.asarray([1.0, 1.0]), np.asarray([1, 2], dtype=np.int64)
+            view, 2, 8, 1, np.asarray([1.0, 1.0]), np.asarray([1, 2], dtype=np.int64)
         )
         expected_fib = [1.0, 1.0, 2.0, 3.0, 5.0, 8.0, 13.0, 21.0, 34.0, 55.0]
         np.testing.assert_array_equal(view, expected_fib)
@@ -446,5 +559,5 @@ class TestRecLinearKernelEdgeCases:
         view[1] = 1.0
         with pytest.raises(ValueError, match="contiguous"):
             rec_linear_cython(
-                view, 2, 8, np.asarray([1.0, 1.0]), np.asarray([1, 2], dtype=np.int64)
+                view, 2, 8, 1, np.asarray([1.0, 1.0]), np.asarray([1, 2], dtype=np.int64)
             )

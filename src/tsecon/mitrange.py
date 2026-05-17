@@ -4,11 +4,13 @@
 Mirrors Julia's ``UnitRange{MIT{F}}`` and ``StepRange{MIT{F}}``. A range is
 defined by ``(start, stop, step)`` where ``start`` and ``stop`` are
 :class:`~tsecon.mit.MIT` values of the same frequency and ``step`` is a
-positive integer number of periods (or a :class:`~tsecon.mit.Duration` of the
-same frequency). Ranges with ``start > stop`` are empty.
+nonzero integer number of periods (or a :class:`~tsecon.mit.Duration` of the
+same frequency). ``step`` may be negative — ``MITRange(10U, 1U, -1)`` walks
+backward, mirroring Julia's ``10U:-1:1U``. Ranges whose endpoints do not
+match the sign of ``step`` (e.g. ``MITRange(1U, 10U, -1)``) are empty.
 
-``MITRange`` supports ``len``, iteration, indexing (by ``int`` or ``MIT``),
-slicing, and membership testing.
+``MITRange`` supports ``len``, bidirectional iteration, indexing (by ``int``
+or ``MIT``), slicing, and membership testing.
 """
 
 from __future__ import annotations
@@ -33,8 +35,10 @@ class MITRange:
 
     Construct with ``MITRange(start, stop)`` for unit steps, or
     ``MITRange(start, stop, step)`` for a step range. ``step`` may be a
-    positive ``int`` (interpreted in the range's frequency) or a
-    :class:`Duration` of the same frequency.
+    nonzero ``int`` (interpreted in the range's frequency) or a
+    :class:`Duration` of the same frequency. Negative ``step`` walks
+    backward (``MITRange(10U, 1U, -1)`` mirrors Julia's ``10U:-1:1U``);
+    ranges whose endpoints have the opposite sense to ``step`` are empty.
     """
 
     start: MIT
@@ -52,8 +56,8 @@ class MITRange:
             )
         if not isinstance(self.step, int) or isinstance(self.step, bool):
             raise TypeError(f"step must be int, got {type(self.step).__name__}")
-        if self.step <= 0:
-            raise ValueError(f"step must be a positive integer, got {self.step}")
+        if self.step == 0:
+            raise ValueError("step must be nonzero.")
 
     # -- introspection -----------------------------------------------------
 
@@ -64,7 +68,9 @@ class MITRange:
 
     def __len__(self) -> int:
         span = self.stop.value - self.start.value
-        if span < 0:
+        # Sign mismatch between span and step means the range is empty
+        # (e.g. start=1, stop=10, step=-1, or start=10, stop=1, step=+1).
+        if (span > 0 and self.step < 0) or (span < 0 and self.step > 0):
             return 0
         return span // self.step + 1
 
@@ -82,7 +88,12 @@ class MITRange:
         return self.start
 
     def last(self) -> MIT:
-        """Return the last MIT in the range (largest value <= stop). Raises if empty."""
+        """Return the last MIT in the range. Raises if empty.
+
+        For a forward range (``step > 0``) this is the largest MIT not past
+        ``stop``; for a reversed range (``step < 0``) it is the smallest
+        MIT not past ``stop``. In both cases, ``last() == start + (len-1) * step``.
+        """
         if not self:
             raise IndexError("MITRange is empty.")
         n = len(self) - 1
@@ -99,10 +110,17 @@ class MITRange:
             return False
         if item.frequency != self.frequency:
             return False
-        offset = item.value - self.start.value
-        if offset < 0 or item.value > self.last().value:
+        if self.is_empty():
             return False
-        return offset % self.step == 0
+        start_val = self.start.value
+        last_val = self.last().value
+        lo = min(start_val, last_val)
+        hi = max(start_val, last_val)
+        if item.value < lo or item.value > hi:
+            return False
+        # Same modulo check works for both signs because Python's `%` returns
+        # a value with the divisor's sign (e.g. -4 % -2 == 0).
+        return (item.value - start_val) % self.step == 0
 
     # -- indexing ----------------------------------------------------------
 
@@ -113,17 +131,19 @@ class MITRange:
     def __getitem__(self, index: int | slice) -> MIT | MITRange:
         if isinstance(index, slice):
             length = len(self)
-            start_i, stop_i, step_i = index.indices(length)
-            if start_i >= stop_i:
+            # Delegate index arithmetic to Python's built-in range; works for
+            # both ascending and descending slice steps.
+            sub = range(length)[index]
+            if len(sub) == 0:
+                # Pick a canonical empty representation (step=1, start..start-1)
+                # so the sign of self.step doesn't accidentally produce a non-
+                # empty result via step composition.
                 empty_start = self.start
                 empty_stop = MIT(self.frequency, self.start.value - 1)
-                return MITRange(empty_start, empty_stop, self.step * max(1, step_i))
-            new_start = MIT(self.frequency, self.start.value + start_i * self.step)
-            new_last = MIT(
-                self.frequency,
-                self.start.value + (stop_i - 1) * self.step,
-            )
-            return MITRange(new_start, new_last, self.step * step_i)
+                return MITRange(empty_start, empty_stop, 1)
+            new_start = MIT(self.frequency, self.start.value + sub[0] * self.step)
+            new_stop = MIT(self.frequency, self.start.value + sub[-1] * self.step)
+            return MITRange(new_start, new_stop, self.step * sub.step)
         if isinstance(index, bool):
             raise TypeError("MITRange indices must be int or slice, not bool.")
         if not isinstance(index, int):
@@ -190,29 +210,42 @@ def _to_unitrange(x: object) -> MITRange | None:
     return None
 
 
+def _range_bounds(rng: MITRange) -> tuple[int, int]:
+    """Return ``(low_value, high_value)`` for ``rng``, sign-aware.
+
+    For a forward range ``(low, high) == (start.value, last().value)``;
+    for a reversed range ``(low, high) == (last().value, start.value)``.
+    Caller must guard against empty ranges.
+    """
+    s, e = rng.start.value, rng.last().value
+    return (s, e) if s <= e else (e, s)
+
+
 def rangeof_span(*args: object) -> MITRange:
-    """Return the smallest ``MITRange`` covering all argument ranges.
+    """Return the smallest forward ``MITRange`` covering all argument ranges.
 
     All arguments must share a single frequency. Raises ``TypeError`` if
-    frequencies are mixed.
+    frequencies are mixed. The returned span is always forward-stepped
+    (``step=1``) regardless of the direction of the inputs.
     """
-    chosen: MITRange | None = None
+    chosen_lo: int | None = None
+    chosen_hi: int | None = None
+    chosen_freq: Frequency | None = None
     for arg in args:
         sub = _to_unitrange(arg)
         if sub is None or sub.is_empty():
             continue
-        if chosen is None:
-            chosen = sub
-            continue
-        if sub.frequency != chosen.frequency:
+        if chosen_freq is None:
+            chosen_freq = sub.frequency
+        elif sub.frequency != chosen_freq:
             raise TypeError(
-                f"Mixing frequencies not allowed: {prettyprint_frequency(chosen.frequency)} "
+                f"Mixing frequencies not allowed: {prettyprint_frequency(chosen_freq)} "
                 f"and {prettyprint_frequency(sub.frequency)}."
             )
-        lo = MIT(chosen.frequency, min(chosen.start.value, sub.start.value))
-        hi = MIT(chosen.frequency, max(chosen.stop.value, sub.stop.value))
-        chosen = MITRange(lo, hi)
-    if chosen is None:
+        sub_lo, sub_hi = _range_bounds(sub)
+        chosen_lo = sub_lo if chosen_lo is None else min(chosen_lo, sub_lo)
+        chosen_hi = sub_hi if chosen_hi is None else max(chosen_hi, sub_hi)
+    if chosen_freq is None or chosen_lo is None or chosen_hi is None:
         # Match Julia's behavior of returning an empty `1U:0U` for no args.
         return MITRange(MIT(Unit(), 1), MIT(Unit(), 0))
-    return chosen
+    return MITRange(MIT(chosen_freq, chosen_lo), MIT(chosen_freq, chosen_hi))

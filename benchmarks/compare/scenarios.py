@@ -22,6 +22,7 @@ the M1.5 three-flavor kernel pair (see decision 17):
 ``moving_average_quarterly_4``    4-period moving average over the same input.
 ``fconvert_qq_to_yy_mean``        Quarterly → Yearly with ``method="mean"``.
 ``rec_ar2_100``                   100-step AR(2) via general ``rec`` + lambda.
+``rec_backcasting_via_lambda``    100-step backcast via reversed ``MITRange`` + ``rec`` lambda (M1.6.1).
 ``rec_linear_ar2_100_numpy``      Same AR(2) via the NumPy kernel direct.
 ``rec_linear_ar2_100_cython``     Same AR(2) via the Cython kernel direct (registered
                                   only when the compiled extension is importable).
@@ -277,6 +278,36 @@ def _run_rec_ar2_100(state: dict[str, Any]) -> TSeries:
 
 
 # ---------------------------------------------------------------------------
+# rec — backcasting via lambda over a reversed range (M1.6.1).
+#
+# Mirrors Julia's `@rec t=lastQ:-1:firstQ s[t] = s[t+1] - g`. The Python
+# port goes through the same general `rec` higher-order entry as the
+# forward AR(2) above; the reversed iteration order is encoded in the
+# MITRange `step=-1`. Times the per-iteration cost of: reversed-range
+# iterator, lambda dispatch, `target[t + 1]` getitem, `target[t]` setitem.
+# Pairs name-for-name with the Julia scenario `rec_backcasting_via_lambda`.
+# ---------------------------------------------------------------------------
+
+
+def _setup_rec_backcasting_via_lambda() -> dict[str, Any]:
+    # 100-step backcast: target[lastQ] = 100, walk backward applying
+    # target[t] = target[t+1] - 0.5 each step.
+    start = qq(2020, 1)
+    n = 100
+    target = TSeries(start, np.zeros(n, dtype=np.float64))
+    target[start + (n - 1)] = 100.0
+    # Range: penultimate down to first.
+    rng = MITRange(start + (n - 2), start, step=-1)
+    return {"target": target, "rng": rng}
+
+
+def _run_rec_backcasting_via_lambda(state: dict[str, Any]) -> TSeries:
+    target = state["target"]
+    rec(state["rng"], target, lambda t: target[t + 1] - 0.5)
+    return target
+
+
+# ---------------------------------------------------------------------------
 # rec_linear — three-flavor AR(2) recurrence (decision 17 § option β).
 #
 # Two adjacent scenarios time the NumPy reference and the Cython compiled
@@ -309,6 +340,7 @@ def _setup_rec_linear_ar2_100() -> dict[str, Any]:
         "values": values,
         "offset": _REC_LINEAR_OFFSET,
         "count": _REC_LINEAR_COUNT,
+        "step": 1,
         "coeffs": _REC_LINEAR_COEFFS,
         "lags": _REC_LINEAR_LAGS,
     }
@@ -316,14 +348,24 @@ def _setup_rec_linear_ar2_100() -> dict[str, Any]:
 
 def _run_rec_linear_ar2_100_numpy(state: dict[str, Any]) -> np.ndarray:
     rec_linear_numpy(
-        state["values"], state["offset"], state["count"], state["coeffs"], state["lags"]
+        state["values"],
+        state["offset"],
+        state["count"],
+        state["step"],
+        state["coeffs"],
+        state["lags"],
     )
     return state["values"]
 
 
 def _run_rec_linear_ar2_100_cython(state: dict[str, Any]) -> np.ndarray:
     rec_linear_cython(
-        state["values"], state["offset"], state["count"], state["coeffs"], state["lags"]
+        state["values"],
+        state["offset"],
+        state["count"],
+        state["step"],
+        state["coeffs"],
+        state["lags"],
     )
     return state["values"]
 
@@ -908,6 +950,7 @@ SETUP: dict[str, Callable[[], Any]] = {
     "fconvert_mm_to_qq_mean_numpy": _setup_fconvert_mm_to_qq_kernel,
     # Recursion (general)
     "rec_ar2_100": _setup_rec_ar2_100,
+    "rec_backcasting_via_lambda": _setup_rec_backcasting_via_lambda,
     # Recursion (kernel-direct, three / four flavor)
     "rec_linear_ar2_100_pylist": _setup_rec_linear_ar2_100_pylist,
     "rec_linear_ar2_100_numpy": _setup_rec_linear_ar2_100,
@@ -970,6 +1013,7 @@ RUN: dict[str, Callable[[Any], Any]] = {
     "fconvert_mm_to_qq_mean_numpy": _run_fconvert_mm_to_qq_mean_numpy,
     # Recursion (general)
     "rec_ar2_100": _run_rec_ar2_100,
+    "rec_backcasting_via_lambda": _run_rec_backcasting_via_lambda,
     # Recursion (kernel-direct, three / four flavor)
     "rec_linear_ar2_100_pylist": _run_rec_linear_ar2_100_pylist,
     "rec_linear_ar2_100_numpy": _run_rec_linear_ar2_100_numpy,
@@ -1023,6 +1067,7 @@ DESCRIPTION: dict[str, str] = {
     "fconvert_qq_to_yy_sum_numpy": "aggregate_groups_numpy 25x4 sum - NumPy kernel",
     "fconvert_mm_to_qq_mean_numpy": "aggregate_groups_numpy 40x3 mean - NumPy kernel",
     "rec_ar2_100": "AR(2) over 100 quarters — general rec + lambda",
+    "rec_backcasting_via_lambda": "Backcast over 100 quarters — reversed range + rec lambda",
     "rec_linear_ar2_100_pylist": "AR(2) over 100 — rec_linear, pure-Python list",
     "rec_linear_ar2_100_numpy": "AR(2) over 100 — rec_linear NumPy kernel",
     "workspace_merge_5_series": "Workspace merge: 5 + 5 series",

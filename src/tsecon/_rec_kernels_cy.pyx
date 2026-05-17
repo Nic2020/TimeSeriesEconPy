@@ -40,14 +40,16 @@ def rec_linear_cython(
     cnp.ndarray[cnp.float64_t, ndim=1] values,
     Py_ssize_t offset,
     Py_ssize_t count,
+    Py_ssize_t step,
     cnp.ndarray[cnp.float64_t, ndim=1] coeffs,
     cnp.ndarray[cnp.int64_t, ndim=1] lags,
 ) -> None:
-    """Compute ``values[offset + i] = Σ_k coeffs[k] * values[offset + i - lags[k]]``.
+    """Compute ``values[offset + i*step] = Σ_k coeffs[k] * values[offset + i*step - lags[k]]``.
 
     Cython implementation. See ``_rec_kernels.py`` module docstring for
     the contract; the wrapper :func:`tsecon.recursive.rec_linear`
-    validates inputs before calling this kernel.
+    validates inputs before calling this kernel. ``step`` is ``+1`` for
+    forward recurrences and ``-1`` for backward (backcasting).
     """
     cdef Py_ssize_t n_terms = coeffs.shape[0]
     cdef Py_ssize_t i, k, out_idx
@@ -57,7 +59,7 @@ def rec_linear_cython(
     cdef long long[::1] l_view = lags
 
     for i in range(count):
-        out_idx = offset + i
+        out_idx = offset + i * step
         acc = 0.0
         for k in range(n_terms):
             acc += c_view[k] * vals_view[out_idx - <Py_ssize_t>l_view[k]]

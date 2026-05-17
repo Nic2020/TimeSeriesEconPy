@@ -381,6 +381,31 @@ def _run_mixed_freq_pipeline_three_freq(state: dict[str, Any]) -> pd.Series:
 
 
 # ---------------------------------------------------------------------------
+# reindex — only the label-shift operation from `various.jl` has a clean
+# pandas analogue. `overlay` and `compare` get no row here on purpose;
+# pandas has neither a recursive Workspace structure nor a "first-non-NaN
+# wins, range-union" merge primitive. The closest cousins —
+# ``pd.Series.combine_first`` for overlay-of-two and
+# ``pd.testing.assert_series_equal`` for compare — diverge enough in
+# semantics that a side-by-side row would mislead more than inform.
+# ---------------------------------------------------------------------------
+
+
+def _setup_reindex_tseries_100() -> dict[str, Any]:
+    return {
+        "t": pd.Series(np.arange(100, dtype=np.float64), index=_QQ_IDX_100),
+        # New labels = original index shifted; PeriodIndex doesn't relabel
+        # to Unit, so the closest pandas form is "give it a fresh index with
+        # the same length". ``set_axis(copy=False)`` is the no-allocation path.
+        "new_idx": pd.RangeIndex(start=1, stop=101),
+    }
+
+
+def _run_reindex_tseries_100(state: dict[str, Any]) -> pd.Series:
+    return state["t"].set_axis(state["new_idx"], copy=False)
+
+
+# ---------------------------------------------------------------------------
 # Registry — same shape as scenarios.py. Only scenarios with a natural
 # pandas form appear; the rest are intentionally absent and become ``n/a``
 # cells in the comparison table.
@@ -414,6 +439,7 @@ SETUP: dict[str, Callable[[], Any]] = {
     "rec_ar2_100": _setup_rec_ar2_100,
     "mixed_freq_qq_minus_mm_mean": _setup_mixed_freq_qq_minus_mm_mean,
     "mixed_freq_pipeline_three_freq": _setup_mixed_freq_pipeline_three_freq,
+    "reindex_tseries_100": _setup_reindex_tseries_100,
 }
 
 RUN: dict[str, Callable[[Any], Any]] = {
@@ -444,6 +470,7 @@ RUN: dict[str, Callable[[Any], Any]] = {
     "rec_ar2_100": _run_rec_ar2_100,
     "mixed_freq_qq_minus_mm_mean": _run_mixed_freq_qq_minus_mm_mean,
     "mixed_freq_pipeline_three_freq": _run_mixed_freq_pipeline_three_freq,
+    "reindex_tseries_100": _run_reindex_tseries_100,
 }
 
 assert SETUP.keys() == RUN.keys(), "pandas scenario registries must agree"

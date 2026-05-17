@@ -46,6 +46,13 @@ from tsecon._stats import (
     var,
     varm,
 )
+from tsecon._various import (
+    CompareDifference,
+    CompareResult,
+    compare,
+    overlay,
+    reindex,
+)
 from tsecon.fconvert import (
     extend_series,
     fconvert,
@@ -123,6 +130,8 @@ __all__ = [
     "BDaily",
     "BackendNotAvailableError",
     "CalendarFrequency",
+    "CompareDifference",
+    "CompareResult",
     "Daily",
     "Duration",
     "Frequency",
@@ -144,6 +153,7 @@ __all__ = [
     "bdvalues",
     "cleanedvalues",
     "clear_holidays_map",
+    "compare",
     "cor",
     "cov",
     "daily",
@@ -185,6 +195,7 @@ __all__ = [
     "moving_average",
     "moving_sum",
     "option_scope",
+    "overlay",
     "pct",
     "period",
     "plot",
@@ -196,6 +207,7 @@ __all__ = [
     "rec",
     "rec_linear",
     "rec_linear_is_cython",
+    "reindex",
     "rename_columns_inplace",
     "resolve_backend",
     "sanitize_frequency",

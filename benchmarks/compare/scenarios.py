@@ -46,12 +46,15 @@ from typing import Any
 import numpy as np
 
 from tsecon import (
+    MIT,
     MITRange,
     MVTSeries,
     Quarterly,
     TSeries,
+    Unit,
     Workspace,
     Yearly,
+    compare,
     cor,
     cov,
     diff,
@@ -62,10 +65,12 @@ from tsecon import (
     mm,
     moving_average,
     moving_sum,
+    overlay,
     pct,
     qq,
     quantile,
     rec,
+    reindex,
     shift,
     std,
     undiff,
@@ -963,6 +968,75 @@ def _run_mixed_freq_pipeline_three_freq(state: dict[str, Any]) -> TSeries:
 
 
 # ---------------------------------------------------------------------------
+# overlay / compare / reindex — M1.6.3b (`various.jl` pull-forward)
+# ---------------------------------------------------------------------------
+
+
+def _setup_overlay_three_tseries() -> dict[str, Any]:
+    # Three 100-period quarterly TSeries with partial overlap and scattered NaN
+    # so the per-position "first-non-typenan wins" logic actually does work.
+    arr = np.arange(100, dtype=np.float64)
+    a = TSeries(qq(2020, 1), arr.copy())
+    a.values[::7] = np.nan
+    b = TSeries(qq(2019, 1), np.full(100, 100.0))
+    b.values[::5] = np.nan
+    c = TSeries(qq(2021, 1), np.full(100, 200.0))
+    return {"a": a, "b": b, "c": c}
+
+
+def _run_overlay_three_tseries(state: dict[str, Any]) -> TSeries:
+    return overlay(state["a"], state["b"], state["c"])
+
+
+def _setup_compare_workspaces_equal_5_keys() -> dict[str, Any]:
+    start = qq(2020, 1)
+    arr = np.arange(100, dtype=np.float64)
+    w1 = Workspace()
+    w2 = Workspace()
+    for name in ("a", "b", "c", "d", "e"):
+        w1[name] = TSeries(start, arr.copy())
+        w2[name] = TSeries(start, arr.copy())
+    return {"w1": w1, "w2": w2}
+
+
+def _run_compare_workspaces_equal_5_keys(state: dict[str, Any]) -> bool:
+    # `quiet=True` removes stdout I/O from the measured time (the harness's
+    # min-of-many-runs would otherwise be dominated by terminal flushes).
+    return compare(state["w1"], state["w2"], quiet=True).equal
+
+
+def _setup_compare_workspaces_differ_5_keys() -> dict[str, Any]:
+    # Differs at one element of one TSeries — exercises the recursive walk
+    # *and* the diff-collection path (positive case stops at TSeries-level
+    # `isapprox`; this one builds CompareDifference instances).
+    start = qq(2020, 1)
+    arr = np.arange(100, dtype=np.float64)
+    w1 = Workspace()
+    w2 = Workspace()
+    for name in ("a", "b", "c", "d", "e"):
+        w1[name] = TSeries(start, arr.copy())
+        w2[name] = TSeries(start, arr.copy())
+    # Position 50 lands at qq(2032, 3) on a 100-period quarterly series starting 2020Q1.
+    w2["c"][50] = -999.0
+    return {"w1": w1, "w2": w2}
+
+
+def _run_compare_workspaces_differ_5_keys(state: dict[str, Any]) -> bool:
+    return compare(state["w1"], state["w2"], quiet=True).equal
+
+
+def _setup_reindex_tseries_100() -> dict[str, Any]:
+    return {
+        "t": TSeries(qq(2020, 1), np.arange(100, dtype=np.float64)),
+        "pair": (qq(2020, 1), MIT(Unit(), 1)),
+    }
+
+
+def _run_reindex_tseries_100(state: dict[str, Any]) -> TSeries:
+    return reindex(state["t"], state["pair"])
+
+
+# ---------------------------------------------------------------------------
 # Workspace merge (5 series each)
 # ---------------------------------------------------------------------------
 
@@ -1050,6 +1124,11 @@ SETUP: dict[str, Callable[[], Any]] = {
     # Mixed-frequency (pandas/polars friction demonstrators)
     "mixed_freq_qq_minus_mm_mean": _setup_mixed_freq_qq_minus_mm_mean,
     "mixed_freq_pipeline_three_freq": _setup_mixed_freq_pipeline_three_freq,
+    # various.jl helpers (M1.6.3b)
+    "overlay_three_tseries": _setup_overlay_three_tseries,
+    "compare_workspaces_equal_5_keys": _setup_compare_workspaces_equal_5_keys,
+    "compare_workspaces_differ_5_keys": _setup_compare_workspaces_differ_5_keys,
+    "reindex_tseries_100": _setup_reindex_tseries_100,
 }
 
 RUN: dict[str, Callable[[Any], Any]] = {
@@ -1115,6 +1194,11 @@ RUN: dict[str, Callable[[Any], Any]] = {
     # Mixed-frequency (pandas/polars friction demonstrators)
     "mixed_freq_qq_minus_mm_mean": _run_mixed_freq_qq_minus_mm_mean,
     "mixed_freq_pipeline_three_freq": _run_mixed_freq_pipeline_three_freq,
+    # various.jl helpers (M1.6.3b)
+    "overlay_three_tseries": _run_overlay_three_tseries,
+    "compare_workspaces_equal_5_keys": _run_compare_workspaces_equal_5_keys,
+    "compare_workspaces_differ_5_keys": _run_compare_workspaces_differ_5_keys,
+    "reindex_tseries_100": _run_reindex_tseries_100,
 }
 
 # Description rendered into the comparison table; keep terse, the scenario
@@ -1167,6 +1251,10 @@ DESCRIPTION: dict[str, str] = {
     "workspace_filter_5_series": "Workspace filter: 10 down to 5 series",
     "mixed_freq_qq_minus_mm_mean": "qq_gdp - fconvert(Q, mm_cpi, mean) — mixed freq",
     "mixed_freq_pipeline_three_freq": "Y+Q+M → quarterly via fconvert — mixed freq",
+    "overlay_three_tseries": "overlay(a, b, c) — 100Q three-way first-non-NaN",
+    "compare_workspaces_equal_5_keys": "compare(w1, w2) — 5×TSeries, equal",
+    "compare_workspaces_differ_5_keys": "compare(w1, w2) — 5×TSeries, one diff",
+    "reindex_tseries_100": "reindex(t, qq=>1U) — 100Q label shift",
 }
 
 # Cython kernel scenarios are conditionally registered: when the wheel

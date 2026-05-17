@@ -27,8 +27,9 @@ the site.
 | 11 | [Plotting](#11-plotting)                         | 🟢    |
 | 12 | [Workspaces](#12-workspaces)                       | 🟢    |
 | 13 | [MVTSeries vs Workspace](#13-mvtseries-vs-workspace)           | 🟢    |
-| 14 | [`overlay`](#14-overlay)                        | 🔵    |
-| 15 | [`compare` / `@compare`](#15-compare)           | 🔵    |
+| 14 | [`overlay`](#14-overlay)                        | 🟢    |
+| 15 | [`compare` / `@compare`](#15-compare)           | 🟢    |
+| 15a | [`reindex`](#15a-reindex) *(Python add: not a tutorial-1 section upstream)* | 🟢 |
 | 16 | [BDaily holidays](#16-bdaily-holidays)                  | 🟡    |
 | 17 | [Options](#17-options)                          | 🟢    |
 
@@ -67,6 +68,7 @@ from tsecon import (
     Workspace,
     Yearly,
     bdaily,
+    compare,
     daily,
     diff,
     frequency_of,
@@ -76,6 +78,7 @@ from tsecon import (
     mit2yp,
     mm,
     moving,
+    overlay,
     pct,
     period,
     plot,
@@ -83,6 +86,7 @@ from tsecon import (
     qq,
     rec,
     rec_linear,
+    reindex,
     shift,
     undiff,
     weekly,
@@ -1080,28 +1084,164 @@ the round-trip pattern.
 
 ## 14. `overlay` { #14-overlay }
 
-!!! warning "Not yet available"
-    `overlay` is part of `various.jl` upstream and is queued for
-    [M4](../design/decisions.md#locked-decisions). The two modes — `TSeries`-first
-    (range union, first non-NaN wins) and `Workspace`/`MVTSeries`-first
-    (recursive merge) — will land together once the rest of the
-    `various.jl` surface is ported.
+`overlay` has two modes. When all inputs are `TSeries`, the result is a
+new `TSeries` whose range is the union of the inputs and each position
+holds the *first non-NaN* value found left-to-right. (Out-of-range
+positions count as missing too — they fall through to whichever later
+input covers them.)
 
-    For now, the *first-non-NaN-wins* TSeries pattern can be expressed
-    by hand using `np.where(np.isnan(a), b, a)` on aligned values; the
-    workspace recursive merge is more involved and warrants the
-    dedicated implementation.
+```python exec="true" source="material-block" session="tut1"
+x1 = TSeries(MITRange(qq(2020, 1), qq(2020, 4)), 1.0)
+x1[MITRange(qq(2020, 2), qq(2020, 3))] = np.nan
+x2 = TSeries(MITRange(qq(2019, 3), qq(2020, 2)), 2.0)
+x2[MITRange(qq(2019, 4), qq(2020, 1))] = np.nan
+x3 = TSeries(MITRange(qq(2020, 2), qq(2021, 1)), 3.0)
+print(overlay(x1, x2, x3))
+```
+
+To force a specific output range, pass `rng=`:
+
+```python exec="true" source="material-block" session="tut1"
+print(overlay(x1, x2, x3, rng=MITRange(qq(2020, 1), qq(2020, 4))))
+```
+
+When the inputs are `Workspace` / `MVTSeries`, the result is a new
+`Workspace` and each named member is overlaid recursively. Variables
+present in multiple inputs are themselves overlaid; variables present
+in only one input are taken from there.
+
+```python exec="true" source="material-block" session="tut1"
+w1 = Workspace(x=x1, a=1)
+w2 = MVTSeries(qq(2020, 1), ["x", "b"], np.array([[2.0, 99.0], [2.0, 99.0]]))
+w3 = Workspace(x=x3, a=3, b=3, c=3)
+print(overlay(w1, w2, w3))
+```
+
+In the example above, `x` is a `TSeries` in all three inputs so it's
+overlaid; `a` is a scalar taken from `w1` (the leftmost input that
+holds it); `b` is a `TSeries` (the `b` column of `w2`) and a scalar
+in `w3`, so the leftmost — `w2.b` — wins; and `c` is taken from `w3`
+since it's missing from the other two.
+
+!!! info "Julia ↔ Python"
+    Corresponds to *`overlay`*. Identical kwarg surface and dispatch
+    rules — the recursive `LikeWorkspace` form treats `Workspace` /
+    `MVTSeries` / `Mapping` interchangeably (Julia's `LikeWorkspace`
+    union becomes `(Workspace, MVTSeries, collections.abc.Mapping)`
+    here). Forced output range is the `rng=` keyword instead of
+    Julia's positional first argument.
 
 ## 15. `compare` / `@compare` { #15-compare }
 
-!!! warning "Not yet available"
-    Like `overlay`, `compare` and `@compare` live in `various.jl`
-    upstream and are queued for [M4](../design/decisions.md#locked-decisions). The
-    Python port will collapse the macro and function forms into a
-    single `compare(v1, v2, *, atol=, rtol=, nans=False,
-    ignoremissing=False, showequal=False)` — Python has no parse-time
-    macros for the auto-labelling Julia uses, so the names must be
-    supplied explicitly.
+`compare` walks two values recursively and returns a
+[`CompareResult`](../reference/various.md). The result is truthy iff
+the inputs compared as equal; programmatically, `result.differences`
+exposes one entry per differing leaf so callers can introspect the
+diff without parsing stdout.
+
+```python exec="true" source="material-block" session="tut1"
+import copy
+
+v1 = Workspace(
+    x=3,
+    y=TSeries(qq(2020, 1), np.ones(10)),
+    z=MVTSeries(qq(2020, 1), ["a", "b"], np.zeros((6, 2))),
+)
+v2 = copy.deepcopy(v1)               # always deepcopy a nested Workspace
+v2.y[qq(2020, 3)] += 1e-7
+v2.z.a[qq(2020, 3)] += 0.001
+v2.b = "Hello"                       # present in v2, missing in v1
+print(compare(v1, v2))
+```
+
+The numeric kwargs forward to [`numpy.allclose`](https://numpy.org/doc/stable/reference/generated/numpy.allclose.html) /
+[`numpy.isclose`](https://numpy.org/doc/stable/reference/generated/numpy.isclose.html).
+Bumping `atol` lets the small `y[2020Q3]` perturbation pass:
+
+```python exec="true" source="material-block" session="tut1"
+print(compare(v1, v2, atol=1e-5))
+```
+
+`NaN`-vs-`NaN` is *not* equal by default; pass `nans=True` to match
+Julia's `isapprox(...; nans=true)`:
+
+```python exec="true" source="material-block" session="tut1"
+n1 = Workspace(t=TSeries(qq(2020, 1), [1.0, float("nan")]))
+n2 = copy.deepcopy(n1)
+print("default:", bool(compare(n1, n2, quiet=True)))
+print("nans=True:", bool(compare(n1, n2, nans=True, quiet=True)))
+```
+
+`ignoremissing=True` skips keys present in only one side; `showequal=True`
+reports same-valued leaves too. They compose naturally:
+
+```python exec="true" source="material-block" session="tut1"
+print(compare(v1, v2, showequal=True, ignoremissing=True, atol=0.01))
+```
+
+To suppress the printed diff (e.g. inside a test runner), pass
+`quiet=True` — the structured `CompareResult.differences` is populated
+either way:
+
+```python exec="true" source="material-block" session="tut1"
+result = compare(v1, v2, quiet=True)
+print("equal:", result.equal)
+for d in result.differences[:3]:
+    print(" ", d.path, "→", d.message)
+```
+
+!!! info "Julia ↔ Python"
+    Corresponds to *`compare` and `@compare`*. Julia's `@compare`
+    macro folds into the same function here — it existed only to
+    capture the input variable names for the printed diff, which
+    Python users can supply explicitly via `left=` / `right=` kwargs.
+    The kwarg surface (`atol`, `rtol`, `nans`, `showequal`,
+    `ignoremissing`, `quiet`) is name-for-name. The Python return
+    type is a structured `CompareResult` rather than a bare `Bool`:
+    truthy/`str` use matches the Julia behaviour, and
+    `result.differences` carries the diff programmatically for
+    callers that want to inspect rather than re-parse stdout.
+
+## 15a. `reindex` (label-shift) { #15a-reindex }
+
+`reindex(x, (old, new))` shifts every MIT-keyed position in `x` so that
+`old` becomes `new`; the underlying values are preserved. It dispatches
+over `MIT`, `MITRange`, `TSeries`, `MVTSeries`, and `Workspace`. Common
+use: re-anchor a model output to a different start date without
+re-running the recursion.
+
+```python exec="true" source="material-block" session="tut1"
+mu = qq(2020, 1)
+nu = MIT(Unit(), 1)
+print("MIT       :", reindex(qq(2022, 4), (mu, nu)))                      # 12U
+print("MITRange  :", reindex(MITRange(qq(2021, 1), qq(2022, 4)), (mu, nu)))   # 5U:12U
+ts = TSeries(qq(2021, 1), [1.0, 2.0, 3.0])
+print("TSeries   :", reindex(ts, (mu, nu)))                                   # firstdate 5U
+```
+
+For `Workspace`, only members matching `old.frequency` are reindexed;
+others (different-frequency series, scalars, strings) pass through
+untouched, and nested workspaces recurse.
+
+```python exec="true" source="material-block" session="tut1"
+w = Workspace(
+    a=TSeries(qq(2020, 1), [1.0, 2.0]),
+    b=TSeries(qq(2021, 1), [10.0, 20.0]),
+    constant=42,
+)
+print(reindex(w, (qq(2021, 1), MIT(Unit(), 1))))
+```
+
+The `copy=` kwarg follows the wrap-vs-copy contract from
+[decision 16](../design/decisions.md#locked-decisions): by default the
+returned `TSeries` / `MVTSeries` aliases the original `.values` buffer
+(zero-allocation); pass `copy=True` to force an independent allocation.
+
+!!! info "Julia ↔ Python"
+    Corresponds to *`reindex`*. Julia's `Pair{<:MIT,<:MIT}` becomes
+    a Python `(old_mit, new_mit)` 2-tuple. Same dispatch over MIT /
+    UnitRange / TSeries / MVTSeries / Workspace; same `copy=`
+    semantics (wrap by default).
 
 ## 16. BDaily holidays { #16-bdaily-holidays }
 

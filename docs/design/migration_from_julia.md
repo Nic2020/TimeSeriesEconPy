@@ -26,6 +26,10 @@ differences — what the spellings, not the semantics, look like.
 | Range step                         | `2000M1:2:2000M8`                  | `MITRange(mm(2000, 1), mm(2000, 8), step=2)` |
 | Reversed range (backcast)          | `10U:-1:1U`                        | `MITRange(MIT(Unit(),10), MIT(Unit(),1), step=-1)` |
 | Last element                       | `x[end]`                           | `x[x.lastdate]`                         |
+| `overlay` (TSeries first-non-NaN wins) | `overlay(x1, x2, x3)`           | `overlay(x1, x2, x3)`                   |
+| `overlay` (forced range)           | `overlay(2020Q1:2020Q4, x1, x2)`   | `overlay(x1, x2, rng=MITRange(qq(2020,1), qq(2020,4)))` |
+| `compare` / `@compare`             | `@compare(v1, v2, atol=1e-5)`      | `compare(v1, v2, atol=1e-5)` (returns `CompareResult`) |
+| `reindex` (label shift)            | `reindex(t, 2021Q1 => 1U)`         | `reindex(t, (qq(2021, 1), MIT(Unit(), 1)))` |
 
 ## Semantics that are identical
 
@@ -53,3 +57,18 @@ differences — what the spellings, not the semantics, look like.
   Cython-backed kernel path; for `target[t] = target[t-1] + c` reach for
   `undiff` instead, for `target[t] = β·target[t-1] + γ·y[t]` reach for the
   general `rec`.
+- **`compare` returns a `CompareResult`, not a `Bool`.** Julia's
+  `compare(v1, v2)` prints to stdout and returns `Bool`; the Python form
+  returns a structured `CompareResult(equal, differences)` that is truthy
+  on equality, whose `__str__` reproduces the printed diff, and whose
+  `.differences` exposes one entry per leaf for callers that want to
+  introspect rather than re-parse stdout. The classic `if compare(v1, v2):
+  ...` one-liner still works; `quiet=True` suppresses the stdout side
+  effect when only the structured result is needed (e.g. inside a test
+  runner). Julia's `@compare` macro folds into the same `compare`
+  function: it existed only to capture variable names for the printed
+  diff, which Python users can supply directly via `left=` / `right=`.
+- **`reindex` takes a 2-tuple, not a `Pair`.** Julia's `Pair{<:MIT,<:MIT}`
+  becomes a Python `(old_mit, new_mit)` 2-tuple. Dispatch over MIT /
+  MITRange / TSeries / MVTSeries / Workspace is identical; the `copy=`
+  kwarg is the same (default `False`, wrap-by-default).

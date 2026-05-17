@@ -470,6 +470,63 @@ mixed_freq_pipeline_three_freq_run(state) =
     fconvert(Quarterly, state.cpi; method = :mean)
 
 # ---------------------------------------------------------------------------
+# overlay / compare / reindex — M1.6.3b (`various.jl` pull-forward)
+# ---------------------------------------------------------------------------
+
+function overlay_three_tseries_setup()
+    a = TSeries(qq(2020, 1), collect(0.0:99.0))
+    a.values[1:7:end] .= NaN
+    b = TSeries(qq(2019, 1), fill(100.0, 100))
+    b.values[1:5:end] .= NaN
+    c = TSeries(qq(2021, 1), fill(200.0, 100))
+    return (a = a, b = b, c = c)
+end
+
+overlay_three_tseries_run(state) = overlay(state.a, state.b, state.c)
+
+function compare_workspaces_equal_5_keys_setup()
+    start = qq(2020, 1)
+    arr = collect(0.0:99.0)
+    w1 = Workspace()
+    w2 = Workspace()
+    for name in (:a, :b, :c, :d, :e)
+        w1[name] = TSeries(start, copy(arr))
+        w2[name] = TSeries(start, copy(arr))
+    end
+    return (w1 = w1, w2 = w2)
+end
+
+# `quiet=true` keeps the printed-diff cost out of the timed body (the
+# Python side does the same — see `_run_compare_workspaces_equal_5_keys`).
+compare_workspaces_equal_5_keys_run(state) =
+    compare(state.w1, state.w2; quiet = true)
+
+function compare_workspaces_differ_5_keys_setup()
+    start = qq(2020, 1)
+    arr = collect(0.0:99.0)
+    w1 = Workspace()
+    w2 = Workspace()
+    for name in (:a, :b, :c, :d, :e)
+        w1[name] = TSeries(start, copy(arr))
+        w2[name] = TSeries(start, copy(arr))
+    end
+    w2[:c].values[51] = -999.0
+    return (w1 = w1, w2 = w2)
+end
+
+compare_workspaces_differ_5_keys_run(state) =
+    compare(state.w1, state.w2; quiet = true)
+
+function reindex_tseries_100_setup()
+    return (
+        t = TSeries(qq(2020, 1), collect(0.0:99.0)),
+        pair = qq(2020, 1) => 1U,
+    )
+end
+
+reindex_tseries_100_run(state) = reindex(state.t, state.pair)
+
+# ---------------------------------------------------------------------------
 # Registry
 # ---------------------------------------------------------------------------
 
@@ -547,6 +604,11 @@ const SCENARIOS = Dict{String, Tuple{Function, Function}}(
     # Mixed-frequency (pandas/polars friction demonstrators)
     "mixed_freq_qq_minus_mm_mean"     => (mixed_freq_qq_minus_mm_mean_setup,     mixed_freq_qq_minus_mm_mean_run),
     "mixed_freq_pipeline_three_freq"  => (mixed_freq_pipeline_three_freq_setup,  mixed_freq_pipeline_three_freq_run),
+    # various.jl helpers (M1.6.3b)
+    "overlay_three_tseries"           => (overlay_three_tseries_setup,           overlay_three_tseries_run),
+    "compare_workspaces_equal_5_keys" => (compare_workspaces_equal_5_keys_setup, compare_workspaces_equal_5_keys_run),
+    "compare_workspaces_differ_5_keys"=> (compare_workspaces_differ_5_keys_setup, compare_workspaces_differ_5_keys_run),
+    "reindex_tseries_100"             => (reindex_tseries_100_setup,             reindex_tseries_100_run),
 )
 
 end  # module Scenarios

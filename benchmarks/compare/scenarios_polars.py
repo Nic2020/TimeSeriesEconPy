@@ -401,6 +401,29 @@ def _run_mixed_freq_pipeline_three_freq(state: dict[str, Any]) -> pl.DataFrame:
 
 
 # ---------------------------------------------------------------------------
+# reindex — the only `various.jl` operation with a clean polars analogue.
+# Polars has no row-index (the time axis is a column), so the natural form
+# of "shift the labels but keep the values" is to *replace* the time
+# column with a fresh integer-index column. The cost-shape is the same as
+# the tsecon `reindex(t, qq=>1U)` operation.
+# `overlay` and `compare` have no clean polars analogue (no recursive
+# Workspace structure; no "first-non-null wins, range-union" merge
+# primitive). Those rows are intentionally absent.
+# ---------------------------------------------------------------------------
+
+
+def _setup_reindex_tseries_100() -> dict[str, Any]:
+    return {
+        "df": pl.DataFrame({"time": _QQ_DATES_100, "value": np.arange(100, dtype=np.float64)}),
+        "new_time": pl.Series("time", np.arange(1, 101, dtype=np.int64)),
+    }
+
+
+def _run_reindex_tseries_100(state: dict[str, Any]) -> pl.DataFrame:
+    return state["df"].with_columns(state["new_time"])
+
+
+# ---------------------------------------------------------------------------
 # Registry
 # ---------------------------------------------------------------------------
 
@@ -432,6 +455,7 @@ SETUP: dict[str, Callable[[], Any]] = {
     "rec_ar2_100": _setup_rec_ar2_100,
     "mixed_freq_qq_minus_mm_mean": _setup_mixed_freq_qq_minus_mm_mean,
     "mixed_freq_pipeline_three_freq": _setup_mixed_freq_pipeline_three_freq,
+    "reindex_tseries_100": _setup_reindex_tseries_100,
 }
 
 RUN: dict[str, Callable[[Any], Any]] = {
@@ -462,6 +486,7 @@ RUN: dict[str, Callable[[Any], Any]] = {
     "rec_ar2_100": _run_rec_ar2_100,
     "mixed_freq_qq_minus_mm_mean": _run_mixed_freq_qq_minus_mm_mean,
     "mixed_freq_pipeline_three_freq": _run_mixed_freq_pipeline_three_freq,
+    "reindex_tseries_100": _run_reindex_tseries_100,
 }
 
 assert SETUP.keys() == RUN.keys(), "polars scenario registries must agree"

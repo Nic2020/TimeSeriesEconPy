@@ -510,6 +510,17 @@ def cor(
         ``cor(x, y)`` arguments differ in frequency, firstdate, or
         length; or the BDaily filters produce mismatched lengths.
 
+    Notes
+    -----
+    Correlation of a constant series is mathematically undefined (zero
+    variance in the denominator). ``cor(x, y)`` returns ``nan`` and emits
+    a ``RuntimeWarning`` when either input is bit-exactly constant, matching
+    NumPy's ``np.corrcoef`` semantics on FP-exact constant input. The
+    explicit guard is uniform across the NumPy and Cython kernels, so the
+    return is ``nan`` for both ``np.full(N, 1.0)`` (where ``np.corrcoef``
+    itself would warn) and ``np.full(N, 1e-60)`` (where pairwise summation
+    in ``np.corrcoef`` would otherwise silently return ``1.0``).
+
     Examples
     --------
     >>> import numpy as np

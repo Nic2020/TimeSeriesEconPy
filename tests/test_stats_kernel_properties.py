@@ -23,7 +23,7 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
-from hypothesis import HealthCheck, given, settings
+from hypothesis import HealthCheck, example, given, settings
 from hypothesis import strategies as st
 from hypothesis.extra import numpy as npst
 
@@ -141,36 +141,29 @@ def test_std_numpy_matches_cython(arr: np.ndarray, ddof: int) -> None:
     )
 
 
-# For the correlation property test we floor the magnitude at ``1e-60`` to
-# avoid the ``cor_cython`` underflow bug (BUGS.md B4 — surfaced by this very
-# Hypothesis pass): when ``sxx`` and ``syy`` both fall below ≈ 1e-154 their
-# product underflows to zero and the final ``sxy / sqrt(0)`` returns ±inf.
-# The bug doesn't fire for realistic econ inputs (magnitudes ≥ 1e-6) but
-# is real; the floor below skips the regime, and the floor should be lifted
-# when B4 is fixed (see the BUGS.md entry).
-_BOUNDED_FLOAT_COR = st.one_of(
-    st.floats(
-        min_value=1e-60,
-        max_value=1e6,
-        allow_nan=False,
-        allow_infinity=False,
-        allow_subnormal=False,
-        width=64,
-    ),
-    st.floats(
-        min_value=-1e6,
-        max_value=-1e-60,
-        allow_nan=False,
-        allow_infinity=False,
-        allow_subnormal=False,
-        width=64,
-    ),
-    st.just(0.0),
-)
+# Magnitude bounds match `_BOUNDED_FLOAT` for the other kernels. The earlier
+# 1e-60 floor existed solely to skip the B4 underflow regime (`sqrt(sxx *
+# syy)` underflowing for both stddevs below ~1e-154); session 28-hotfix
+# rewrote the denominator as `sqrt(sxx) * sqrt(syy)` so each factor stays
+# in normal range, and the floor is no longer needed. Constant inputs are
+# now excluded by the bit-exact `min == max` `assume` below — both kernels
+# return nan + RuntimeWarning on a constant array (`tsecon._stats.cor` docstring,
+# Notes), which is handled by a separate parametric lock test in
+# `test_stats_kernels.py::TestStatsKernelsAgreeOnArrays` and is out of scope
+# for this property pair.
+_BOUNDED_FLOAT_COR = _BOUNDED_FLOAT
 
 
 @pytest.mark.skipif(not _CY, reason="Cython stats kernel not compiled")
 @settings(max_examples=200, deadline=None, suppress_health_check=[HealthCheck.too_slow])
+# Regression seed: the falsifying example from the M1.6.0 audit baseline run
+# (`np.full(100, 1e-60)`) reached the `cor_cython` constant-array path where
+# cython's sequential summation produces an FP-exact mean (centred sums
+# exactly zero -> `sxx=syy=0` -> `0 / sqrt(0)` = nan) while `np.corrcoef` on
+# the same input returned 1.0 (its pairwise summation produces tiny non-zero
+# deviations that self-correlate). The constant-input guard now uniformises
+# both kernels to nan; this explicit example survives strategy changes.
+@example(arr=np.full(100, 1e-60))
 @given(
     npst.arrays(
         dtype=np.float64,
@@ -186,19 +179,34 @@ def test_cor_numpy_matches_cython(arr: np.ndarray) -> None:
     and two stddevs) while ``cor_cython`` walks the two arrays once with a
     naive accumulator. The two paths agree at ``rtol=1e-10`` on
     well-conditioned inputs (a touch looser than the mean/var/std tests
-    because the result is the *ratio* of two near-equal sums).
+    because the result is the *ratio* of two near-equal sums). Constant
+    inputs are excluded — the constant-array semantics (both kernels
+    return nan + RuntimeWarning) live in
+    ``test_stats_kernels.py::TestStatsKernelsAgreeOnArrays``.
     """
     n = arr.shape[0]
+    if n < 2:
+        return
     x = np.ascontiguousarray(arr, dtype=np.float64)
     # Construct y as a permutation of x (reversal) so the cor is
     # well-conditioned (away from 0 / 1 degenerate cases) — pure-random y
     # would occasionally land near zero-variance and amplify FP noise.
     y = np.ascontiguousarray(x[::-1].copy(), dtype=np.float64)
-    if np.std(x) == 0 or np.std(y) == 0:
-        # Degenerate inputs: both kernels return NaN or 0; skip ambiguity.
+    # Exclude bit-exact constant inputs — both kernels return nan +
+    # RuntimeWarning there by design; the kernel-agreement claim of this
+    # property is about well-defined Pearson correlations, not the
+    # degenerate case. `min == max` is the detector both kernels use; any
+    # input that survives it has a well-defined correlation in float64.
+    if x.min() == x.max() or y.min() == y.max():
         return
-    if n < 2:
+    # Exclude inputs whose variance underflows the float64 normal range —
+    # e.g. ``[1.1e-203, 0.0]`` has var ≈ 3e-407 which underflows to 0,
+    # making ``np.corrcoef``'s internal ``cov / sqrt(var)`` divide by zero
+    # (raising RuntimeWarning under ``filterwarnings=[error::RuntimeWarning]``).
+    # The cython kernel's B4 fix (``sqrt(sxx) * sqrt(syy)``) protects its own
+    # path, but np.corrcoef is not under our control; a numerically-stable
+    # replacement for np.corrcoef on near-subnormal inputs is out of scope
+    # for this hotfix (would require a kahan-summation or scaled-input pass).
+    if np.var(x) == 0.0 or np.var(y) == 0.0:
         return
-    np.testing.assert_allclose(
-        cor_cython(x, y), cor_numpy(x, y), rtol=1e-10, atol=1e-12
-    )
+    np.testing.assert_allclose(cor_cython(x, y), cor_numpy(x, y), rtol=1e-10, atol=1e-12)

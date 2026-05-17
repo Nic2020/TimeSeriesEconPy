@@ -78,6 +78,8 @@ kernel. The kernel assumes:
 
 from __future__ import annotations
 
+import warnings
+
 import numpy as np
 import numpy.typing as npt
 
@@ -118,5 +120,25 @@ def cor_numpy(x: npt.NDArray[np.float64], y: npt.NDArray[np.float64]) -> float:
     stacked matrix, computes the 2-by-2 correlation matrix, and returns
     that; this wrapper extracts the off-diagonal scalar so the return
     shape matches the Cython kernel and the public ``cor(x, y)`` form.
+
+    Constant-input guard
+    --------------------
+    Both inputs are scanned for bit-exact constancy up front and ``nan``
+    is returned (plus a ``RuntimeWarning``) when either is constant.
+    ``np.corrcoef`` itself only returns ``nan`` when the centred values
+    are *FP-exactly* zero; on FP-noisy constants (e.g. ``np.full(100, 1e-60)``
+    where pairwise summation produces a slightly-off mean) it silently
+    returns ``1.0``. The explicit guard collapses both regimes to ``nan``
+    so this kernel agrees with :func:`tsecon._stats_kernels_cy.cor_cython`
+    on any constant input, not just the FP-exact subset. ``min == max`` is
+    used as the detector because ``np.var`` would itself drift below
+    machine precision on FP-noisy constants and fail to fire.
     """
+    if x.min() == x.max() or y.min() == y.max():
+        warnings.warn(
+            "invalid value encountered in cor (constant input)",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+        return float("nan")
     return float(np.corrcoef(x, y)[0, 1])

@@ -39,6 +39,8 @@ imported by :mod:`tsecon._stats` as the optional fast path. When the
 extension is not built, callers fall back to the NumPy reference.
 """
 
+import warnings
+
 import numpy as np
 cimport numpy as cnp
 cimport cython
@@ -108,15 +110,41 @@ def cor_cython(
 ) -> float:
     """Return the scalar Pearson correlation between ``x`` and ``y``."""
     cdef Py_ssize_t i, n = x.shape[0]
-    cdef double sx = 0.0, sy = 0.0
+    cdef double sx, sy
     cdef double mx, my, dx, dy
     cdef double sxx = 0.0, syy = 0.0, sxy = 0.0
+    cdef double x0, y0
+    cdef bint x_const = True, y_const = True
     cdef double[::1] x_view = x
     cdef double[::1] y_view = y
 
-    for i in range(n):
+    # First pass: sum values, and detect bit-exact constant inputs.
+    # Constancy detection lives here so it agrees with cor_numpy across
+    # lengths where the sequential mean would be FP-exact (centred sums
+    # zero) vs FP-noisy (centred sums tiny but non-zero); a non-constant
+    # FP-noisy input must produce a defined correlation, and a constant
+    # input must produce nan regardless of length.
+    x0 = x_view[0]
+    y0 = y_view[0]
+    sx = x0
+    sy = y0
+    for i in range(1, n):
         sx += x_view[i]
         sy += y_view[i]
+        if x_view[i] != x0:
+            x_const = False
+        if y_view[i] != y0:
+            y_const = False
+    if x_const or y_const:
+        # Constant input on at least one side: correlation is mathematically
+        # undefined. Match np.corrcoef's FP-exact-constant behaviour
+        # (nan + RuntimeWarning). See the docstring of tsecon._stats.cor.
+        warnings.warn(
+            "invalid value encountered in cor (constant input)",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+        return float("nan")
     mx = sx / n
     my = sy / n
     for i in range(n):
@@ -125,4 +153,7 @@ def cor_cython(
         sxx += dx * dx
         syy += dy * dy
         sxy += dx * dy
-    return sxy / sqrt(sxx * syy)
+    # Split the denominator into ``sqrt(sxx) * sqrt(syy)`` so each factor
+    # stays in normal range; ``sqrt(sxx * syy)`` underflows to 0 when both
+    # sxx and syy fall below ~1e-154 (closes BUGS B4 from session 28).
+    return sxy / (sqrt(sxx) * sqrt(syy))

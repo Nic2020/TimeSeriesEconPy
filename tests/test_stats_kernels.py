@@ -139,6 +139,33 @@ class TestStatsKernelsAgreeOnArrays:
                 atol=1e-15,
             )
 
+    # Constant-array semantics: both kernels return nan + RuntimeWarning when
+    # at least one input has zero variance. The parametrisation covers
+    # (i) a "normal-magnitude" constant where np.corrcoef would itself fire
+    # the divide-by-zero RuntimeWarning, (ii) an FP-noisy-magnitude constant
+    # at 1e-60 where np.corrcoef silently returns 1.0 (the M1.6.0 baseline
+    # failure that motivated this lock), (iii) one constant + one variable
+    # input (only one side degenerate). See tsecon._stats.cor docstring.
+    @pytest.mark.parametrize(
+        ("x_arr", "y_arr"),
+        [
+            (np.full(100, 7.5), np.full(100, 7.5)),
+            (np.full(100, 1e-60), np.full(100, 1e-60)),
+            (np.full(100, 7.5), np.arange(100.0)),
+            (np.arange(100.0), np.full(100, 7.5)),
+        ],
+    )
+    def test_cor_constant_array_returns_nan_both_kernels(
+        self, x_arr: np.ndarray, y_arr: np.ndarray
+    ) -> None:
+        x = np.ascontiguousarray(x_arr, dtype=np.float64)
+        y = np.ascontiguousarray(y_arr, dtype=np.float64)
+        with pytest.warns(RuntimeWarning, match="constant input"):
+            assert np.isnan(cor_numpy(x, y))
+        if _CY:
+            with pytest.warns(RuntimeWarning, match="constant input"):
+                assert np.isnan(cor_cython(x, y))
+
 
 # ---------------------------------------------------------------------------
 # Public API agreement — mean/var/std/cor still match np.* after dispatch
@@ -260,4 +287,14 @@ class TestStatsKernelEdgeCases:
 
     def test_mean_propagates_nan(self) -> None:
         result = mean_numpy(np.array([1.0, 2.0, np.nan, 4.0]))
+        assert np.isnan(result)
+
+    def test_public_cor_constant_tseries_returns_nan(self) -> None:
+        # Public-surface lock for the constant-input convention: tsecon.cor
+        # on two constant TSeries emits a RuntimeWarning and returns nan,
+        # regardless of which kernel is dispatched. Locks the docstring's
+        # "Notes" claim against a future regression where one kernel diverges.
+        t = TSeries(qq(2020, 1), np.full(10, 7.5))
+        with pytest.warns(RuntimeWarning, match="constant input"):
+            result = cor(t, t)
         assert np.isnan(result)

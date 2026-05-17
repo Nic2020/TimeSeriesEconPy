@@ -30,6 +30,8 @@ differences — what the spellings, not the semantics, look like.
 | `overlay` (forced range)           | `overlay(2020Q1:2020Q4, x1, x2)`   | `overlay(x1, x2, rng=MITRange(qq(2020,1), qq(2020,4)))` |
 | `compare` / `@compare`             | `@compare(v1, v2, atol=1e-5)`      | `compare(v1, v2, atol=1e-5)` (returns `CompareResult`) |
 | `reindex` (label shift)            | `reindex(t, 2021Q1 => 1U)`         | `reindex(t, (qq(2021, 1), MIT(Unit(), 1)))` |
+| `rangeof` with `drop=`             | `rangeof(t, drop=1)`               | `rangeof(t, drop=1)`                    |
+| `rangeof(workspace; method=)`      | `rangeof(w, method=union)`         | `rangeof(w, method="union")`            |
 
 ## Semantics that are identical
 

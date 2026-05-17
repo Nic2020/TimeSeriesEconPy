@@ -1037,6 +1037,27 @@ def _run_reindex_tseries_100(state: dict[str, Any]) -> TSeries:
 
 
 # ---------------------------------------------------------------------------
+# rangeof(t, drop=1) — the tutorial-1 @rec idiom (M1.6.3c, G5 closure).
+#
+# Times the per-call overhead of the new public `rangeof` free function on
+# a 100-period quarterly TSeries with `drop=1`. The matching Julia scenario
+# `rangeof_tseries_drop1` calls `rangeof(t; drop=1)` (a closure call —
+# expected to be very fast on the Julia side; the Python column is meant
+# to characterise the kwarg-dispatch tax against the documented baseline).
+# ---------------------------------------------------------------------------
+
+
+def _setup_rangeof_tseries_drop1() -> dict[str, Any]:
+    return {"t": TSeries(qq(2020, 1), np.arange(100, dtype=np.float64))}
+
+
+def _run_rangeof_tseries_drop1(state: dict[str, Any]) -> MITRange:
+    from tsecon import rangeof
+
+    return rangeof(state["t"], drop=1)
+
+
+# ---------------------------------------------------------------------------
 # Workspace merge (5 series each)
 # ---------------------------------------------------------------------------
 
@@ -1129,6 +1150,8 @@ SETUP: dict[str, Callable[[], Any]] = {
     "compare_workspaces_equal_5_keys": _setup_compare_workspaces_equal_5_keys,
     "compare_workspaces_differ_5_keys": _setup_compare_workspaces_differ_5_keys,
     "reindex_tseries_100": _setup_reindex_tseries_100,
+    # rangeof (M1.6.3c — closes G5)
+    "rangeof_tseries_drop1": _setup_rangeof_tseries_drop1,
 }
 
 RUN: dict[str, Callable[[Any], Any]] = {
@@ -1199,6 +1222,8 @@ RUN: dict[str, Callable[[Any], Any]] = {
     "compare_workspaces_equal_5_keys": _run_compare_workspaces_equal_5_keys,
     "compare_workspaces_differ_5_keys": _run_compare_workspaces_differ_5_keys,
     "reindex_tseries_100": _run_reindex_tseries_100,
+    # rangeof (M1.6.3c — closes G5)
+    "rangeof_tseries_drop1": _run_rangeof_tseries_drop1,
 }
 
 # Description rendered into the comparison table; keep terse, the scenario
@@ -1255,6 +1280,7 @@ DESCRIPTION: dict[str, str] = {
     "compare_workspaces_equal_5_keys": "compare(w1, w2) — 5×TSeries, equal",
     "compare_workspaces_differ_5_keys": "compare(w1, w2) — 5×TSeries, one diff",
     "reindex_tseries_100": "reindex(t, qq=>1U) — 100Q label shift",
+    "rangeof_tseries_drop1": "rangeof(t, drop=1) — 100Q tutorial-1 @rec idiom",
 }
 
 # Cython kernel scenarios are conditionally registered: when the wheel

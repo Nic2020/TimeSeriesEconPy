@@ -526,6 +526,16 @@ end
 
 reindex_tseries_100_run(state) = reindex(state.t, state.pair)
 
+# rangeof(t; drop=1) — the tutorial-1 @rec idiom (mirrors the Python
+# `rangeof_tseries_drop1` scenario added with M1.6.3c / G5 closure). On
+# the Julia side `rangeof(t; drop=1)` is a closure call on a
+# UnitRange{MIT{F}}; expected to be very fast.
+function rangeof_tseries_drop1_setup()
+    return (t = TSeries(qq(2020, 1), collect(0.0:99.0)),)
+end
+
+rangeof_tseries_drop1_run(state) = rangeof(state.t, drop = 1)
+
 # ---------------------------------------------------------------------------
 # Registry
 # ---------------------------------------------------------------------------
@@ -609,6 +619,8 @@ const SCENARIOS = Dict{String, Tuple{Function, Function}}(
     "compare_workspaces_equal_5_keys" => (compare_workspaces_equal_5_keys_setup, compare_workspaces_equal_5_keys_run),
     "compare_workspaces_differ_5_keys"=> (compare_workspaces_differ_5_keys_setup, compare_workspaces_differ_5_keys_run),
     "reindex_tseries_100"             => (reindex_tseries_100_setup,             reindex_tseries_100_run),
+    # rangeof (M1.6.3c — mirrors Python G5 closure)
+    "rangeof_tseries_drop1"           => (rangeof_tseries_drop1_setup,           rangeof_tseries_drop1_run),
 )
 
 end  # module Scenarios

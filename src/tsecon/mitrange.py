@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 from dataclasses import dataclass
-from typing import overload
+from typing import Literal, overload
 
 from tsecon.frequencies import Frequency, Unit, prettyprint_frequency
 from tsecon.mit import MIT, Duration
@@ -25,6 +25,7 @@ from tsecon.mit import MIT, Duration
 __all__ = [
     "MITRange",
     "mitrange",
+    "rangeof",
     "rangeof_span",
 ]
 
@@ -219,6 +220,140 @@ def _range_bounds(rng: MITRange) -> tuple[int, int]:
     """
     s, e = rng.start.value, rng.last().value
     return (s, e) if s <= e else (e, s)
+
+
+def _apply_drop(rng: MITRange, drop: int) -> MITRange:
+    """Return a copy of ``rng`` with ``drop`` elements skipped at one end.
+
+    ``drop > 0`` skips at the start; ``drop < 0`` skips at the end; ``drop == 0``
+    is a no-op. Each unit of ``drop`` corresponds to one element of the range
+    (i.e., one ``step`` of the underlying frequency). If ``|drop| >= len(rng)``
+    the result is empty.
+    """
+    if drop == 0:
+        return rng
+    n = len(rng)
+    if abs(drop) >= n:
+        empty_stop = MIT(rng.frequency, rng.start.value - 1)
+        return MITRange(rng.start, empty_stop, 1)
+    if drop > 0:
+        new_start = MIT(rng.frequency, rng.start.value + drop * rng.step)
+        return MITRange(new_start, rng.stop, rng.step)
+    # drop < 0: contract from the far end. The end of the range is `last()`;
+    # shifting it back by |drop| elements means subtracting |drop| * step.
+    last_val = rng.last().value
+    new_last = MIT(rng.frequency, last_val + drop * rng.step)
+    return MITRange(rng.start, new_last, rng.step)
+
+
+def rangeof(
+    obj: object,
+    *,
+    drop: int = 0,
+    method: Literal["intersect", "union"] = "intersect",
+) -> MITRange:
+    """Return the range of ``obj``, optionally dropping leading/trailing periods.
+
+    Mirrors Julia's ``rangeof(t; drop=n)`` and ``rangeof(w; method=intersect)``
+    (see [`TimeSeriesEcon.jl/src/workspaces.jl`](https://github.com/bankofcanada/TimeSeriesEcon.jl)
+    and ``src/tseries.jl``). The Python equivalents — :attr:`TSeries.range` /
+    :attr:`MVTSeries.range` properties, :meth:`Workspace.rangeof`,
+    :func:`rangeof_span` — remain available; this function unifies them under
+    a single kwarg-bearing call site that mirrors the Julia surface 1-to-1 and
+    is the recommended target for line-by-line tutorial / model code ports.
+
+    Parameters
+    ----------
+    obj
+        A :class:`MITRange`, :class:`~tsecon.mit.MIT`,
+        :class:`~tsecon.tseries.TSeries`, :class:`~tsecon.mvtseries.MVTSeries`,
+        or :class:`~tsecon.workspace.Workspace`. Anything else raises
+        :class:`TypeError` naming the offending type.
+    drop
+        Skip ``drop`` elements at the start (``drop > 0``) or at the end
+        (``drop < 0``). ``drop == 0`` returns the full range. ``|drop| >=
+        len(range)`` returns an empty range. Mirrors Julia's ``drop=`` kwarg
+        exactly.
+    method
+        ``"intersect"`` (default) → intersection of all member ranges;
+        ``"union"`` → ``rangeof_span`` semantics. Only meaningful for
+        :class:`~tsecon.workspace.Workspace`; passing ``method="union"`` for
+        any other type raises :class:`TypeError` to catch the likely
+        wrong-object-type mistake.
+
+    Returns
+    -------
+    MITRange
+        The (possibly shrunk) range. ``step`` is preserved for
+        :class:`MITRange` inputs; :class:`TSeries` / :class:`MVTSeries` /
+        :class:`~tsecon.workspace.Workspace` inputs always yield ``step=1``.
+
+    Raises
+    ------
+    TypeError
+        Unsupported ``obj`` type, or ``method="union"`` passed for a
+        non-Workspace input.
+    ValueError
+        ``method`` is not one of ``"intersect"`` / ``"union"``.
+
+    Examples
+    --------
+    >>> import tsecon as ts
+    >>> a = ts.TSeries(ts.qq(2020, 1), [1.0, 2.0, 3.0, 4.0])
+    >>> ts.rangeof(a)
+    2020Q1:2020Q4
+    >>> ts.rangeof(a, drop=1)
+    2020Q2:2020Q4
+    >>> ts.rangeof(a, drop=-1)
+    2020Q1:2020Q3
+
+    The tutorial-1 ``@rec`` idiom ports line-by-line::
+
+        # Julia:  @rec rangeof(a, drop=1) a[t] = (1-ρ)*a_ss + ρ*a[t-1]
+        ts.rec(ts.rangeof(a, drop=1), a, lambda t: (1 - rho) * a_ss + rho * a[t - 1])
+
+    Workspace intersection vs union:
+
+    >>> w = ts.Workspace(a=a, b=ts.TSeries(ts.qq(2020, 3), [10.0, 20.0]))
+    >>> ts.rangeof(w)
+    2020Q3:2020Q4
+    >>> ts.rangeof(w, method="union")
+    2020Q1:2020Q4
+    """
+    if method not in ("intersect", "union"):
+        msg = f"method must be 'intersect' or 'union', got {method!r}."
+        raise ValueError(msg)
+
+    # Deferred imports break the import cycle: mitrange is a foundational
+    # module imported by tseries / mvtseries / workspace, so we cannot
+    # import those at module load time.
+    from tsecon.mvtseries import MVTSeries
+    from tsecon.tseries import TSeries
+    from tsecon.workspace import Workspace
+
+    if isinstance(obj, Workspace):
+        base = obj.rangeof(method=method)
+    elif isinstance(obj, (MITRange, MIT, TSeries, MVTSeries)):
+        if method != "intersect":
+            msg = (
+                f"method={method!r} is only meaningful for Workspace; "
+                f"got {type(obj).__name__}."
+            )
+            raise TypeError(msg)
+        if isinstance(obj, MITRange):
+            base = obj
+        elif isinstance(obj, MIT):
+            base = MITRange(obj, obj)
+        else:
+            base = obj.range
+    else:
+        msg = (
+            f"rangeof() does not support {type(obj).__name__}; expected "
+            f"MITRange, MIT, TSeries, MVTSeries, or Workspace."
+        )
+        raise TypeError(msg)
+
+    return _apply_drop(base, drop)
 
 
 def rangeof_span(*args: object) -> MITRange:

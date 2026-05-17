@@ -84,6 +84,7 @@ from tsecon import (
     plot,
     ppy,
     qq,
+    rangeof,
     rec,
     rec_linear,
     reindex,
@@ -714,11 +715,20 @@ rho = 0.6
 a = TSeries(MITRange(qq(2020, 1), qq(2022, 1)), a_ss)
 a[a.firstdate] += 0.1   # impulse
 
-rec(MITRange(a.firstdate + 1, a.lastdate), a,
+rec(rangeof(a, drop=1), a,
     lambda t: (1 - rho) * a_ss + rho * a[t - 1])
 
 print(a)
 ```
+
+This line-by-line mirrors Julia's
+`@rec rangeof(a, drop=1) a[t] = (1-ρ)*a_ss + ρ*a[t-1]`. The
+[`rangeof`](../reference/mit.md#tsecon.mitrange.rangeof) free function
+returns the stored range of a TSeries / MVTSeries / Workspace; the
+`drop=n` kwarg skips the first `n` periods (or last `n` if `n` is
+negative), which is the canonical recurrence-range idiom because the
+right-hand side reads `a[t-1]` and the first such read needs `t-1` to be
+in range.
 
 For the *linear-recurrence* common case — AR(p), Fibonacci, arbitrary
 lag polynomials — there's a closed-form sibling `rec_linear(target,
@@ -740,22 +750,27 @@ b[b.firstdate] += 0.1
 # lags >= 1, so for AR(1)-with-constant we typically subtract the
 # steady state, run the homogeneous recurrence, and add back.
 deviation = b - a_ss
-rec_linear(deviation, [rho], [1],
-           MITRange(deviation.firstdate + 1, deviation.lastdate))
+rec_linear(deviation, [rho], [1], rangeof(deviation, drop=1))
 b = deviation + a_ss
 print(b)
 print("rec vs rec_linear match:", a.allclose(b))
 print("rec_linear is using Cython:", tsecon.rec_linear_is_cython())
 ```
 
-If you need to drop the first *n* periods of a range (Julia's
-`rangeof(a, drop=n)`), build the sub-range explicitly:
+The `drop=n` kwarg is symmetric — positive `n` skips at the start,
+negative `n` skips at the end. The three forms most often seen in
+recurrence code:
 
 ```python exec="true" source="material-block" session="tut1"
-print("a.range:           ", a.range)
-print("drop=1 (forward):  ", MITRange(a.firstdate + 1, a.lastdate))
-print("drop=-1 (backward):", MITRange(a.firstdate, a.lastdate - 1))
+print("rangeof(a):         ", rangeof(a))           # full range
+print("rangeof(a, drop=1): ", rangeof(a, drop=1))   # skip first
+print("rangeof(a, drop=-1):", rangeof(a, drop=-1))  # skip last
 ```
+
+`rangeof` also dispatches on `MVTSeries` (same return shape), `MIT`
+(returns a one-element range), `MITRange` (identity + `drop=`), and
+`Workspace` (intersection of all member ranges, or `method="union"` for
+the span); see [the API reference](../reference/mit.md#tsecon.mitrange.rangeof).
 
 ### Backcasting (reversed range) { #9b-backcasting }
 

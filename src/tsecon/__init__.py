@@ -110,7 +110,7 @@ from tsecon.mit import (
     year,
     yy,
 )
-from tsecon.mitrange import MITRange, mitrange, rangeof_span
+from tsecon.mitrange import MITRange, mitrange, rangeof, rangeof_span
 from tsecon.mvtseries import MVTSeries, hcat, rename_columns_inplace, vcat
 from tsecon.plotting import (
     BackendNotAvailableError,
@@ -203,6 +203,7 @@ __all__ = [
     "prettyprint_frequency",
     "qq",
     "quantile",
+    "rangeof",
     "rangeof_span",
     "rec",
     "rec_linear",

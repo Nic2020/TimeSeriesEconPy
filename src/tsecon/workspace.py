@@ -339,15 +339,26 @@ class Workspace:
             raise ValueError(msg)
         return None
 
-    def rangeof(self) -> MITRange:
-        """Return the intersection of the ranges of all rangeable members.
+    def rangeof(self, *, method: str = "intersect") -> MITRange:
+        """Return the combined range of all rangeable members.
 
         Frequency-bearing members must share a single frequency, else
         ``TypeError`` is raised. Members without a range (scalars, strings,
         etc.) are skipped. If no member has a range, raises ``ValueError``.
 
-        Mirrors Julia's ``rangeof(w)`` (which defaults to ``method=intersect``).
+        Parameters
+        ----------
+        method
+            ``"intersect"`` (default) returns the intersection of all member
+            ranges. ``"union"`` returns the spanning union, equivalent to
+            :meth:`rangeof_span`. Mirrors Julia's ``rangeof(w; method=intersect)``
+            policy switch.
         """
+        if method == "union":
+            return self.rangeof_span()
+        if method != "intersect":
+            msg = f"method must be 'intersect' or 'union', got {method!r}."
+            raise ValueError(msg)
         ranges: list[MITRange] = []
         for v in self._c.values():
             r = _rangeof_member(v)

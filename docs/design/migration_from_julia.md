@@ -43,3 +43,13 @@ differences — what the spellings, not the semantics, look like.
 - **`copy=False` is the default constructor mode**, matching xarray and matching
   the Julia upstream's pass-the-array-by-reference behaviour. Reach for
   `copy=True` (or `.copy()`) for an alias break.
+- **Recurrences split into two entry points.** Julia's `@rec` is a single
+  parse-time macro that accepts any RHS expression. Python lacks parse-time
+  macros, so `tsecon` ships two entry points: `rec(rng, target, fn)` for the
+  general higher-order form (any nonlinear / multi-series body, expressed as
+  a `lambda`), and `rec_linear(target, coeffs, lags, rng)` for the closed-form
+  pure-linear-AR(p) narrowing (`target[t] = Σ_k coeffs[k] * target[t - lags[k]]`,
+  no constant term, no exogenous reads). The narrowing is what enables the
+  Cython-backed kernel path; for `target[t] = target[t-1] + c` reach for
+  `undiff` instead, for `target[t] = β·target[t-1] + γ·y[t]` reach for the
+  general `rec`.

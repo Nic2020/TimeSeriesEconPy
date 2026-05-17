@@ -198,6 +198,31 @@ def rec_linear(
     :func:`rec_linear_numpy`, the pure-Python reference. Use
     :func:`rec_linear_is_cython` to check which path is active.
 
+    Notes
+    -----
+    ``rec_linear`` is the closed-form pure-linear-AR(p) form:
+    ``target[t] = Σ_k coeffs[k] * target[t - lags[k]]`` for nonzero
+    lags. It deliberately has **no constant term and no exogenous
+    reads** — that narrowing is what enables the Cython kernel path.
+    The two common near-misses:
+
+    * ``target[t] = target[t-1] + c`` (random walk / cumulative sum
+      with constant drift) is *not* ``rec_linear`` territory; use
+      :func:`tsecon.undiff` instead.
+    * ``target[t] = β * target[t-1] + γ * y[t]`` (AR with exogenous
+      reads from another series) is *not* ``rec_linear`` territory
+      either; use the general :func:`rec` with a lambda closing over
+      both ``target`` and ``y``.
+
+    Both near-misses raise an informative ``ValueError`` at the call
+    site rather than producing silent garbage — the first via the
+    ``min(lags) >= 1`` contract (``lags=[0]`` for the constant-drift
+    misread), the second by virtue of the closed-form signature
+    accepting only ``coeffs`` × ``lags`` (no second series). The
+    general :func:`rec` retains the readable nonlinear / multi-series
+    escape hatch; pick it whenever the recurrence body does not fit
+    the linear-AR(p) shape.
+
     Parameters
     ----------
     target : TSeries
@@ -218,12 +243,19 @@ def rec_linear(
     ------
     TypeError
         If ``rng.frequency`` does not match ``target.frequency``, or if
-        ``target.dtype`` is not ``float64``.
+        ``target.dtype`` is not ``float64``. Each message names the
+        offending type / dtype.
     ValueError
-        If ``rng.step`` is not ``±1``, if ``len(coeffs) != len(lags)``,
-        if any ``lags[k]`` has the wrong sign for ``rng.step``, or if
+        If ``rng.step`` is not ``±1``; if ``coeffs`` or ``lags`` is not
+        1-D; if ``len(coeffs) != len(lags)``; if ``coeffs`` / ``lags``
+        is empty; if any ``lags[k]`` has the wrong sign for ``rng.step``
+        (forward requires ``>= 1``, backward requires ``<= -1``); or if
         ``target`` does not contain the initial-condition positions
-        ``rng.first - lags[k]`` for every ``k``.
+        ``rng.first - lags[k]`` for every ``k``. Each message names the
+        offending value (shape, lag, MIT). The forward ``lags[k] < 1``
+        branch additionally points at :func:`tsecon.undiff` and
+        :func:`rec` for the two common near-misses (constant drift and
+        exogenous reads); see the *Notes* section above.
 
     Examples
     --------
@@ -254,6 +286,9 @@ def rec_linear(
     rec : General higher-order form ``target[t] = fn(t)``. Use it when
         the recurrence is nonlinear or reads from series other than
         ``target``.
+    tsecon.undiff : Inverse of :func:`tsecon.diff`. Use it for
+        ``target[t] = target[t-1] + c`` (random walk with constant
+        drift) — the most common near-miss for ``rec_linear``.
     """
     if rng.frequency != target.frequency:
         msg = (
@@ -270,7 +305,10 @@ def rec_linear(
     coeffs_arr = np.asarray(coeffs, dtype=np.float64)
     lags_arr = np.asarray(lags, dtype=np.int64)
     if coeffs_arr.ndim != 1 or lags_arr.ndim != 1:
-        msg = "rec_linear: coeffs and lags must be 1-D."
+        msg = (
+            f"rec_linear: coeffs and lags must be 1-D; got "
+            f"coeffs.ndim={coeffs_arr.ndim}, lags.ndim={lags_arr.ndim}."
+        )
         raise ValueError(msg)
     if coeffs_arr.shape[0] != lags_arr.shape[0]:
         msg = (
@@ -279,7 +317,11 @@ def rec_linear(
         )
         raise ValueError(msg)
     if coeffs_arr.shape[0] == 0:
-        msg = "rec_linear: coeffs/lags must be non-empty."
+        msg = (
+            f"rec_linear: coeffs/lags must be non-empty; got "
+            f"coeffs.shape[0]={coeffs_arr.shape[0]}, "
+            f"lags.shape[0]={lags_arr.shape[0]}."
+        )
         raise ValueError(msg)
     step = int(rng.step)
     if step > 0:
@@ -288,8 +330,13 @@ def rec_linear(
         if min_lag < 1:
             msg = (
                 f"rec_linear: with a forward range (step=+1), all lags must be "
-                f">= 1; got min lag {min_lag}. For backward recurrences use a "
-                f"reversed range (step=-1) and negative lags."
+                f">= 1; got min lag {min_lag}. rec_linear is the closed-form "
+                f"pure-linear AR(p) form (target[t] = Sum_k coeffs[k] * "
+                f"target[t - lags[k]]) and has no constant term or exogenous "
+                f"reads. For x[t] = x[t-1] + constant, use undiff() instead. "
+                f"For x[t] = ... + y[t] (exogenous reads), use rec(rng, target, "
+                f"fn) with a lambda. For backward recurrences use a reversed "
+                f"range (step=-1) and negative lags."
             )
             raise ValueError(msg)
     else:

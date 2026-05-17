@@ -183,3 +183,46 @@ def test_rec_linear_numpy_is_deterministic(
     rec_linear_numpy(a, offset, count, step, coeffs, lags)
     rec_linear_numpy(b, offset, count, step, coeffs, lags)
     np.testing.assert_array_equal(a, b)
+
+
+# ---------------------------------------------------------------------------
+# Wrapper-level contract: forward rec_linear rejects any lags vector that
+# contains a 0. The G4 narrowing (M1.6.3a) routes the user at the canonical
+# undiff / rec alternatives via the raise message; this property defends
+# the rejection invariant across arbitrary lags shapes — the kernel must
+# never see a 0 lag (a self-read would silently consume the not-yet-written
+# value at position `t`).
+# ---------------------------------------------------------------------------
+
+
+@settings(max_examples=50, deadline=None, suppress_health_check=[HealthCheck.too_slow])
+@given(
+    other_lags=st.lists(
+        st.integers(min_value=1, max_value=8),
+        min_size=0,
+        max_size=4,
+        unique=True,
+    ),
+    zero_at=st.integers(min_value=0, max_value=5),
+)
+def test_rec_linear_forward_rejects_zero_lag(
+    other_lags: list[int],
+    zero_at: int,
+) -> None:
+    """Any forward-step lags vector containing a 0 raises ``ValueError`` with the G4 hint."""
+    from tsecon import MITRange, TSeries, qq, rec_linear
+
+    n_terms = len(other_lags) + 1
+    insert_pos = min(zero_at, n_terms - 1)
+    lags = list(other_lags)
+    lags.insert(insert_pos, 0)
+    coeffs = [1.0 / n_terms] * n_terms
+
+    # Generous target so frequency / dtype / shape / init-cond checks all
+    # pass and validation reaches the min(lags) >= 1 branch.
+    target = TSeries(qq(2020, 1), np.zeros(20, dtype=np.float64))
+    target._values[:10] = 1.0
+    rng = MITRange(qq(2022, 3), qq(2024, 4))
+
+    with pytest.raises(ValueError, match=r"min lag 0.*undiff"):
+        rec_linear(target, coeffs, lags, rng)

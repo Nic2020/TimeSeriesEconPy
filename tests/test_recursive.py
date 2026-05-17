@@ -9,6 +9,8 @@ assignment, empty range).
 
 from __future__ import annotations
 
+from collections.abc import Callable
+
 import numpy as np
 import pytest
 
@@ -325,48 +327,156 @@ class TestRecLinearKernelFallback:
         assert isinstance(flag, bool)
 
 
-class TestRecLinearValidation:
-    def test_frequency_mismatch_raises(self) -> None:
-        target = TSeries(qq(2020, 1), np.array([1.0, 1.0, 0.0, 0.0]))
-        rng = MITRange(MIT(Yearly(), 2020), MIT(Yearly(), 2023))
-        with pytest.raises(TypeError, match="frequency"):
-            rec_linear(target, [1.0], [1], rng)
+# ---------------------------------------------------------------------------
+# Contract-error builders for TestRecLinearContractErrors (G2 + G4 closure,
+# M1.6.3a). One builder per raise site in src/tsecon/recursive.py; each
+# returns a (target, coeffs, lags, rng) tuple violating exactly one contract
+# clause so the parametric test can assert pytest.raises with a substring
+# match that names the offending value.
+# ---------------------------------------------------------------------------
 
-    def test_non_unit_step_raises(self) -> None:
-        target = TSeries(qq(2020, 1), np.array([1.0, 1.0, 0.0, 0.0, 0.0]))
-        rng = MITRange(qq(2020, 1), qq(2021, 4), step=2)
-        with pytest.raises(ValueError, match=r"\+1 \(forward\) or -1 \(backward\)"):
-            rec_linear(target, [1.0], [1], rng)
 
-    def test_mismatched_coeffs_lags_raises(self) -> None:
-        target = TSeries(qq(2020, 1), np.array([1.0, 1.0, 0.0, 0.0]))
-        with pytest.raises(ValueError, match="same length"):
-            rec_linear(target, [1.0, 1.0], [1, 2, 3], mitrange(qq(2020, 3), qq(2020, 4)))
+def _ce_frequency_mismatch() -> tuple[TSeries, list[float], list[int], MITRange]:
+    target = TSeries(qq(2020, 1), np.array([1.0, 1.0, 0.0, 0.0]))
+    rng = MITRange(MIT(Yearly(), 2020), MIT(Yearly(), 2023))
+    return target, [1.0], [1], rng
 
-    def test_empty_coeffs_raises(self) -> None:
-        target = TSeries(qq(2020, 1), np.array([1.0, 0.0]))
-        with pytest.raises(ValueError, match="non-empty"):
-            rec_linear(target, [], [], mitrange(qq(2020, 2), qq(2020, 2)))
 
-    def test_zero_lag_raises(self) -> None:
-        target = TSeries(qq(2020, 1), np.array([1.0, 0.0]))
-        with pytest.raises(ValueError, match="lags must be >= 1"):
-            rec_linear(target, [1.0], [0], mitrange(qq(2020, 2), qq(2020, 2)))
+def _ce_non_unit_step() -> tuple[TSeries, list[float], list[int], MITRange]:
+    target = TSeries(qq(2020, 1), np.array([1.0, 1.0, 0.0, 0.0, 0.0]))
+    return target, [1.0], [1], MITRange(qq(2020, 1), qq(2021, 4), step=2)
 
-    def test_negative_lag_raises(self) -> None:
-        target = TSeries(qq(2020, 1), np.array([1.0, 0.0]))
-        with pytest.raises(ValueError, match="lags must be >= 1"):
-            rec_linear(target, [1.0], [-1], mitrange(qq(2020, 2), qq(2020, 2)))
 
-    def test_initial_conditions_missing_raises(self) -> None:
-        target = TSeries(qq(2020, 2), np.array([1.0, 0.0]))
-        with pytest.raises(ValueError, match="initial conditions"):
-            rec_linear(target, [1.0, 1.0], [1, 2], mitrange(qq(2020, 3), qq(2020, 3)))
+def _ce_ndim_not_one() -> tuple[TSeries, list[list[float]], list[int], MITRange]:
+    # coeffs given as 2-D so np.asarray produces a 2-D float array; lags stays 1-D.
+    target = TSeries(qq(2020, 1), np.array([1.0, 0.0, 0.0]))
+    return target, [[1.0]], [1], mitrange(qq(2020, 2), qq(2020, 3))
 
-    def test_non_float64_dtype_raises(self) -> None:
-        target = TSeries(qq(2020, 1), np.array([1, 1, 0, 0], dtype=np.int64))
-        with pytest.raises(TypeError, match="float64"):
-            rec_linear(target, [1.0], [1], mitrange(qq(2020, 2), qq(2020, 4)))
+
+def _ce_length_mismatch() -> tuple[TSeries, list[float], list[int], MITRange]:
+    target = TSeries(qq(2020, 1), np.array([1.0, 1.0, 0.0, 0.0]))
+    return target, [1.0, 1.0], [1, 2, 3], mitrange(qq(2020, 3), qq(2020, 4))
+
+
+def _ce_empty_coeffs() -> tuple[TSeries, list[float], list[int], MITRange]:
+    target = TSeries(qq(2020, 1), np.array([1.0, 0.0]))
+    return target, [], [], mitrange(qq(2020, 2), qq(2020, 2))
+
+
+def _ce_forward_zero_lag() -> tuple[TSeries, list[float], list[int], MITRange]:
+    # The canonical "user confused rec_linear with undiff" near-miss. The
+    # G4 message tightening at recursive.py turns the generic "lags must be
+    # >= 1" into a learnable hint pointing at undiff / rec.
+    target = TSeries(qq(2020, 1), np.array([1.0, 0.0]))
+    return target, [1.0], [0], mitrange(qq(2020, 2), qq(2020, 2))
+
+
+def _ce_backward_positive_lag() -> tuple[TSeries, list[float], list[int], MITRange]:
+    # Backward range (step=-1) with a positive lag is the M1.6.1-added raise:
+    # backward iteration writes "earlier" indices so reads must be from later
+    # (positive index, negative lag); a positive lag here would read into the
+    # not-yet-written region. max_lag = 1 > -1 trips the check.
+    target = TSeries(qq(2020, 1), np.array([0.0, 0.0, 0.0, 10.0]))
+    rng = MITRange(qq(2020, 3), qq(2020, 1), step=-1)
+    return target, [1.0], [1], rng
+
+
+def _ce_non_float64_dtype() -> tuple[TSeries, list[float], list[int], MITRange]:
+    target = TSeries(qq(2020, 1), np.array([1, 1, 0, 0], dtype=np.int64))
+    return target, [1.0], [1], mitrange(qq(2020, 2), qq(2020, 4))
+
+
+def _ce_forward_init_missing() -> tuple[TSeries, list[float], list[int], MITRange]:
+    # target starts at 2020Q2; recurrence at 2020Q3 with lags=[1,2] reads
+    # target[2020Q1] (max lag), which is before target.firstdate.
+    target = TSeries(qq(2020, 2), np.array([1.0, 0.0]))
+    return target, [1.0, 1.0], [1, 2], mitrange(qq(2020, 3), qq(2020, 3))
+
+
+def _ce_backward_init_missing() -> tuple[TSeries, list[float], list[int], MITRange]:
+    # M1.6.1-added backward raise: target ends at 2020Q3; backward recurrence
+    # with lag=-1 starting at rng.first=2020Q3 reads target[2020Q4], past
+    # target.lastdate.
+    target = TSeries(qq(2020, 1), np.array([10.0, 10.0, 10.0]))
+    rng = MITRange(qq(2020, 3), qq(2020, 1), step=-1)
+    return target, [1.0], [-1], rng
+
+
+class TestRecLinearContractErrors:
+    """Parametric coverage of every input-validation raise in ``rec_linear``.
+
+    One case per raise site in ``src/tsecon/recursive.py``; each case
+    constructs an input that violates one contract clause and asserts
+    ``pytest.raises(<class>, match=<substring naming the offending
+    value>)`` — making the docstring ``Raises`` block test-anchored
+    rather than aspirational. The ``forward_zero_lag_hints_undiff``
+    case additionally locks the G4 narrowing message (the
+    ``min(lags) < 1`` branch points at :func:`tsecon.undiff` and
+    :func:`tsecon.rec` for the two common near-misses).
+
+    Lands the M1.6.3a closure of [PARITY_GAPS G2 + G4] and clears
+    [BUGS B5]. The ten cases correspond 1:1 to the ten raise sites in
+    ``rec_linear``; adding a raise site means adding a case here.
+    """
+
+    @pytest.mark.parametrize(
+        ("make_inputs", "exc_class", "match"),
+        [
+            pytest.param(
+                _ce_frequency_mismatch, TypeError,
+                r"frequency.*Yearly.*Quarterly",
+                id="frequency_mismatch_yearly_vs_quarterly",
+            ),
+            pytest.param(
+                _ce_non_unit_step, ValueError, r"step=2",
+                id="non_unit_step_named_in_message",
+            ),
+            pytest.param(
+                _ce_ndim_not_one, ValueError, r"coeffs\.ndim=2",
+                id="coeffs_ndim_not_one_names_ndim",
+            ),
+            pytest.param(
+                _ce_length_mismatch, ValueError,
+                r"coeffs \(n=2\).*lags \(n=3\)",
+                id="coeffs_lags_length_mismatch_names_both",
+            ),
+            pytest.param(
+                _ce_empty_coeffs, ValueError, r"coeffs\.shape\[0\]=0",
+                id="empty_coeffs_lags_names_shape",
+            ),
+            pytest.param(
+                _ce_forward_zero_lag, ValueError, r"min lag 0.*undiff",
+                id="forward_zero_lag_hints_undiff",
+            ),
+            pytest.param(
+                _ce_backward_positive_lag, ValueError, r"max lag 1",
+                id="backward_positive_lag_names_max_lag",
+            ),
+            pytest.param(
+                _ce_non_float64_dtype, TypeError, r"int64",
+                id="non_float64_dtype_names_dtype",
+            ),
+            pytest.param(
+                _ce_forward_init_missing, ValueError,
+                r"initial conditions missing",
+                id="forward_initial_conditions_missing",
+            ),
+            pytest.param(
+                _ce_backward_init_missing, ValueError,
+                r"backward recurrence",
+                id="backward_initial_conditions_missing",
+            ),
+        ],
+    )
+    def test_contract_violation_raises(
+        self,
+        make_inputs: Callable[[], tuple[TSeries, list, list, MITRange]],
+        exc_class: type[Exception],
+        match: str,
+    ) -> None:
+        target, coeffs, lags, rng = make_inputs()
+        with pytest.raises(exc_class, match=match):
+            rec_linear(target, coeffs, lags, rng)
 
 
 class TestRecLinearEmptyRange:

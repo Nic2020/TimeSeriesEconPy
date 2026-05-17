@@ -74,3 +74,15 @@ differences — what the spellings, not the semantics, look like.
   becomes a Python `(old_mit, new_mit)` 2-tuple. Dispatch over MIT /
   MITRange / TSeries / MVTSeries / Workspace is identical; the `copy=`
   kwarg is the same (default `False`, wrap-by-default).
+- **`set_holidays_map(country, subdivision)` delegates to `python-holidays`.**
+  The Julia upstream ships bundled CSVs (`TimeSeriesEcon.jl/src/holidays/`)
+  and reads them on first call. Python delegates to the
+  [`python-holidays`](https://pypi.org/project/holidays/) PyPI package
+  as the single source of truth — install the optional extra with
+  `pip install "TimeSeriesEconPy[holidays]"`. Country / subdivision
+  codes follow ISO 3166 conventions rather than the Julia CSVs'
+  space-separated forms; a small number of names diverge (e.g. Julia's
+  `"Yukon Territory"` is `"YT"` in Python). Use `get_holidays_options()`
+  and `get_holidays_options("CA")` to discover the supported codes. The
+  map's default range (`bdaily("1970-01-01")` to `bdaily("2049-12-31")`)
+  is identical.

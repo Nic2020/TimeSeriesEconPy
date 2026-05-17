@@ -40,11 +40,17 @@ matplotlib = ["matplotlib>=3.8"]
 plotly = ["plotly>=5.20"]
 pandas = ["pandas>=2.2"]
 polars = ["polars>=1.0"]
+# Powers the country/subdivision form of `set_holidays_map(...)` and
+# `get_holidays_options(...)` — see _options.py. The Julia upstream ships
+# bundled CSVs; we delegate to the upstream `python-holidays` package so
+# there is a single source of truth for the calendar data.
+holidays = ["holidays>=0.40"]
 all = [
     "matplotlib>=3.8",
     "plotly>=5.20",
     "pandas>=2.2",
     "polars>=1.0",
+    "holidays>=0.40",
 ]
 
 [dependency-groups]

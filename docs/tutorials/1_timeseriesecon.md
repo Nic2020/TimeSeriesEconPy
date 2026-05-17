@@ -30,7 +30,7 @@ the site.
 | 14 | [`overlay`](#14-overlay)                        | 🟢    |
 | 15 | [`compare` / `@compare`](#15-compare)           | 🟢    |
 | 15a | [`reindex`](#15a-reindex) *(Python add: not a tutorial-1 section upstream)* | 🟢 |
-| 16 | [BDaily holidays](#16-bdaily-holidays)                  | 🟡    |
+| 16 | [BDaily holidays](#16-bdaily-holidays)                  | 🟢    |
 | 17 | [Options](#17-options)                          | 🟢    |
 
 Legend: 🟢 ported · 🟡 partial · 🔵 stubbed (depends on a later milestone).
@@ -1261,15 +1261,63 @@ returned `TSeries` / `MVTSeries` aliases the original `.values` buffer
 ## 16. BDaily holidays { #16-bdaily-holidays }
 
 The holidays *kwargs* (`skip_all_nans=`, `skip_holidays=`,
-`holidays_map=`) are ported and wired into `shift` / `lag` / `lead` /
-`diff` / `pct`, into `fconvert` lower-frequency aggregation paths,
-and into the `_stats.py` reductions (`mean` / `std` / `var` / etc.).
-The bundled-holidays-by-country *loader* (`set_holidays_map("CA",
-"ON")` in Julia) is M4 work — it'll wrap the
-[`holidays`](https://pypi.org/project/holidays/) PyPI package rather
-than re-shipping the Julia data files. For now, build the map yourself
-and pass it in via `set_holidays_map(ts_bool)` or as a per-call
-`holidays_map=`.
+`holidays_map=`) are wired into `shift` / `lag` / `lead` / `diff` /
+`pct`, into `fconvert` lower-frequency aggregation paths, and into the
+`_stats.py` reductions (`mean` / `std` / `var` / etc.). A holidays map
+is a `TSeries[BDaily, bool]` — `True` for business days, `False` for
+holidays — installed once into the process via `set_holidays_map(...)`
+and consulted by any function called with `skip_holidays=True`.
+
+### Loading a calendar by country / subdivision
+
+`set_holidays_map("DK")` or `set_holidays_map("CA", "ON")` fetches the
+named calendar from the
+[`holidays`](https://pypi.org/project/holidays/) PyPI package — install
+the optional extra first with
+`pip install "TimeSeriesEconPy[holidays]"`. The map spans
+`bdaily("1970-01-01")` to `bdaily("2049-12-31")`, matching the Julia
+upstream's default coverage.
+
+```python exec="true" source="material-block" session="tut1"
+from tsecon import (
+    bdaily,
+    clear_holidays_map,
+    get_holidays_map,
+    get_holidays_options,
+    set_holidays_map,
+)
+
+print("first 6 supported countries:", get_holidays_options()[:6])
+print("CA subdivisions (first 6):", get_holidays_options("CA")[:6])
+
+set_holidays_map("CA", "ON")  # Ontario, Canada
+m = get_holidays_map()
+print(f"map spans {m.firstdate} to {m.lastdate}, dtype={m.values.dtype}")
+print("Family Day (2024-02-19) is a holiday in ON:",
+      not bool(m[bdaily("2024-02-19")]))
+clear_holidays_map()
+```
+
+The country / subdivision codes follow `python-holidays`'s
+conventions (ISO 3166 alpha-2 / 3166-2). A small number of Julia's
+CSV-derived names (e.g. subdivisions spelled with spaces) differ;
+`get_holidays_options(country)` is authoritative.
+
+### Pre-built TSeries form
+
+`set_holidays_map(t)` accepts a hand-built BDaily Boolean TSeries when
+you need a calendar that doesn't match a country code (e.g. a
+firm-specific working-day calendar):
+
+```python exec="true" source="material-block" session="tut1"
+cal = TSeries.trues(MITRange(bdaily("2022-01-03"), bdaily("2022-12-30")))
+cal[bdaily("2022-01-03")] = False   # mark New Year's observed
+set_holidays_map(cal)
+print("map length:", len(get_holidays_map()))
+clear_holidays_map()
+```
+
+### `skip_all_nans` semantics
 
 A taste of the `skip_all_nans` knob in action — non-NaN handling is
 unchanged from upstream:
@@ -1292,11 +1340,14 @@ NaN at `2022-01-07`. See [`tsecon.pct`](../reference/math.md) for the
 full kwargs surface.
 
 !!! info "Julia ↔ Python"
-    Corresponds to *BDaily Holidays*. The functional surface for the
-    three kwargs is identical; the country / region map loader
-    (`set_holidays_map("CA", "ON")`) lands later because the Python
-    ecosystem already has a maintained holidays package and rebuilding
-    Julia's bundled binary would be wasteful.
+    Corresponds to *BDaily Holidays*. The three kwargs and the
+    country / subdivision loader both port directly. Julia ships
+    bundled CSVs under `TimeSeriesEcon.jl/src/holidays/`; Python
+    delegates to the upstream `python-holidays` package as the single
+    source of truth — no vendored data. Country / subdivision codes
+    follow ISO 3166 conventions rather than the Julia CSVs'
+    space-separated forms; use `get_holidays_options(country)` to
+    discover the supported codes.
 
 ## 17. Options { #17-options }
 
@@ -1333,10 +1384,11 @@ print("after the scope:", tsecon.getoption("bdaily_creation_bias"))
 ```
 
 The `bdaily_holidays_map` option holds a `TSeries[BDaily, bool]` (or
-`None`); `True` means business day, `False` means holiday. The
-bundled-by-country loader (Julia's
-`set_holidays_map("CA", "ON")`) is M4 work — see [§16](#16-bdaily-holidays).
-For now, build the map yourself and pass it to `set_holidays_map(...)`:
+`None`); `True` means business day, `False` means holiday.
+`set_holidays_map(...)` accepts either a hand-built TSeries or a
+country / subdivision code (`set_holidays_map("CA", "ON")`); see
+[§16](#16-bdaily-holidays) for the country-code form. Hand-built
+example:
 
 ```python exec="true" source="material-block" session="tut1"
 from tsecon import clear_holidays_map, get_holidays_map, set_holidays_map
@@ -1355,18 +1407,16 @@ print("after clear:", get_holidays_map())
     Python has no `Symbol` type and faking one would be pure friction.
     The `option_scope` context manager is the Pythonic equivalent of
     `with` `withTimeSeriesEcon.setoption` callable patterns in Julia
-    test suites. The set-by-country-code loader is M4; everything else
-    is the same.
+    test suites. The country / subdivision loader is shipped (see
+    [§16](#16-bdaily-holidays)).
 
 ---
 
 ## What's next
 
-Sections marked 🔵 (`overlay`, `compare`) land alongside the rest of
-`various.jl` in M4. The 🟡-marked half of BDaily holidays (the
-country-code map loader) also lands in M4, on top of the existing
-[holidays PyPI package](https://pypi.org/project/holidays/). Until
-then, everything in this tutorial is shipped and tested.
+Everything in this tutorial is shipped and tested. The remaining
+M4 work (`linalg.jl` matrix overloads, `clean_old_frequencies`,
+`@weval`) does not surface in tutorial 1.
 
 If you came from `TimeSeriesEcon.jl`, the
 [migration guide](../design/migration_from_julia.md) collects the

@@ -29,6 +29,7 @@ from tsecon._mirror import MIRRORS_JULIA_SHA
 from tsecon._options import (
     clear_holidays_map,
     get_holidays_map,
+    get_holidays_options,
     getoption,
     option_scope,
     set_holidays_map,
@@ -170,6 +171,7 @@ __all__ = [
     "from_pandas",
     "from_polars",
     "get_holidays_map",
+    "get_holidays_options",
     "getoption",
     "hcat",
     "is_bdaily",

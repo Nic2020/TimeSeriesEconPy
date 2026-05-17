@@ -20,6 +20,7 @@ pip install "TimeSeriesEconPy[matplotlib]"   # matplotlib plotting backend
 pip install "TimeSeriesEconPy[plotly]"       # plotly plotting backend
 pip install "TimeSeriesEconPy[pandas]"       # pandas interop
 pip install "TimeSeriesEconPy[polars]"       # polars interop
+pip install "TimeSeriesEconPy[holidays]"     # country/subdivision BDaily holiday calendars
 pip install "TimeSeriesEconPy[all]"          # everything
 ```
 

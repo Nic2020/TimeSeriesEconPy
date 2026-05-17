@@ -22,6 +22,7 @@ overloads from ``test_tseries.jl`` and ``test_mvtseries.jl``.
 from __future__ import annotations
 
 import datetime as _dt
+import importlib.util
 
 import numpy as np
 import pytest
@@ -47,6 +48,7 @@ from tsecon import (
     fconvert,
     fconvert_range,
     get_holidays_map,
+    get_holidays_options,
     getoption,
     lag,
     lead,
@@ -66,6 +68,12 @@ from tsecon import (
 )
 from tsecon._options import VALID_BDAILY_BIASES
 from tsecon.mit import mit_to_date
+
+_HOLIDAYS_AVAILABLE = importlib.util.find_spec("holidays") is not None
+_requires_holidays = pytest.mark.skipif(
+    not _HOLIDAYS_AVAILABLE,
+    reason="optional `holidays` package not installed",
+)
 
 
 @pytest.fixture(autouse=True)
@@ -507,3 +515,138 @@ class TestStatisticsBDaily:
         assert c.shape == (2, 2)
         # Cov(a, a) with ddof=1 over [1,2,3] = 1.0.
         assert pytest.approx(1.0) == float(c[0, 0])
+
+
+# ---------------------------------------------------------------------------
+# Country / subdivision loader (closes parity-gap G8)
+# ---------------------------------------------------------------------------
+
+
+@_requires_holidays
+class TestHolidaysCountryLoader:
+    """The string form of ``set_holidays_map(country, subdivision=None)``.
+
+    Mirrors Julia's ``set_holidays_map(country, subdivision)`` in
+    ``TimeSeriesEcon.jl/src/options.jl``. Delegates to the
+    ``python-holidays`` PyPI package; the bundled-CSV path Julia uses is
+    intentionally not vendored — see ``claude_files/parity/PARITY_GAPS.md``
+    G8 closure.
+    """
+
+    def test_us_installs_federal_calendar(self) -> None:
+        set_holidays_map("US")
+        m = get_holidays_map()
+        assert isinstance(m, TSeries)
+        assert isinstance(m.frequency, BDaily)
+        assert m.values.dtype == bool
+        # 2024-12-25 is a Wednesday (US federal holiday).
+        assert bool(m[bdaily("2024-12-25")]) is False
+        # 2024-11-28 Thanksgiving (Thursday).
+        assert bool(m[bdaily("2024-11-28")]) is False
+        # 2024-03-04 (random Monday) is a regular business day.
+        assert bool(m[bdaily("2024-03-04")]) is True
+
+    def test_subdivision_ca_on_includes_family_day(self) -> None:
+        set_holidays_map("CA", "ON")
+        m = get_holidays_map()
+        # Family Day 2024 = Monday 2024-02-19 (Ontario observes).
+        assert bool(m[bdaily("2024-02-19")]) is False
+
+    def test_subdivision_ca_qc_lacks_family_day_but_has_st_jean(self) -> None:
+        # Quebec does not observe Family Day; it does observe
+        # Saint-Jean-Baptiste (Fête nationale) on 2024-06-24 (Monday).
+        set_holidays_map("CA", "QC")
+        m = get_holidays_map()
+        assert bool(m[bdaily("2024-02-19")]) is True  # no Family Day in QC
+        assert bool(m[bdaily("2024-06-24")]) is False
+
+    def test_unknown_country_raises_value_error(self) -> None:
+        with pytest.raises(ValueError, match=r"Unsupported country: 'XX'"):
+            set_holidays_map("XX")
+
+    def test_unknown_subdivision_raises_value_error(self) -> None:
+        with pytest.raises(ValueError, match=r"Unsupported subdivision 'ZZ' for country 'CA'"):
+            set_holidays_map("CA", "ZZ")
+
+    def test_tseries_form_still_works(self) -> None:
+        ts = TSeries(bdaily("2020-01-01"), np.ones(10, dtype=bool))
+        set_holidays_map(ts)
+        assert get_holidays_map() is ts
+
+    def test_non_string_non_tseries_raises_type_error(self) -> None:
+        with pytest.raises(TypeError):
+            set_holidays_map(42)
+
+    def test_subdivision_with_tseries_raises_type_error(self) -> None:
+        ts = TSeries(bdaily("2020-01-01"), np.ones(10, dtype=bool))
+        with pytest.raises(TypeError, match=r"`subdivision=` is only meaningful"):
+            set_holidays_map(ts, "ON")
+
+    def test_loader_covers_full_default_range(self) -> None:
+        # The map spans ``bdaily("1970-01-01") : bdaily("2049-12-31")`` per
+        # the Julia upstream's default coverage.
+        set_holidays_map("DK")
+        m = get_holidays_map()
+        assert m.firstdate == bdaily("1970-01-01")
+        assert m.lastdate == bdaily("2049-12-31")
+
+
+@_requires_holidays
+class TestGetHolidaysOptions:
+    def test_no_arg_returns_non_empty_sorted_tuple(self) -> None:
+        codes = get_holidays_options()
+        assert isinstance(codes, tuple)
+        assert len(codes) > 0
+        assert list(codes) == sorted(codes)
+        # ISO 3166 alpha-2 staples must be present.
+        assert "CA" in codes
+        assert "US" in codes
+        assert "DK" in codes
+
+    def test_country_arg_returns_subdivisions(self) -> None:
+        ca = get_holidays_options("CA")
+        assert isinstance(ca, tuple)
+        assert "ON" in ca
+        assert "QC" in ca
+        assert list(ca) == sorted(ca)
+
+    def test_country_with_no_subdivisions_returns_empty_tuple(self) -> None:
+        # Denmark exposes no subdivisions in the holidays package.
+        assert get_holidays_options("DK") == ()
+
+    def test_unknown_country_raises_value_error(self) -> None:
+        with pytest.raises(ValueError, match=r"Unsupported country: 'XX'"):
+            get_holidays_options("XX")
+
+
+class TestHolidaysLazyImport:
+    """The ``[holidays]`` extra must be optional and the install hint visible.
+
+    Skipif-gated so the test still runs on a stripped environment that has no
+    real ``holidays`` install — the patch makes ``find_spec`` return ``None``
+    regardless of what's actually installed.
+    """
+
+    def test_country_loader_without_package_raises_importerror(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        def _find_spec_stub(name: str, *args: object, **kwargs: object) -> object:
+            if name == "holidays":
+                return None
+            return importlib.util.find_spec(name)
+
+        monkeypatch.setattr("tsecon._options.find_spec", _find_spec_stub)
+        with pytest.raises(ImportError, match=r"TimeSeriesEconPy\[holidays\]"):
+            set_holidays_map("CA")
+
+    def test_get_holidays_options_without_package_raises_importerror(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        def _find_spec_stub(name: str, *args: object, **kwargs: object) -> object:
+            if name == "holidays":
+                return None
+            return importlib.util.find_spec(name)
+
+        monkeypatch.setattr("tsecon._options.find_spec", _find_spec_stub)
+        with pytest.raises(ImportError, match=r"TimeSeriesEconPy\[holidays\]"):
+            get_holidays_options()

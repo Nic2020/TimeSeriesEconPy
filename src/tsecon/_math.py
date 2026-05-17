@@ -30,16 +30,32 @@ raises :class:`TypeError` to mirror Julia's type-dispatch separation.
 
 from __future__ import annotations
 
-from typing import Any, cast
+from typing import Any, Final, cast
 
 import numpy as np
 
 from tsecon._bdaily import replace_nans_if_warranted
+from tsecon._kernel_dispatch import _dispatch_kernel, _is_kernel_eligible
+from tsecon._math_kernels import cumsum_anchored_numpy
 from tsecon.frequencies import BDaily, Frequency, YPFrequency, ppy, prettyprint_frequency
 from tsecon.mit import MIT
 from tsecon.mitrange import MITRange, rangeof_span
 from tsecon.mvtseries import MVTSeries
 from tsecon.tseries import TSeries
+
+# Try to load the optional Cython-compiled accelerator. When the wheel was
+# built without the C toolchain (or for editable installs that skipped the
+# build hook), the import fails silently and undiff / undiff_inplace fall
+# back to the NumPy reference. The public surface is otherwise unchanged.
+try:
+    from tsecon._math_kernels_cy import cumsum_anchored_cython  # type: ignore[import-not-found]
+
+    _CYTHON_AVAILABLE: Final[bool] = True
+except ImportError:
+    _CYTHON_AVAILABLE = False  # type: ignore[misc]
+    # Stub matches the cython name so `_dispatch_kernel` resolves cleanly
+    # when the extension isn't built (see `_kernel_dispatch.py` docstring).
+    cumsum_anchored_cython = cumsum_anchored_numpy
 
 __all__ = [
     "apct",
@@ -56,8 +72,27 @@ __all__ = [
     "shift_inplace",
     "undiff",
     "undiff_inplace",
+    "undiff_is_cython",
     "ytypct",
 ]
+
+
+def undiff_is_cython() -> bool:
+    """Return True iff the Cython-compiled cumsum-anchored kernel was importable.
+
+    Useful for tests, benchmarks, and diagnostic prints — the public
+    :func:`undiff` and :func:`undiff_inplace` are implementation-
+    agnostic. When this returns ``False`` the same calls go through
+    the pure-NumPy kernel in ``_math_kernels.py``; behaviour is
+    identical, only speed differs.
+
+    The fast path also requires the integrated buffer to be ``float64``
+    + C-contiguous (the canonical kernel-eligibility contract); when
+    either condition fails (e.g. integer ``dvar`` with integer
+    anchor), the call routes through ``np.cumsum`` even when the
+    extension is importable.
+    """
+    return _CYTHON_AVAILABLE
 
 
 # An anchor passed to ``undiff`` can be (a) a scalar number; (b) a TSeries that
@@ -538,6 +573,21 @@ def undiff(
     On an :class:`~tsecon.mvtseries.MVTSeries`, ``anchor`` may additionally
     be a vector / matrix (one entry per column) or another MVTSeries; the
     cumulative sum is performed column-wise.
+
+    Dispatch
+    --------
+    The TSeries path's hot loop (cumsum over the integrated chunk +
+    constant-shift correction) routes through the
+    :func:`tsecon._math_kernels.cumsum_anchored_numpy` /
+    :func:`tsecon._math_kernels_cy.cumsum_anchored_cython` kernel pair
+    when the integrated buffer is ``float64`` + C-contiguous; use
+    :func:`undiff_is_cython` to check which path is active. Integer
+    ``dvar`` + integer anchor combinations (which would broaden the
+    result dtype away from ``float64``) stay on the pure-NumPy path
+    so the integer return type is preserved. The MVTSeries path stays
+    pure NumPy in M1.6 — ``np.cumsum(..., axis=0)`` already runs the
+    column-wise reduction in C, and the outer benchmark ratio sits at
+    14× rather than the 25-80× band the kernel addresses.
     """
     if isinstance(dvar, MVTSeries):
         return _undiff_mvts(dvar, anchor)
@@ -555,8 +605,27 @@ def undiff(
             extended[rng] = dvar
         dvar = extended
         rng = new_range
-    result_arr = np.cumsum(dvar.values).astype(et, copy=True)
     ad_idx = ad.value - rng.start.value
+    # Copy dvar values into a fresh float64 buffer; the kernel mutates it
+    # in place (cumsum + correction). For non-float64 result dtypes (e.g.
+    # int dvar + int anchor) stay on the NumPy path so the integer return
+    # type is preserved.
+    if et == np.float64:
+        result_arr = dvar.values.astype(np.float64, copy=True)
+        if _is_kernel_eligible(result_arr):
+            _dispatch_kernel(
+                _CYTHON_AVAILABLE,
+                cumsum_anchored_cython,
+                cumsum_anchored_numpy,
+                result_arr,
+                0,
+                result_arr.shape[0],
+                float(av),
+                ad_idx,
+            )
+            return TSeries(rng.start, result_arr)
+    # Non-float64 fallback (preserves integer return dtype):
+    result_arr = np.cumsum(dvar.values).astype(et, copy=True)
     correction = av - result_arr[ad_idx]
     return TSeries(rng.start, result_arr + correction)
 
@@ -585,6 +654,19 @@ def undiff_inplace(
        *whole* cumulative result so ``result[fromdate] == value``;
        :func:`undiff_inplace` zeros out the earlier ``dvar`` entries instead,
        so the integrated tail starts cleanly from the existing anchor.
+
+    Dispatch
+    --------
+    Shares the cumsum + anchor-shift kernel with :func:`undiff` — the
+    inplace variant calls into the same
+    :func:`tsecon._math_kernels.cumsum_anchored_numpy` /
+    :func:`tsecon._math_kernels_cy.cumsum_anchored_cython` pair with
+    ``anchor_relative_idx = -1`` (the anchor sits one position before
+    the integrated chunk, so the correction collapses to a single
+    fused add per element). Use :func:`undiff_is_cython` to check
+    which path is active. The kernel only engages when ``var.values``
+    is ``float64`` + C-contiguous; other dtypes fall back to the
+    pre-existing ``np.cumsum`` path.
     """
     if var.frequency != dvar.frequency:
         raise _mixed_freq(var.frequency, dvar.frequency)
@@ -609,9 +691,30 @@ def undiff_inplace(
             f"{dvar.firstdate!s}; dvar lookups would be out of range."
         )
         raise ValueError(msg)
-    dvar_chunk = dvar.values[dvar_off : dvar_off + n]
     var_anchor_idx = fd.value - var.firstdate.value
     var_write_start = var_anchor_idx + 1
+    if (
+        var.values.dtype == np.float64
+        and dvar.values.dtype == np.float64
+        and _is_kernel_eligible(var.values)
+    ):
+        # Copy the dvar chunk into the destination slot, then run the
+        # in-place cumsum kernel anchored at the position just before
+        # the chunk (anchor_relative_idx = -1, reference cumsum = 0).
+        var.values[var_write_start : var_write_start + n] = dvar.values[dvar_off : dvar_off + n]
+        _dispatch_kernel(
+            _CYTHON_AVAILABLE,
+            cumsum_anchored_cython,
+            cumsum_anchored_numpy,
+            var.values,
+            var_write_start,
+            n,
+            float(var.values[var_anchor_idx]),
+            -1,
+        )
+        return var
+    # Non-float64 fallback (preserves the original dtype-promoting cumsum path):
+    dvar_chunk = dvar.values[dvar_off : dvar_off + n]
     var.values[var_write_start : var_write_start + n] = var.values[var_anchor_idx] + np.cumsum(
         dvar_chunk
     )

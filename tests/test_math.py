@@ -33,10 +33,20 @@ from tsecon import (
     ytypct,
     yy,
 )
+from tsecon._math_kernels import cumsum_anchored_numpy
 from tsecon.frequencies import Monthly, Quarterly, Unit, Yearly
 from tsecon.mit import MIT
 from tsecon.mitrange import MITRange
 from tsecon.tseries import TSeries
+
+try:
+    from tsecon._math_kernels_cy import (  # type: ignore[import-not-found]
+        cumsum_anchored_cython,
+    )
+
+    _MATH_CY_AVAILABLE = True
+except ImportError:
+    _MATH_CY_AVAILABLE = False
 
 # ---------------------------------------------------------------------------
 # shift / shift_inplace
@@ -772,3 +782,101 @@ class TestDiffUndiffRoundTrip:
         v.values[0] = t.values[0]
         undiff_inplace(v, d, fromdate=t.firstdate)
         assert np.allclose(v.values, t.values)
+
+
+# ---------------------------------------------------------------------------
+# Cython-vs-NumPy kernel agreement (M1.6.2 — fifth Cython port)
+# ---------------------------------------------------------------------------
+#
+# The two ``cumsum_anchored_*`` kernels in ``_math_kernels{,_cy}`` share an
+# identical contract; this test sweeps the anchor-position regimes the
+# kernel must handle (the anchor sits before the chunk, at the start, in
+# the middle, at the end, plus NaN-in-input and a single-element chunk)
+# across three lengths and two anchor magnitudes. Backstops the public
+# ``undiff`` / ``undiff_inplace`` tests above: any divergence between the
+# two kernel implementations is a real bug in one of the two and would
+# silently corrupt the dispatch result depending on which path was active.
+
+
+@pytest.mark.skipif(not _MATH_CY_AVAILABLE, reason="Cython math kernel not compiled")
+class TestCumsumKernelsAgreeOnArrays:
+    """Parametric kernel-pair agreement test; mirrors ``TestRecLinearKernelsAgreeOnArrays``."""
+
+    @pytest.mark.parametrize("length", [1, 12, 100])
+    @pytest.mark.parametrize("anchor_value", [0.0, -3.5])
+    @pytest.mark.parametrize(
+        ("regime", "make_input"),
+        [
+            # Anchor before the chunk (undiff_inplace mode):
+            # anchor_relative_idx = -1, kernel uses 0.0 as reference cumsum.
+            ("anchor_before", lambda n, rng: (-1, rng.standard_normal(n).astype(np.float64))),
+            # Anchor at start: correction = anchor_value - chunk[0].
+            ("anchor_at_start", lambda n, rng: (0, rng.standard_normal(n).astype(np.float64))),
+            # Anchor in middle (n>=2 only; for n==1 collapses to "at_start").
+            (
+                "anchor_at_mid",
+                lambda n, rng: (max(n // 2, 0), rng.standard_normal(n).astype(np.float64)),
+            ),
+            # Anchor at end: correction = anchor_value - chunk[n-1].
+            ("anchor_at_end", lambda n, rng: (n - 1, rng.standard_normal(n).astype(np.float64))),
+            # NaN inside the input: both kernels must propagate identically.
+            (
+                "nan_in_input",
+                lambda n, rng: (
+                    0 if n == 1 else n // 2,
+                    np.where(
+                        np.arange(n) == max(n // 3, 0),
+                        np.nan,
+                        rng.standard_normal(n).astype(np.float64),
+                    ),
+                ),
+            ),
+            # Single-element chunk (sanity for boundary n=1; ignored on larger n).
+            ("single_element", lambda n, rng: (0, rng.standard_normal(n).astype(np.float64))),
+        ],
+    )
+    def test_kernels_agree(
+        self,
+        length: int,
+        anchor_value: float,
+        regime: str,
+        make_input: object,
+    ) -> None:
+        # The "single_element" regime is a duplicate of "anchor_at_start" for
+        # n>1; skip it there to keep the matrix legible without losing coverage.
+        if regime == "single_element" and length != 1:
+            pytest.skip("single_element regime only adds coverage at length==1")
+        rng = np.random.default_rng(seed=hash((length, regime, anchor_value)) & 0xFFFF_FFFF)
+        anchor_relative_idx, chunk = make_input(length, rng)  # type: ignore[operator]
+        # Embed the chunk in a larger buffer to verify the kernel respects
+        # offset/count and leaves surrounding positions untouched.
+        prefix = rng.standard_normal(3).astype(np.float64)
+        suffix = rng.standard_normal(2).astype(np.float64)
+        n = length
+        full_numpy = np.concatenate([prefix, chunk, suffix]).copy()
+        full_cython = full_numpy.copy()
+        offset = prefix.shape[0]
+        cumsum_anchored_numpy(full_numpy, offset, n, anchor_value, anchor_relative_idx)
+        cumsum_anchored_cython(full_cython, offset, n, anchor_value, anchor_relative_idx)
+        # Surrounding positions untouched (bit-exact).
+        np.testing.assert_array_equal(full_numpy[:offset], prefix)
+        np.testing.assert_array_equal(full_cython[:offset], prefix)
+        np.testing.assert_array_equal(full_numpy[offset + n :], suffix)
+        np.testing.assert_array_equal(full_cython[offset + n :], suffix)
+        # Integrated chunk agrees element-wise (NaN propagates identically).
+        np.testing.assert_allclose(
+            full_numpy[offset : offset + n],
+            full_cython[offset : offset + n],
+            rtol=1e-12,
+            atol=1e-15,
+            equal_nan=True,
+        )
+
+    def test_count_zero_is_noop(self) -> None:
+        """``count == 0`` must leave ``values`` bit-exact unchanged for both kernels."""
+        buf_numpy = np.arange(10, dtype=np.float64)
+        buf_cython = buf_numpy.copy()
+        cumsum_anchored_numpy(buf_numpy, 3, 0, 99.0, -1)
+        cumsum_anchored_cython(buf_cython, 3, 0, 99.0, -1)
+        np.testing.assert_array_equal(buf_numpy, np.arange(10, dtype=np.float64))
+        np.testing.assert_array_equal(buf_cython, np.arange(10, dtype=np.float64))

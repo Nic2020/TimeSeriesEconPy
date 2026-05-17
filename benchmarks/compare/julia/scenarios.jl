@@ -395,6 +395,16 @@ fconvert_mm_to_qq_mean_numpy_run(state) = fconvert_mm_to_qq_mean_run(state)
 fconvert_mm_to_qq_mean_cython_setup() = fconvert_mm_to_qq_mean_setup()
 fconvert_mm_to_qq_mean_cython_run(state) = fconvert_mm_to_qq_mean_run(state)
 
+# undiff kernel-direct aliases — Julia has no kernel split (`undiff` inlines
+# directly), so the three Python flavors (public API + NumPy kernel +
+# Cython kernel) all share the same Julia counterpart. Same precedent as
+# the rec_linear / stats / fconvert *_{numpy,cython} aliases.
+
+undiff_quarterly_numpy_setup() = undiff_quarterly_setup()
+undiff_quarterly_numpy_run(state) = undiff_quarterly_run(state)
+undiff_quarterly_cython_setup() = undiff_quarterly_setup()
+undiff_quarterly_cython_run(state) = undiff_quarterly_run(state)
+
 function workspace_filter_5_series_setup()
     start = qq(2020, 1)
     arr = collect(0.0:39.0)
@@ -507,6 +517,9 @@ const SCENARIOS = Dict{String, Tuple{Function, Function}}(
     "moving_average_quarterly_4"   => (moving_average_quarterly_4_setup,   moving_average_quarterly_4_run),
     "moving_sum_quarterly_4"       => (moving_sum_quarterly_4_setup,       moving_sum_quarterly_4_run),
     "undiff_quarterly"             => (undiff_quarterly_setup,             undiff_quarterly_run),
+    # undiff — M1.6.2 fifth Cython port (kernel-direct + public API)
+    "undiff_quarterly_numpy"       => (undiff_quarterly_numpy_setup,       undiff_quarterly_numpy_run),
+    "undiff_quarterly_cython"      => (undiff_quarterly_cython_setup,      undiff_quarterly_cython_run),
     # fconvert
     "fconvert_qq_to_yy_mean"       => (fconvert_qq_to_yy_mean_setup,       fconvert_qq_to_yy_mean_run),
     "fconvert_qq_to_yy_sum"        => (fconvert_qq_to_yy_sum_setup,        fconvert_qq_to_yy_sum_run),

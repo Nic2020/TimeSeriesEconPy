@@ -1,0 +1,45 @@
+{
+  "generated_at": "2026-05-17T02:01:16+00:00",
+  "python_version": "3.11.15 (main, May 10 2026, 19:31:25) [MSC v.1944 64 bit (AMD64)]",
+  "julia_available": false,
+  "pandas_available": false,
+  "polars_available": false,
+  "scenarios": [
+    {
+      "name": "undiff_quarterly",
+      "description": "undiff(t)",
+      "python": {
+        "median_seconds": 7.448736000005737e-05,
+        "min_seconds": 7.340119999935269e-05,
+        "samples": 15000
+      },
+      "julia": null,
+      "pandas": null,
+      "polars": null
+    },
+    {
+      "name": "undiff_quarterly_numpy",
+      "description": "cumsum_anchored_numpy 101 anchored at 0 \u2014 NumPy kernel",
+      "python": {
+        "median_seconds": 8.063942000007956e-06,
+        "min_seconds": 7.872820000047795e-06,
+        "samples": 150000
+      },
+      "julia": null,
+      "pandas": null,
+      "polars": null
+    },
+    {
+      "name": "undiff_quarterly_cython",
+      "description": "cumsum_anchored_cython 101 anchored at 0 \u2014 Cython kernel",
+      "python": {
+        "median_seconds": 1.627403000002232e-06,
+        "min_seconds": 1.618161499991402e-06,
+        "samples": 800000
+      },
+      "julia": null,
+      "pandas": null,
+      "polars": null
+    }
+  ]
+}

@@ -26,6 +26,9 @@ the M1.5 three-flavor kernel pair (see decision 17):
 ``rec_linear_ar2_100_numpy``      Same AR(2) via the NumPy kernel direct.
 ``rec_linear_ar2_100_cython``     Same AR(2) via the Cython kernel direct (registered
                                   only when the compiled extension is importable).
+``undiff_quarterly_numpy``        Anchored cumsum over length 101 via the NumPy kernel direct (M1.6.2).
+``undiff_quarterly_cython``       Same workload via the Cython kernel direct (M1.6.2;
+                                  registered only when the compiled extension is importable).
 ``workspace_merge_5_series``      Merge two Workspaces each holding five TSeries.
 ================================  ==============================================
 
@@ -75,6 +78,7 @@ from tsecon._fconvert_kernels import (
     aggregate_groups_numpy,
 )
 from tsecon._indexing_kernels import gather_numpy
+from tsecon._math_kernels import cumsum_anchored_numpy
 from tsecon._rec_kernels import rec_linear_numpy
 from tsecon._stats_kernels import cor_numpy, mean_numpy, std_numpy
 
@@ -111,6 +115,15 @@ try:
     _FCONVERT_CYTHON_AVAILABLE = True
 except ImportError:  # pragma: no cover — depends on wheel-build state
     _FCONVERT_CYTHON_AVAILABLE = False
+
+try:
+    from tsecon._math_kernels_cy import (  # type: ignore[import-not-found]
+        cumsum_anchored_cython,
+    )
+
+    _MATH_CYTHON_AVAILABLE = True
+except ImportError:  # pragma: no cover — depends on wheel-build state
+    _MATH_CYTHON_AVAILABLE = False
 
 # ---------------------------------------------------------------------------
 # Construction
@@ -671,6 +684,81 @@ def _run_undiff_quarterly(state: dict[str, Any]) -> TSeries:
     return undiff(state["t"])
 
 
+# ---------------------------------------------------------------------------
+# undiff kernel-direct scenarios — the M1.6.2 fifth Cython port.
+#
+# Three new scenarios mirror the rec_linear / indexing / stats / fconvert
+# multi-flavor shape:
+#
+# * ``undiff_quarterly``           — public ``undiff(t)`` including anchor
+#                                    resolution + dvar extension (kept
+#                                    unchanged from before this port; now
+#                                    Cython-backed when the kernel is
+#                                    available).
+# * ``undiff_quarterly_numpy``     — kernel-direct
+#                                    ``cumsum_anchored_numpy(buffer, 0,
+#                                    101, 0.0, 0)`` skipping the public-API
+#                                    overhead (anchor resolution, dvar
+#                                    extension, TSeries construction).
+# * ``undiff_quarterly_cython``    — kernel-direct Cython
+#                                    (conditional on the compiled
+#                                    extension).
+#
+# The kernel pair mutates its input in place — the run function reinitialises
+# the chunk per call from a frozen reference so subsequent calls don't
+# compound the cumsum into infinity. The reset cost is small and identical
+# across the NumPy and Cython rows, so it doesn't bias the comparison.
+#
+# See ``decisions/20`` (canonical dispatch template) and ``paper/NOTES.md``
+# § "undiff kernel — the N=5 row" for the framing. The Julia side has no
+# kernel split (Julia's ``undiff`` inlines directly), so all three Python
+# flavors share a single Julia counterpart.
+# ---------------------------------------------------------------------------
+
+
+def _setup_undiff_kernel_quarterly() -> dict[str, Any]:
+    # The dvar is arange(0, 100); the public undiff extends with one zero
+    # at the front so the default anchor (at firstdate-1) falls inside.
+    # The kernel works on the post-extension length-101 buffer with anchor
+    # at index 0, anchor_value=0.
+    initial = np.concatenate([[0.0], np.arange(100, dtype=np.float64)])
+    buffer = initial.copy()
+    return {
+        "initial": initial,
+        "buffer": buffer,
+        "offset": 0,
+        "count": 101,
+        "anchor_value": 0.0,
+        "anchor_relative_idx": 0,
+    }
+
+
+def _run_undiff_quarterly_numpy(state: dict[str, Any]) -> np.ndarray:
+    # Reset the chunk each call — the kernel mutates in place and a
+    # repeated cumsum would compound to overflow within a benchmark window.
+    state["buffer"][:] = state["initial"]
+    cumsum_anchored_numpy(
+        state["buffer"],
+        state["offset"],
+        state["count"],
+        state["anchor_value"],
+        state["anchor_relative_idx"],
+    )
+    return state["buffer"]
+
+
+def _run_undiff_quarterly_cython(state: dict[str, Any]) -> np.ndarray:
+    state["buffer"][:] = state["initial"]
+    cumsum_anchored_cython(
+        state["buffer"],
+        state["offset"],
+        state["count"],
+        state["anchor_value"],
+        state["anchor_relative_idx"],
+    )
+    return state["buffer"]
+
+
 def _setup_fconvert_qq_to_yy_sum() -> dict[str, Any]:
     return {
         "target": Yearly(),
@@ -937,6 +1025,8 @@ SETUP: dict[str, Callable[[], Any]] = {
     "moving_average_quarterly_4": _setup_moving_average_quarterly_4,
     "moving_sum_quarterly_4": _setup_moving_sum_quarterly_4,
     "undiff_quarterly": _setup_undiff_quarterly,
+    # undiff (M1.6.2 fifth Cython port — kernel-direct + public API)
+    "undiff_quarterly_numpy": _setup_undiff_kernel_quarterly,
     # fconvert
     "fconvert_qq_to_yy_mean": _setup_fconvert_qq_to_yy_mean,
     "fconvert_qq_to_yy_sum": _setup_fconvert_qq_to_yy_sum,
@@ -1000,6 +1090,8 @@ RUN: dict[str, Callable[[Any], Any]] = {
     "moving_average_quarterly_4": _run_moving_average_quarterly_4,
     "moving_sum_quarterly_4": _run_moving_sum_quarterly_4,
     "undiff_quarterly": _run_undiff_quarterly,
+    # undiff (M1.6.2 fifth Cython port — kernel-direct + public API)
+    "undiff_quarterly_numpy": _run_undiff_quarterly_numpy,
     # fconvert
     "fconvert_qq_to_yy_mean": _run_fconvert_qq_to_yy_mean,
     "fconvert_qq_to_yy_sum": _run_fconvert_qq_to_yy_sum,
@@ -1057,6 +1149,7 @@ DESCRIPTION: dict[str, str] = {
     "moving_average_quarterly_4": "moving_average(t, 4)",
     "moving_sum_quarterly_4": "moving_sum(t, 4)",
     "undiff_quarterly": "undiff(t)",
+    "undiff_quarterly_numpy": "cumsum_anchored_numpy 101 anchored at 0 — NumPy kernel",
     "fconvert_qq_to_yy_mean": "fconvert(Yearly, t, method='mean')",
     "fconvert_qq_to_yy_sum": "fconvert(Yearly, t, method='sum')",
     "fconvert_yy_to_qq_const": "fconvert(Quarterly, t, method='const') (higher)",
@@ -1120,6 +1213,13 @@ if _FCONVERT_CYTHON_AVAILABLE:
     RUN["fconvert_mm_to_qq_mean_cython"] = _run_fconvert_mm_to_qq_mean_cython
     DESCRIPTION["fconvert_mm_to_qq_mean_cython"] = (
         "aggregate_groups_cython 40x3 mean - Cython kernel"
+    )
+
+if _MATH_CYTHON_AVAILABLE:
+    SETUP["undiff_quarterly_cython"] = _setup_undiff_kernel_quarterly
+    RUN["undiff_quarterly_cython"] = _run_undiff_quarterly_cython
+    DESCRIPTION["undiff_quarterly_cython"] = (
+        "cumsum_anchored_cython 101 anchored at 0 — Cython kernel"
     )
 
 assert SETUP.keys() == RUN.keys() == DESCRIPTION.keys(), "scenario registries must agree"

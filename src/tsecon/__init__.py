@@ -22,6 +22,7 @@ from tsecon._math import (
     shift_inplace,
     undiff,
     undiff_inplace,
+    undiff_is_cython,
     ytypct,
 )
 from tsecon._mirror import MIRRORS_JULIA_SHA
@@ -213,6 +214,7 @@ __all__ = [
     "typenan",
     "undiff",
     "undiff_inplace",
+    "undiff_is_cython",
     "var",
     "varm",
     "vcat",

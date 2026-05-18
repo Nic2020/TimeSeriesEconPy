@@ -40,6 +40,8 @@ plugins:
   - mkdocstrings:
       handlers:
         python:
+          inventories:
+            - https://numpy.org/doc/stable/objects.inv
           options:
             docstring_style: numpy
             show_source: true
@@ -48,6 +50,15 @@ plugins:
             members_order: source
             separate_signature: true
             show_signature_annotations: true
+
+validation:
+  links:
+    not_found: warn
+    anchors: warn
+    absolute_links: warn
+    unrecognized_links: warn
+  nav:
+    omitted_files: warn
 
 markdown_extensions:
   - admonition

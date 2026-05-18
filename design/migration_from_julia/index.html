@@ -1427,6 +1427,16 @@ differences — what the spellings, not the semantics, look like.</p>
 <td><code>TSeries(rng, zeros)</code> / <code>TSeries(rng, rand)</code></td>
 <td><code>TSeries(rng, np.zeros)</code> / <code>TSeries(rng, rng_np.random)</code></td>
 </tr>
+<tr>
+<td><code>mean(mvts; dims=1)</code> (per-column)</td>
+<td><code>mean(mvts; dims=1)</code></td>
+<td><code>mean(mvts, axis=0)</code> (NumPy convention)</td>
+</tr>
+<tr>
+<td><code>mean(mvts; dims=2)</code> (per-row)</td>
+<td><code>mean(mvts; dims=2)</code></td>
+<td><code>mean(mvts, axis=1)</code></td>
+</tr>
 </tbody>
 </table>
 <h2 id="semantics-that-are-identical">Semantics that are identical<a class="headerlink" href="#semantics-that-are-identical" title="Permanent link">&para;</a></h2>
@@ -1470,6 +1480,15 @@ differences — what the spellings, not the semantics, look like.</p>
   becomes a Python <code>(old_mit, new_mit)</code> 2-tuple. Dispatch over MIT /
   MITRange / TSeries / MVTSeries / Workspace is identical; the <code>copy=</code>
   kwarg is the same (default <code>False</code>, wrap-by-default).</li>
+<li><strong><code>Statistics.*</code> axis kwarg is <code>axis=</code>, not <code>dims=</code>.</strong> Julia's
+  <code>mean(mvts; dims=1)</code> reduces along rows (per-column); Python uses NumPy's
+  <code>axis=0</code> for the same operation. <code>dims=2</code> (per-row, Julia) maps to
+  <code>axis=1</code> (per-row, Python). <code>axis=None</code> (default) reduces flat to a
+  scalar — the existing behaviour. Returns: <code>axis=0</code> → single-row
+  MVTSeries (column names preserved); <code>axis=1</code> → 1-D TSeries indexed by
+  the input range. The convention switch is the same "Python idiom wins
+  for kwargs that are language-conventional" rule used elsewhere in this
+  table; the underlying behaviour matches Julia.</li>
 <li><strong><code>set_holidays_map(country, subdivision)</code> delegates to <code>python-holidays</code>.</strong>
   The Julia upstream ships bundled CSVs (<code>TimeSeriesEcon.jl/src/holidays/</code>)
   and reads them on first call. Python delegates to the

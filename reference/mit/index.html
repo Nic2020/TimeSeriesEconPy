@@ -4517,10 +4517,7 @@ ts.rec(ts.rangeof(a, drop=1), a, lambda t: (1 - rho) * a_ss + rho * a[t - 1])
 <span class="normal"><a href="#__codelineno-0-350">350</a></span>
 <span class="normal"><a href="#__codelineno-0-351">351</a></span>
 <span class="normal"><a href="#__codelineno-0-352">352</a></span>
-<span class="normal"><a href="#__codelineno-0-353">353</a></span>
-<span class="normal"><a href="#__codelineno-0-354">354</a></span>
-<span class="normal"><a href="#__codelineno-0-355">355</a></span>
-<span class="normal"><a href="#__codelineno-0-356">356</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-249" name="__codelineno-0-249"></a><span class="k">def</span><span class="w"> </span><span class="nf">rangeof</span><span class="p">(</span>
+<span class="normal"><a href="#__codelineno-0-353">353</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-249" name="__codelineno-0-249"></a><span class="k">def</span><span class="w"> </span><span class="nf">rangeof</span><span class="p">(</span>
 <a id="__codelineno-0-250" name="__codelineno-0-250"></a>    <span class="n">obj</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span>
 <a id="__codelineno-0-251" name="__codelineno-0-251"></a>    <span class="o">*</span><span class="p">,</span>
 <a id="__codelineno-0-252" name="__codelineno-0-252"></a>    <span class="n">drop</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
@@ -4609,25 +4606,22 @@ ts.rec(ts.rangeof(a, drop=1), a, lambda t: (1 - rho) * a_ss + rho * a[t - 1])
 <a id="__codelineno-0-335" name="__codelineno-0-335"></a>        <span class="n">base</span> <span class="o">=</span> <span class="n">obj</span><span class="o">.</span><span class="n">rangeof</span><span class="p">(</span><span class="n">method</span><span class="o">=</span><span class="n">method</span><span class="p">)</span>
 <a id="__codelineno-0-336" name="__codelineno-0-336"></a>    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="p">(</span><span class="n">MITRange</span><span class="p">,</span> <span class="n">MIT</span><span class="p">,</span> <span class="n">TSeries</span><span class="p">,</span> <span class="n">MVTSeries</span><span class="p">)):</span>
 <a id="__codelineno-0-337" name="__codelineno-0-337"></a>        <span class="k">if</span> <span class="n">method</span> <span class="o">!=</span> <span class="s2">&quot;intersect&quot;</span><span class="p">:</span>
-<a id="__codelineno-0-338" name="__codelineno-0-338"></a>            <span class="n">msg</span> <span class="o">=</span> <span class="p">(</span>
-<a id="__codelineno-0-339" name="__codelineno-0-339"></a>                <span class="sa">f</span><span class="s2">&quot;method=</span><span class="si">{</span><span class="n">method</span><span class="si">!r}</span><span class="s2"> is only meaningful for Workspace; &quot;</span>
-<a id="__codelineno-0-340" name="__codelineno-0-340"></a>                <span class="sa">f</span><span class="s2">&quot;got </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">.&quot;</span>
-<a id="__codelineno-0-341" name="__codelineno-0-341"></a>            <span class="p">)</span>
-<a id="__codelineno-0-342" name="__codelineno-0-342"></a>            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
-<a id="__codelineno-0-343" name="__codelineno-0-343"></a>        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">MITRange</span><span class="p">):</span>
-<a id="__codelineno-0-344" name="__codelineno-0-344"></a>            <span class="n">base</span> <span class="o">=</span> <span class="n">obj</span>
-<a id="__codelineno-0-345" name="__codelineno-0-345"></a>        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">MIT</span><span class="p">):</span>
-<a id="__codelineno-0-346" name="__codelineno-0-346"></a>            <span class="n">base</span> <span class="o">=</span> <span class="n">MITRange</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">obj</span><span class="p">)</span>
-<a id="__codelineno-0-347" name="__codelineno-0-347"></a>        <span class="k">else</span><span class="p">:</span>
-<a id="__codelineno-0-348" name="__codelineno-0-348"></a>            <span class="n">base</span> <span class="o">=</span> <span class="n">obj</span><span class="o">.</span><span class="n">range</span>
-<a id="__codelineno-0-349" name="__codelineno-0-349"></a>    <span class="k">else</span><span class="p">:</span>
-<a id="__codelineno-0-350" name="__codelineno-0-350"></a>        <span class="n">msg</span> <span class="o">=</span> <span class="p">(</span>
-<a id="__codelineno-0-351" name="__codelineno-0-351"></a>            <span class="sa">f</span><span class="s2">&quot;rangeof() does not support </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">; expected &quot;</span>
-<a id="__codelineno-0-352" name="__codelineno-0-352"></a>            <span class="sa">f</span><span class="s2">&quot;MITRange, MIT, TSeries, MVTSeries, or Workspace.&quot;</span>
-<a id="__codelineno-0-353" name="__codelineno-0-353"></a>        <span class="p">)</span>
-<a id="__codelineno-0-354" name="__codelineno-0-354"></a>        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
-<a id="__codelineno-0-355" name="__codelineno-0-355"></a>
-<a id="__codelineno-0-356" name="__codelineno-0-356"></a>    <span class="k">return</span> <span class="n">_apply_drop</span><span class="p">(</span><span class="n">base</span><span class="p">,</span> <span class="n">drop</span><span class="p">)</span>
+<a id="__codelineno-0-338" name="__codelineno-0-338"></a>            <span class="n">msg</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;method=</span><span class="si">{</span><span class="n">method</span><span class="si">!r}</span><span class="s2"> is only meaningful for Workspace; got </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">.&quot;</span>
+<a id="__codelineno-0-339" name="__codelineno-0-339"></a>            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+<a id="__codelineno-0-340" name="__codelineno-0-340"></a>        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">MITRange</span><span class="p">):</span>
+<a id="__codelineno-0-341" name="__codelineno-0-341"></a>            <span class="n">base</span> <span class="o">=</span> <span class="n">obj</span>
+<a id="__codelineno-0-342" name="__codelineno-0-342"></a>        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">MIT</span><span class="p">):</span>
+<a id="__codelineno-0-343" name="__codelineno-0-343"></a>            <span class="n">base</span> <span class="o">=</span> <span class="n">MITRange</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">obj</span><span class="p">)</span>
+<a id="__codelineno-0-344" name="__codelineno-0-344"></a>        <span class="k">else</span><span class="p">:</span>
+<a id="__codelineno-0-345" name="__codelineno-0-345"></a>            <span class="n">base</span> <span class="o">=</span> <span class="n">obj</span><span class="o">.</span><span class="n">range</span>
+<a id="__codelineno-0-346" name="__codelineno-0-346"></a>    <span class="k">else</span><span class="p">:</span>
+<a id="__codelineno-0-347" name="__codelineno-0-347"></a>        <span class="n">msg</span> <span class="o">=</span> <span class="p">(</span>
+<a id="__codelineno-0-348" name="__codelineno-0-348"></a>            <span class="sa">f</span><span class="s2">&quot;rangeof() does not support </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">; expected &quot;</span>
+<a id="__codelineno-0-349" name="__codelineno-0-349"></a>            <span class="sa">f</span><span class="s2">&quot;MITRange, MIT, TSeries, MVTSeries, or Workspace.&quot;</span>
+<a id="__codelineno-0-350" name="__codelineno-0-350"></a>        <span class="p">)</span>
+<a id="__codelineno-0-351" name="__codelineno-0-351"></a>        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+<a id="__codelineno-0-352" name="__codelineno-0-352"></a>
+<a id="__codelineno-0-353" name="__codelineno-0-353"></a>    <span class="k">return</span> <span class="n">_apply_drop</span><span class="p">(</span><span class="n">base</span><span class="p">,</span> <span class="n">drop</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -4655,7 +4649,10 @@ frequencies are mixed. The returned span is always forward-stepped
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>src/tsecon/mitrange.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-359">359</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-356">356</a></span>
+<span class="normal"><a href="#__codelineno-0-357">357</a></span>
+<span class="normal"><a href="#__codelineno-0-358">358</a></span>
+<span class="normal"><a href="#__codelineno-0-359">359</a></span>
 <span class="normal"><a href="#__codelineno-0-360">360</a></span>
 <span class="normal"><a href="#__codelineno-0-361">361</a></span>
 <span class="normal"><a href="#__codelineno-0-362">362</a></span>
@@ -4679,37 +4676,34 @@ frequencies are mixed. The returned span is always forward-stepped
 <span class="normal"><a href="#__codelineno-0-380">380</a></span>
 <span class="normal"><a href="#__codelineno-0-381">381</a></span>
 <span class="normal"><a href="#__codelineno-0-382">382</a></span>
-<span class="normal"><a href="#__codelineno-0-383">383</a></span>
-<span class="normal"><a href="#__codelineno-0-384">384</a></span>
-<span class="normal"><a href="#__codelineno-0-385">385</a></span>
-<span class="normal"><a href="#__codelineno-0-386">386</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-359" name="__codelineno-0-359"></a><span class="k">def</span><span class="w"> </span><span class="nf">rangeof_span</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="nb">object</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MITRange</span><span class="p">:</span>
-<a id="__codelineno-0-360" name="__codelineno-0-360"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the smallest forward ``MITRange`` covering all argument ranges.</span>
-<a id="__codelineno-0-361" name="__codelineno-0-361"></a>
-<a id="__codelineno-0-362" name="__codelineno-0-362"></a><span class="sd">    All arguments must share a single frequency. Raises ``TypeError`` if</span>
-<a id="__codelineno-0-363" name="__codelineno-0-363"></a><span class="sd">    frequencies are mixed. The returned span is always forward-stepped</span>
-<a id="__codelineno-0-364" name="__codelineno-0-364"></a><span class="sd">    (``step=1``) regardless of the direction of the inputs.</span>
-<a id="__codelineno-0-365" name="__codelineno-0-365"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-366" name="__codelineno-0-366"></a>    <span class="n">chosen_lo</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
-<a id="__codelineno-0-367" name="__codelineno-0-367"></a>    <span class="n">chosen_hi</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
-<a id="__codelineno-0-368" name="__codelineno-0-368"></a>    <span class="n">chosen_freq</span><span class="p">:</span> <span class="n">Frequency</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
-<a id="__codelineno-0-369" name="__codelineno-0-369"></a>    <span class="k">for</span> <span class="n">arg</span> <span class="ow">in</span> <span class="n">args</span><span class="p">:</span>
-<a id="__codelineno-0-370" name="__codelineno-0-370"></a>        <span class="n">sub</span> <span class="o">=</span> <span class="n">_to_unitrange</span><span class="p">(</span><span class="n">arg</span><span class="p">)</span>
-<a id="__codelineno-0-371" name="__codelineno-0-371"></a>        <span class="k">if</span> <span class="n">sub</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">sub</span><span class="o">.</span><span class="n">is_empty</span><span class="p">():</span>
-<a id="__codelineno-0-372" name="__codelineno-0-372"></a>            <span class="k">continue</span>
-<a id="__codelineno-0-373" name="__codelineno-0-373"></a>        <span class="k">if</span> <span class="n">chosen_freq</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-374" name="__codelineno-0-374"></a>            <span class="n">chosen_freq</span> <span class="o">=</span> <span class="n">sub</span><span class="o">.</span><span class="n">frequency</span>
-<a id="__codelineno-0-375" name="__codelineno-0-375"></a>        <span class="k">elif</span> <span class="n">sub</span><span class="o">.</span><span class="n">frequency</span> <span class="o">!=</span> <span class="n">chosen_freq</span><span class="p">:</span>
-<a id="__codelineno-0-376" name="__codelineno-0-376"></a>            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
-<a id="__codelineno-0-377" name="__codelineno-0-377"></a>                <span class="sa">f</span><span class="s2">&quot;Mixing frequencies not allowed: </span><span class="si">{</span><span class="n">prettyprint_frequency</span><span class="p">(</span><span class="n">chosen_freq</span><span class="p">)</span><span class="si">}</span><span class="s2"> &quot;</span>
-<a id="__codelineno-0-378" name="__codelineno-0-378"></a>                <span class="sa">f</span><span class="s2">&quot;and </span><span class="si">{</span><span class="n">prettyprint_frequency</span><span class="p">(</span><span class="n">sub</span><span class="o">.</span><span class="n">frequency</span><span class="p">)</span><span class="si">}</span><span class="s2">.&quot;</span>
-<a id="__codelineno-0-379" name="__codelineno-0-379"></a>            <span class="p">)</span>
-<a id="__codelineno-0-380" name="__codelineno-0-380"></a>        <span class="n">sub_lo</span><span class="p">,</span> <span class="n">sub_hi</span> <span class="o">=</span> <span class="n">_range_bounds</span><span class="p">(</span><span class="n">sub</span><span class="p">)</span>
-<a id="__codelineno-0-381" name="__codelineno-0-381"></a>        <span class="n">chosen_lo</span> <span class="o">=</span> <span class="n">sub_lo</span> <span class="k">if</span> <span class="n">chosen_lo</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="nb">min</span><span class="p">(</span><span class="n">chosen_lo</span><span class="p">,</span> <span class="n">sub_lo</span><span class="p">)</span>
-<a id="__codelineno-0-382" name="__codelineno-0-382"></a>        <span class="n">chosen_hi</span> <span class="o">=</span> <span class="n">sub_hi</span> <span class="k">if</span> <span class="n">chosen_hi</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="nb">max</span><span class="p">(</span><span class="n">chosen_hi</span><span class="p">,</span> <span class="n">sub_hi</span><span class="p">)</span>
-<a id="__codelineno-0-383" name="__codelineno-0-383"></a>    <span class="k">if</span> <span class="n">chosen_freq</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">chosen_lo</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">chosen_hi</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-384" name="__codelineno-0-384"></a>        <span class="c1"># Match Julia&#39;s behavior of returning an empty `1U:0U` for no args.</span>
-<a id="__codelineno-0-385" name="__codelineno-0-385"></a>        <span class="k">return</span> <span class="n">MITRange</span><span class="p">(</span><span class="n">MIT</span><span class="p">(</span><span class="n">Unit</span><span class="p">(),</span> <span class="mi">1</span><span class="p">),</span> <span class="n">MIT</span><span class="p">(</span><span class="n">Unit</span><span class="p">(),</span> <span class="mi">0</span><span class="p">))</span>
-<a id="__codelineno-0-386" name="__codelineno-0-386"></a>    <span class="k">return</span> <span class="n">MITRange</span><span class="p">(</span><span class="n">MIT</span><span class="p">(</span><span class="n">chosen_freq</span><span class="p">,</span> <span class="n">chosen_lo</span><span class="p">),</span> <span class="n">MIT</span><span class="p">(</span><span class="n">chosen_freq</span><span class="p">,</span> <span class="n">chosen_hi</span><span class="p">))</span>
+<span class="normal"><a href="#__codelineno-0-383">383</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-356" name="__codelineno-0-356"></a><span class="k">def</span><span class="w"> </span><span class="nf">rangeof_span</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="nb">object</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MITRange</span><span class="p">:</span>
+<a id="__codelineno-0-357" name="__codelineno-0-357"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the smallest forward ``MITRange`` covering all argument ranges.</span>
+<a id="__codelineno-0-358" name="__codelineno-0-358"></a>
+<a id="__codelineno-0-359" name="__codelineno-0-359"></a><span class="sd">    All arguments must share a single frequency. Raises ``TypeError`` if</span>
+<a id="__codelineno-0-360" name="__codelineno-0-360"></a><span class="sd">    frequencies are mixed. The returned span is always forward-stepped</span>
+<a id="__codelineno-0-361" name="__codelineno-0-361"></a><span class="sd">    (``step=1``) regardless of the direction of the inputs.</span>
+<a id="__codelineno-0-362" name="__codelineno-0-362"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-363" name="__codelineno-0-363"></a>    <span class="n">chosen_lo</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+<a id="__codelineno-0-364" name="__codelineno-0-364"></a>    <span class="n">chosen_hi</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+<a id="__codelineno-0-365" name="__codelineno-0-365"></a>    <span class="n">chosen_freq</span><span class="p">:</span> <span class="n">Frequency</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+<a id="__codelineno-0-366" name="__codelineno-0-366"></a>    <span class="k">for</span> <span class="n">arg</span> <span class="ow">in</span> <span class="n">args</span><span class="p">:</span>
+<a id="__codelineno-0-367" name="__codelineno-0-367"></a>        <span class="n">sub</span> <span class="o">=</span> <span class="n">_to_unitrange</span><span class="p">(</span><span class="n">arg</span><span class="p">)</span>
+<a id="__codelineno-0-368" name="__codelineno-0-368"></a>        <span class="k">if</span> <span class="n">sub</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">sub</span><span class="o">.</span><span class="n">is_empty</span><span class="p">():</span>
+<a id="__codelineno-0-369" name="__codelineno-0-369"></a>            <span class="k">continue</span>
+<a id="__codelineno-0-370" name="__codelineno-0-370"></a>        <span class="k">if</span> <span class="n">chosen_freq</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-371" name="__codelineno-0-371"></a>            <span class="n">chosen_freq</span> <span class="o">=</span> <span class="n">sub</span><span class="o">.</span><span class="n">frequency</span>
+<a id="__codelineno-0-372" name="__codelineno-0-372"></a>        <span class="k">elif</span> <span class="n">sub</span><span class="o">.</span><span class="n">frequency</span> <span class="o">!=</span> <span class="n">chosen_freq</span><span class="p">:</span>
+<a id="__codelineno-0-373" name="__codelineno-0-373"></a>            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+<a id="__codelineno-0-374" name="__codelineno-0-374"></a>                <span class="sa">f</span><span class="s2">&quot;Mixing frequencies not allowed: </span><span class="si">{</span><span class="n">prettyprint_frequency</span><span class="p">(</span><span class="n">chosen_freq</span><span class="p">)</span><span class="si">}</span><span class="s2"> &quot;</span>
+<a id="__codelineno-0-375" name="__codelineno-0-375"></a>                <span class="sa">f</span><span class="s2">&quot;and </span><span class="si">{</span><span class="n">prettyprint_frequency</span><span class="p">(</span><span class="n">sub</span><span class="o">.</span><span class="n">frequency</span><span class="p">)</span><span class="si">}</span><span class="s2">.&quot;</span>
+<a id="__codelineno-0-376" name="__codelineno-0-376"></a>            <span class="p">)</span>
+<a id="__codelineno-0-377" name="__codelineno-0-377"></a>        <span class="n">sub_lo</span><span class="p">,</span> <span class="n">sub_hi</span> <span class="o">=</span> <span class="n">_range_bounds</span><span class="p">(</span><span class="n">sub</span><span class="p">)</span>
+<a id="__codelineno-0-378" name="__codelineno-0-378"></a>        <span class="n">chosen_lo</span> <span class="o">=</span> <span class="n">sub_lo</span> <span class="k">if</span> <span class="n">chosen_lo</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="nb">min</span><span class="p">(</span><span class="n">chosen_lo</span><span class="p">,</span> <span class="n">sub_lo</span><span class="p">)</span>
+<a id="__codelineno-0-379" name="__codelineno-0-379"></a>        <span class="n">chosen_hi</span> <span class="o">=</span> <span class="n">sub_hi</span> <span class="k">if</span> <span class="n">chosen_hi</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="nb">max</span><span class="p">(</span><span class="n">chosen_hi</span><span class="p">,</span> <span class="n">sub_hi</span><span class="p">)</span>
+<a id="__codelineno-0-380" name="__codelineno-0-380"></a>    <span class="k">if</span> <span class="n">chosen_freq</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">chosen_lo</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">chosen_hi</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-381" name="__codelineno-0-381"></a>        <span class="c1"># Match Julia&#39;s behavior of returning an empty `1U:0U` for no args.</span>
+<a id="__codelineno-0-382" name="__codelineno-0-382"></a>        <span class="k">return</span> <span class="n">MITRange</span><span class="p">(</span><span class="n">MIT</span><span class="p">(</span><span class="n">Unit</span><span class="p">(),</span> <span class="mi">1</span><span class="p">),</span> <span class="n">MIT</span><span class="p">(</span><span class="n">Unit</span><span class="p">(),</span> <span class="mi">0</span><span class="p">))</span>
+<a id="__codelineno-0-383" name="__codelineno-0-383"></a>    <span class="k">return</span> <span class="n">MITRange</span><span class="p">(</span><span class="n">MIT</span><span class="p">(</span><span class="n">chosen_freq</span><span class="p">,</span> <span class="n">chosen_lo</span><span class="p">),</span> <span class="n">MIT</span><span class="p">(</span><span class="n">chosen_freq</span><span class="p">,</span> <span class="n">chosen_hi</span><span class="p">))</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>

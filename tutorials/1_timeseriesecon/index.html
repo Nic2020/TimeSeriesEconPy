@@ -2617,12 +2617,15 @@ specified range), <code>copy</code> returns an exact value-for-value duplicate:<
 <div class="admonition info">
 <p class="admonition-title">Julia ↔ Python</p>
 <p>Corresponds to <em>Creation of TSeries</em> upstream. The Julia
-function-as-initialiser idiom <code>TSeries(rng, rand)</code> becomes the
-explicit <code>TSeries(rng, rng_np.random(len(rng)))</code> here — we
-chose not to mirror callable initialisers because the NumPy idiom
-is already explicit and the callable form has fewer guardrails. The
-wrap-vs-copy semantics are deliberately the same as Julia <em>and</em>
-xarray; see <a href="../../design/decisions/#locked-decisions">decision 16</a> for the rationale.</p>
+function-as-initialiser idiom <code>TSeries(rng, rand)</code> / <code>TSeries(rng, zeros)</code>
+ports line-by-line: <code>TSeries(rng, rng_np.random)</code> (any callable that
+takes a length and returns an ndarray) / <code>TSeries(rng, np.zeros)</code>.
+Behind the scenes the constructor invokes <code>fn(len(rng))</code> and validates
+the result is a 1-D ndarray of matching length — a <code>ValueError</code> names
+the offending value if not. The wrap-vs-copy semantics are deliberately
+the same as Julia <em>and</em> xarray (and extend to the callable's returned
+buffer); see <a href="../../design/decisions/#locked-decisions">decision 16</a> for
+the rationale.</p>
 </div>
 <h2 id="4-tseries-access">4. TSeries — Access<a class="headerlink" href="#4-tseries-access" title="Permanent link">&para;</a></h2>
 <h3 id="reading">Reading<a class="headerlink" href="#reading" title="Permanent link">&para;</a></h3>

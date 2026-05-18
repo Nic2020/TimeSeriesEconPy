@@ -57,6 +57,7 @@ from tsecon import (
     Workspace,
     Yearly,
     compare,
+    copyto,
     cor,
     cov,
     diff,
@@ -1130,6 +1131,26 @@ def _run_workspace_merge_5_series(state: dict[str, Any]) -> Workspace:
 
 
 # ---------------------------------------------------------------------------
+# copyto — Workspace → MVTSeries in-place materialiser (M1.6.3h, closes G13)
+# ---------------------------------------------------------------------------
+
+
+def _setup_workspace_to_mvts_copyto_5cols() -> dict[str, Any]:
+    start = qq(2020, 1)
+    stop = start + 99  # 100 periods
+    rng = MITRange(start, stop)
+    names = ["a", "b", "c", "d", "e"]
+    arr = np.arange(100, dtype=np.float64)
+    w = Workspace(**{n: TSeries(start, arr.copy() + i) for i, n in enumerate(names)})
+    dst = MVTSeries(rng, names)
+    return {"dst": dst, "w": w}
+
+
+def _run_workspace_to_mvts_copyto_5cols(state: dict[str, Any]) -> MVTSeries:
+    return copyto(state["dst"], state["w"])
+
+
+# ---------------------------------------------------------------------------
 # Registry
 # ---------------------------------------------------------------------------
 
@@ -1196,6 +1217,8 @@ SETUP: dict[str, Callable[[], Any]] = {
     # Workspace
     "workspace_merge_5_series": _setup_workspace_merge_5_series,
     "workspace_filter_5_series": _setup_workspace_filter_5_series,
+    # copyto (M1.6.3h — closes G13)
+    "workspace_to_mvts_copyto_5cols": _setup_workspace_to_mvts_copyto_5cols,
     # Mixed-frequency (pandas/polars friction demonstrators)
     "mixed_freq_qq_minus_mm_mean": _setup_mixed_freq_qq_minus_mm_mean,
     "mixed_freq_pipeline_three_freq": _setup_mixed_freq_pipeline_three_freq,
@@ -1273,6 +1296,8 @@ RUN: dict[str, Callable[[Any], Any]] = {
     # Workspace
     "workspace_merge_5_series": _run_workspace_merge_5_series,
     "workspace_filter_5_series": _run_workspace_filter_5_series,
+    # copyto (M1.6.3h — closes G13)
+    "workspace_to_mvts_copyto_5cols": _run_workspace_to_mvts_copyto_5cols,
     # Mixed-frequency (pandas/polars friction demonstrators)
     "mixed_freq_qq_minus_mm_mean": _run_mixed_freq_qq_minus_mm_mean,
     "mixed_freq_pipeline_three_freq": _run_mixed_freq_pipeline_three_freq,
@@ -1337,6 +1362,7 @@ DESCRIPTION: dict[str, str] = {
     "rec_linear_ar2_100_numpy": "AR(2) over 100 — rec_linear NumPy kernel",
     "workspace_merge_5_series": "Workspace merge: 5 + 5 series",
     "workspace_filter_5_series": "Workspace filter: 10 down to 5 series",
+    "workspace_to_mvts_copyto_5cols": "copyto(MVTSeries, Workspace) — 100Q × 5 cols, in-place",
     "mixed_freq_qq_minus_mm_mean": "qq_gdp - fconvert(Q, mm_cpi, mean) — mixed freq",
     "mixed_freq_pipeline_three_freq": "Y+Q+M → quarterly via fconvert — mixed freq",
     "overlay_three_tseries": "overlay(a, b, c) — 100Q three-way first-non-NaN",

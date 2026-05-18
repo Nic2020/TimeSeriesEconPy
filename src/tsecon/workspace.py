@@ -13,14 +13,17 @@ Both attribute access (``w.a``) and bracket access (``w["a"]``) are supported,
 matching the Julia idiom of dual access via ``getproperty`` and ``getindex``.
 Subset access (``w["a", "b"]`` or ``w[["a", "b"]]``) returns a new Workspace.
 
+The :func:`copyto` free function mirrors Julia's
+``Base.copyto!(::MVTSeries, ::Workspace; verbose=, trange=)``: an in-place
+materialiser that writes Workspace members into the matching columns of a
+pre-allocated MVTSeries without re-allocating the matrix buffer.
+
 Deferred until later milestones (currently blocked on other ported modules):
 
 * ``overlay`` / ``compare`` / ``compare_equal`` / ``reindex`` — live in
   ``various.jl`` (M4 🔵).
 * ``@weval`` — Julia macro; no direct Python equivalent. Use a normal
   closure or ``eval`` if needed.
-* ``copyto!`` into an ``MVTSeries`` destination — blocked on ``MVTSeries``
-  (M1 ⬜).
 * ``clean_old_frequencies`` — Julia compatibility shim for legacy quarterly
   numbering; no analogue needed in Python.
 
@@ -31,6 +34,7 @@ delegates to it.
 
 from __future__ import annotations
 
+import warnings
 from collections.abc import Callable, ItemsView, Iterable, Iterator, KeysView, Mapping, ValuesView
 from copy import deepcopy
 from typing import Any
@@ -41,9 +45,10 @@ from tsecon.fconvert import strip_tseries_inplace
 from tsecon.frequencies import Frequency, prettyprint_frequency
 from tsecon.mit import MIT, Duration
 from tsecon.mitrange import MITRange, rangeof_span
+from tsecon.mvtseries import MVTSeries
 from tsecon.tseries import TSeries
 
-__all__ = ["Workspace"]
+__all__ = ["Workspace", "copyto"]
 
 
 # Names that are reserved for the implementation and must not be confused with
@@ -471,3 +476,134 @@ def _format_value(v: object) -> str:
     if isinstance(v, (int, float, bool, complex)):
         return str(v)
     return type(v).__name__
+
+
+# ---------------------------------------------------------------------------
+# copyto — in-place materialiser (Julia: Base.copyto!(::MVTSeries, ::Workspace))
+# ---------------------------------------------------------------------------
+
+
+def copyto(
+    dst: MVTSeries,
+    src: Workspace,
+    *,
+    verbose: bool = False,
+    trange: MITRange | None = None,
+) -> MVTSeries:
+    """Copy Workspace members into a pre-allocated MVTSeries in place.
+
+    Mirrors Julia's ``Base.copyto!(x::MVTSeries, w::AbstractWorkspace;
+    verbose=false, trange=rangeof(x))``. For each column name in
+    ``dst.column_names``, the matching ``src[name]`` :class:`TSeries` is
+    written into the destination column over the overlap of ``trange`` and
+    the source TSeries's range; ``dst._values`` is mutated, never replaced.
+
+    Parameters
+    ----------
+    dst
+        Destination MVTSeries. Its matrix buffer is written through; storage
+        identity is preserved (``id(dst._values)`` is unchanged on return).
+    src
+        Source Workspace. Only members whose names appear in
+        ``dst.column_names`` are visited; extra Workspace entries are ignored.
+    verbose
+        When True, a single :class:`UserWarning` is emitted at the end of
+        the loop listing every column that was not written because its name
+        is absent from ``src``. Matches Julia's end-of-loop ``@warn`` shape.
+    trange
+        Optional :class:`MITRange` restricting the rows to write. Defaults
+        to ``dst.range``. Must share ``dst``'s frequency, have ``step == 1``,
+        and be contained in ``dst.range``. The actual rows written for any
+        given column are the intersection of ``trange`` with that column's
+        source :class:`TSeries` range (so a source that doesn't cover all
+        of ``trange`` writes only the overlap, never raises).
+
+    Returns
+    -------
+    dst : MVTSeries
+        The same object passed in (enables chaining; storage identity
+        preserved).
+
+    Raises
+    ------
+    TypeError
+        If ``trange`` (or, by default, ``dst``'s frequency) does not match a
+        matching source member's frequency, or if a Workspace member at a
+        matching key is not a :class:`TSeries`.
+    ValueError
+        If ``trange`` has a non-unit step.
+    IndexError
+        If ``trange`` is not contained in ``dst.range``.
+
+    Examples
+    --------
+    Tight model-simulation loop reusing the same buffer:
+
+    >>> import tsecon as ts
+    >>> buf = ts.MVTSeries(ts.MITRange(ts.qq(2020, 1), ts.qq(2024, 4)), ["a", "b"])
+    >>> for _ in range(100):
+    ...     w = _step(...)               # produces a Workspace with TSeries 'a', 'b'
+    ...     ts.copyto(buf, w)            # in-place; no MVTSeries reallocation
+
+    See Also
+    --------
+    MVTSeries : the destination type.
+    Workspace : the source type.
+    """
+    if not isinstance(dst, MVTSeries):
+        msg = f"copyto dst must be MVTSeries, got {type(dst).__name__}."  # type: ignore[unreachable]
+        raise TypeError(msg)
+    if not isinstance(src, Workspace):
+        msg = f"copyto src must be Workspace, got {type(src).__name__}."  # type: ignore[unreachable]
+        raise TypeError(msg)
+
+    target_range = trange if trange is not None else dst.range
+    if target_range.frequency != dst.frequency:
+        msg = (
+            f"copyto: trange has frequency {prettyprint_frequency(target_range.frequency)}, "
+            f"expected {prettyprint_frequency(dst.frequency)}."
+        )
+        raise TypeError(msg)
+    if target_range.step != 1:
+        msg = f"copyto: trange must have step=1, got step={target_range.step}."
+        raise ValueError(msg)
+    if not dst.is_empty() and (
+        target_range.start.value < dst.firstdate.value
+        or target_range.stop.value > dst.lastdate.value
+    ):
+        msg = f"copyto: trange {target_range!s} is not contained in dst range {dst.range!s}."
+        raise IndexError(msg)
+
+    missing: list[str] = []
+    for name in dst.column_names:
+        if name not in src:
+            if verbose:
+                missing.append(name)
+            continue
+        src_val = src[name]
+        if not isinstance(src_val, TSeries):
+            msg = (
+                f"copyto: workspace member {name!r} is {type(src_val).__name__}, expected TSeries."
+            )
+            raise TypeError(msg)
+        if src_val.frequency != dst.frequency:
+            msg = (
+                f"copyto: workspace member {name!r} has frequency "
+                f"{prettyprint_frequency(src_val.frequency)}, expected "
+                f"{prettyprint_frequency(dst.frequency)}."
+            )
+            raise TypeError(msg)
+        lo = max(target_range.start.value, src_val.firstdate.value)
+        hi = min(target_range.stop.value, src_val.lastdate.value)
+        if lo > hi:
+            continue
+        overlap = MITRange(MIT(dst.frequency, lo), MIT(dst.frequency, hi))
+        dst[overlap, name] = src_val[overlap]
+
+    if verbose and missing:
+        warnings.warn(
+            f"Variables not copied (missing from Workspace): {', '.join(missing)}",
+            UserWarning,
+            stacklevel=2,
+        )
+    return dst

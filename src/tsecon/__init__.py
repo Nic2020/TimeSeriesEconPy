@@ -121,7 +121,7 @@ from tsecon.plotting import (
 )
 from tsecon.recursive import rec, rec_linear, rec_linear_is_cython
 from tsecon.tseries import TSeries, typenan
-from tsecon.workspace import Workspace
+from tsecon.workspace import Workspace, copyto
 
 __version__ = "0.0.1.dev0"
 
@@ -155,6 +155,7 @@ __all__ = [
     "cleanedvalues",
     "clear_holidays_map",
     "compare",
+    "copyto",
     "cor",
     "cov",
     "daily",

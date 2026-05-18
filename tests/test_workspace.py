@@ -10,6 +10,7 @@ depend on still-unported modules (MVTSeries, various.jl helpers like
 from __future__ import annotations
 
 import copy
+import warnings
 
 import numpy as np
 import pytest
@@ -18,8 +19,10 @@ from tsecon import (
     MIT,
     Duration,
     MITRange,
+    MVTSeries,
     TSeries,
     Workspace,
+    copyto,
     mm,
     qq,
     yy,
@@ -496,3 +499,184 @@ class TestMisc:
         w = Workspace(m=mm(2020, 3))
         f = w.frequency_of()
         assert isinstance(f, Monthly)
+
+
+# ---------------------------------------------------------------------------
+# copyto — in-place Workspace → MVTSeries materialiser
+# (parity gap G13 / M1.6.3h)
+# ---------------------------------------------------------------------------
+
+
+def _make_dst(start: MIT | None = None, stop: MIT | None = None) -> MVTSeries:
+    s = qq(2020, 1) if start is None else start
+    e = qq(2024, 4) if stop is None else stop
+    return MVTSeries(MITRange(s, e), ["a", "b"])
+
+
+class TestCopyto:
+    def test_all_columns_written_returns_self(self) -> None:
+        dst = _make_dst()
+        original_storage = dst._values
+        w = Workspace(
+            a=TSeries(qq(2020, 1), np.arange(20.0)),
+            b=TSeries(qq(2020, 1), np.arange(20.0) * 2),
+        )
+        out = copyto(dst, w)
+        assert out is dst
+        assert dst._values is original_storage
+        np.testing.assert_array_equal(dst.a.values, np.arange(20.0))
+        np.testing.assert_array_equal(dst.b.values, np.arange(20.0) * 2)
+
+    def test_storage_identity_preserved_across_repeated_calls(self) -> None:
+        dst = _make_dst()
+        ptr = dst._values.ctypes.data
+        for i in range(5):
+            w = Workspace(
+                a=TSeries(qq(2020, 1), np.full(20, float(i))),
+                b=TSeries(qq(2020, 1), np.full(20, float(i) + 0.5)),
+            )
+            copyto(dst, w)
+            assert dst._values.ctypes.data == ptr
+
+    def test_extra_workspace_keys_silently_ignored(self) -> None:
+        dst = _make_dst()
+        w = Workspace(
+            a=TSeries(qq(2020, 1), np.arange(20.0)),
+            b=TSeries(qq(2020, 1), np.arange(20.0) * 2),
+            unused=TSeries(qq(2020, 1), np.arange(20.0) * 3),
+            scalar_param=0.42,
+        )
+        copyto(dst, w)
+        np.testing.assert_array_equal(dst.a.values, np.arange(20.0))
+        np.testing.assert_array_equal(dst.b.values, np.arange(20.0) * 2)
+
+    def test_missing_column_leaves_dst_untouched_silent_default(self) -> None:
+        dst = _make_dst()
+        dst._values[:] = -1.0  # sentinel
+        w = Workspace(a=TSeries(qq(2020, 1), np.arange(20.0)))
+        copyto(dst, w)
+        np.testing.assert_array_equal(dst.a.values, np.arange(20.0))
+        np.testing.assert_array_equal(dst.b.values, np.full(20, -1.0))
+
+    def test_missing_column_verbose_warns_at_end(self) -> None:
+        dst = _make_dst()
+        w = Workspace(a=TSeries(qq(2020, 1), np.arange(20.0)))
+        with pytest.warns(UserWarning, match=r"Variables not copied.*\bb\b") as wlog:
+            copyto(dst, w, verbose=True)
+        assert len(wlog) == 1
+        np.testing.assert_array_equal(dst.a.values, np.arange(20.0))
+
+    def test_verbose_no_warning_when_all_present(self) -> None:
+        dst = _make_dst()
+        w = Workspace(
+            a=TSeries(qq(2020, 1), np.arange(20.0)),
+            b=TSeries(qq(2020, 1), np.arange(20.0) * 2),
+        )
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")  # any UserWarning would fail
+            copyto(dst, w, verbose=True)
+
+    def test_verbose_warns_with_joined_missing_names(self) -> None:
+        dst = MVTSeries(MITRange(qq(2020, 1), qq(2024, 4)), ["a", "b", "c"])
+        w = Workspace(a=TSeries(qq(2020, 1), np.arange(20.0)))
+        with pytest.warns(UserWarning, match="b, c") as wlog:
+            copyto(dst, w, verbose=True)
+        assert len(wlog) == 1
+
+    def test_non_tseries_value_raises_type_error(self) -> None:
+        dst = _make_dst()
+        w = Workspace(a=42.0)
+        with pytest.raises(TypeError, match="'a' is float, expected TSeries"):
+            copyto(dst, w)
+
+    def test_nested_workspace_value_raises_type_error(self) -> None:
+        dst = _make_dst()
+        w = Workspace(a=Workspace(inner=1))
+        with pytest.raises(TypeError, match="'a' is Workspace, expected TSeries"):
+            copyto(dst, w)
+
+    def test_frequency_mismatch_raises_type_error(self) -> None:
+        dst = _make_dst()
+        w = Workspace(a=TSeries(yy(2020), np.arange(5.0)))
+        with pytest.raises(TypeError, match="'a' has frequency"):
+            copyto(dst, w)
+
+    def test_trange_narrower_than_dst_writes_only_overlap(self) -> None:
+        dst = _make_dst()
+        dst._values[:] = -1.0
+        w = Workspace(
+            a=TSeries(qq(2020, 1), np.arange(20.0)),
+            b=TSeries(qq(2020, 1), np.arange(20.0) * 2),
+        )
+        sub = MITRange(qq(2021, 1), qq(2022, 4))  # rows 4..11
+        copyto(dst, w, trange=sub)
+        # untouched outside trange
+        np.testing.assert_array_equal(dst.a.values[:4], np.full(4, -1.0))
+        np.testing.assert_array_equal(dst.a.values[12:], np.full(8, -1.0))
+        # written inside trange (a[t] = t-offset where offset is 0 in src)
+        np.testing.assert_array_equal(dst.a.values[4:12], np.arange(4.0, 12.0))
+
+    def test_trange_wider_than_source_writes_only_overlap(self) -> None:
+        dst = _make_dst()
+        dst._values[:] = -1.0
+        # source covers only rows 4..7 (qq(2021,1)..qq(2021,4))
+        w = Workspace(a=TSeries(qq(2021, 1), np.array([10.0, 20.0, 30.0, 40.0])))
+        copyto(dst, w)  # trange defaults to dst.range — 20 rows
+        # only the source-overlap was written
+        np.testing.assert_array_equal(dst.a.values[:4], np.full(4, -1.0))
+        np.testing.assert_array_equal(dst.a.values[4:8], [10.0, 20.0, 30.0, 40.0])
+        np.testing.assert_array_equal(dst.a.values[8:], np.full(12, -1.0))
+
+    def test_trange_outside_dst_range_raises_index_error(self) -> None:
+        dst = _make_dst()
+        w = Workspace(a=TSeries(qq(2018, 1), np.arange(40.0)))
+        bad = MITRange(qq(2018, 1), qq(2020, 4))  # starts before dst
+        with pytest.raises(IndexError, match="not contained"):
+            copyto(dst, w, trange=bad)
+
+    def test_trange_frequency_mismatch_raises_type_error(self) -> None:
+        dst = _make_dst()
+        w = Workspace(a=TSeries(qq(2020, 1), np.arange(20.0)))
+        bad = MITRange(yy(2020), yy(2022))
+        with pytest.raises(TypeError, match="trange has frequency"):
+            copyto(dst, w, trange=bad)
+
+    def test_trange_negative_step_raises_value_error(self) -> None:
+        dst = _make_dst()
+        w = Workspace(a=TSeries(qq(2020, 1), np.arange(20.0)))
+        rev = MITRange(qq(2022, 4), qq(2020, 1), -1)
+        with pytest.raises(ValueError, match="step=1"):
+            copyto(dst, w, trange=rev)
+
+    def test_dst_must_be_mvtseries(self) -> None:
+        w = Workspace(a=TSeries(qq(2020, 1), np.arange(5.0)))
+        with pytest.raises(TypeError, match="dst must be MVTSeries"):
+            copyto(w, w)  # type: ignore[arg-type]
+
+    def test_src_must_be_workspace(self) -> None:
+        dst = _make_dst()
+        with pytest.raises(TypeError, match="src must be Workspace"):
+            copyto(dst, {"a": TSeries(qq(2020, 1), np.arange(20.0))})  # type: ignore[arg-type]
+
+    def test_empty_overlap_silently_skips(self) -> None:
+        dst = _make_dst()
+        dst._values[:] = -1.0
+        # source disjoint from dst.range
+        w = Workspace(a=TSeries(qq(2030, 1), np.arange(4.0)))
+        copyto(dst, w)
+        np.testing.assert_array_equal(dst.a.values, np.full(20, -1.0))
+
+    def test_repeated_call_overwrites(self) -> None:
+        dst = _make_dst()
+        w1 = Workspace(
+            a=TSeries(qq(2020, 1), np.full(20, 1.0)),
+            b=TSeries(qq(2020, 1), np.full(20, 2.0)),
+        )
+        w2 = Workspace(
+            a=TSeries(qq(2020, 1), np.full(20, 3.0)),
+            b=TSeries(qq(2020, 1), np.full(20, 4.0)),
+        )
+        copyto(dst, w1)
+        copyto(dst, w2)
+        np.testing.assert_array_equal(dst.a.values, np.full(20, 3.0))
+        np.testing.assert_array_equal(dst.b.values, np.full(20, 4.0))

@@ -572,6 +572,22 @@ end
 
 linalg_matrix_tseries_100_run(state) = state.a * state.t
 
+# In-place Workspace → MVTSeries materialiser. Mirrors the Python
+# `workspace_to_mvts_copyto_5cols` scenario added with M1.6.3h / G13
+# closure. The setup builds a fresh dst+w pair per run; only the
+# `copyto!` call is timed.
+function workspace_to_mvts_copyto_5cols_setup()
+    start = qq(2020, 1)
+    rng = start:(start + 99)
+    names = (:a, :b, :c, :d, :e)
+    base = collect(0.0:99.0)
+    w = Workspace((n => TSeries(start, copy(base) .+ (i - 1)) for (i, n) in enumerate(names))...)
+    dst = MVTSeries(rng, collect(names))
+    return (dst = dst, w = w)
+end
+
+workspace_to_mvts_copyto_5cols_run(state) = copyto!(state.dst, state.w)
+
 # ---------------------------------------------------------------------------
 # Registry
 # ---------------------------------------------------------------------------
@@ -649,6 +665,7 @@ const SCENARIOS = Dict{String, Tuple{Function, Function}}(
     # Workspace
     "workspace_merge_5_series"     => (workspace_merge_5_series_setup,     workspace_merge_5_series_run),
     "workspace_filter_5_series"    => (workspace_filter_5_series_setup,    workspace_filter_5_series_run),
+    "workspace_to_mvts_copyto_5cols"  => (workspace_to_mvts_copyto_5cols_setup,  workspace_to_mvts_copyto_5cols_run),
     # Mixed-frequency (pandas/polars friction demonstrators)
     "mixed_freq_qq_minus_mm_mean"     => (mixed_freq_qq_minus_mm_mean_setup,     mixed_freq_qq_minus_mm_mean_run),
     "mixed_freq_pipeline_three_freq"  => (mixed_freq_pipeline_three_freq_setup,  mixed_freq_pipeline_three_freq_run),

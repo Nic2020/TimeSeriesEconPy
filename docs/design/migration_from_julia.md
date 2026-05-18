@@ -38,6 +38,7 @@ differences — what the spellings, not the semantics, look like.
 | Matrix product (coefficient-matrix × series) | `A * t`                  | `A @ t` (PEP 465; returns `ndarray`)    |
 | TSeries-of-vectors dot             | `_vals(t1) * _vals(t2)` (raises in Julia) | `t1 @ t2` (inner product scalar) |
 | Transpose / adjoint                | `transpose(t)` / `adjoint(mvts)`   | *not ported* — use `np.asarray(x).T`    |
+| In-place copy Workspace → MVTSeries | `copyto!(mvts, w; verbose=, trange=)` | `tsecon.copyto(mvts, w, *, verbose=, trange=)` |
 
 ## Semantics that are identical
 
@@ -105,6 +106,20 @@ differences — what the spellings, not the semantics, look like.
   overload is defined; in Python, `t1 @ t2` returns the inner product
   (NumPy 1-D matmul semantics) — the Python form is *more* useful, not
   less.
+- **`copyto` is a free function, not a method or a `!`-suffixed mutator.**
+  Julia spells the in-place materialiser `Base.copyto!(mvts, w; verbose=,
+  trange=)` — the `!` suffix is the Julia convention for an in-place
+  mutator. Python has no syntactic mutation marker; `tsecon` exports
+  `copyto(dst: MVTSeries, src: Workspace, *, verbose=False, trange=None)`
+  as a free function, mirroring NumPy's `np.copyto(dst, src)` signature
+  and convention. The function is still in-place — `id(dst._values)` is
+  preserved across the call — and returns `dst` for chaining. The
+  per-column write goes through the destination's existing `__setitem__`
+  with frequency / contained-range checks; a non-`TSeries` value at a
+  matching key raises `TypeError` (matching Julia's behaviour, which
+  would error inside the inner `copyto!`). `verbose=True` emits a single
+  `UserWarning` at the end of the loop with all missing-from-workspace
+  column names joined, matching Julia's end-of-loop `@warn`.
 - **`set_holidays_map(country, subdivision)` delegates to `python-holidays`.**
   The Julia upstream ships bundled CSVs (`TimeSeriesEcon.jl/src/holidays/`)
   and reads them on first call. Python delegates to the

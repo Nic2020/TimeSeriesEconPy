@@ -680,3 +680,133 @@ class TestCopyto:
         copyto(dst, w2)
         np.testing.assert_array_equal(dst.a.values, np.full(20, 3.0))
         np.testing.assert_array_equal(dst.b.values, np.full(20, 4.0))
+
+
+# ---------------------------------------------------------------------------
+# as_namespace context manager (Python alternative to Julia's @weval)
+# ---------------------------------------------------------------------------
+
+
+class TestWorkspaceAsNamespace:
+    """Cover :meth:`Workspace.as_namespace` — the snapshot context manager
+    that is the Pythonic alternative to Julia's ``@weval`` macro.
+
+    See ``claude_files/decisions/23_workspace_namespace_context.md``.
+    """
+
+    def test_basic_attribute_access(self) -> None:
+        w = Workspace(a=1, b=2)
+        with w.as_namespace() as ns:
+            assert ns.a == 1
+            assert ns.b == 2
+
+    def test_expression_against_namespace(self) -> None:
+        # Ports the Julia idiom `w.b1 = @weval w b + a` (test_workspace.jl:243).
+        w = Workspace(a=5, b=2020)
+        with w.as_namespace() as ns:
+            w.b1 = ns.b + ns.a
+        assert w.b1 == 2025
+
+    def test_workspace_self_referencing_is_redundant_under_namespace(self) -> None:
+        # Julia: `w.alpha = @weval w sin(pi) + w[:a] - w.a`
+        # — the @weval pass leaves `w.a` and `w[:a]` references untouched
+        # (the macro recognises them and skips rewriting). Under the Python
+        # context manager `ns.a` already resolves to the same object, so the
+        # canonical port collapses to `ns.a - ns.a` plus the literal piece.
+        w = Workspace(a=5)
+        with w.as_namespace() as ns:
+            w.alpha = np.sin(np.pi) + ns.a - ns.a
+        assert w.alpha == pytest.approx(np.sin(np.pi))
+
+    def test_snapshot_mutations_to_workspace_after_enter_do_not_propagate(self) -> None:
+        w = Workspace(a=1)
+        with w.as_namespace() as ns:
+            w.a = 999
+            assert ns.a == 1
+
+    def test_snapshot_new_keys_added_to_workspace_after_enter_invisible(self) -> None:
+        w = Workspace(a=1)
+        with w.as_namespace() as ns:
+            w.b = 2
+            assert not hasattr(ns, "b")
+
+    def test_snapshot_namespace_mutations_do_not_propagate_to_workspace(self) -> None:
+        # SimpleNamespace is mutable; rebinding `ns.a` only touches the
+        # snapshot, never the source Workspace.
+        w = Workspace(a=1)
+        with w.as_namespace() as ns:
+            ns.a = 999
+        assert w.a == 1
+
+    def test_reference_sharing_for_mutable_values(self) -> None:
+        # Values are held by reference: mutating the same TSeries object
+        # through the namespace also mutates it inside the Workspace.
+        ts = TSeries(qq(2020, 1), np.zeros(4))
+        w = Workspace(t=ts)
+        with w.as_namespace() as ns:
+            ns.t.values[0] = 42.0
+        assert w.t.values[0] == 42.0
+        assert w.t is ts
+
+    def test_non_identifier_keys_silently_omitted(self) -> None:
+        # Keys like "1x" or "has space" can't be reached via attribute syntax
+        # at all, so they're dropped from the snapshot rather than wrapped in
+        # a partial proxy. Users wanting these keys keep using `w["..."]`.
+        w = Workspace()
+        w["a"] = 1
+        w["1x"] = 99
+        w["has space"] = "value"
+        with w.as_namespace() as ns:
+            assert ns.a == 1
+            assert not hasattr(ns, "1x")
+            assert not hasattr(ns, "has space")
+
+    def test_python_keyword_keys_round_trip_via_setattr_syntax(self) -> None:
+        # `if` / `for` / `class` are valid identifier strings (isidentifier()
+        # returns True), so they make it into the snapshot. Only attribute
+        # *syntax* (`ns.if`) is a parse error; getattr/setattr work.
+        w = Workspace()
+        w["if"] = 7
+        with w.as_namespace() as ns:
+            assert getattr(ns, "if") == 7
+
+    def test_nested_workspace_preserved_as_value(self) -> None:
+        inner = Workspace(x=10)
+        w = Workspace(inner=inner)
+        with w.as_namespace() as ns:
+            assert ns.inner is inner
+            assert ns.inner.x == 10
+
+    def test_empty_workspace_yields_empty_namespace(self) -> None:
+        w = Workspace()
+        with w.as_namespace() as ns:
+            assert list(vars(ns).keys()) == []
+
+    def test_workspace_usable_after_exit(self) -> None:
+        w = Workspace(a=1, b=2)
+        with w.as_namespace() as ns:
+            _ = ns.a + ns.b
+        # No invalidation needed — Workspace is fully usable after exit.
+        w.c = 3
+        assert w.a == 1
+        assert w.c == 3
+
+    def test_namespace_outlives_with_block(self) -> None:
+        # SimpleNamespace is just an object; the `with` block scopes *intent*,
+        # not lifetime. Holding a reference past `__exit__` works — the
+        # snapshot was always independent of `w`, so this is consistent.
+        w = Workspace(a=1)
+        with w.as_namespace() as ns:
+            saved = ns
+        assert saved.a == 1
+
+    def test_must_be_used_as_context_manager(self) -> None:
+        # Calling .as_namespace() without `with` yields the context manager,
+        # not the namespace. Accessing attributes on the manager fails.
+        w = Workspace(a=1)
+        cm = w.as_namespace()
+        with pytest.raises(AttributeError):
+            _ = cm.a  # type: ignore[attr-defined]
+        # The manager is single-use; consume it via the `with` protocol.
+        with cm as ns:
+            assert ns.a == 1

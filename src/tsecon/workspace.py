@@ -18,14 +18,20 @@ The :func:`copyto` free function mirrors Julia's
 materialiser that writes Workspace members into the matching columns of a
 pre-allocated MVTSeries without re-allocating the matrix buffer.
 
-Deferred until later milestones (currently blocked on other ported modules):
+The :meth:`Workspace.as_namespace` context manager exposes members as
+attributes on a snapshot ``SimpleNamespace``, the Pythonic alternative to
+Julia's ``@weval`` macro (see ``claude_files/decisions/23_workspace_namespace_context.md``).
 
-* ``overlay`` / ``compare`` / ``compare_equal`` / ``reindex`` — live in
-  ``various.jl`` (M4 🔵).
-* ``@weval`` — Julia macro; no direct Python equivalent. Use a normal
-  closure or ``eval`` if needed.
-* ``clean_old_frequencies`` — Julia compatibility shim for legacy quarterly
-  numbering; no analogue needed in Python.
+Intentional non-ports (do not re-litigate):
+
+* ``@weval`` — Julia AST-rewriting macro. Python has no analogue; the
+  idiomatic shapes are direct attribute access (``w.x + w.alpha``) or
+  the snapshot context manager :meth:`Workspace.as_namespace`. See
+  ``claude_files/decisions/23_workspace_namespace_context.md``.
+* ``clean_old_frequencies`` — Julia compatibility shim for legacy
+  quarterly numbering. The Python cached-singleton frequency model
+  (decision 15) makes the legacy encoding structurally impossible. See
+  ``claude_files/decisions/22_no_clean_old_frequencies.md``.
 
 The standalone ``strip!(t::TSeries)`` helper now lives in the ported fconvert
 subpackage as :func:`tsecon.fconvert.strip_tseries_inplace`; the workspace
@@ -36,7 +42,9 @@ from __future__ import annotations
 
 import warnings
 from collections.abc import Callable, ItemsView, Iterable, Iterator, KeysView, Mapping, ValuesView
+from contextlib import contextmanager
 from copy import deepcopy
+from types import SimpleNamespace
 from typing import Any
 
 import numpy as np
@@ -219,6 +227,35 @@ class Workspace:
     def is_empty(self) -> bool:
         """Return True iff the Workspace has no members."""
         return len(self._c) == 0
+
+    # -- namespace exposure ------------------------------------------------
+
+    @contextmanager
+    def as_namespace(self) -> Iterator[SimpleNamespace]:
+        """Yield a snapshot of members as attributes on a ``SimpleNamespace``.
+
+        Use as a context manager to scope unprefixed access to the
+        Workspace's members::
+
+            with w.as_namespace() as ns:
+                y = ns.a + ns.b
+
+        The snapshot is taken at ``__enter__``: subsequent mutations to
+        either side are independent. Members whose keys are not valid
+        Python identifiers are silently omitted (they cannot be reached
+        via attribute syntax anyway — use ``w["..."]`` for those). Values
+        are held by reference, so mutating a contained TSeries / MVTSeries
+        through the namespace also mutates the same object in ``self``.
+
+        The Pythonic alternative to Julia's ``@weval(W, EXPR)`` macro: see
+        ``claude_files/decisions/23_workspace_namespace_context.md`` for
+        the structural rationale. For most call sites direct attribute
+        access ``w.a + w.b`` is shorter and clearer; reach for
+        ``as_namespace`` only when several unprefixed reads in a row earn
+        their keep over the explicit prefix.
+        """
+        valid = {k: v for k, v in self._c.items() if k.isidentifier()}
+        yield SimpleNamespace(**valid)
 
     # -- mutation helpers --------------------------------------------------
 

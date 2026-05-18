@@ -39,6 +39,7 @@ differences — what the spellings, not the semantics, look like.
 | TSeries-of-vectors dot             | `_vals(t1) * _vals(t2)` (raises in Julia) | `t1 @ t2` (inner product scalar) |
 | Transpose / adjoint                | `transpose(t)` / `adjoint(mvts)`   | *not ported* — use `np.asarray(x).T`    |
 | In-place copy Workspace → MVTSeries | `copyto!(mvts, w; verbose=, trange=)` | `tsecon.copyto(mvts, w, *, verbose=, trange=)` |
+| `@weval` macro (Workspace-scoped eval) | `@weval w b + a`                  | `w.b + w.a` *(preferred)* or `with w.as_namespace() as ns: ns.b + ns.a` |
 
 ## Semantics that are identical
 
@@ -132,3 +133,26 @@ differences — what the spellings, not the semantics, look like.
   and `get_holidays_options("CA")` to discover the supported codes. The
   map's default range (`bdaily("1970-01-01")` to `bdaily("2049-12-31")`)
   is identical.
+- **`@weval` becomes plain attribute access (or a snapshot context manager).**
+  Julia's `@weval(w, EXPR)` macro rewrites `EXPR` so bare identifiers
+  resolve against `w`'s namespace; Python has no AST-rewriting macros.
+  The Pythonic spellings are direct attribute access (`w.b + w.a`, the
+  default — almost always sufficient) or, when several unprefixed reads
+  cluster, the snapshot context manager `Workspace.as_namespace()`:
+
+  ```python
+  with w.as_namespace() as ns:
+      w.b1 = ns.b + ns.a       # ports Julia's `w.b1 = @weval w b + a`
+      w.alpha = math.sin(math.pi) + ns.a - ns.a
+  ```
+
+  The namespace is a `types.SimpleNamespace` snapshot taken at
+  `__enter__`: mutations to `w` after entry are invisible, and mutating
+  the namespace does not write back to `w`. Use `w.x = ...` directly
+  for writes. Values are held by reference, so mutating a contained
+  TSeries / MVTSeries through the namespace still mutates the same
+  object inside `w`. Non-identifier keys (e.g. `"1x"`) are silently
+  omitted from the snapshot — keep using `w["..."]` for those. No
+  `eval`-based form is provided; see
+  `claude_files/decisions/23_workspace_namespace_context.md` for the
+  security / tooling rationale.

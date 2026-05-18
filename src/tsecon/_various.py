@@ -766,8 +766,7 @@ def reindex(
         # mypy considers this branch unreachable, but Any-typed callers
         # (e.g. JSON deserialization) need the friendly error.
         msg = (  # type: ignore[unreachable]
-            "reindex pair must be a 2-tuple (old_mit, new_mit); "
-            f"got {type(old_to_new).__name__}."
+            f"reindex pair must be a 2-tuple (old_mit, new_mit); got {type(old_to_new).__name__}."
         )
         raise TypeError(msg)
     old_mit, new_mit = old_to_new
@@ -817,10 +816,7 @@ def _reindex_workspace(w: Workspace, old_mit: MIT, new_mit: MIT, *, copy: bool) 
         if isinstance(v, Workspace):
             out[k] = _reindex_workspace(v, old_mit, new_mit, copy=copy)
             continue
-        if (
-            isinstance(v, (MIT, MITRange, TSeries, MVTSeries))
-            and v.frequency == freq_from
-        ):
+        if isinstance(v, (MIT, MITRange, TSeries, MVTSeries)) and v.frequency == freq_from:
             out[k] = _reindex_dispatch(v, old_mit, new_mit, copy=copy)
             continue
         # Non-reindexable member: passthrough, copying when asked.

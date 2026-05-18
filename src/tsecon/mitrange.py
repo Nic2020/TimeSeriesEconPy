@@ -335,10 +335,7 @@ def rangeof(
         base = obj.rangeof(method=method)
     elif isinstance(obj, (MITRange, MIT, TSeries, MVTSeries)):
         if method != "intersect":
-            msg = (
-                f"method={method!r} is only meaningful for Workspace; "
-                f"got {type(obj).__name__}."
-            )
+            msg = f"method={method!r} is only meaningful for Workspace; got {type(obj).__name__}."
             raise TypeError(msg)
         if isinstance(obj, MITRange):
             base = obj

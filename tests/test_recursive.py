@@ -427,46 +427,62 @@ class TestRecLinearContractErrors:
         ("make_inputs", "exc_class", "match"),
         [
             pytest.param(
-                _ce_frequency_mismatch, TypeError,
+                _ce_frequency_mismatch,
+                TypeError,
                 r"frequency.*Yearly.*Quarterly",
                 id="frequency_mismatch_yearly_vs_quarterly",
             ),
             pytest.param(
-                _ce_non_unit_step, ValueError, r"step=2",
+                _ce_non_unit_step,
+                ValueError,
+                r"step=2",
                 id="non_unit_step_named_in_message",
             ),
             pytest.param(
-                _ce_ndim_not_one, ValueError, r"coeffs\.ndim=2",
+                _ce_ndim_not_one,
+                ValueError,
+                r"coeffs\.ndim=2",
                 id="coeffs_ndim_not_one_names_ndim",
             ),
             pytest.param(
-                _ce_length_mismatch, ValueError,
+                _ce_length_mismatch,
+                ValueError,
                 r"coeffs \(n=2\).*lags \(n=3\)",
                 id="coeffs_lags_length_mismatch_names_both",
             ),
             pytest.param(
-                _ce_empty_coeffs, ValueError, r"coeffs\.shape\[0\]=0",
+                _ce_empty_coeffs,
+                ValueError,
+                r"coeffs\.shape\[0\]=0",
                 id="empty_coeffs_lags_names_shape",
             ),
             pytest.param(
-                _ce_forward_zero_lag, ValueError, r"min lag 0.*undiff",
+                _ce_forward_zero_lag,
+                ValueError,
+                r"min lag 0.*undiff",
                 id="forward_zero_lag_hints_undiff",
             ),
             pytest.param(
-                _ce_backward_positive_lag, ValueError, r"max lag 1",
+                _ce_backward_positive_lag,
+                ValueError,
+                r"max lag 1",
                 id="backward_positive_lag_names_max_lag",
             ),
             pytest.param(
-                _ce_non_float64_dtype, TypeError, r"int64",
+                _ce_non_float64_dtype,
+                TypeError,
+                r"int64",
                 id="non_float64_dtype_names_dtype",
             ),
             pytest.param(
-                _ce_forward_init_missing, ValueError,
+                _ce_forward_init_missing,
+                ValueError,
                 r"initial conditions missing",
                 id="forward_initial_conditions_missing",
             ),
             pytest.param(
-                _ce_backward_init_missing, ValueError,
+                _ce_backward_init_missing,
+                ValueError,
                 r"backward recurrence",
                 id="backward_initial_conditions_missing",
             ),
@@ -650,9 +666,7 @@ class TestRecLinearKernelEdgeCases:
         assert not view.flags.c_contiguous
         view[0] = 1.0
         view[1] = 1.0
-        rec_linear_numpy(
-            view, 2, 8, 1, np.asarray([1.0, 1.0]), np.asarray([1, 2], dtype=np.int64)
-        )
+        rec_linear_numpy(view, 2, 8, 1, np.asarray([1.0, 1.0]), np.asarray([1, 2], dtype=np.int64))
         expected_fib = [1.0, 1.0, 2.0, 3.0, 5.0, 8.0, 13.0, 21.0, 34.0, 55.0]
         np.testing.assert_array_equal(view, expected_fib)
 

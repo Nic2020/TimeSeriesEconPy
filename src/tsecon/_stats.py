@@ -41,7 +41,7 @@ from tsecon.tseries import TSeries
 # is the "always-fast public API" arm of [decision 17](claude_files/decisions/
 # 17_cython_dispatch_strategy.md).
 try:
-    from tsecon._stats_kernels_cy import (  # type: ignore[import-not-found]
+    from tsecon._stats_kernels_cy import (  # type: ignore[import-not-found, unused-ignore]
         cor_cython,
         mean_cython,
         std_cython,

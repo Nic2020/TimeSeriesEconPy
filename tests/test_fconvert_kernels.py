@@ -321,9 +321,7 @@ class TestKernelScopeCut:
         # sizes make this structurally incompatible with the YP kernel's
         # uniform-stride group_starts arithmetic.
         t = TSeries(daily("2024-01-01"), np.arange(91, dtype=np.float64))
-        with mock.patch(
-            "tsecon.fconvert._tseries._aggregate_groups_dispatch"
-        ) as spy:
+        with mock.patch("tsecon.fconvert._tseries._aggregate_groups_dispatch") as spy:
             result = fconvert(Monthly(), t, method="mean")
         spy.assert_not_called()
         # Sanity: the calendar path still produced the right answer.

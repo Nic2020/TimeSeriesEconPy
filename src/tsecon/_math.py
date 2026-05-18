@@ -48,7 +48,9 @@ from tsecon.tseries import TSeries
 # build hook), the import fails silently and undiff / undiff_inplace fall
 # back to the NumPy reference. The public surface is otherwise unchanged.
 try:
-    from tsecon._math_kernels_cy import cumsum_anchored_cython  # type: ignore[import-not-found]
+    from tsecon._math_kernels_cy import (
+        cumsum_anchored_cython,  # type: ignore[import-not-found, unused-ignore]
+    )
 
     _CYTHON_AVAILABLE: Final[bool] = True
 except ImportError:

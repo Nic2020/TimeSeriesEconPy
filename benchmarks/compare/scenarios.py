@@ -22,11 +22,13 @@ the M1.5 three-flavor kernel pair (see decision 17):
 ``moving_average_quarterly_4``    4-period moving average over the same input.
 ``fconvert_qq_to_yy_mean``        Quarterly → Yearly with ``method="mean"``.
 ``rec_ar2_100``                   100-step AR(2) via general ``rec`` + lambda.
-``rec_backcasting_via_lambda``    100-step backcast via reversed ``MITRange`` + ``rec`` lambda (M1.6.1).
+``rec_backcasting_via_lambda``    100-step backcast via reversed ``MITRange`` + ``rec`` lambda
+                                  (M1.6.1).
 ``rec_linear_ar2_100_numpy``      Same AR(2) via the NumPy kernel direct.
 ``rec_linear_ar2_100_cython``     Same AR(2) via the Cython kernel direct (registered
                                   only when the compiled extension is importable).
-``undiff_quarterly_numpy``        Anchored cumsum over length 101 via the NumPy kernel direct (M1.6.2).
+``undiff_quarterly_numpy``        Anchored cumsum over length 101 via the NumPy kernel direct
+                                  (M1.6.2).
 ``undiff_quarterly_cython``       Same workload via the Cython kernel direct (M1.6.2;
                                   registered only when the compiled extension is importable).
 ``workspace_merge_5_series``      Merge two Workspaces each holding five TSeries.
@@ -69,6 +71,7 @@ from tsecon import (
     pct,
     qq,
     quantile,
+    rangeof,
     rec,
     reindex,
     shift,
@@ -1052,8 +1055,6 @@ def _setup_rangeof_tseries_drop1() -> dict[str, Any]:
 
 
 def _run_rangeof_tseries_drop1(state: dict[str, Any]) -> MITRange:
-    from tsecon import rangeof
-
     return rangeof(state["t"], drop=1)
 
 

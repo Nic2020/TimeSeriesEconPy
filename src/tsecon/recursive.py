@@ -53,7 +53,9 @@ from tsecon.tseries import TSeries
 # build hook), the import fails silently and rec_linear falls back to the
 # NumPy reference. The public surface is otherwise unchanged.
 try:
-    from tsecon._rec_kernels_cy import rec_linear_cython  # type: ignore[import-not-found]
+    from tsecon._rec_kernels_cy import (
+        rec_linear_cython,  # type: ignore[import-not-found, unused-ignore]
+    )
 
     _CYTHON_AVAILABLE: Final[bool] = True
 except ImportError:
@@ -297,10 +299,7 @@ def rec_linear(
         )
         raise TypeError(msg)
     if rng.step not in (1, -1):
-        msg = (
-            f"rec_linear: rng.step must be +1 (forward) or -1 (backward), "
-            f"got step={rng.step}."
-        )
+        msg = f"rec_linear: rng.step must be +1 (forward) or -1 (backward), got step={rng.step}."
         raise ValueError(msg)
     coeffs_arr = np.asarray(coeffs, dtype=np.float64)
     lags_arr = np.asarray(lags, dtype=np.int64)

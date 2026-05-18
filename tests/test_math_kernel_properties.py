@@ -97,9 +97,7 @@ def _cumsum_inputs(  # type: ignore[no-untyped-def]
     total = prefix_len + count + suffix_len
     include_nan = draw(st.booleans())
     elements = _FINITE_OR_NAN if include_nan else _FINITE_FLOAT
-    values = np.asarray(
-        draw(npst.arrays(dtype=np.float64, shape=total, elements=elements))
-    )
+    values = np.asarray(draw(npst.arrays(dtype=np.float64, shape=total, elements=elements)))
     anchor_value = draw(_FINITE_ANCHOR)
     # Anchor regime: -1 (before chunk) or in [0, count).
     anchor_relative_idx = draw(
@@ -127,9 +125,7 @@ def test_cumsum_anchored_numpy_matches_cython(
     cumsum_anchored_cython(v_cython, offset, count, anchor_value, anchor_relative_idx)
     # ``equal_nan=True`` because the input strategy occasionally injects NaN;
     # both kernels propagate it identically.
-    np.testing.assert_allclose(
-        v_numpy, v_cython, rtol=1e-12, atol=1e-15, equal_nan=True
-    )
+    np.testing.assert_allclose(v_numpy, v_cython, rtol=1e-12, atol=1e-15, equal_nan=True)
 
 
 # ---------------------------------------------------------------------------
@@ -166,9 +162,7 @@ def _cumsum_inputs_finite_anchor_inside(  # type: ignore[no-untyped-def]
     prefix_len = draw(st.integers(min_value=0, max_value=5))
     suffix_len = draw(st.integers(min_value=0, max_value=5))
     total = prefix_len + count + suffix_len
-    values = np.asarray(
-        draw(npst.arrays(dtype=np.float64, shape=total, elements=_FINITE_FLOAT))
-    )
+    values = np.asarray(draw(npst.arrays(dtype=np.float64, shape=total, elements=_FINITE_FLOAT)))
     anchor_value = draw(_FINITE_ANCHOR)
     anchor_relative_idx = draw(st.integers(min_value=0, max_value=count - 1))
     return values, prefix_len, count, anchor_value, anchor_relative_idx

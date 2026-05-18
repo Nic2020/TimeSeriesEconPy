@@ -122,8 +122,16 @@ def test_negative_step_basic_iteration() -> None:
 def test_negative_step_quarterly() -> None:
     rng = MITRange(qq(2021, 4), qq(2020, 1), step=-1)
     items = list(rng)
-    assert items == [qq(2021, 4), qq(2021, 3), qq(2021, 2), qq(2021, 1),
-                     qq(2020, 4), qq(2020, 3), qq(2020, 2), qq(2020, 1)]
+    assert items == [
+        qq(2021, 4),
+        qq(2021, 3),
+        qq(2021, 2),
+        qq(2021, 1),
+        qq(2020, 4),
+        qq(2020, 3),
+        qq(2020, 2),
+        qq(2020, 1),
+    ]
     assert len(rng) == 8
 
 

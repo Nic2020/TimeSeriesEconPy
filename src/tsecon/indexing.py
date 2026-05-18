@@ -64,8 +64,8 @@ from tsecon.tseries import TSeries
 # build hook), the import fails silently and lookup falls back to the NumPy
 # reference. The public surface is otherwise unchanged.
 try:
-    from tsecon._indexing_kernels_cy import (
-        gather_cython,  # type: ignore[import-not-found, unused-ignore]
+    from tsecon._indexing_kernels_cy import (  # type: ignore[import-not-found, unused-ignore]
+        gather_cython,
     )
 
     _CYTHON_AVAILABLE: Final[bool] = True

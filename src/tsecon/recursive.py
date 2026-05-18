@@ -53,8 +53,8 @@ from tsecon.tseries import TSeries
 # build hook), the import fails silently and rec_linear falls back to the
 # NumPy reference. The public surface is otherwise unchanged.
 try:
-    from tsecon._rec_kernels_cy import (
-        rec_linear_cython,  # type: ignore[import-not-found, unused-ignore]
+    from tsecon._rec_kernels_cy import (  # type: ignore[import-not-found, unused-ignore]
+        rec_linear_cython,
     )
 
     _CYTHON_AVAILABLE: Final[bool] = True

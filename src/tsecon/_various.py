@@ -84,8 +84,8 @@ def _ws_keys(x: object) -> list[str]:
     if isinstance(x, MVTSeries):
         return list(x.column_names)
     if isinstance(x, Mapping):
-        return [str(k) for k in x.keys()]
-    msg = f"Not a LikeWorkspace container: {type(x).__name__}."  # type: ignore[unreachable]
+        return [str(k) for k in x]
+    msg = f"Not a LikeWorkspace container: {type(x).__name__}."
     raise TypeError(msg)
 
 
@@ -98,11 +98,11 @@ def _ws_get(x: object, key: str) -> Any:
         if key in x:
             return x[key]
         # Allow non-str keys to round-trip via str equivalence.
-        for k in x.keys():
+        for k in x:
             if str(k) == key:
                 return x[k]
         raise KeyError(key)
-    msg = f"Not a LikeWorkspace container: {type(x).__name__}."  # type: ignore[unreachable]
+    msg = f"Not a LikeWorkspace container: {type(x).__name__}."
     raise TypeError(msg)
 
 
@@ -114,7 +114,7 @@ def _ws_has(x: object, key: str) -> bool:
     if isinstance(x, Mapping):
         if key in x:
             return True
-        return any(str(k) == key for k in x.keys())
+        return any(str(k) == key for k in x)
     return False
 
 
@@ -156,7 +156,10 @@ def _istypenan_scalar(x: Any) -> bool:
         if np.issubdtype(type(x), np.floating):
             return bool(np.isnan(x))
         if np.issubdtype(type(x), np.integer):
-            return int(x) == int(np.iinfo(type(x)).max)
+            # The issubdtype check above guarantees type(x) is an np.integer
+            # subclass at runtime; mypy can't narrow type[np.generic] to the
+            # specific integer type variable that np.iinfo wants.
+            return int(x) == int(np.iinfo(type(x)).max)  # type: ignore[type-var]
         if np.issubdtype(type(x), np.complexfloating):
             return bool(np.isnan(x))
     return False
@@ -165,14 +168,14 @@ def _istypenan_scalar(x: Any) -> bool:
 def _typenan_mask(arr: np.ndarray) -> np.ndarray:
     """Boolean mask where True marks positions equal to the dtype's typenan."""
     if np.issubdtype(arr.dtype, np.floating):
-        return np.isnan(arr)
+        return np.isnan(arr)  # type: ignore[no-any-return]
     if np.issubdtype(arr.dtype, np.integer):
         return arr == np.iinfo(arr.dtype).max  # type: ignore[no-any-return]
     if arr.dtype == np.bool_:
         # tsecon convention: bool typenan is False (see tseries.typenan).
         return ~arr
     if np.issubdtype(arr.dtype, np.complexfloating):
-        return np.isnan(arr)
+        return np.isnan(arr)  # type: ignore[no-any-return]
     return np.zeros(arr.shape, dtype=bool)
 
 
@@ -234,7 +237,12 @@ def overlay(*args: Any, rng: MITRange | None = None) -> Any:
         if rng is None:
             rng = rangeof_span(*(t.range for t in args))
         elif not isinstance(rng, MITRange):
-            msg = f"overlay rng= must be an MITRange; got {type(rng).__name__}."
+            # Defensive runtime check: the signature types ``rng`` as
+            # ``MITRange | None`` so mypy considers this branch unreachable,
+            # but callers may pass Any-typed values (e.g. from JSON
+            # deserialization) and we'd rather raise at the call site than
+            # produce a confusing AttributeError deep inside _overlay_tseries.
+            msg = f"overlay rng= must be an MITRange; got {type(rng).__name__}."  # type: ignore[unreachable]
             raise TypeError(msg)
         return _overlay_tseries(rng, *args)
 
@@ -403,7 +411,7 @@ _MISSING = _Missing()
 _DEFAULT_RTOL = sqrt(float(np.finfo(np.float64).eps))
 
 
-def compare(  # noqa: PLR0913 — kwarg surface matches Julia signature one-for-one
+def compare(
     x: Any,
     y: Any,
     *,
@@ -418,7 +426,7 @@ def compare(  # noqa: PLR0913 — kwarg surface matches Julia signature one-for-
     nans: bool = False,
     trange: MITRange | None = None,
 ) -> CompareResult:
-    """Recursively compare ``x`` and ``y``, returning a :class:`CompareResult`.
+    r"""Recursively compare ``x`` and ``y``, returning a :class:`CompareResult`.
 
     The walk dispatches over:
 
@@ -754,14 +762,17 @@ def reindex(
         1U
     """
     if not isinstance(old_to_new, tuple) or len(old_to_new) != 2:
-        msg = (
+        # Defensive: signature types `old_to_new` as `tuple[MIT, MIT]` so
+        # mypy considers this branch unreachable, but Any-typed callers
+        # (e.g. JSON deserialization) need the friendly error.
+        msg = (  # type: ignore[unreachable]
             "reindex pair must be a 2-tuple (old_mit, new_mit); "
             f"got {type(old_to_new).__name__}."
         )
         raise TypeError(msg)
     old_mit, new_mit = old_to_new
     if not isinstance(old_mit, MIT) or not isinstance(new_mit, MIT):
-        msg = (
+        msg = (  # type: ignore[unreachable]
             "reindex pair must contain two MIT instances; got "
             f"({type(old_mit).__name__}, {type(new_mit).__name__})."
         )

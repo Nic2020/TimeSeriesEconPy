@@ -327,9 +327,9 @@ def rangeof(
     # Deferred imports break the import cycle: mitrange is a foundational
     # module imported by tseries / mvtseries / workspace, so we cannot
     # import those at module load time.
-    from tsecon.mvtseries import MVTSeries
-    from tsecon.tseries import TSeries
-    from tsecon.workspace import Workspace
+    from tsecon.mvtseries import MVTSeries  # noqa: PLC0415 — circular-import-break
+    from tsecon.tseries import TSeries  # noqa: PLC0415 — circular-import-break
+    from tsecon.workspace import Workspace  # noqa: PLC0415 — circular-import-break
 
     if isinstance(obj, Workspace):
         base = obj.rangeof(method=method)

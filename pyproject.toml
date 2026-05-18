@@ -135,6 +135,14 @@ ignore = [
     "D213",  # multi-line-summary-second-line (conflicts with D212)
     "PLR0913",  # too many arguments — common in scientific APIs
     "PLR2004",  # magic value comparisons — common in tests / freq math
+    # Unicode math notation (×, −, ρ, γ, etc.) in docstrings is legitimate
+    # in a scientific package — benchmark speedups read as "7.8×" not "7.8x",
+    # variance formulas use ρ and γ, etc. The "ambiguity" warning is targeted
+    # at cases where Unicode could be confused with English letters in
+    # identifiers; in docstring prose / math it just degrades readability.
+    "RUF001",  # ambiguous Unicode in strings
+    "RUF002",  # ambiguous Unicode in docstrings
+    "RUF003",  # ambiguous Unicode in comments
 ]
 
 [tool.ruff.lint.pydocstyle]
@@ -180,6 +188,18 @@ convention = "numpy"
 # / input_is_holiday branch structure; collapsing the branches loses the line-
 # by-line parity with the Julia source.
 "src/tsecon/_bdaily.py" = ["PLR0912"]
+# _various.py implements the LikeWorkspace dispatch table for overlay /
+# compare / reindex — each function branches over (TSeries / MVTSeries /
+# Workspace / Mapping / scalar / ndarray) pairs. The N-arm dispatch is the
+# whole point; collapsing the branches into a registry pattern loses the
+# Julia-side-by-side readability.
+"src/tsecon/_various.py" = ["PLR0911"]
+# recursive.py's rec_linear wrapper enumerates the M1.6.1 forward/backward
+# step-sign × per-arg validation contract (frequency-mismatch, step != 1,
+# coeffs/lags ndim, length-mismatch, empty, min(lags), dtype, initial-cond)
+# — 10 raise sites in one function. The branch fan-out IS the validation
+# contract.
+"src/tsecon/recursive.py" = ["PLR0912", "PLR0915"]
 # Pretty-printer + frequency-dispatch helpers fan out across the frequency
 # hierarchy and across the union of supported value types.
 "src/tsecon/workspace.py" = ["PLR0911"]

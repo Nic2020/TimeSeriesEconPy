@@ -1753,7 +1753,7 @@ def _format_mvtseries(
     type_str = f"MVTSeries{{{prettyprint_frequency(m.frequency)}{dtype_part}}}"
     names_all = list(m._columns.keys())
     vars_str = _summary_vars(names_all)
-    head = f"{nrows}×{ncols} {type_str} with range {m.range} and {vars_str}"  # noqa: RUF001
+    head = f"{nrows}×{ncols} {type_str} with range {m.range} and {vars_str}"
     if nrows == 0 or ncols == 0:
         return head
 

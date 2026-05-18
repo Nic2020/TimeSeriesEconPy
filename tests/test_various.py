@@ -23,7 +23,6 @@ from tsecon import (
     TSeries,
     Unit,
     Workspace,
-    Yearly,
     compare,
     mm,
     overlay,
@@ -32,7 +31,6 @@ from tsecon import (
     yy,
 )
 from tsecon._various import CompareDifference, CompareResult
-
 
 # ---------------------------------------------------------------------------
 # overlay
@@ -65,7 +63,8 @@ class TestOverlayTSeries:
                 assert got == want
 
     def test_three_inputs_first_non_nan_wins(self) -> None:
-        # Tutorial-style: x1 NaN on Q2/Q3; x2 covers 2019Q3..2020Q2 NaN on Q4/Q1; x3 covers Q2 onward.
+        # Tutorial-style: x1 NaN on Q2/Q3; x2 covers 2019Q3..2020Q2 NaN on Q4/Q1;
+        # x3 covers Q2 onward.
         x1 = TSeries(qq(2020, 1), [1.0, 1.0, 1.0, 1.0])
         x1[MITRange(qq(2020, 2), qq(2020, 3))] = np.nan
         x2 = TSeries(qq(2019, 3), [2.0, 2.0, 2.0, 2.0])
@@ -141,7 +140,6 @@ class TestOverlayWorkspace:
     def test_workspace_mvtseries_mixed(self) -> None:
         # Tutorial example: w1 has TSeries, w2 is an MVTSeries with x column.
         x1 = TSeries(qq(2020, 1), [1.0, 2.0])
-        x2 = TSeries(qq(2020, 1), [10.0, 20.0])
         w1 = Workspace(x=x1, a=1)
         m2 = MVTSeries(qq(2020, 1), ["x", "b"], np.array([[100.0, 5.0], [200.0, 6.0]]))
         # m2.x is a TSeries view → x recursively overlays as TSeries; b is just the column.

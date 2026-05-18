@@ -112,9 +112,10 @@ def cumsum_anchored_numpy(
     anchor_value: float,
     anchor_relative_idx: int,
 ) -> None:
-    """Integrate ``values[offset : offset + count]`` so the result equals ``anchor_value`` at the anchor.
+    """Integrate the slice so the result equals ``anchor_value`` at the anchor position.
 
-    Pure-NumPy reference. See module docstring for the kernel contract;
+    Pure-NumPy reference. The slice is ``values[offset : offset + count]``.
+    See module docstring for the kernel contract;
     the matching Cython kernel in ``_math_kernels_cy.pyx`` (when
     compiled) carries the same signature and behaviour but fuses the
     cumsum + constant-shift into a single C pass.
@@ -131,9 +132,6 @@ def cumsum_anchored_numpy(
         return
     chunk = values[offset : offset + count]
     np.cumsum(chunk, out=chunk)
-    if anchor_relative_idx >= 0:
-        reference = chunk[anchor_relative_idx]
-    else:
-        reference = 0.0
+    reference = chunk[anchor_relative_idx] if anchor_relative_idx >= 0 else 0.0
     correction = anchor_value - reference
     chunk += correction

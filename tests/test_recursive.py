@@ -242,7 +242,11 @@ class TestRecLinearBackward:
         init_via_lambda = TSeries(_unit(1), np.zeros(10))
         init_via_lambda[_unit(9)] = 2.0
         init_via_lambda[_unit(10)] = 3.0
-        rec(rng, init_via_lambda, lambda t: 0.5 * init_via_lambda[t + 1] + 0.3 * init_via_lambda[t + 2])
+        rec(
+            rng,
+            init_via_lambda,
+            lambda t: 0.5 * init_via_lambda[t + 1] + 0.3 * init_via_lambda[t + 2],
+        )
         init_via_kernel = TSeries(_unit(1), np.zeros(10))
         init_via_kernel[_unit(9)] = 2.0
         init_via_kernel[_unit(10)] = 3.0

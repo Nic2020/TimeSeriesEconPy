@@ -85,7 +85,9 @@ def _rec_linear_inputs(  # type: ignore[no-untyped-def]
     n_terms = draw(st.integers(min_value=1, max_value=4))
     # Unique magnitudes in 1..8; sign matches direction so the recurrence
     # always reads an already-written or initial-condition position.
-    mags = sorted(draw(st.lists(st.integers(1, 8), min_size=n_terms, max_size=n_terms, unique=True)))
+    mags = sorted(
+        draw(st.lists(st.integers(1, 8), min_size=n_terms, max_size=n_terms, unique=True))
+    )
     max_mag = mags[-1]
     count = draw(st.integers(min_value=1, max_value=40))
     total_length = max_mag + count
@@ -210,7 +212,14 @@ def test_rec_linear_forward_rejects_zero_lag(
     zero_at: int,
 ) -> None:
     """Any forward-step lags vector containing a 0 raises ``ValueError`` with the G4 hint."""
-    from tsecon import MITRange, TSeries, qq, rec_linear
+    # Deferred import: keeps the property strategies at the top of the file
+    # without pulling in tsecon during Hypothesis strategy registration.
+    from tsecon import (  # noqa: PLC0415 — deferred to keep strategies decoupled
+        MITRange,
+        TSeries,
+        qq,
+        rec_linear,
+    )
 
     n_terms = len(other_lags) + 1
     insert_pos = min(zero_at, n_terms - 1)

@@ -3,12 +3,10 @@
 
 from __future__ import annotations
 
+import numpy as np
 import pytest
-
 from hypothesis import given
 from hypothesis import strategies as st
-
-import numpy as np
 
 from tsecon.frequencies import Monthly, Quarterly, Unit
 from tsecon.mit import MIT, Duration, mm, qq
@@ -381,7 +379,7 @@ class TestRangeofFreeFunction:
 
     def test_method_union_on_tseries_raises(self) -> None:
         t = TSeries(qq(2020, 1), [1.0, 2.0])
-        with pytest.raises(TypeError, match="method='union'.*Workspace.*TSeries"):
+        with pytest.raises(TypeError, match=r"method='union'.*Workspace.*TSeries"):
             rangeof(t, method="union")
 
     def test_method_union_on_mvtseries_raises(self) -> None:
@@ -395,7 +393,7 @@ class TestRangeofFreeFunction:
 
     def test_invalid_method_raises(self) -> None:
         t = TSeries(qq(2020, 1), [1.0, 2.0])
-        with pytest.raises(ValueError, match="intersect.*union.*'oops'"):
+        with pytest.raises(ValueError, match=r"intersect.*union.*'oops'"):
             rangeof(t, method="oops")
 
     # -- Workspace.rangeof(method=) backward-compat / method kwarg ---------
@@ -418,7 +416,7 @@ class TestRangeofFreeFunction:
     def test_workspace_method_invalid_raises(self) -> None:
         a = TSeries(qq(2020, 1), [1.0, 2.0])
         w = Workspace(a=a)
-        with pytest.raises(ValueError, match="intersect.*union"):
+        with pytest.raises(ValueError, match=r"intersect.*union"):
             w.rangeof(method="oops")
 
 

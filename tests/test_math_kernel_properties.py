@@ -71,7 +71,7 @@ _FINITE_ANCHOR = st.floats(
 def _cumsum_inputs(  # type: ignore[no-untyped-def]
     draw,
 ) -> tuple[np.ndarray, int, int, float, int]:
-    """Generate ``(values, offset, count, anchor_value, anchor_relative_idx)`` satisfying the contract.
+    """Generate ``(values, offset, count, anchor_value, anchor_relative_idx)`` per the contract.
 
     Constraints satisfied:
       * ``values.dtype == float64`` and ``values`` is C-contiguous.

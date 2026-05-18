@@ -1,0 +1,2937 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="A time-series language for macroeconomics, ported from TimeSeriesEcon.jl.">
+      
+      
+      
+        <link rel="canonical" href="https://Nic2020.github.io/TimeSeriesEconPy/reference/various/">
+      
+      
+        <link rel="prev" href="../recursive/">
+      
+      
+        <link rel="next" href="../options/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Misc helpers (overlay, compare, reindex) - TimeSeriesEconPy</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/_markdown_exec_pyodide.css">
+    
+      <link rel="stylesheet" href="../../assets/_markdown_exec_ansi.css">
+    
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#misc-helpers-overlay-compare-reindex" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="TimeSeriesEconPy" class="md-header__button md-logo" aria-label="TimeSeriesEconPy" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            TimeSeriesEconPy
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Misc helpers (overlay, compare, reindex)
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0-7 2.39 3.42C13.65 5.15 12.84 5 12 5s-1.65.15-2.39.42zM3.34 7l4.16-.35A7.2 7.2 0 0 0 5.94 8.5c-.44.74-.69 1.5-.83 2.29zm.02 10 1.76-3.77a7.131 7.131 0 0 0 2.38 4.14zM20.65 7l-1.77 3.79a7.02 7.02 0 0 0-2.38-4.15zm-.01 10-4.14.36c.59-.51 1.12-1.14 1.54-1.86.42-.73.69-1.5.83-2.29zM12 22l-2.41-3.44c.74.27 1.55.44 2.41.44.82 0 1.63-.17 2.37-.44z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m17.75 4.09-2.53 1.94.91 3.06-2.63-1.81-2.63 1.81.91-3.06-2.53-1.94L12.44 4l1.06-3 1.06 3zm3.5 6.91-1.64 1.25.59 1.98-1.7-1.17-1.7 1.17.59-1.98L15.75 11l2.06-.05L18.5 9l.69 1.95zm-2.28 4.95c.83-.08 1.72 1.1 1.19 1.85-.32.45-.66.87-1.08 1.27C15.17 23 8.84 23 4.94 19.07c-3.91-3.9-3.91-10.24 0-14.14.4-.4.82-.76 1.27-1.08.75-.53 1.93.36 1.85 1.19-.27 2.86.69 5.83 2.89 8.02a9.96 9.96 0 0 0 8.02 2.89m-1.64 2.02a12.08 12.08 0 0 1-7.8-3.47c-2.17-2.19-3.33-5-3.49-7.82-2.81 3.14-2.7 7.96.31 10.98 3.02 3.01 7.84 3.12 10.98.31"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/Nic2020/TimeSeriesEconPy" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    Nic2020/TimeSeriesEconPy
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="TimeSeriesEconPy" class="md-nav__button md-logo" aria-label="TimeSeriesEconPy" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    TimeSeriesEconPy
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/Nic2020/TimeSeriesEconPy" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    Nic2020/TimeSeriesEconPy
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorials
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Tutorials
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/1_timeseriesecon/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    1. TimeSeriesEcon
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../frequencies/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Frequencies
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../mit/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MIT & MITRange
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tseries/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    TSeries
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../mvtseries/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MVTSeries
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../workspace/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Workspace
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../math/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Math (shift, diff, moving, undiff)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../stats/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Statistics (mean, std, cor)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../indexing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Indexing (lookup)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../fconvert/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Frequency conversion (fconvert)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../recursive/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Recursive (rec, rec_linear)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Misc helpers (overlay, compare, reindex)
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Misc helpers (overlay, compare, reindex)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#tsecon._various" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        _various
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="_various">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tsecon._various.CompareDifference" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CompareDifference
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tsecon._various.CompareResult" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CompareResult
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tsecon._various.overlay" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        overlay
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tsecon._various.compare" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        compare
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tsecon._various.reindex" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        reindex
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../options/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Options
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../plotting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plotting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../interop/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Interop (pandas, polars)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../io/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    JSON I/O
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../mirror/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Mirror metadata
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Design notes
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Design notes
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/decisions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/frequency_model/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Frequency model
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/tseries_protocols/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    TSeries protocols
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/cython_strategy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cython strategy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/serialization/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    JSON serialization
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/migration_from_julia/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Migration from Julia
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api_index/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API index
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../faq/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    FAQ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#tsecon._various" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        _various
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="_various">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tsecon._various.CompareDifference" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CompareDifference
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tsecon._various.CompareResult" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CompareResult
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tsecon._various.overlay" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        overlay
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tsecon._various.compare" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        compare
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tsecon._various.reindex" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        reindex
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="misc-helpers-overlay-compare-reindex">Misc helpers (overlay, compare, reindex)<a class="headerlink" href="#misc-helpers-overlay-compare-reindex" title="Permanent link">&para;</a></h1>
+<p>Three sibling functions from upstream <code>TimeSeriesEcon.jl/src/various.jl</code>,
+sharing the <em>LikeWorkspace</em> dispatch (Workspace / MVTSeries / Mapping):</p>
+<ul>
+<li><a href="#tsecon._various.overlay"><code>overlay</code></a> — first-valid-wins composition
+  over TSeries / Workspace / MVTSeries values. The dtype-appropriate
+  <em>typenan</em> (NaN for floats, <code>iinfo.max</code> for integers, <code>False</code> for
+  booleans) marks "missing"; the leftmost non-missing value wins
+  position-by-position.</li>
+<li><a href="#tsecon._various.compare"><code>compare</code></a> — recursive structural / numeric
+  comparison. Returns a <a href="#tsecon._various.CompareResult"><code>CompareResult</code></a>
+  (truthy on equality; <code>.differences</code> carries the per-leaf diff).
+  Tolerance kwargs (<code>atol</code> / <code>rtol</code> / <code>nans</code>) match the Julia
+  <code>compare</code> / <code>@compare</code> surface name-for-name.</li>
+<li><a href="#tsecon._various.reindex"><code>reindex</code></a> — shift every MIT-keyed position
+  inside a container so that <code>from</code> maps to <code>to</code>; values are preserved.
+  Dispatches over MIT / MITRange / TSeries / MVTSeries / Workspace.</li>
+</ul>
+
+
+<div class="doc doc-object doc-module">
+
+
+
+<h2 id="tsecon._various" class="doc doc-heading">
+            <span class="doc doc-object-name doc-module-name">tsecon._various</span>
+
+
+<a href="#tsecon._various" class="headerlink" title="Permanent link">&para;</a></h2>
+
+    <div class="doc doc-contents first">
+
+        <p>Misc helpers from <code>TimeSeriesEcon.jl</code>'s <code>various.jl</code>.</p>
+<p>Three sibling functions sharing the <code>LikeWorkspace</code> dispatch (Workspace /
+MVTSeries / :class:<code>collections.abc.Mapping</code>):</p>
+<ul>
+<li>:func:<code>overlay</code> — first-valid-wins composition over TSeries / Workspace /
+  MVTSeries values. NaN (and the dtype-appropriate <code>typenan</code>) marks
+  "missing"; the leftmost non-missing value wins position-by-position.</li>
+<li>:func:<code>compare</code> — recursive structural / numeric comparison. Returns a
+  :class:<code>CompareResult</code> (truthy on equality; <code>.differences</code> carries the
+  per-leaf diff). Tolerance kwargs (<code>atol</code> / <code>rtol</code> / <code>nans</code>) and
+  walk kwargs (<code>ignoremissing</code> / <code>showequal</code> / <code>quiet</code> / <code>trange</code>)
+  match the Julia surface name-for-name.</li>
+<li>:func:<code>reindex</code> — shift every MIT-keyed position inside a container so
+  that <code>from</code> maps to <code>to</code>; the underlying values are preserved.
+  Dispatches over MIT / MITRange / TSeries / MVTSeries / Workspace.</li>
+</ul>
+<p>Julia's <code>@compare</code> macro collapses to a plain function alias here: the
+macro existed only to capture the variable names for printing, and
+:class:<code>CompareResult.differences</code> already exposes that information without
+needing AST rewriting. Code that wrote <code>@compare(v1, v2, atol=1e-5)</code>
+ports to <code>compare(v1, v2, atol=1e-5)</code> — the Python idiom of returning a
+structured diff matches the Julia behaviour for both interactive (<code>print(result)</code>)
+and programmatic (<code>result.differences</code>) use.</p>
+<p>Remaining pieces of <code>various.jl</code> are deferred:</p>
+<ul>
+<li><code>@showall</code> — Julia macro for non-truncating display; Python uses
+  <code>print(repr(x))</code> directly (the truncation lives in our <code>__repr__</code>,
+  not in a separate IO context).</li>
+<li><code>clean_old_frequencies</code> — Julia v0.4→v0.5 frequency-sanitiser; not
+  applicable to tsecon's cached-singleton frequency model. Tracked as
+  parity gap G14.</li>
+<li><code>TOML.print</code> overloads — left to v1.0 if the JSON round-trip
+  (<code>io/json.py</code>) doesn't cover the use case.</li>
+<li><code>is_yearly</code> / <code>is_quarterly</code> / etc. — already ported in
+  :mod:<code>tsecon.frequencies</code> with PEP-8 underscore naming.</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-class">
+
+
+
+<h3 id="tsecon._various.CompareDifference" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">CompareDifference</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-dataclass"><code>dataclass</code></small>
+  </span>
+
+<a href="#tsecon._various.CompareDifference" class="headerlink" title="Permanent link">&para;</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+
+
+        <p>One line of the recursive diff produced by :func:<code>compare</code>.</p>
+
+
+<p><span class="doc-section-title">Attributes:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td><code><span title="tsecon._various.CompareDifference.path">path</span></code></td>
+            <td>
+                  <code><span title="tuple">tuple</span>[<span title="str">str</span>, ...]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Hierarchical tuple of names, e.g. <code>('_', 'y', '2020Q3')</code>.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="tsecon._various.CompareDifference.message">message</span></code></td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Short human-readable description: <code>'different'</code>,
+<code>'missing in &lt;name&gt;'</code>, or <code>'same'</code>.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+
+
+
+
+
+
+              <details class="mkdocstrings-source">
+                <summary>Source code in <code>src/tsecon/_various.py</code></summary>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-351">351</a></span>
+<span class="normal"><a href="#__codelineno-0-352">352</a></span>
+<span class="normal"><a href="#__codelineno-0-353">353</a></span>
+<span class="normal"><a href="#__codelineno-0-354">354</a></span>
+<span class="normal"><a href="#__codelineno-0-355">355</a></span>
+<span class="normal"><a href="#__codelineno-0-356">356</a></span>
+<span class="normal"><a href="#__codelineno-0-357">357</a></span>
+<span class="normal"><a href="#__codelineno-0-358">358</a></span>
+<span class="normal"><a href="#__codelineno-0-359">359</a></span>
+<span class="normal"><a href="#__codelineno-0-360">360</a></span>
+<span class="normal"><a href="#__codelineno-0-361">361</a></span>
+<span class="normal"><a href="#__codelineno-0-362">362</a></span>
+<span class="normal"><a href="#__codelineno-0-363">363</a></span>
+<span class="normal"><a href="#__codelineno-0-364">364</a></span>
+<span class="normal"><a href="#__codelineno-0-365">365</a></span>
+<span class="normal"><a href="#__codelineno-0-366">366</a></span>
+<span class="normal"><a href="#__codelineno-0-367">367</a></span>
+<span class="normal"><a href="#__codelineno-0-368">368</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-351" name="__codelineno-0-351"></a><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-0-352" name="__codelineno-0-352"></a><span class="k">class</span><span class="w"> </span><span class="nc">CompareDifference</span><span class="p">:</span>
+<a id="__codelineno-0-353" name="__codelineno-0-353"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;One line of the recursive diff produced by :func:`compare`.</span>
+<a id="__codelineno-0-354" name="__codelineno-0-354"></a>
+<a id="__codelineno-0-355" name="__codelineno-0-355"></a><span class="sd">    Attributes</span>
+<a id="__codelineno-0-356" name="__codelineno-0-356"></a><span class="sd">    ----------</span>
+<a id="__codelineno-0-357" name="__codelineno-0-357"></a><span class="sd">    path</span>
+<a id="__codelineno-0-358" name="__codelineno-0-358"></a><span class="sd">        Hierarchical tuple of names, e.g. ``(&#39;_&#39;, &#39;y&#39;, &#39;2020Q3&#39;)``.</span>
+<a id="__codelineno-0-359" name="__codelineno-0-359"></a><span class="sd">    message</span>
+<a id="__codelineno-0-360" name="__codelineno-0-360"></a><span class="sd">        Short human-readable description: ``&#39;different&#39;``,</span>
+<a id="__codelineno-0-361" name="__codelineno-0-361"></a><span class="sd">        ``&#39;missing in &lt;name&gt;&#39;``, or ``&#39;same&#39;``.</span>
+<a id="__codelineno-0-362" name="__codelineno-0-362"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-363" name="__codelineno-0-363"></a>
+<a id="__codelineno-0-364" name="__codelineno-0-364"></a>    <span class="n">path</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
+<a id="__codelineno-0-365" name="__codelineno-0-365"></a>    <span class="n">message</span><span class="p">:</span> <span class="nb">str</span>
+<a id="__codelineno-0-366" name="__codelineno-0-366"></a>
+<a id="__codelineno-0-367" name="__codelineno-0-367"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<a id="__codelineno-0-368" name="__codelineno-0-368"></a>        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="s1">&#39;.&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">path</span><span class="p">)</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">message</span><span class="si">}</span><span class="s2">&quot;</span>
+</code></pre></div></td></tr></table></div>
+              </details>
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h3 id="tsecon._various.CompareResult" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">CompareResult</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-dataclass"><code>dataclass</code></small>
+  </span>
+
+<a href="#tsecon._various.CompareResult" class="headerlink" title="Permanent link">&para;</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+
+
+        <p>The structured return value of :func:<code>compare</code>.</p>
+<p>Truthy iff the two inputs compared as equal — use
+<code>if compare(a, b): ...</code> for the Julia-style one-line check.
+<code>str(result)</code> reproduces the printed diff (one line per
+:class:<code>CompareDifference</code>). <code>.differences</code> exposes the diff
+programmatically.</p>
+
+
+
+
+
+
+
+
+              <details class="mkdocstrings-source">
+                <summary>Source code in <code>src/tsecon/_various.py</code></summary>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-371">371</a></span>
+<span class="normal"><a href="#__codelineno-0-372">372</a></span>
+<span class="normal"><a href="#__codelineno-0-373">373</a></span>
+<span class="normal"><a href="#__codelineno-0-374">374</a></span>
+<span class="normal"><a href="#__codelineno-0-375">375</a></span>
+<span class="normal"><a href="#__codelineno-0-376">376</a></span>
+<span class="normal"><a href="#__codelineno-0-377">377</a></span>
+<span class="normal"><a href="#__codelineno-0-378">378</a></span>
+<span class="normal"><a href="#__codelineno-0-379">379</a></span>
+<span class="normal"><a href="#__codelineno-0-380">380</a></span>
+<span class="normal"><a href="#__codelineno-0-381">381</a></span>
+<span class="normal"><a href="#__codelineno-0-382">382</a></span>
+<span class="normal"><a href="#__codelineno-0-383">383</a></span>
+<span class="normal"><a href="#__codelineno-0-384">384</a></span>
+<span class="normal"><a href="#__codelineno-0-385">385</a></span>
+<span class="normal"><a href="#__codelineno-0-386">386</a></span>
+<span class="normal"><a href="#__codelineno-0-387">387</a></span>
+<span class="normal"><a href="#__codelineno-0-388">388</a></span>
+<span class="normal"><a href="#__codelineno-0-389">389</a></span>
+<span class="normal"><a href="#__codelineno-0-390">390</a></span>
+<span class="normal"><a href="#__codelineno-0-391">391</a></span>
+<span class="normal"><a href="#__codelineno-0-392">392</a></span>
+<span class="normal"><a href="#__codelineno-0-393">393</a></span>
+<span class="normal"><a href="#__codelineno-0-394">394</a></span>
+<span class="normal"><a href="#__codelineno-0-395">395</a></span>
+<span class="normal"><a href="#__codelineno-0-396">396</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-371" name="__codelineno-0-371"></a><span class="nd">@dataclass</span>
+<a id="__codelineno-0-372" name="__codelineno-0-372"></a><span class="k">class</span><span class="w"> </span><span class="nc">CompareResult</span><span class="p">:</span>
+<a id="__codelineno-0-373" name="__codelineno-0-373"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;The structured return value of :func:`compare`.</span>
+<a id="__codelineno-0-374" name="__codelineno-0-374"></a>
+<a id="__codelineno-0-375" name="__codelineno-0-375"></a><span class="sd">    Truthy iff the two inputs compared as equal — use</span>
+<a id="__codelineno-0-376" name="__codelineno-0-376"></a><span class="sd">    ``if compare(a, b): ...`` for the Julia-style one-line check.</span>
+<a id="__codelineno-0-377" name="__codelineno-0-377"></a><span class="sd">    ``str(result)`` reproduces the printed diff (one line per</span>
+<a id="__codelineno-0-378" name="__codelineno-0-378"></a><span class="sd">    :class:`CompareDifference`). ``.differences`` exposes the diff</span>
+<a id="__codelineno-0-379" name="__codelineno-0-379"></a><span class="sd">    programmatically.</span>
+<a id="__codelineno-0-380" name="__codelineno-0-380"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-381" name="__codelineno-0-381"></a>
+<a id="__codelineno-0-382" name="__codelineno-0-382"></a>    <span class="n">equal</span><span class="p">:</span> <span class="nb">bool</span>
+<a id="__codelineno-0-383" name="__codelineno-0-383"></a>    <span class="n">differences</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">CompareDifference</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">list</span><span class="p">)</span>
+<a id="__codelineno-0-384" name="__codelineno-0-384"></a>
+<a id="__codelineno-0-385" name="__codelineno-0-385"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__bool__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<a id="__codelineno-0-386" name="__codelineno-0-386"></a>        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">equal</span>
+<a id="__codelineno-0-387" name="__codelineno-0-387"></a>
+<a id="__codelineno-0-388" name="__codelineno-0-388"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<a id="__codelineno-0-389" name="__codelineno-0-389"></a>        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">differences</span><span class="p">:</span>
+<a id="__codelineno-0-390" name="__codelineno-0-390"></a>            <span class="k">return</span> <span class="s2">&quot;(no differences)&quot;</span>
+<a id="__codelineno-0-391" name="__codelineno-0-391"></a>        <span class="k">return</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">d</span><span class="p">)</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">differences</span><span class="p">)</span>
+<a id="__codelineno-0-392" name="__codelineno-0-392"></a>
+<a id="__codelineno-0-393" name="__codelineno-0-393"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<a id="__codelineno-0-394" name="__codelineno-0-394"></a>        <span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">differences</span><span class="p">)</span>
+<a id="__codelineno-0-395" name="__codelineno-0-395"></a>        <span class="n">suffix</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span> <span class="k">if</span> <span class="n">n</span> <span class="o">==</span> <span class="mi">1</span> <span class="k">else</span> <span class="s2">&quot;s&quot;</span>
+<a id="__codelineno-0-396" name="__codelineno-0-396"></a>        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;CompareResult(equal=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">equal</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">n</span><span class="si">}</span><span class="s2"> difference</span><span class="si">{</span><span class="n">suffix</span><span class="si">}</span><span class="s2">)&quot;</span>
+</code></pre></div></td></tr></table></div>
+              </details>
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="tsecon._various.overlay" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">overlay</span>
+
+
+<a href="#tsecon._various.overlay" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">overlay</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">rng</span><span class="p">:</span> <span class="n">MITRange</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Return the first non-missing value, position-by-position, from left to right.</p>
+<p>"Missing" is defined by the dtype-appropriate <code>typenan</code> (NaN for
+floats, <code>iinfo(dtype).max</code> for integers, <code>False</code> for booleans).
+The dispatch is on the argument types — all arguments must agree on a
+container family for the recursive form to apply:</p>
+<ul>
+<li><strong>All :class:<code>~tsecon.tseries.TSeries</code></strong> — build a new TSeries over
+  either <code>rng=</code> (when given) or the union of all input ranges
+  (<code>rangeof_span(*args)</code>). For each position, the leftmost input
+  that has a non-typenan value at that position wins. The output
+  dtype is the NumPy promotion of all input dtypes.</li>
+<li><strong>All :class:<code>~tsecon.mvtseries.MVTSeries</code></strong> — return an MVTSeries
+  over the union range and the ordered union of column names; each
+  column is the overlay of the corresponding TSeries columns.</li>
+<li><strong>All Workspace / MVTSeries / Mapping</strong> — return a
+  :class:<code>~tsecon.workspace.Workspace</code>. For each key present in any
+  input, collect the values across inputs that have it and recurse;
+  the recursive call may dispatch back into the TSeries / Workspace
+  / MVTSeries / scalar paths.</li>
+<li><strong>Mixed types</strong> (e.g. a TSeries and a scalar) — fall through to
+  the scalar walk: return the leftmost non-typenan value.</li>
+</ul>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>*args</code>
+            </td>
+            <td>
+                  <code><span title="typing.Any">Any</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>One or more values to overlay. At least one is required.</p>
+              </div>
+            </td>
+            <td>
+                  <code>()</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>rng</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="MITRange
+
+
+  
+      dataclass
+   (tsecon.mitrange.MITRange)" href="../mit/#tsecon.mitrange.MITRange">MITRange</a> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Optional :class:<code>~tsecon.mitrange.MITRange</code> to force the output
+range. Only valid when all arguments are TSeries; raises
+:class:<code>TypeError</code> otherwise.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="typing.Any">Any</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>A TSeries / MVTSeries / Workspace / scalar matching the input
+family.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="TypeError">TypeError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>On empty argument list, on mixed-frequency inputs, or on
+<code>rng=</code> passed with non-TSeries arguments.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+            <details class="mkdocstrings-source">
+              <summary>Source code in <code>src/tsecon/_various.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-187">187</a></span>
+<span class="normal"><a href="#__codelineno-0-188">188</a></span>
+<span class="normal"><a href="#__codelineno-0-189">189</a></span>
+<span class="normal"><a href="#__codelineno-0-190">190</a></span>
+<span class="normal"><a href="#__codelineno-0-191">191</a></span>
+<span class="normal"><a href="#__codelineno-0-192">192</a></span>
+<span class="normal"><a href="#__codelineno-0-193">193</a></span>
+<span class="normal"><a href="#__codelineno-0-194">194</a></span>
+<span class="normal"><a href="#__codelineno-0-195">195</a></span>
+<span class="normal"><a href="#__codelineno-0-196">196</a></span>
+<span class="normal"><a href="#__codelineno-0-197">197</a></span>
+<span class="normal"><a href="#__codelineno-0-198">198</a></span>
+<span class="normal"><a href="#__codelineno-0-199">199</a></span>
+<span class="normal"><a href="#__codelineno-0-200">200</a></span>
+<span class="normal"><a href="#__codelineno-0-201">201</a></span>
+<span class="normal"><a href="#__codelineno-0-202">202</a></span>
+<span class="normal"><a href="#__codelineno-0-203">203</a></span>
+<span class="normal"><a href="#__codelineno-0-204">204</a></span>
+<span class="normal"><a href="#__codelineno-0-205">205</a></span>
+<span class="normal"><a href="#__codelineno-0-206">206</a></span>
+<span class="normal"><a href="#__codelineno-0-207">207</a></span>
+<span class="normal"><a href="#__codelineno-0-208">208</a></span>
+<span class="normal"><a href="#__codelineno-0-209">209</a></span>
+<span class="normal"><a href="#__codelineno-0-210">210</a></span>
+<span class="normal"><a href="#__codelineno-0-211">211</a></span>
+<span class="normal"><a href="#__codelineno-0-212">212</a></span>
+<span class="normal"><a href="#__codelineno-0-213">213</a></span>
+<span class="normal"><a href="#__codelineno-0-214">214</a></span>
+<span class="normal"><a href="#__codelineno-0-215">215</a></span>
+<span class="normal"><a href="#__codelineno-0-216">216</a></span>
+<span class="normal"><a href="#__codelineno-0-217">217</a></span>
+<span class="normal"><a href="#__codelineno-0-218">218</a></span>
+<span class="normal"><a href="#__codelineno-0-219">219</a></span>
+<span class="normal"><a href="#__codelineno-0-220">220</a></span>
+<span class="normal"><a href="#__codelineno-0-221">221</a></span>
+<span class="normal"><a href="#__codelineno-0-222">222</a></span>
+<span class="normal"><a href="#__codelineno-0-223">223</a></span>
+<span class="normal"><a href="#__codelineno-0-224">224</a></span>
+<span class="normal"><a href="#__codelineno-0-225">225</a></span>
+<span class="normal"><a href="#__codelineno-0-226">226</a></span>
+<span class="normal"><a href="#__codelineno-0-227">227</a></span>
+<span class="normal"><a href="#__codelineno-0-228">228</a></span>
+<span class="normal"><a href="#__codelineno-0-229">229</a></span>
+<span class="normal"><a href="#__codelineno-0-230">230</a></span>
+<span class="normal"><a href="#__codelineno-0-231">231</a></span>
+<span class="normal"><a href="#__codelineno-0-232">232</a></span>
+<span class="normal"><a href="#__codelineno-0-233">233</a></span>
+<span class="normal"><a href="#__codelineno-0-234">234</a></span>
+<span class="normal"><a href="#__codelineno-0-235">235</a></span>
+<span class="normal"><a href="#__codelineno-0-236">236</a></span>
+<span class="normal"><a href="#__codelineno-0-237">237</a></span>
+<span class="normal"><a href="#__codelineno-0-238">238</a></span>
+<span class="normal"><a href="#__codelineno-0-239">239</a></span>
+<span class="normal"><a href="#__codelineno-0-240">240</a></span>
+<span class="normal"><a href="#__codelineno-0-241">241</a></span>
+<span class="normal"><a href="#__codelineno-0-242">242</a></span>
+<span class="normal"><a href="#__codelineno-0-243">243</a></span>
+<span class="normal"><a href="#__codelineno-0-244">244</a></span>
+<span class="normal"><a href="#__codelineno-0-245">245</a></span>
+<span class="normal"><a href="#__codelineno-0-246">246</a></span>
+<span class="normal"><a href="#__codelineno-0-247">247</a></span>
+<span class="normal"><a href="#__codelineno-0-248">248</a></span>
+<span class="normal"><a href="#__codelineno-0-249">249</a></span>
+<span class="normal"><a href="#__codelineno-0-250">250</a></span>
+<span class="normal"><a href="#__codelineno-0-251">251</a></span>
+<span class="normal"><a href="#__codelineno-0-252">252</a></span>
+<span class="normal"><a href="#__codelineno-0-253">253</a></span>
+<span class="normal"><a href="#__codelineno-0-254">254</a></span>
+<span class="normal"><a href="#__codelineno-0-255">255</a></span>
+<span class="normal"><a href="#__codelineno-0-256">256</a></span>
+<span class="normal"><a href="#__codelineno-0-257">257</a></span>
+<span class="normal"><a href="#__codelineno-0-258">258</a></span>
+<span class="normal"><a href="#__codelineno-0-259">259</a></span>
+<span class="normal"><a href="#__codelineno-0-260">260</a></span>
+<span class="normal"><a href="#__codelineno-0-261">261</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-187" name="__codelineno-0-187"></a><span class="k">def</span><span class="w"> </span><span class="nf">overlay</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">rng</span><span class="p">:</span> <span class="n">MITRange</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+<a id="__codelineno-0-188" name="__codelineno-0-188"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the first non-missing value, position-by-position, from left to right.</span>
+<a id="__codelineno-0-189" name="__codelineno-0-189"></a>
+<a id="__codelineno-0-190" name="__codelineno-0-190"></a><span class="sd">    &quot;Missing&quot; is defined by the dtype-appropriate ``typenan`` (NaN for</span>
+<a id="__codelineno-0-191" name="__codelineno-0-191"></a><span class="sd">    floats, ``iinfo(dtype).max`` for integers, ``False`` for booleans).</span>
+<a id="__codelineno-0-192" name="__codelineno-0-192"></a><span class="sd">    The dispatch is on the argument types — all arguments must agree on a</span>
+<a id="__codelineno-0-193" name="__codelineno-0-193"></a><span class="sd">    container family for the recursive form to apply:</span>
+<a id="__codelineno-0-194" name="__codelineno-0-194"></a>
+<a id="__codelineno-0-195" name="__codelineno-0-195"></a><span class="sd">    * **All :class:`~tsecon.tseries.TSeries`** — build a new TSeries over</span>
+<a id="__codelineno-0-196" name="__codelineno-0-196"></a><span class="sd">      either ``rng=`` (when given) or the union of all input ranges</span>
+<a id="__codelineno-0-197" name="__codelineno-0-197"></a><span class="sd">      (``rangeof_span(*args)``). For each position, the leftmost input</span>
+<a id="__codelineno-0-198" name="__codelineno-0-198"></a><span class="sd">      that has a non-typenan value at that position wins. The output</span>
+<a id="__codelineno-0-199" name="__codelineno-0-199"></a><span class="sd">      dtype is the NumPy promotion of all input dtypes.</span>
+<a id="__codelineno-0-200" name="__codelineno-0-200"></a><span class="sd">    * **All :class:`~tsecon.mvtseries.MVTSeries`** — return an MVTSeries</span>
+<a id="__codelineno-0-201" name="__codelineno-0-201"></a><span class="sd">      over the union range and the ordered union of column names; each</span>
+<a id="__codelineno-0-202" name="__codelineno-0-202"></a><span class="sd">      column is the overlay of the corresponding TSeries columns.</span>
+<a id="__codelineno-0-203" name="__codelineno-0-203"></a><span class="sd">    * **All Workspace / MVTSeries / Mapping** — return a</span>
+<a id="__codelineno-0-204" name="__codelineno-0-204"></a><span class="sd">      :class:`~tsecon.workspace.Workspace`. For each key present in any</span>
+<a id="__codelineno-0-205" name="__codelineno-0-205"></a><span class="sd">      input, collect the values across inputs that have it and recurse;</span>
+<a id="__codelineno-0-206" name="__codelineno-0-206"></a><span class="sd">      the recursive call may dispatch back into the TSeries / Workspace</span>
+<a id="__codelineno-0-207" name="__codelineno-0-207"></a><span class="sd">      / MVTSeries / scalar paths.</span>
+<a id="__codelineno-0-208" name="__codelineno-0-208"></a><span class="sd">    * **Mixed types** (e.g. a TSeries and a scalar) — fall through to</span>
+<a id="__codelineno-0-209" name="__codelineno-0-209"></a><span class="sd">      the scalar walk: return the leftmost non-typenan value.</span>
+<a id="__codelineno-0-210" name="__codelineno-0-210"></a>
+<a id="__codelineno-0-211" name="__codelineno-0-211"></a><span class="sd">    Parameters</span>
+<a id="__codelineno-0-212" name="__codelineno-0-212"></a><span class="sd">    ----------</span>
+<a id="__codelineno-0-213" name="__codelineno-0-213"></a><span class="sd">    *args</span>
+<a id="__codelineno-0-214" name="__codelineno-0-214"></a><span class="sd">        One or more values to overlay. At least one is required.</span>
+<a id="__codelineno-0-215" name="__codelineno-0-215"></a><span class="sd">    rng</span>
+<a id="__codelineno-0-216" name="__codelineno-0-216"></a><span class="sd">        Optional :class:`~tsecon.mitrange.MITRange` to force the output</span>
+<a id="__codelineno-0-217" name="__codelineno-0-217"></a><span class="sd">        range. Only valid when all arguments are TSeries; raises</span>
+<a id="__codelineno-0-218" name="__codelineno-0-218"></a><span class="sd">        :class:`TypeError` otherwise.</span>
+<a id="__codelineno-0-219" name="__codelineno-0-219"></a>
+<a id="__codelineno-0-220" name="__codelineno-0-220"></a><span class="sd">    Returns</span>
+<a id="__codelineno-0-221" name="__codelineno-0-221"></a><span class="sd">    -------</span>
+<a id="__codelineno-0-222" name="__codelineno-0-222"></a><span class="sd">    Any</span>
+<a id="__codelineno-0-223" name="__codelineno-0-223"></a><span class="sd">        A TSeries / MVTSeries / Workspace / scalar matching the input</span>
+<a id="__codelineno-0-224" name="__codelineno-0-224"></a><span class="sd">        family.</span>
+<a id="__codelineno-0-225" name="__codelineno-0-225"></a>
+<a id="__codelineno-0-226" name="__codelineno-0-226"></a><span class="sd">    Raises</span>
+<a id="__codelineno-0-227" name="__codelineno-0-227"></a><span class="sd">    ------</span>
+<a id="__codelineno-0-228" name="__codelineno-0-228"></a><span class="sd">    TypeError</span>
+<a id="__codelineno-0-229" name="__codelineno-0-229"></a><span class="sd">        On empty argument list, on mixed-frequency inputs, or on</span>
+<a id="__codelineno-0-230" name="__codelineno-0-230"></a><span class="sd">        ``rng=`` passed with non-TSeries arguments.</span>
+<a id="__codelineno-0-231" name="__codelineno-0-231"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-232" name="__codelineno-0-232"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">args</span><span class="p">:</span>
+<a id="__codelineno-0-233" name="__codelineno-0-233"></a>        <span class="n">msg</span> <span class="o">=</span> <span class="s2">&quot;overlay() requires at least one argument.&quot;</span>
+<a id="__codelineno-0-234" name="__codelineno-0-234"></a>        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+<a id="__codelineno-0-235" name="__codelineno-0-235"></a>
+<a id="__codelineno-0-236" name="__codelineno-0-236"></a>    <span class="k">if</span> <span class="nb">all</span><span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">TSeries</span><span class="p">)</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">args</span><span class="p">):</span>
+<a id="__codelineno-0-237" name="__codelineno-0-237"></a>        <span class="k">if</span> <span class="n">rng</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-238" name="__codelineno-0-238"></a>            <span class="n">rng</span> <span class="o">=</span> <span class="n">rangeof_span</span><span class="p">(</span><span class="o">*</span><span class="p">(</span><span class="n">t</span><span class="o">.</span><span class="n">range</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">args</span><span class="p">))</span>
+<a id="__codelineno-0-239" name="__codelineno-0-239"></a>        <span class="k">elif</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">rng</span><span class="p">,</span> <span class="n">MITRange</span><span class="p">):</span>
+<a id="__codelineno-0-240" name="__codelineno-0-240"></a>            <span class="c1"># Defensive runtime check: the signature types ``rng`` as</span>
+<a id="__codelineno-0-241" name="__codelineno-0-241"></a>            <span class="c1"># ``MITRange | None`` so mypy considers this branch unreachable,</span>
+<a id="__codelineno-0-242" name="__codelineno-0-242"></a>            <span class="c1"># but callers may pass Any-typed values (e.g. from JSON</span>
+<a id="__codelineno-0-243" name="__codelineno-0-243"></a>            <span class="c1"># deserialization) and we&#39;d rather raise at the call site than</span>
+<a id="__codelineno-0-244" name="__codelineno-0-244"></a>            <span class="c1"># produce a confusing AttributeError deep inside _overlay_tseries.</span>
+<a id="__codelineno-0-245" name="__codelineno-0-245"></a>            <span class="n">msg</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;overlay rng= must be an MITRange; got </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">rng</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">.&quot;</span>  <span class="c1"># type: ignore[unreachable]</span>
+<a id="__codelineno-0-246" name="__codelineno-0-246"></a>            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+<a id="__codelineno-0-247" name="__codelineno-0-247"></a>        <span class="k">return</span> <span class="n">_overlay_tseries</span><span class="p">(</span><span class="n">rng</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">)</span>
+<a id="__codelineno-0-248" name="__codelineno-0-248"></a>
+<a id="__codelineno-0-249" name="__codelineno-0-249"></a>    <span class="k">if</span> <span class="n">rng</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-250" name="__codelineno-0-250"></a>        <span class="n">msg</span> <span class="o">=</span> <span class="s2">&quot;overlay(..., rng=) is only valid when all arguments are TSeries.&quot;</span>
+<a id="__codelineno-0-251" name="__codelineno-0-251"></a>        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+<a id="__codelineno-0-252" name="__codelineno-0-252"></a>
+<a id="__codelineno-0-253" name="__codelineno-0-253"></a>    <span class="k">if</span> <span class="nb">all</span><span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">MVTSeries</span><span class="p">)</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">args</span><span class="p">):</span>
+<a id="__codelineno-0-254" name="__codelineno-0-254"></a>        <span class="k">return</span> <span class="n">_overlay_mvtseries</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">)</span>
+<a id="__codelineno-0-255" name="__codelineno-0-255"></a>
+<a id="__codelineno-0-256" name="__codelineno-0-256"></a>    <span class="k">if</span> <span class="nb">all</span><span class="p">(</span><span class="n">_is_like_workspace</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">args</span><span class="p">):</span>
+<a id="__codelineno-0-257" name="__codelineno-0-257"></a>        <span class="k">return</span> <span class="n">_overlay_workspaces</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">)</span>
+<a id="__codelineno-0-258" name="__codelineno-0-258"></a>
+<a id="__codelineno-0-259" name="__codelineno-0-259"></a>    <span class="c1"># Scalar / mixed fallback: first non-typenan wins (Julia&#39;s</span>
+<a id="__codelineno-0-260" name="__codelineno-0-260"></a>    <span class="c1"># `overlay(head, tail...) = istypenan(head) ? overlay(tail...) : head`).</span>
+<a id="__codelineno-0-261" name="__codelineno-0-261"></a>    <span class="k">return</span> <span class="n">_overlay_scalar</span><span class="p">(</span><span class="n">args</span><span class="p">)</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="tsecon._various.compare" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">compare</span>
+
+
+<a href="#tsecon._various.compare" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">compare</span><span class="p">(</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">x</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">y</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="o">*</span><span class="p">,</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;_&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">showequal</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="n">ignoremissing</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="n">quiet</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="n">left</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;left&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    <span class="n">right</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;right&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>    <span class="n">atol</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span>
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>    <span class="n">rtol</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>    <span class="n">nans</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>    <span class="n">trange</span><span class="p">:</span> <span class="n">MITRange</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CompareResult</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Recursively compare <code>x</code> and <code>y</code>, returning a :class:<code>CompareResult</code>.</p>
+<p>The walk dispatches over:</p>
+<ul>
+<li>:class:<code>~tsecon.workspace.Workspace</code>, :class:<code>~tsecon.mvtseries.MVTSeries</code>,
+  and :class:<code>collections.abc.Mapping</code> — treated as name-keyed
+  containers and recursed key-by-key. Missing keys produce
+  <code>"missing in &lt;left|right&gt;"</code> lines (unless <code>ignoremissing=True</code>).</li>
+<li>:class:<code>~tsecon.tseries.TSeries</code> — compared range-by-range using
+  :func:<code>numpy.allclose</code> with the given <code>atol</code> / <code>rtol</code> / <code>nans</code>.
+  Mismatched ranges count as different (unless <code>ignoremissing=True</code>,
+  in which case the intersection is compared).</li>
+<li>NumPy arrays of numbers — compared by shape + element-wise
+  :func:<code>numpy.allclose</code>.</li>
+<li>NumPy arrays of other dtypes — walked element-by-element.</li>
+<li>Scalars — compared via :func:<code>numpy.isclose</code>.</li>
+<li>Everything else — compared with <code>==</code>.</li>
+</ul>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>x</code>
+            </td>
+            <td>
+                  <code><span title="typing.Any">Any</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The two values to compare.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>y</code>
+            </td>
+            <td>
+                  <code><span title="typing.Any">Any</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The two values to compare.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>name</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Top-level name in the printed/structured diff (<code>"_"</code> by default —
+matches Julia's <code>Symbol("_")</code>).</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#39;_&#39;</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>showequal</code>
+            </td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>When True, also emit <code>"name: same"</code> lines for matching leaves.
+Default False (only differences are reported, plus a final
+top-level summary line).</p>
+              </div>
+            </td>
+            <td>
+                  <code>False</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>ignoremissing</code>
+            </td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>When True, ignore keys present in one side but not the other
+(they don't print and don't affect <code>equal</code>). Default False.</p>
+              </div>
+            </td>
+            <td>
+                  <code>False</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>quiet</code>
+            </td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>When True, suppress printing to stdout. The :class:<code>CompareResult</code>
+is still populated either way.</p>
+              </div>
+            </td>
+            <td>
+                  <code>False</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>left</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Names used in <code>"missing in &lt;name&gt;"</code> messages. Default
+<code>"left"</code> / <code>"right"</code>.</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#39;left&#39;</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>right</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Names used in <code>"missing in &lt;name&gt;"</code> messages. Default
+<code>"left"</code> / <code>"right"</code>.</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#39;left&#39;</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>atol</code>
+            </td>
+            <td>
+                  <code><span title="float">float</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Tolerances forwarded to :func:<code>numpy.isclose</code> /
+:func:<code>numpy.allclose</code>. <code>rtol=None</code> (the default) resolves to
+:math:<code>\\sqrt{\\varepsilon}</code> when <code>atol == 0</code> and to <code>0</code> when
+<code>atol &gt; 0</code> (matching Julia's <code>isapprox</code> precedent).</p>
+              </div>
+            </td>
+            <td>
+                  <code>0.0</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>rtol</code>
+            </td>
+            <td>
+                  <code><span title="float">float</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Tolerances forwarded to :func:<code>numpy.isclose</code> /
+:func:<code>numpy.allclose</code>. <code>rtol=None</code> (the default) resolves to
+:math:<code>\\sqrt{\\varepsilon}</code> when <code>atol == 0</code> and to <code>0</code> when
+<code>atol &gt; 0</code> (matching Julia's <code>isapprox</code> precedent).</p>
+              </div>
+            </td>
+            <td>
+                  <code>0.0</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>nans</code>
+            </td>
+            <td>
+                  <code><span title="float">float</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Tolerances forwarded to :func:<code>numpy.isclose</code> /
+:func:<code>numpy.allclose</code>. <code>rtol=None</code> (the default) resolves to
+:math:<code>\\sqrt{\\varepsilon}</code> when <code>atol == 0</code> and to <code>0</code> when
+<code>atol &gt; 0</code> (matching Julia's <code>isapprox</code> precedent).</p>
+              </div>
+            </td>
+            <td>
+                  <code>0.0</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>trange</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="MITRange
+
+
+  
+      dataclass
+   (tsecon.mitrange.MITRange)" href="../mit/#tsecon.mitrange.MITRange">MITRange</a> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Optional :class:<code>~tsecon.mitrange.MITRange</code> restricting the
+compared window for TSeries-vs-TSeries leaves only.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="CompareResult
+
+
+  
+      dataclass
+   (tsecon._various.CompareResult)" href="#tsecon._various.CompareResult">CompareResult</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Truthy iff <code>x</code> and <code>y</code> compared as equal; <code>.differences</code>
+carries the recursive diff regardless of <code>quiet</code>.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<details class="note" open>
+  <summary>Notes</summary>
+  <p>Julia's accompanying <code>@compare</code> macro folds into this same
+function. The macro existed only to capture the input variable names
+for printing; Python callers can pass <code>left=</code> and <code>right=</code> if
+they want the same labelling.</p>
+</details>
+
+            <details class="mkdocstrings-source">
+              <summary>Source code in <code>src/tsecon/_various.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-414">414</a></span>
+<span class="normal"><a href="#__codelineno-0-415">415</a></span>
+<span class="normal"><a href="#__codelineno-0-416">416</a></span>
+<span class="normal"><a href="#__codelineno-0-417">417</a></span>
+<span class="normal"><a href="#__codelineno-0-418">418</a></span>
+<span class="normal"><a href="#__codelineno-0-419">419</a></span>
+<span class="normal"><a href="#__codelineno-0-420">420</a></span>
+<span class="normal"><a href="#__codelineno-0-421">421</a></span>
+<span class="normal"><a href="#__codelineno-0-422">422</a></span>
+<span class="normal"><a href="#__codelineno-0-423">423</a></span>
+<span class="normal"><a href="#__codelineno-0-424">424</a></span>
+<span class="normal"><a href="#__codelineno-0-425">425</a></span>
+<span class="normal"><a href="#__codelineno-0-426">426</a></span>
+<span class="normal"><a href="#__codelineno-0-427">427</a></span>
+<span class="normal"><a href="#__codelineno-0-428">428</a></span>
+<span class="normal"><a href="#__codelineno-0-429">429</a></span>
+<span class="normal"><a href="#__codelineno-0-430">430</a></span>
+<span class="normal"><a href="#__codelineno-0-431">431</a></span>
+<span class="normal"><a href="#__codelineno-0-432">432</a></span>
+<span class="normal"><a href="#__codelineno-0-433">433</a></span>
+<span class="normal"><a href="#__codelineno-0-434">434</a></span>
+<span class="normal"><a href="#__codelineno-0-435">435</a></span>
+<span class="normal"><a href="#__codelineno-0-436">436</a></span>
+<span class="normal"><a href="#__codelineno-0-437">437</a></span>
+<span class="normal"><a href="#__codelineno-0-438">438</a></span>
+<span class="normal"><a href="#__codelineno-0-439">439</a></span>
+<span class="normal"><a href="#__codelineno-0-440">440</a></span>
+<span class="normal"><a href="#__codelineno-0-441">441</a></span>
+<span class="normal"><a href="#__codelineno-0-442">442</a></span>
+<span class="normal"><a href="#__codelineno-0-443">443</a></span>
+<span class="normal"><a href="#__codelineno-0-444">444</a></span>
+<span class="normal"><a href="#__codelineno-0-445">445</a></span>
+<span class="normal"><a href="#__codelineno-0-446">446</a></span>
+<span class="normal"><a href="#__codelineno-0-447">447</a></span>
+<span class="normal"><a href="#__codelineno-0-448">448</a></span>
+<span class="normal"><a href="#__codelineno-0-449">449</a></span>
+<span class="normal"><a href="#__codelineno-0-450">450</a></span>
+<span class="normal"><a href="#__codelineno-0-451">451</a></span>
+<span class="normal"><a href="#__codelineno-0-452">452</a></span>
+<span class="normal"><a href="#__codelineno-0-453">453</a></span>
+<span class="normal"><a href="#__codelineno-0-454">454</a></span>
+<span class="normal"><a href="#__codelineno-0-455">455</a></span>
+<span class="normal"><a href="#__codelineno-0-456">456</a></span>
+<span class="normal"><a href="#__codelineno-0-457">457</a></span>
+<span class="normal"><a href="#__codelineno-0-458">458</a></span>
+<span class="normal"><a href="#__codelineno-0-459">459</a></span>
+<span class="normal"><a href="#__codelineno-0-460">460</a></span>
+<span class="normal"><a href="#__codelineno-0-461">461</a></span>
+<span class="normal"><a href="#__codelineno-0-462">462</a></span>
+<span class="normal"><a href="#__codelineno-0-463">463</a></span>
+<span class="normal"><a href="#__codelineno-0-464">464</a></span>
+<span class="normal"><a href="#__codelineno-0-465">465</a></span>
+<span class="normal"><a href="#__codelineno-0-466">466</a></span>
+<span class="normal"><a href="#__codelineno-0-467">467</a></span>
+<span class="normal"><a href="#__codelineno-0-468">468</a></span>
+<span class="normal"><a href="#__codelineno-0-469">469</a></span>
+<span class="normal"><a href="#__codelineno-0-470">470</a></span>
+<span class="normal"><a href="#__codelineno-0-471">471</a></span>
+<span class="normal"><a href="#__codelineno-0-472">472</a></span>
+<span class="normal"><a href="#__codelineno-0-473">473</a></span>
+<span class="normal"><a href="#__codelineno-0-474">474</a></span>
+<span class="normal"><a href="#__codelineno-0-475">475</a></span>
+<span class="normal"><a href="#__codelineno-0-476">476</a></span>
+<span class="normal"><a href="#__codelineno-0-477">477</a></span>
+<span class="normal"><a href="#__codelineno-0-478">478</a></span>
+<span class="normal"><a href="#__codelineno-0-479">479</a></span>
+<span class="normal"><a href="#__codelineno-0-480">480</a></span>
+<span class="normal"><a href="#__codelineno-0-481">481</a></span>
+<span class="normal"><a href="#__codelineno-0-482">482</a></span>
+<span class="normal"><a href="#__codelineno-0-483">483</a></span>
+<span class="normal"><a href="#__codelineno-0-484">484</a></span>
+<span class="normal"><a href="#__codelineno-0-485">485</a></span>
+<span class="normal"><a href="#__codelineno-0-486">486</a></span>
+<span class="normal"><a href="#__codelineno-0-487">487</a></span>
+<span class="normal"><a href="#__codelineno-0-488">488</a></span>
+<span class="normal"><a href="#__codelineno-0-489">489</a></span>
+<span class="normal"><a href="#__codelineno-0-490">490</a></span>
+<span class="normal"><a href="#__codelineno-0-491">491</a></span>
+<span class="normal"><a href="#__codelineno-0-492">492</a></span>
+<span class="normal"><a href="#__codelineno-0-493">493</a></span>
+<span class="normal"><a href="#__codelineno-0-494">494</a></span>
+<span class="normal"><a href="#__codelineno-0-495">495</a></span>
+<span class="normal"><a href="#__codelineno-0-496">496</a></span>
+<span class="normal"><a href="#__codelineno-0-497">497</a></span>
+<span class="normal"><a href="#__codelineno-0-498">498</a></span>
+<span class="normal"><a href="#__codelineno-0-499">499</a></span>
+<span class="normal"><a href="#__codelineno-0-500">500</a></span>
+<span class="normal"><a href="#__codelineno-0-501">501</a></span>
+<span class="normal"><a href="#__codelineno-0-502">502</a></span>
+<span class="normal"><a href="#__codelineno-0-503">503</a></span>
+<span class="normal"><a href="#__codelineno-0-504">504</a></span>
+<span class="normal"><a href="#__codelineno-0-505">505</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-414" name="__codelineno-0-414"></a><span class="k">def</span><span class="w"> </span><span class="nf">compare</span><span class="p">(</span>
+<a id="__codelineno-0-415" name="__codelineno-0-415"></a>    <span class="n">x</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+<a id="__codelineno-0-416" name="__codelineno-0-416"></a>    <span class="n">y</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+<a id="__codelineno-0-417" name="__codelineno-0-417"></a>    <span class="o">*</span><span class="p">,</span>
+<a id="__codelineno-0-418" name="__codelineno-0-418"></a>    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;_&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-419" name="__codelineno-0-419"></a>    <span class="n">showequal</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<a id="__codelineno-0-420" name="__codelineno-0-420"></a>    <span class="n">ignoremissing</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<a id="__codelineno-0-421" name="__codelineno-0-421"></a>    <span class="n">quiet</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<a id="__codelineno-0-422" name="__codelineno-0-422"></a>    <span class="n">left</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;left&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-423" name="__codelineno-0-423"></a>    <span class="n">right</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;right&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-424" name="__codelineno-0-424"></a>    <span class="n">atol</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span>
+<a id="__codelineno-0-425" name="__codelineno-0-425"></a>    <span class="n">rtol</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-426" name="__codelineno-0-426"></a>    <span class="n">nans</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<a id="__codelineno-0-427" name="__codelineno-0-427"></a>    <span class="n">trange</span><span class="p">:</span> <span class="n">MITRange</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-428" name="__codelineno-0-428"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CompareResult</span><span class="p">:</span>
+<a id="__codelineno-0-429" name="__codelineno-0-429"></a><span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;Recursively compare ``x`` and ``y``, returning a :class:`CompareResult`.</span>
+<a id="__codelineno-0-430" name="__codelineno-0-430"></a>
+<a id="__codelineno-0-431" name="__codelineno-0-431"></a><span class="sd">    The walk dispatches over:</span>
+<a id="__codelineno-0-432" name="__codelineno-0-432"></a>
+<a id="__codelineno-0-433" name="__codelineno-0-433"></a><span class="sd">    * :class:`~tsecon.workspace.Workspace`, :class:`~tsecon.mvtseries.MVTSeries`,</span>
+<a id="__codelineno-0-434" name="__codelineno-0-434"></a><span class="sd">      and :class:`collections.abc.Mapping` — treated as name-keyed</span>
+<a id="__codelineno-0-435" name="__codelineno-0-435"></a><span class="sd">      containers and recursed key-by-key. Missing keys produce</span>
+<a id="__codelineno-0-436" name="__codelineno-0-436"></a><span class="sd">      ``&quot;missing in &lt;left|right&gt;&quot;`` lines (unless ``ignoremissing=True``).</span>
+<a id="__codelineno-0-437" name="__codelineno-0-437"></a><span class="sd">    * :class:`~tsecon.tseries.TSeries` — compared range-by-range using</span>
+<a id="__codelineno-0-438" name="__codelineno-0-438"></a><span class="sd">      :func:`numpy.allclose` with the given ``atol`` / ``rtol`` / ``nans``.</span>
+<a id="__codelineno-0-439" name="__codelineno-0-439"></a><span class="sd">      Mismatched ranges count as different (unless ``ignoremissing=True``,</span>
+<a id="__codelineno-0-440" name="__codelineno-0-440"></a><span class="sd">      in which case the intersection is compared).</span>
+<a id="__codelineno-0-441" name="__codelineno-0-441"></a><span class="sd">    * NumPy arrays of numbers — compared by shape + element-wise</span>
+<a id="__codelineno-0-442" name="__codelineno-0-442"></a><span class="sd">      :func:`numpy.allclose`.</span>
+<a id="__codelineno-0-443" name="__codelineno-0-443"></a><span class="sd">    * NumPy arrays of other dtypes — walked element-by-element.</span>
+<a id="__codelineno-0-444" name="__codelineno-0-444"></a><span class="sd">    * Scalars — compared via :func:`numpy.isclose`.</span>
+<a id="__codelineno-0-445" name="__codelineno-0-445"></a><span class="sd">    * Everything else — compared with ``==``.</span>
+<a id="__codelineno-0-446" name="__codelineno-0-446"></a>
+<a id="__codelineno-0-447" name="__codelineno-0-447"></a><span class="sd">    Parameters</span>
+<a id="__codelineno-0-448" name="__codelineno-0-448"></a><span class="sd">    ----------</span>
+<a id="__codelineno-0-449" name="__codelineno-0-449"></a><span class="sd">    x, y</span>
+<a id="__codelineno-0-450" name="__codelineno-0-450"></a><span class="sd">        The two values to compare.</span>
+<a id="__codelineno-0-451" name="__codelineno-0-451"></a><span class="sd">    name</span>
+<a id="__codelineno-0-452" name="__codelineno-0-452"></a><span class="sd">        Top-level name in the printed/structured diff (``&quot;_&quot;`` by default —</span>
+<a id="__codelineno-0-453" name="__codelineno-0-453"></a><span class="sd">        matches Julia&#39;s ``Symbol(&quot;_&quot;)``).</span>
+<a id="__codelineno-0-454" name="__codelineno-0-454"></a><span class="sd">    showequal</span>
+<a id="__codelineno-0-455" name="__codelineno-0-455"></a><span class="sd">        When True, also emit ``&quot;name: same&quot;`` lines for matching leaves.</span>
+<a id="__codelineno-0-456" name="__codelineno-0-456"></a><span class="sd">        Default False (only differences are reported, plus a final</span>
+<a id="__codelineno-0-457" name="__codelineno-0-457"></a><span class="sd">        top-level summary line).</span>
+<a id="__codelineno-0-458" name="__codelineno-0-458"></a><span class="sd">    ignoremissing</span>
+<a id="__codelineno-0-459" name="__codelineno-0-459"></a><span class="sd">        When True, ignore keys present in one side but not the other</span>
+<a id="__codelineno-0-460" name="__codelineno-0-460"></a><span class="sd">        (they don&#39;t print and don&#39;t affect ``equal``). Default False.</span>
+<a id="__codelineno-0-461" name="__codelineno-0-461"></a><span class="sd">    quiet</span>
+<a id="__codelineno-0-462" name="__codelineno-0-462"></a><span class="sd">        When True, suppress printing to stdout. The :class:`CompareResult`</span>
+<a id="__codelineno-0-463" name="__codelineno-0-463"></a><span class="sd">        is still populated either way.</span>
+<a id="__codelineno-0-464" name="__codelineno-0-464"></a><span class="sd">    left, right</span>
+<a id="__codelineno-0-465" name="__codelineno-0-465"></a><span class="sd">        Names used in ``&quot;missing in &lt;name&gt;&quot;`` messages. Default</span>
+<a id="__codelineno-0-466" name="__codelineno-0-466"></a><span class="sd">        ``&quot;left&quot;`` / ``&quot;right&quot;``.</span>
+<a id="__codelineno-0-467" name="__codelineno-0-467"></a><span class="sd">    atol, rtol, nans</span>
+<a id="__codelineno-0-468" name="__codelineno-0-468"></a><span class="sd">        Tolerances forwarded to :func:`numpy.isclose` /</span>
+<a id="__codelineno-0-469" name="__codelineno-0-469"></a><span class="sd">        :func:`numpy.allclose`. ``rtol=None`` (the default) resolves to</span>
+<a id="__codelineno-0-470" name="__codelineno-0-470"></a><span class="sd">        :math:`\\sqrt{\\varepsilon}` when ``atol == 0`` and to ``0`` when</span>
+<a id="__codelineno-0-471" name="__codelineno-0-471"></a><span class="sd">        ``atol &gt; 0`` (matching Julia&#39;s ``isapprox`` precedent).</span>
+<a id="__codelineno-0-472" name="__codelineno-0-472"></a><span class="sd">    trange</span>
+<a id="__codelineno-0-473" name="__codelineno-0-473"></a><span class="sd">        Optional :class:`~tsecon.mitrange.MITRange` restricting the</span>
+<a id="__codelineno-0-474" name="__codelineno-0-474"></a><span class="sd">        compared window for TSeries-vs-TSeries leaves only.</span>
+<a id="__codelineno-0-475" name="__codelineno-0-475"></a>
+<a id="__codelineno-0-476" name="__codelineno-0-476"></a><span class="sd">    Returns</span>
+<a id="__codelineno-0-477" name="__codelineno-0-477"></a><span class="sd">    -------</span>
+<a id="__codelineno-0-478" name="__codelineno-0-478"></a><span class="sd">    CompareResult</span>
+<a id="__codelineno-0-479" name="__codelineno-0-479"></a><span class="sd">        Truthy iff ``x`` and ``y`` compared as equal; ``.differences``</span>
+<a id="__codelineno-0-480" name="__codelineno-0-480"></a><span class="sd">        carries the recursive diff regardless of ``quiet``.</span>
+<a id="__codelineno-0-481" name="__codelineno-0-481"></a>
+<a id="__codelineno-0-482" name="__codelineno-0-482"></a><span class="sd">    Notes</span>
+<a id="__codelineno-0-483" name="__codelineno-0-483"></a><span class="sd">    -----</span>
+<a id="__codelineno-0-484" name="__codelineno-0-484"></a><span class="sd">    Julia&#39;s accompanying ``@compare`` macro folds into this same</span>
+<a id="__codelineno-0-485" name="__codelineno-0-485"></a><span class="sd">    function. The macro existed only to capture the input variable names</span>
+<a id="__codelineno-0-486" name="__codelineno-0-486"></a><span class="sd">    for printing; Python callers can pass ``left=`` and ``right=`` if</span>
+<a id="__codelineno-0-487" name="__codelineno-0-487"></a><span class="sd">    they want the same labelling.</span>
+<a id="__codelineno-0-488" name="__codelineno-0-488"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-489" name="__codelineno-0-489"></a>    <span class="k">if</span> <span class="n">rtol</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-490" name="__codelineno-0-490"></a>        <span class="n">rtol</span> <span class="o">=</span> <span class="n">_DEFAULT_RTOL</span> <span class="k">if</span> <span class="n">atol</span> <span class="o">==</span> <span class="mf">0.0</span> <span class="k">else</span> <span class="mf">0.0</span>
+<a id="__codelineno-0-491" name="__codelineno-0-491"></a>
+<a id="__codelineno-0-492" name="__codelineno-0-492"></a>    <span class="n">result</span> <span class="o">=</span> <span class="n">CompareResult</span><span class="p">(</span><span class="n">equal</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-0-493" name="__codelineno-0-493"></a>    <span class="n">kw</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+<a id="__codelineno-0-494" name="__codelineno-0-494"></a>        <span class="s2">&quot;showequal&quot;</span><span class="p">:</span> <span class="n">showequal</span><span class="p">,</span>
+<a id="__codelineno-0-495" name="__codelineno-0-495"></a>        <span class="s2">&quot;ignoremissing&quot;</span><span class="p">:</span> <span class="n">ignoremissing</span><span class="p">,</span>
+<a id="__codelineno-0-496" name="__codelineno-0-496"></a>        <span class="s2">&quot;quiet&quot;</span><span class="p">:</span> <span class="n">quiet</span><span class="p">,</span>
+<a id="__codelineno-0-497" name="__codelineno-0-497"></a>        <span class="s2">&quot;left&quot;</span><span class="p">:</span> <span class="n">left</span><span class="p">,</span>
+<a id="__codelineno-0-498" name="__codelineno-0-498"></a>        <span class="s2">&quot;right&quot;</span><span class="p">:</span> <span class="n">right</span><span class="p">,</span>
+<a id="__codelineno-0-499" name="__codelineno-0-499"></a>        <span class="s2">&quot;atol&quot;</span><span class="p">:</span> <span class="n">atol</span><span class="p">,</span>
+<a id="__codelineno-0-500" name="__codelineno-0-500"></a>        <span class="s2">&quot;rtol&quot;</span><span class="p">:</span> <span class="n">rtol</span><span class="p">,</span>
+<a id="__codelineno-0-501" name="__codelineno-0-501"></a>        <span class="s2">&quot;nans&quot;</span><span class="p">:</span> <span class="n">nans</span><span class="p">,</span>
+<a id="__codelineno-0-502" name="__codelineno-0-502"></a>        <span class="s2">&quot;trange&quot;</span><span class="p">:</span> <span class="n">trange</span><span class="p">,</span>
+<a id="__codelineno-0-503" name="__codelineno-0-503"></a>    <span class="p">}</span>
+<a id="__codelineno-0-504" name="__codelineno-0-504"></a>    <span class="n">_compare_recurse</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="p">[</span><span class="n">name</span><span class="p">],</span> <span class="n">result</span><span class="p">,</span> <span class="n">kw</span><span class="p">)</span>
+<a id="__codelineno-0-505" name="__codelineno-0-505"></a>    <span class="k">return</span> <span class="n">result</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="tsecon._various.reindex" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">reindex</span>
+
+
+<a href="#tsecon._various.reindex" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">reindex</span><span class="p">(</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">x</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">old_to_new</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">MIT</span><span class="p">,</span> <span class="n">MIT</span><span class="p">],</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="o">*</span><span class="p">,</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">copy</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Shift every MIT-keyed position so that <code>old</code> maps to <code>new</code>.</p>
+<p><code>old_to_new</code> is a 2-tuple <code>(old_mit, new_mit)</code>. In MIT-value
+space, every output position is the input position plus
+<code>new_mit.value - old_mit.value</code>, and the result carries
+<code>new_mit.frequency</code> as its frequency label.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>x</code>
+            </td>
+            <td>
+                  <code><span title="typing.Any">Any</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The value to reindex. Supported types:</p>
+<ul>
+<li>:class:<code>~tsecon.mit.MIT</code> — single instant.</li>
+<li>:class:<code>~tsecon.mitrange.MITRange</code> — both endpoints shifted;
+  <code>step</code> is preserved.</li>
+<li>:class:<code>~tsecon.tseries.TSeries</code> — anchor shifted; values
+  unchanged.</li>
+<li>:class:<code>~tsecon.mvtseries.MVTSeries</code> — same, on the matrix.</li>
+<li>:class:<code>~tsecon.workspace.Workspace</code> — members whose
+  frequency matches <code>old_mit.frequency</code> are reindexed
+  (recursively for nested Workspaces); other members are
+  carried through.</li>
+</ul>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>old_to_new</code>
+            </td>
+            <td>
+                  <code><span title="tuple">tuple</span>[<a class="autorefs autorefs-internal" title="MIT
+
+
+  
+      dataclass
+   (tsecon.mit.MIT)" href="../mit/#tsecon.mit.MIT">MIT</a>, <a class="autorefs autorefs-internal" title="MIT
+
+
+  
+      dataclass
+   (tsecon.mit.MIT)" href="../mit/#tsecon.mit.MIT">MIT</a>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Pair <code>(old_mit, new_mit)</code>: the input MIT (or one matching
+the input's frequency) to remap, and the target MIT (with
+the desired output frequency).</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>copy</code>
+            </td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>When True, force an independent values buffer for the returned
+:class:<code>~tsecon.tseries.TSeries</code> / :class:<code>~tsecon.mvtseries.MVTSeries</code>
+and apply :func:<code>copy.copy</code> to non-reindexable Workspace members.
+Default False matches the wrap-by-default contract of
+:mod:<code>tsecon</code> constructors (see the project's design notes on
+constructor copy semantics).</p>
+              </div>
+            </td>
+            <td>
+                  <code>False</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code>The same kind of object as ``x``, with the MIT label shifted.</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="TypeError">TypeError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>On a malformed <code>old_to_new</code> argument, an unsupported <code>x</code>
+type, or a frequency mismatch between <code>x</code> and <code>old_mit</code>.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Examples:</span></p>
+    <p>Re-anchor a quarterly TSeries from a 2021Q1 origin to a Unit
+1-based origin::</p>
+<div class="highlight"><pre><span></span><code>&gt;&gt;&gt; from tsecon import TSeries, qq, period, Unit, reindex
+&gt;&gt;&gt; ts = TSeries(qq(2021, 1), [1.0, 2.0, 3.0])
+&gt;&gt;&gt; reindex(ts, (qq(2021, 1), period(Unit(), 1))).firstdate
+1U
+</code></pre></div>
+
+
+            <details class="mkdocstrings-source">
+              <summary>Source code in <code>src/tsecon/_various.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-703">703</a></span>
+<span class="normal"><a href="#__codelineno-0-704">704</a></span>
+<span class="normal"><a href="#__codelineno-0-705">705</a></span>
+<span class="normal"><a href="#__codelineno-0-706">706</a></span>
+<span class="normal"><a href="#__codelineno-0-707">707</a></span>
+<span class="normal"><a href="#__codelineno-0-708">708</a></span>
+<span class="normal"><a href="#__codelineno-0-709">709</a></span>
+<span class="normal"><a href="#__codelineno-0-710">710</a></span>
+<span class="normal"><a href="#__codelineno-0-711">711</a></span>
+<span class="normal"><a href="#__codelineno-0-712">712</a></span>
+<span class="normal"><a href="#__codelineno-0-713">713</a></span>
+<span class="normal"><a href="#__codelineno-0-714">714</a></span>
+<span class="normal"><a href="#__codelineno-0-715">715</a></span>
+<span class="normal"><a href="#__codelineno-0-716">716</a></span>
+<span class="normal"><a href="#__codelineno-0-717">717</a></span>
+<span class="normal"><a href="#__codelineno-0-718">718</a></span>
+<span class="normal"><a href="#__codelineno-0-719">719</a></span>
+<span class="normal"><a href="#__codelineno-0-720">720</a></span>
+<span class="normal"><a href="#__codelineno-0-721">721</a></span>
+<span class="normal"><a href="#__codelineno-0-722">722</a></span>
+<span class="normal"><a href="#__codelineno-0-723">723</a></span>
+<span class="normal"><a href="#__codelineno-0-724">724</a></span>
+<span class="normal"><a href="#__codelineno-0-725">725</a></span>
+<span class="normal"><a href="#__codelineno-0-726">726</a></span>
+<span class="normal"><a href="#__codelineno-0-727">727</a></span>
+<span class="normal"><a href="#__codelineno-0-728">728</a></span>
+<span class="normal"><a href="#__codelineno-0-729">729</a></span>
+<span class="normal"><a href="#__codelineno-0-730">730</a></span>
+<span class="normal"><a href="#__codelineno-0-731">731</a></span>
+<span class="normal"><a href="#__codelineno-0-732">732</a></span>
+<span class="normal"><a href="#__codelineno-0-733">733</a></span>
+<span class="normal"><a href="#__codelineno-0-734">734</a></span>
+<span class="normal"><a href="#__codelineno-0-735">735</a></span>
+<span class="normal"><a href="#__codelineno-0-736">736</a></span>
+<span class="normal"><a href="#__codelineno-0-737">737</a></span>
+<span class="normal"><a href="#__codelineno-0-738">738</a></span>
+<span class="normal"><a href="#__codelineno-0-739">739</a></span>
+<span class="normal"><a href="#__codelineno-0-740">740</a></span>
+<span class="normal"><a href="#__codelineno-0-741">741</a></span>
+<span class="normal"><a href="#__codelineno-0-742">742</a></span>
+<span class="normal"><a href="#__codelineno-0-743">743</a></span>
+<span class="normal"><a href="#__codelineno-0-744">744</a></span>
+<span class="normal"><a href="#__codelineno-0-745">745</a></span>
+<span class="normal"><a href="#__codelineno-0-746">746</a></span>
+<span class="normal"><a href="#__codelineno-0-747">747</a></span>
+<span class="normal"><a href="#__codelineno-0-748">748</a></span>
+<span class="normal"><a href="#__codelineno-0-749">749</a></span>
+<span class="normal"><a href="#__codelineno-0-750">750</a></span>
+<span class="normal"><a href="#__codelineno-0-751">751</a></span>
+<span class="normal"><a href="#__codelineno-0-752">752</a></span>
+<span class="normal"><a href="#__codelineno-0-753">753</a></span>
+<span class="normal"><a href="#__codelineno-0-754">754</a></span>
+<span class="normal"><a href="#__codelineno-0-755">755</a></span>
+<span class="normal"><a href="#__codelineno-0-756">756</a></span>
+<span class="normal"><a href="#__codelineno-0-757">757</a></span>
+<span class="normal"><a href="#__codelineno-0-758">758</a></span>
+<span class="normal"><a href="#__codelineno-0-759">759</a></span>
+<span class="normal"><a href="#__codelineno-0-760">760</a></span>
+<span class="normal"><a href="#__codelineno-0-761">761</a></span>
+<span class="normal"><a href="#__codelineno-0-762">762</a></span>
+<span class="normal"><a href="#__codelineno-0-763">763</a></span>
+<span class="normal"><a href="#__codelineno-0-764">764</a></span>
+<span class="normal"><a href="#__codelineno-0-765">765</a></span>
+<span class="normal"><a href="#__codelineno-0-766">766</a></span>
+<span class="normal"><a href="#__codelineno-0-767">767</a></span>
+<span class="normal"><a href="#__codelineno-0-768">768</a></span>
+<span class="normal"><a href="#__codelineno-0-769">769</a></span>
+<span class="normal"><a href="#__codelineno-0-770">770</a></span>
+<span class="normal"><a href="#__codelineno-0-771">771</a></span>
+<span class="normal"><a href="#__codelineno-0-772">772</a></span>
+<span class="normal"><a href="#__codelineno-0-773">773</a></span>
+<span class="normal"><a href="#__codelineno-0-774">774</a></span>
+<span class="normal"><a href="#__codelineno-0-775">775</a></span>
+<span class="normal"><a href="#__codelineno-0-776">776</a></span>
+<span class="normal"><a href="#__codelineno-0-777">777</a></span>
+<span class="normal"><a href="#__codelineno-0-778">778</a></span>
+<span class="normal"><a href="#__codelineno-0-779">779</a></span>
+<span class="normal"><a href="#__codelineno-0-780">780</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-703" name="__codelineno-0-703"></a><span class="k">def</span><span class="w"> </span><span class="nf">reindex</span><span class="p">(</span>
+<a id="__codelineno-0-704" name="__codelineno-0-704"></a>    <span class="n">x</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+<a id="__codelineno-0-705" name="__codelineno-0-705"></a>    <span class="n">old_to_new</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">MIT</span><span class="p">,</span> <span class="n">MIT</span><span class="p">],</span>
+<a id="__codelineno-0-706" name="__codelineno-0-706"></a>    <span class="o">*</span><span class="p">,</span>
+<a id="__codelineno-0-707" name="__codelineno-0-707"></a>    <span class="n">copy</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<a id="__codelineno-0-708" name="__codelineno-0-708"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+<a id="__codelineno-0-709" name="__codelineno-0-709"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Shift every MIT-keyed position so that ``old`` maps to ``new``.</span>
+<a id="__codelineno-0-710" name="__codelineno-0-710"></a>
+<a id="__codelineno-0-711" name="__codelineno-0-711"></a><span class="sd">    ``old_to_new`` is a 2-tuple ``(old_mit, new_mit)``. In MIT-value</span>
+<a id="__codelineno-0-712" name="__codelineno-0-712"></a><span class="sd">    space, every output position is the input position plus</span>
+<a id="__codelineno-0-713" name="__codelineno-0-713"></a><span class="sd">    ``new_mit.value - old_mit.value``, and the result carries</span>
+<a id="__codelineno-0-714" name="__codelineno-0-714"></a><span class="sd">    ``new_mit.frequency`` as its frequency label.</span>
+<a id="__codelineno-0-715" name="__codelineno-0-715"></a>
+<a id="__codelineno-0-716" name="__codelineno-0-716"></a><span class="sd">    Parameters</span>
+<a id="__codelineno-0-717" name="__codelineno-0-717"></a><span class="sd">    ----------</span>
+<a id="__codelineno-0-718" name="__codelineno-0-718"></a><span class="sd">    x</span>
+<a id="__codelineno-0-719" name="__codelineno-0-719"></a><span class="sd">        The value to reindex. Supported types:</span>
+<a id="__codelineno-0-720" name="__codelineno-0-720"></a>
+<a id="__codelineno-0-721" name="__codelineno-0-721"></a><span class="sd">        * :class:`~tsecon.mit.MIT` — single instant.</span>
+<a id="__codelineno-0-722" name="__codelineno-0-722"></a><span class="sd">        * :class:`~tsecon.mitrange.MITRange` — both endpoints shifted;</span>
+<a id="__codelineno-0-723" name="__codelineno-0-723"></a><span class="sd">          ``step`` is preserved.</span>
+<a id="__codelineno-0-724" name="__codelineno-0-724"></a><span class="sd">        * :class:`~tsecon.tseries.TSeries` — anchor shifted; values</span>
+<a id="__codelineno-0-725" name="__codelineno-0-725"></a><span class="sd">          unchanged.</span>
+<a id="__codelineno-0-726" name="__codelineno-0-726"></a><span class="sd">        * :class:`~tsecon.mvtseries.MVTSeries` — same, on the matrix.</span>
+<a id="__codelineno-0-727" name="__codelineno-0-727"></a><span class="sd">        * :class:`~tsecon.workspace.Workspace` — members whose</span>
+<a id="__codelineno-0-728" name="__codelineno-0-728"></a><span class="sd">          frequency matches ``old_mit.frequency`` are reindexed</span>
+<a id="__codelineno-0-729" name="__codelineno-0-729"></a><span class="sd">          (recursively for nested Workspaces); other members are</span>
+<a id="__codelineno-0-730" name="__codelineno-0-730"></a><span class="sd">          carried through.</span>
+<a id="__codelineno-0-731" name="__codelineno-0-731"></a>
+<a id="__codelineno-0-732" name="__codelineno-0-732"></a><span class="sd">    old_to_new</span>
+<a id="__codelineno-0-733" name="__codelineno-0-733"></a><span class="sd">        Pair ``(old_mit, new_mit)``: the input MIT (or one matching</span>
+<a id="__codelineno-0-734" name="__codelineno-0-734"></a><span class="sd">        the input&#39;s frequency) to remap, and the target MIT (with</span>
+<a id="__codelineno-0-735" name="__codelineno-0-735"></a><span class="sd">        the desired output frequency).</span>
+<a id="__codelineno-0-736" name="__codelineno-0-736"></a><span class="sd">    copy</span>
+<a id="__codelineno-0-737" name="__codelineno-0-737"></a><span class="sd">        When True, force an independent values buffer for the returned</span>
+<a id="__codelineno-0-738" name="__codelineno-0-738"></a><span class="sd">        :class:`~tsecon.tseries.TSeries` / :class:`~tsecon.mvtseries.MVTSeries`</span>
+<a id="__codelineno-0-739" name="__codelineno-0-739"></a><span class="sd">        and apply :func:`copy.copy` to non-reindexable Workspace members.</span>
+<a id="__codelineno-0-740" name="__codelineno-0-740"></a><span class="sd">        Default False matches the wrap-by-default contract of</span>
+<a id="__codelineno-0-741" name="__codelineno-0-741"></a><span class="sd">        :mod:`tsecon` constructors (see the project&#39;s design notes on</span>
+<a id="__codelineno-0-742" name="__codelineno-0-742"></a><span class="sd">        constructor copy semantics).</span>
+<a id="__codelineno-0-743" name="__codelineno-0-743"></a>
+<a id="__codelineno-0-744" name="__codelineno-0-744"></a><span class="sd">    Returns</span>
+<a id="__codelineno-0-745" name="__codelineno-0-745"></a><span class="sd">    -------</span>
+<a id="__codelineno-0-746" name="__codelineno-0-746"></a><span class="sd">    The same kind of object as ``x``, with the MIT label shifted.</span>
+<a id="__codelineno-0-747" name="__codelineno-0-747"></a>
+<a id="__codelineno-0-748" name="__codelineno-0-748"></a><span class="sd">    Raises</span>
+<a id="__codelineno-0-749" name="__codelineno-0-749"></a><span class="sd">    ------</span>
+<a id="__codelineno-0-750" name="__codelineno-0-750"></a><span class="sd">    TypeError</span>
+<a id="__codelineno-0-751" name="__codelineno-0-751"></a><span class="sd">        On a malformed ``old_to_new`` argument, an unsupported ``x``</span>
+<a id="__codelineno-0-752" name="__codelineno-0-752"></a><span class="sd">        type, or a frequency mismatch between ``x`` and ``old_mit``.</span>
+<a id="__codelineno-0-753" name="__codelineno-0-753"></a>
+<a id="__codelineno-0-754" name="__codelineno-0-754"></a><span class="sd">    Examples</span>
+<a id="__codelineno-0-755" name="__codelineno-0-755"></a><span class="sd">    --------</span>
+<a id="__codelineno-0-756" name="__codelineno-0-756"></a><span class="sd">    Re-anchor a quarterly TSeries from a 2021Q1 origin to a Unit</span>
+<a id="__codelineno-0-757" name="__codelineno-0-757"></a><span class="sd">    1-based origin::</span>
+<a id="__codelineno-0-758" name="__codelineno-0-758"></a>
+<a id="__codelineno-0-759" name="__codelineno-0-759"></a><span class="sd">        &gt;&gt;&gt; from tsecon import TSeries, qq, period, Unit, reindex</span>
+<a id="__codelineno-0-760" name="__codelineno-0-760"></a><span class="sd">        &gt;&gt;&gt; ts = TSeries(qq(2021, 1), [1.0, 2.0, 3.0])</span>
+<a id="__codelineno-0-761" name="__codelineno-0-761"></a><span class="sd">        &gt;&gt;&gt; reindex(ts, (qq(2021, 1), period(Unit(), 1))).firstdate</span>
+<a id="__codelineno-0-762" name="__codelineno-0-762"></a><span class="sd">        1U</span>
+<a id="__codelineno-0-763" name="__codelineno-0-763"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-764" name="__codelineno-0-764"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">old_to_new</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">old_to_new</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
+<a id="__codelineno-0-765" name="__codelineno-0-765"></a>        <span class="c1"># Defensive: signature types `old_to_new` as `tuple[MIT, MIT]` so</span>
+<a id="__codelineno-0-766" name="__codelineno-0-766"></a>        <span class="c1"># mypy considers this branch unreachable, but Any-typed callers</span>
+<a id="__codelineno-0-767" name="__codelineno-0-767"></a>        <span class="c1"># (e.g. JSON deserialization) need the friendly error.</span>
+<a id="__codelineno-0-768" name="__codelineno-0-768"></a>        <span class="n">msg</span> <span class="o">=</span> <span class="p">(</span>  <span class="c1"># type: ignore[unreachable]</span>
+<a id="__codelineno-0-769" name="__codelineno-0-769"></a>            <span class="s2">&quot;reindex pair must be a 2-tuple (old_mit, new_mit); &quot;</span>
+<a id="__codelineno-0-770" name="__codelineno-0-770"></a>            <span class="sa">f</span><span class="s2">&quot;got </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">old_to_new</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">.&quot;</span>
+<a id="__codelineno-0-771" name="__codelineno-0-771"></a>        <span class="p">)</span>
+<a id="__codelineno-0-772" name="__codelineno-0-772"></a>        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+<a id="__codelineno-0-773" name="__codelineno-0-773"></a>    <span class="n">old_mit</span><span class="p">,</span> <span class="n">new_mit</span> <span class="o">=</span> <span class="n">old_to_new</span>
+<a id="__codelineno-0-774" name="__codelineno-0-774"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">old_mit</span><span class="p">,</span> <span class="n">MIT</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">new_mit</span><span class="p">,</span> <span class="n">MIT</span><span class="p">):</span>
+<a id="__codelineno-0-775" name="__codelineno-0-775"></a>        <span class="n">msg</span> <span class="o">=</span> <span class="p">(</span>  <span class="c1"># type: ignore[unreachable]</span>
+<a id="__codelineno-0-776" name="__codelineno-0-776"></a>            <span class="s2">&quot;reindex pair must contain two MIT instances; got &quot;</span>
+<a id="__codelineno-0-777" name="__codelineno-0-777"></a>            <span class="sa">f</span><span class="s2">&quot;(</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">old_mit</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">new_mit</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">).&quot;</span>
+<a id="__codelineno-0-778" name="__codelineno-0-778"></a>        <span class="p">)</span>
+<a id="__codelineno-0-779" name="__codelineno-0-779"></a>        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+<a id="__codelineno-0-780" name="__codelineno-0-780"></a>    <span class="k">return</span> <span class="n">_reindex_dispatch</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">old_mit</span><span class="p">,</span> <span class="n">new_mit</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="n">copy</span><span class="p">)</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.tracking", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "content.code.copy", "content.code.annotate"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+        <script src="../../assets/_markdown_exec_pyodide.js"></script>
+      
+    
+  </body>
+</html>

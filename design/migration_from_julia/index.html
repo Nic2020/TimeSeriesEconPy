@@ -714,6 +714,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../reference/various/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Misc helpers (overlay, compare, reindex)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../reference/options/" class="md-nav__link">
         
   
@@ -1355,9 +1383,44 @@ differences — what the spellings, not the semantics, look like.</p>
 <td><code>MITRange(mm(2000, 1), mm(2000, 8), step=2)</code></td>
 </tr>
 <tr>
+<td>Reversed range (backcast)</td>
+<td><code>10U:-1:1U</code></td>
+<td><code>MITRange(MIT(Unit(),10), MIT(Unit(),1), step=-1)</code></td>
+</tr>
+<tr>
 <td>Last element</td>
 <td><code>x[end]</code></td>
 <td><code>x[x.lastdate]</code></td>
+</tr>
+<tr>
+<td><code>overlay</code> (TSeries first-non-NaN wins)</td>
+<td><code>overlay(x1, x2, x3)</code></td>
+<td><code>overlay(x1, x2, x3)</code></td>
+</tr>
+<tr>
+<td><code>overlay</code> (forced range)</td>
+<td><code>overlay(2020Q1:2020Q4, x1, x2)</code></td>
+<td><code>overlay(x1, x2, rng=MITRange(qq(2020,1), qq(2020,4)))</code></td>
+</tr>
+<tr>
+<td><code>compare</code> / <code>@compare</code></td>
+<td><code>@compare(v1, v2, atol=1e-5)</code></td>
+<td><code>compare(v1, v2, atol=1e-5)</code> (returns <code>CompareResult</code>)</td>
+</tr>
+<tr>
+<td><code>reindex</code> (label shift)</td>
+<td><code>reindex(t, 2021Q1 =&gt; 1U)</code></td>
+<td><code>reindex(t, (qq(2021, 1), MIT(Unit(), 1)))</code></td>
+</tr>
+<tr>
+<td><code>rangeof</code> with <code>drop=</code></td>
+<td><code>rangeof(t, drop=1)</code></td>
+<td><code>rangeof(t, drop=1)</code></td>
+</tr>
+<tr>
+<td><code>rangeof(workspace; method=)</code></td>
+<td><code>rangeof(w, method=union)</code></td>
+<td><code>rangeof(w, method="union")</code></td>
 </tr>
 </tbody>
 </table>
@@ -1377,6 +1440,43 @@ differences — what the spellings, not the semantics, look like.</p>
 <li><strong><code>copy=False</code> is the default constructor mode</strong>, matching xarray and matching
   the Julia upstream's pass-the-array-by-reference behaviour. Reach for
   <code>copy=True</code> (or <code>.copy()</code>) for an alias break.</li>
+<li><strong>Recurrences split into two entry points.</strong> Julia's <code>@rec</code> is a single
+  parse-time macro that accepts any RHS expression. Python lacks parse-time
+  macros, so <code>tsecon</code> ships two entry points: <code>rec(rng, target, fn)</code> for the
+  general higher-order form (any nonlinear / multi-series body, expressed as
+  a <code>lambda</code>), and <code>rec_linear(target, coeffs, lags, rng)</code> for the closed-form
+  pure-linear-AR(p) narrowing (<code>target[t] = Σ_k coeffs[k] * target[t - lags[k]]</code>,
+  no constant term, no exogenous reads). The narrowing is what enables the
+  Cython-backed kernel path; for <code>target[t] = target[t-1] + c</code> reach for
+  <code>undiff</code> instead, for <code>target[t] = β·target[t-1] + γ·y[t]</code> reach for the
+  general <code>rec</code>.</li>
+<li><strong><code>compare</code> returns a <code>CompareResult</code>, not a <code>Bool</code>.</strong> Julia's
+  <code>compare(v1, v2)</code> prints to stdout and returns <code>Bool</code>; the Python form
+  returns a structured <code>CompareResult(equal, differences)</code> that is truthy
+  on equality, whose <code>__str__</code> reproduces the printed diff, and whose
+  <code>.differences</code> exposes one entry per leaf for callers that want to
+  introspect rather than re-parse stdout. The classic <code>if compare(v1, v2):
+  ...</code> one-liner still works; <code>quiet=True</code> suppresses the stdout side
+  effect when only the structured result is needed (e.g. inside a test
+  runner). Julia's <code>@compare</code> macro folds into the same <code>compare</code>
+  function: it existed only to capture variable names for the printed
+  diff, which Python users can supply directly via <code>left=</code> / <code>right=</code>.</li>
+<li><strong><code>reindex</code> takes a 2-tuple, not a <code>Pair</code>.</strong> Julia's <code>Pair{&lt;:MIT,&lt;:MIT}</code>
+  becomes a Python <code>(old_mit, new_mit)</code> 2-tuple. Dispatch over MIT /
+  MITRange / TSeries / MVTSeries / Workspace is identical; the <code>copy=</code>
+  kwarg is the same (default <code>False</code>, wrap-by-default).</li>
+<li><strong><code>set_holidays_map(country, subdivision)</code> delegates to <code>python-holidays</code>.</strong>
+  The Julia upstream ships bundled CSVs (<code>TimeSeriesEcon.jl/src/holidays/</code>)
+  and reads them on first call. Python delegates to the
+  <a href="https://pypi.org/project/holidays/"><code>python-holidays</code></a> PyPI package
+  as the single source of truth — install the optional extra with
+  <code>pip install "TimeSeriesEconPy[holidays]"</code>. Country / subdivision
+  codes follow ISO 3166 conventions rather than the Julia CSVs'
+  space-separated forms; a small number of names diverge (e.g. Julia's
+  <code>"Yukon Territory"</code> is <code>"YT"</code> in Python). Use <code>get_holidays_options()</code>
+  and <code>get_holidays_options("CA")</code> to discover the supported codes. The
+  map's default range (<code>bdaily("1970-01-01")</code> to <code>bdaily("2049-12-31")</code>)
+  is identical.</li>
 </ul>
 
 

@@ -558,6 +558,20 @@ end
 
 rangeof_tseries_drop1_run(state) = rangeof(state.t, drop = 1)
 
+# 100x100 matrix * length-100 TSeries — VAR-style coefficient-matrix
+# multiply (mirrors the Python `linalg_matrix_tseries_100` scenario added
+# with M1.6.3g / G12 closure). Julia's `linalg.jl` overload returns a
+# plain `Vector` (strips labels via `_vals`); the Python `@` overload
+# matches that.
+function linalg_matrix_tseries_100_setup()
+    rng = MersenneTwister(20260518)
+    matrix = randn(rng, 100, 100)
+    t = TSeries(qq(2020, 1), randn(rng, 100))
+    return (a = matrix, t = t)
+end
+
+linalg_matrix_tseries_100_run(state) = state.a * state.t
+
 # ---------------------------------------------------------------------------
 # Registry
 # ---------------------------------------------------------------------------
@@ -645,6 +659,8 @@ const SCENARIOS = Dict{String, Tuple{Function, Function}}(
     "reindex_tseries_100"             => (reindex_tseries_100_setup,             reindex_tseries_100_run),
     # rangeof (M1.6.3c — mirrors Python G5 closure)
     "rangeof_tseries_drop1"           => (rangeof_tseries_drop1_setup,           rangeof_tseries_drop1_run),
+    # linalg (M1.6.3g — mirrors Python G12 closure)
+    "linalg_matrix_tseries_100"       => (linalg_matrix_tseries_100_setup,       linalg_matrix_tseries_100_run),
 )
 
 end  # module Scenarios

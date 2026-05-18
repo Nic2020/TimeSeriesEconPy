@@ -406,6 +406,27 @@ def _run_reindex_tseries_100(state: dict[str, Any]) -> pd.Series:
 
 
 # ---------------------------------------------------------------------------
+# linalg — pandas `Series.__matmul__` is the natural analogue of tsecon's
+# `TSeries.__matmul__`. Both drop labels and return an ndarray (pandas
+# returns ``np.ndarray`` from `pd.Series @ np.ndarray`); the comparison
+# row times the raw matmul throughput on each side. Polars has no
+# matrix-product operator on `Series`; that side is intentionally absent.
+# ---------------------------------------------------------------------------
+
+
+def _setup_linalg_matrix_tseries_100() -> dict[str, Any]:
+    rng = np.random.default_rng(seed=20260518)
+    return {
+        "a": rng.standard_normal((100, 100)),
+        "t": pd.Series(rng.standard_normal(100), index=_QQ_IDX_100),
+    }
+
+
+def _run_linalg_matrix_tseries_100(state: dict[str, Any]) -> Any:
+    return state["a"] @ state["t"]
+
+
+# ---------------------------------------------------------------------------
 # Registry — same shape as scenarios.py. Only scenarios with a natural
 # pandas form appear; the rest are intentionally absent and become ``n/a``
 # cells in the comparison table.
@@ -440,6 +461,7 @@ SETUP: dict[str, Callable[[], Any]] = {
     "mixed_freq_qq_minus_mm_mean": _setup_mixed_freq_qq_minus_mm_mean,
     "mixed_freq_pipeline_three_freq": _setup_mixed_freq_pipeline_three_freq,
     "reindex_tseries_100": _setup_reindex_tseries_100,
+    "linalg_matrix_tseries_100": _setup_linalg_matrix_tseries_100,
 }
 
 RUN: dict[str, Callable[[Any], Any]] = {
@@ -471,6 +493,7 @@ RUN: dict[str, Callable[[Any], Any]] = {
     "mixed_freq_qq_minus_mm_mean": _run_mixed_freq_qq_minus_mm_mean,
     "mixed_freq_pipeline_three_freq": _run_mixed_freq_pipeline_three_freq,
     "reindex_tseries_100": _run_reindex_tseries_100,
+    "linalg_matrix_tseries_100": _run_linalg_matrix_tseries_100,
 }
 
 assert SETUP.keys() == RUN.keys(), "pandas scenario registries must agree"

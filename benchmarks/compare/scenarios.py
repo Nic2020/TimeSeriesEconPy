@@ -618,6 +618,26 @@ def _run_cor_two_tseries_cython(state: dict[str, Any]) -> float:
     return cor_cython(state["x"], state["y"])
 
 
+def _setup_linalg_matrix_tseries_100() -> dict[str, Any]:
+    """100x100 coefficient matrix times a length-100 TSeries (``A @ t``).
+
+    M1.6.3g — closes G12. Matches Julia's ``A * t`` precedent exactly:
+    matmul strips frequency / range labels and returns a plain ndarray
+    (see ``src/tsecon/linalg.py``). The square shape matches the
+    canonical "transition matrix on a length-N trajectory" VAR-style op;
+    the length-100 trajectory aligns with the project's ``_100``
+    benchmark-naming convention.
+    """
+    rng = np.random.default_rng(seed=20260518)
+    matrix = rng.standard_normal((100, 100))
+    t = TSeries(MITRange(qq(2020, 1), qq(2020, 1) + 99), rng.standard_normal(100))
+    return {"a": matrix, "t": t}
+
+
+def _run_linalg_matrix_tseries_100(state: dict[str, Any]) -> Any:
+    return state["a"] @ state["t"]
+
+
 def _setup_mean_mvts_axis0_5cols() -> dict[str, Any]:
     """100x5 MVTSeries for the per-column axis=0 reduction (G11)."""
     rng = np.random.default_rng(seed=20260518)
@@ -1186,6 +1206,8 @@ SETUP: dict[str, Callable[[], Any]] = {
     "reindex_tseries_100": _setup_reindex_tseries_100,
     # rangeof (M1.6.3c — closes G5)
     "rangeof_tseries_drop1": _setup_rangeof_tseries_drop1,
+    # linalg (M1.6.3g — closes G12)
+    "linalg_matrix_tseries_100": _setup_linalg_matrix_tseries_100,
 }
 
 RUN: dict[str, Callable[[Any], Any]] = {
@@ -1261,6 +1283,8 @@ RUN: dict[str, Callable[[Any], Any]] = {
     "reindex_tseries_100": _run_reindex_tseries_100,
     # rangeof (M1.6.3c — closes G5)
     "rangeof_tseries_drop1": _run_rangeof_tseries_drop1,
+    # linalg (M1.6.3g — closes G12)
+    "linalg_matrix_tseries_100": _run_linalg_matrix_tseries_100,
 }
 
 # Description rendered into the comparison table; keep terse, the scenario
@@ -1320,6 +1344,7 @@ DESCRIPTION: dict[str, str] = {
     "compare_workspaces_differ_5_keys": "compare(w1, w2) — 5×TSeries, one diff",
     "reindex_tseries_100": "reindex(t, qq=>1U) — 100Q label shift",
     "rangeof_tseries_drop1": "rangeof(t, drop=1) — 100Q tutorial-1 @rec idiom",
+    "linalg_matrix_tseries_100": "A @ t — 100x100 matrix × length-100 TSeries (strips labels)",
 }
 
 # Cython kernel scenarios are conditionally registered: when the wheel

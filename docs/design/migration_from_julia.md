@@ -35,6 +35,9 @@ differences — what the spellings, not the semantics, look like.
 | `TSeries(rng, ini::Function)`      | `TSeries(rng, zeros)` / `TSeries(rng, rand)` | `TSeries(rng, np.zeros)` / `TSeries(rng, rng_np.random)` |
 | `mean(mvts; dims=1)` (per-column)  | `mean(mvts; dims=1)`               | `mean(mvts, axis=0)` (NumPy convention) |
 | `mean(mvts; dims=2)` (per-row)     | `mean(mvts; dims=2)`               | `mean(mvts, axis=1)`                    |
+| Matrix product (coefficient-matrix × series) | `A * t`                  | `A @ t` (PEP 465; returns `ndarray`)    |
+| TSeries-of-vectors dot             | `_vals(t1) * _vals(t2)` (raises in Julia) | `t1 @ t2` (inner product scalar) |
+| Transpose / adjoint                | `transpose(t)` / `adjoint(mvts)`   | *not ported* — use `np.asarray(x).T`    |
 
 ## Semantics that are identical
 
@@ -86,6 +89,22 @@ differences — what the spellings, not the semantics, look like.
   the input range. The convention switch is the same "Python idiom wins
   for kwargs that are language-conventional" rule used elsewhere in this
   table; the underlying behaviour matches Julia.
+- **Matrix multiply uses `@`, not `*`.** Julia's `linalg.jl` overloads `*`
+  for matrix-times-TSeries / -MVTSeries; the Python port uses PEP 465's
+  `@` instead, leaving element-wise `*` to mean element-wise (which is
+  how NumPy / pandas / xarray spell it). Both behave like Julia
+  *otherwise*: the result is a plain `numpy.ndarray` with frequency /
+  range / column-name labels stripped (Julia's overloads forward to
+  `*(_vals(A), _vals(B))` and return a bare `Vector` / `Matrix`; the
+  test `x * x3 == _vals(x) * _vals(x3)` upstream documents the same).
+  `transpose` / `adjoint` are not ported — neither has clean semantics
+  on a TSeries / MVTSeries whose row axis is time. See
+  [`reference/linalg.md`](../reference/linalg.md). One related divergence
+  worth flagging: in Julia, `Vector * Vector` raises a `MethodError`,
+  so `_vals(t1) * _vals(t2)` doesn't actually work even though the
+  overload is defined; in Python, `t1 @ t2` returns the inner product
+  (NumPy 1-D matmul semantics) — the Python form is *more* useful, not
+  less.
 - **`set_holidays_map(country, subdivision)` delegates to `python-holidays`.**
   The Julia upstream ships bundled CSVs (`TimeSeriesEcon.jl/src/holidays/`)
   and reads them on first call. Python delegates to the

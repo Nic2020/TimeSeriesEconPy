@@ -41,6 +41,7 @@ import numpy as np
 import numpy.typing as npt
 
 from tsecon.frequencies import Frequency, Unit, prettyprint_frequency
+from tsecon.linalg import _matmul_strip
 from tsecon.mit import MIT, Duration
 from tsecon.mitrange import MITRange, rangeof_span
 
@@ -617,6 +618,12 @@ class TSeries:
             if x is not self and type(x).__name__ == "MVTSeries":
                 return NotImplemented
 
+        # np.matmul has shape semantics (n?,k),(k,m?)->(n?,m?) that don't fit
+        # the element-wise range-intersection path below. Route to linalg.py
+        # to match Julia's linalg.jl behavior (strip labels, return ndarray).
+        if ufunc is np.matmul and method == "__call__" and len(inputs) == 2:
+            return _matmul_strip(inputs[0], inputs[1])
+
         # Reduce / accumulate / outer / etc. — apply to the bare ndarray.
         if method != "__call__":
             arrays = tuple(np.asarray(x) if isinstance(x, TSeries) else x for x in inputs)
@@ -704,6 +711,14 @@ class TSeries:
 
     def __rmul__(self, other: Any) -> Any:
         return np.multiply(other, self)
+
+    def __matmul__(self, other: Any) -> Any:
+        # Match Julia's linalg.jl: strip labels, return a plain ndarray.
+        # `@` is the PEP 465 spelling of Julia's `*` matrix-product overload.
+        return _matmul_strip(self, other)
+
+    def __rmatmul__(self, other: Any) -> Any:
+        return _matmul_strip(other, self)
 
     def __truediv__(self, other: Any) -> Any:
         return np.true_divide(self, other)

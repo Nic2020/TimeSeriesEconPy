@@ -714,6 +714,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../reference/linalg/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Linear algebra (@ matrix multiply)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../reference/various/" class="md-nav__link">
         
   
@@ -1437,6 +1465,21 @@ differences — what the spellings, not the semantics, look like.</p>
 <td><code>mean(mvts; dims=2)</code></td>
 <td><code>mean(mvts, axis=1)</code></td>
 </tr>
+<tr>
+<td>Matrix product (coefficient-matrix × series)</td>
+<td><code>A * t</code></td>
+<td><code>A @ t</code> (PEP 465; returns <code>ndarray</code>)</td>
+</tr>
+<tr>
+<td>TSeries-of-vectors dot</td>
+<td><code>_vals(t1) * _vals(t2)</code> (raises in Julia)</td>
+<td><code>t1 @ t2</code> (inner product scalar)</td>
+</tr>
+<tr>
+<td>Transpose / adjoint</td>
+<td><code>transpose(t)</code> / <code>adjoint(mvts)</code></td>
+<td><em>not ported</em> — use <code>np.asarray(x).T</code></td>
+</tr>
 </tbody>
 </table>
 <h2 id="semantics-that-are-identical">Semantics that are identical<a class="headerlink" href="#semantics-that-are-identical" title="Permanent link">&para;</a></h2>
@@ -1489,6 +1532,22 @@ differences — what the spellings, not the semantics, look like.</p>
   the input range. The convention switch is the same "Python idiom wins
   for kwargs that are language-conventional" rule used elsewhere in this
   table; the underlying behaviour matches Julia.</li>
+<li><strong>Matrix multiply uses <code>@</code>, not <code>*</code>.</strong> Julia's <code>linalg.jl</code> overloads <code>*</code>
+  for matrix-times-TSeries / -MVTSeries; the Python port uses PEP 465's
+  <code>@</code> instead, leaving element-wise <code>*</code> to mean element-wise (which is
+  how NumPy / pandas / xarray spell it). Both behave like Julia
+  <em>otherwise</em>: the result is a plain <code>numpy.ndarray</code> with frequency /
+  range / column-name labels stripped (Julia's overloads forward to
+  <code>*(_vals(A), _vals(B))</code> and return a bare <code>Vector</code> / <code>Matrix</code>; the
+  test <code>x * x3 == _vals(x) * _vals(x3)</code> upstream documents the same).
+  <code>transpose</code> / <code>adjoint</code> are not ported — neither has clean semantics
+  on a TSeries / MVTSeries whose row axis is time. See
+  <a href="../../reference/linalg/"><code>reference/linalg.md</code></a>. One related divergence
+  worth flagging: in Julia, <code>Vector * Vector</code> raises a <code>MethodError</code>,
+  so <code>_vals(t1) * _vals(t2)</code> doesn't actually work even though the
+  overload is defined; in Python, <code>t1 @ t2</code> returns the inner product
+  (NumPy 1-D matmul semantics) — the Python form is <em>more</em> useful, not
+  less.</li>
 <li><strong><code>set_holidays_map(country, subdivision)</code> delegates to <code>python-holidays</code>.</strong>
   The Julia upstream ships bundled CSVs (<code>TimeSeriesEcon.jl/src/holidays/</code>)
   and reads them on first call. Python delegates to the

@@ -10,29 +10,31 @@
       
       
       
-        <link rel="canonical" href="https://Nic2020.github.io/TimeSeriesEconPy/">
+        <link rel="canonical" href="https://Nic2020.github.io/TimeSeriesEconPy/reference/linalg/">
       
       
+        <link rel="prev" href="../recursive/">
       
-        <link rel="next" href="tutorials/1_timeseriesecon/">
+      
+        <link rel="next" href="../various/">
       
       
         
       
       
-      <link rel="icon" href="assets/images/favicon.png">
+      <link rel="icon" href="../../assets/images/favicon.png">
       <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
     
     
       
-        <title>TimeSeriesEconPy</title>
+        <title>Linear algebra (@ matrix multiply) - TimeSeriesEconPy</title>
       
     
     
-      <link rel="stylesheet" href="assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
       
         
-        <link rel="stylesheet" href="assets/stylesheets/palette.ab4e12ef.min.css">
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
       
       
 
@@ -51,13 +53,13 @@
       
     
     
-      <link rel="stylesheet" href="assets/_markdown_exec_pyodide.css">
+      <link rel="stylesheet" href="../../assets/_markdown_exec_pyodide.css">
     
-      <link rel="stylesheet" href="assets/_markdown_exec_ansi.css">
+      <link rel="stylesheet" href="../../assets/_markdown_exec_ansi.css">
     
-      <link rel="stylesheet" href="assets/_mkdocstrings.css">
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
     
-    <script>__md_scope=new URL(".",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
 
@@ -82,7 +84,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#timeserieseconpy" class="md-skip">
+        <a href="#linear-algebra-matrix-multiply" class="md-skip">
           Skip to content
         </a>
       
@@ -98,7 +100,7 @@
 
 <header class="md-header md-header--shadow" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
-    <a href="." title="TimeSeriesEconPy" class="md-header__button md-logo" aria-label="TimeSeriesEconPy" data-md-component="logo">
+    <a href="../.." title="TimeSeriesEconPy" class="md-header__button md-logo" aria-label="TimeSeriesEconPy" data-md-component="logo">
       
   
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
@@ -118,7 +120,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Home
+              Linear algebra (@ matrix multiply)
             
           </span>
         </div>
@@ -236,7 +238,7 @@
 
 <nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href="." title="TimeSeriesEconPy" class="md-nav__button md-logo" aria-label="TimeSeriesEconPy" data-md-component="logo">
+    <a href="../.." title="TimeSeriesEconPy" class="md-nav__button md-logo" aria-label="TimeSeriesEconPy" data-md-component="logo">
       
   
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
@@ -263,37 +265,10 @@
       
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Home
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="." class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
         
   
   
@@ -309,70 +284,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#install" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Install
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#first-tseries" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        First TSeries
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#whats-inside" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        What's inside
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#quick-links" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Quick links
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -436,7 +347,7 @@
   
   
     <li class="md-nav__item">
-      <a href="tutorials/1_timeseriesecon/" class="md-nav__link">
+      <a href="../../tutorials/1_timeseriesecon/" class="md-nav__link">
         
   
   
@@ -468,8 +379,10 @@
       
   
   
+    
   
   
+  
     
     
     
@@ -480,11 +393,11 @@
       
     
     
-    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
         
           
           <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
@@ -505,7 +418,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_3">
             <span class="md-nav__icon md-icon"></span>
             
@@ -523,7 +436,7 @@
   
   
     <li class="md-nav__item">
-      <a href="reference/frequencies/" class="md-nav__link">
+      <a href="../frequencies/" class="md-nav__link">
         
   
   
@@ -551,7 +464,7 @@
   
   
     <li class="md-nav__item">
-      <a href="reference/mit/" class="md-nav__link">
+      <a href="../mit/" class="md-nav__link">
         
   
   
@@ -579,7 +492,7 @@
   
   
     <li class="md-nav__item">
-      <a href="reference/tseries/" class="md-nav__link">
+      <a href="../tseries/" class="md-nav__link">
         
   
   
@@ -607,7 +520,7 @@
   
   
     <li class="md-nav__item">
-      <a href="reference/mvtseries/" class="md-nav__link">
+      <a href="../mvtseries/" class="md-nav__link">
         
   
   
@@ -635,7 +548,7 @@
   
   
     <li class="md-nav__item">
-      <a href="reference/workspace/" class="md-nav__link">
+      <a href="../workspace/" class="md-nav__link">
         
   
   
@@ -663,7 +576,7 @@
   
   
     <li class="md-nav__item">
-      <a href="reference/math/" class="md-nav__link">
+      <a href="../math/" class="md-nav__link">
         
   
   
@@ -691,7 +604,7 @@
   
   
     <li class="md-nav__item">
-      <a href="reference/stats/" class="md-nav__link">
+      <a href="../stats/" class="md-nav__link">
         
   
   
@@ -719,7 +632,7 @@
   
   
     <li class="md-nav__item">
-      <a href="reference/indexing/" class="md-nav__link">
+      <a href="../indexing/" class="md-nav__link">
         
   
   
@@ -747,7 +660,7 @@
   
   
     <li class="md-nav__item">
-      <a href="reference/fconvert/" class="md-nav__link">
+      <a href="../fconvert/" class="md-nav__link">
         
   
   
@@ -775,7 +688,7 @@
   
   
     <li class="md-nav__item">
-      <a href="reference/recursive/" class="md-nav__link">
+      <a href="../recursive/" class="md-nav__link">
         
   
   
@@ -800,10 +713,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="reference/linalg/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Linear algebra (@ matrix multiply)
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -819,6 +759,70 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#what-returns" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What @ returns
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#whats-intentionally-not-ported" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What's intentionally not ported
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#module-reference" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Module reference
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tsecon.linalg" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        linalg
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -831,7 +835,7 @@
   
   
     <li class="md-nav__item">
-      <a href="reference/various/" class="md-nav__link">
+      <a href="../various/" class="md-nav__link">
         
   
   
@@ -859,7 +863,7 @@
   
   
     <li class="md-nav__item">
-      <a href="reference/options/" class="md-nav__link">
+      <a href="../options/" class="md-nav__link">
         
   
   
@@ -887,7 +891,7 @@
   
   
     <li class="md-nav__item">
-      <a href="reference/plotting/" class="md-nav__link">
+      <a href="../plotting/" class="md-nav__link">
         
   
   
@@ -915,7 +919,7 @@
   
   
     <li class="md-nav__item">
-      <a href="reference/interop/" class="md-nav__link">
+      <a href="../interop/" class="md-nav__link">
         
   
   
@@ -943,7 +947,7 @@
   
   
     <li class="md-nav__item">
-      <a href="reference/io/" class="md-nav__link">
+      <a href="../io/" class="md-nav__link">
         
   
   
@@ -971,7 +975,7 @@
   
   
     <li class="md-nav__item">
-      <a href="reference/mirror/" class="md-nav__link">
+      <a href="../mirror/" class="md-nav__link">
         
   
   
@@ -1058,7 +1062,7 @@
   
   
     <li class="md-nav__item">
-      <a href="design/decisions/" class="md-nav__link">
+      <a href="../../design/decisions/" class="md-nav__link">
         
   
   
@@ -1086,7 +1090,7 @@
   
   
     <li class="md-nav__item">
-      <a href="design/frequency_model/" class="md-nav__link">
+      <a href="../../design/frequency_model/" class="md-nav__link">
         
   
   
@@ -1114,7 +1118,7 @@
   
   
     <li class="md-nav__item">
-      <a href="design/tseries_protocols/" class="md-nav__link">
+      <a href="../../design/tseries_protocols/" class="md-nav__link">
         
   
   
@@ -1142,7 +1146,7 @@
   
   
     <li class="md-nav__item">
-      <a href="design/cython_strategy/" class="md-nav__link">
+      <a href="../../design/cython_strategy/" class="md-nav__link">
         
   
   
@@ -1170,7 +1174,7 @@
   
   
     <li class="md-nav__item">
-      <a href="design/serialization/" class="md-nav__link">
+      <a href="../../design/serialization/" class="md-nav__link">
         
   
   
@@ -1198,7 +1202,7 @@
   
   
     <li class="md-nav__item">
-      <a href="design/migration_from_julia/" class="md-nav__link">
+      <a href="../../design/migration_from_julia/" class="md-nav__link">
         
   
   
@@ -1233,7 +1237,7 @@
   
   
     <li class="md-nav__item">
-      <a href="api_index/" class="md-nav__link">
+      <a href="../../api_index/" class="md-nav__link">
         
   
   
@@ -1260,7 +1264,7 @@
   
   
     <li class="md-nav__item">
-      <a href="faq/" class="md-nav__link">
+      <a href="../../faq/" class="md-nav__link">
         
   
   
@@ -1307,10 +1311,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#install" class="md-nav__link">
+  <a href="#what-returns" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Install
+        What @ returns
       
     </span>
   </a>
@@ -1318,10 +1322,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#first-tseries" class="md-nav__link">
+  <a href="#whats-intentionally-not-ported" class="md-nav__link">
     <span class="md-ellipsis">
       
-        First TSeries
+        What's intentionally not ported
       
     </span>
   </a>
@@ -1329,10 +1333,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#whats-inside" class="md-nav__link">
+  <a href="#module-reference" class="md-nav__link">
     <span class="md-ellipsis">
       
-        What's inside
+        Module reference
       
     </span>
   </a>
@@ -1340,10 +1344,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#quick-links" class="md-nav__link">
+  <a href="#tsecon.linalg" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Quick links
+        linalg
       
     </span>
   </a>
@@ -1370,60 +1374,120 @@
   
 
 
-<h1 id="timeserieseconpy">TimeSeriesEconPy<a class="headerlink" href="#timeserieseconpy" title="Permanent link">&para;</a></h1>
-<p>A time-series language for macroeconomics, ported from
-<a href="https://github.com/bankofcanada/TimeSeriesEcon.jl">TimeSeriesEcon.jl</a> (Bank of
-Canada).</p>
-<p>The primary motivation is environments where Julia isn't available
-(MS Fabric, Databricks). The port keeps the same vocabulary — <code>Frequency</code>,
-<code>MIT</code>, <code>TSeries</code>, <code>MVTSeries</code>, <code>Workspace</code> — so models translate idiom-for-idiom.</p>
-<h2 id="install">Install<a class="headerlink" href="#install" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>pip<span class="w"> </span>install<span class="w"> </span>TimeSeriesEconPy<span class="w">            </span><span class="c1"># core</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s1">&#39;TimeSeriesEconPy[all]&#39;</span><span class="w">     </span><span class="c1"># core + matplotlib + plotly + pandas + polars</span>
+<h1 id="linear-algebra-matrix-multiply">Linear algebra (<code>@</code> matrix multiply)<a class="headerlink" href="#linear-algebra-matrix-multiply" title="Permanent link">&para;</a></h1>
+<p><code>TSeries</code> and <code>MVTSeries</code> overload Python's <code>@</code> operator (PEP 465) so the
+upstream <code>TimeSeriesEcon.jl</code> idiom</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">A</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">t</span><span class="w">        </span><span class="c"># Julia: A is a Matrix, t is a TSeries</span>
 </code></pre></div>
-<p>Python 3.11 or newer. The base install ships compiled Cython kernels via
-per-platform wheels (Linux x86_64 / Windows AMD64 / macOS arm64); the pure-Python
-fallback works in any environment but the four kernel-backed paths
-(<code>rec_linear</code> / <code>lookup</code> / <code>mean·std·cor</code> / <code>fconvert_*_aggregate</code>) run faster
-with the wheel.</p>
-<h2 id="first-tseries">First TSeries<a class="headerlink" href="#first-tseries" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="kn">import</span><span class="w"> </span><span class="nn">tsecon</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="kn">from</span><span class="w"> </span><span class="nn">tsecon</span><span class="w"> </span><span class="kn">import</span> <span class="n">qq</span><span class="p">,</span> <span class="n">TSeries</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="n">t</span> <span class="o">=</span> <span class="n">TSeries</span><span class="p">(</span><span class="n">qq</span><span class="p">(</span><span class="mi">2020</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">100.0</span><span class="p">,</span> <span class="mf">101.2</span><span class="p">,</span> <span class="mf">102.3</span><span class="p">,</span> <span class="mf">103.5</span><span class="p">]))</span>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="nb">print</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;mean:&quot;</span><span class="p">,</span> <span class="n">tsecon</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">t</span><span class="p">))</span>
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;first date:&quot;</span><span class="p">,</span> <span class="n">t</span><span class="o">.</span><span class="n">firstdate</span><span class="p">)</span>
+<p>ports as</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">A</span> <span class="o">@</span> <span class="n">t</span>        <span class="c1"># Python: A is a numpy.ndarray, t is a tsecon.TSeries</span>
 </code></pre></div>
-<div class="result">
-<p>4-element TSeries{Quarterly} with range 2020Q1:2020Q4:
-  2020Q1 : 100.0
-  2020Q2 : 101.2
-  2020Q3 : 102.3
-  2020Q4 : 103.5
-mean: 101.75
-first date: 2020Q1</p>
+<p>Both directions are supported (<code>A @ t</code>, <code>t @ A</code>, <code>mvts @ A</code>, <code>A @ mvts</code>,
+<code>t @ t</code>, <code>mvts @ mvts</code>).</p>
+<h2 id="what-returns">What <code>@</code> returns<a class="headerlink" href="#what-returns" title="Permanent link">&para;</a></h2>
+<p>A plain [<code>numpy.ndarray</code>][]. <strong>Frequency / range / column-name labels are
+stripped.</strong> This matches the Julia upstream exactly: every method body in
+<code>linalg.jl</code> is of the shape <code>op(_vals(A), _vals(B))</code>, returning a bare
+<code>Vector</code> or <code>Matrix</code>. The upstream test
+<a href="https://github.com/bankofcanada/TimeSeriesEcon.jl/blob/master/test/test_various.jl"><code>x * x3 == _vals(x) * _vals(x3)</code></a>
+documents the same contract.</p>
+<p>If you want a labelled result, wrap explicitly:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">out_vals</span> <span class="o">=</span> <span class="n">A</span> <span class="o">@</span> <span class="n">t</span>                                  <span class="c1"># numpy.ndarray</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">out_t</span> <span class="o">=</span> <span class="n">TSeries</span><span class="p">(</span><span class="n">t</span><span class="o">.</span><span class="n">range</span><span class="p">,</span> <span class="n">out_vals</span><span class="p">)</span>                <span class="c1"># back to a labelled TSeries</span>
+</code></pre></div>
+<p>Element-wise multiplication keeps its existing semantics — <code>*</code> between two
+TSeries still does the range-intersection, frequency-checked broadcast
+(see <a href="../tseries/">TSeries reference</a>).</p>
+<h2 id="whats-intentionally-not-ported">What's intentionally not ported<a class="headerlink" href="#whats-intentionally-not-ported" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong><code>transpose</code> / <code>adjoint</code>.</strong> Julia's overloads return a 1×N row vector
+  (from a <code>TSeries</code>) or a <code>k × n</code> matrix (from an <code>MVTSeries</code>) with all
+  labels stripped. A <code>.T</code> property on <code>TSeries</code> / <code>MVTSeries</code> would have no
+  clean semantics in Python — the row axis of an <code>MVTSeries</code> is <em>time</em>,
+  not data, so a transposed object has no natural type to wrap. Users
+  wanting the bare transpose write <code>np.asarray(x).T</code>. See
+  <code>claude_files/parity/PARITY_GAPS.md</code> entry <strong>G12</strong> (closed M1.6.3g) for
+  the full rationale.</li>
+<li><strong><code>\</code> / <code>/</code> (linear-solve).</strong> <code>@</code> covers the common
+  <code>A @ t</code> coefficient-matrix case. Callers needing a solve use
+  [<code>numpy.linalg.solve</code>][] directly:
+  <code>numpy.linalg.solve(A, np.asarray(t))</code>.</li>
+</ul>
+<h2 id="module-reference">Module reference<a class="headerlink" href="#module-reference" title="Permanent link">&para;</a></h2>
+
+
+<div class="doc doc-object doc-module">
+
+
+
+<h2 id="tsecon.linalg" class="doc doc-heading">
+            <span class="doc doc-object-name doc-module-name">tsecon.linalg</span>
+
+
+<a href="#tsecon.linalg" class="headerlink" title="Permanent link">&para;</a></h2>
+
+    <div class="doc doc-contents first">
+
+        <p>Matrix multiplication on TSeries / MVTSeries.</p>
+<p>Mirrors <code>TimeSeriesEcon.jl/src/linalg.jl</code> exactly. The Julia module
+overloads <code>*</code>, <code>\</code> and <code>/</code> for every combination of
+<code>TSeries</code> / <code>MVTSeries</code> / <code>AbstractMatrix</code>; every method body is
+of the shape <code>op(_vals(A), _vals(B))</code> — i.e. the operation strips
+frequency / range / column-name labels and returns the underlying
+<code>Vector</code> or <code>Matrix</code> (the upstream test
+<code>x * x3 == _vals(x) * _vals(x3)</code> confirms). The Python port keeps
+that semantics: <code>@</code> returns a plain :class:<code>numpy.ndarray</code>; users
+who want the result back as a labelled object wrap it explicitly.</p>
+<p>Spelling — <code>@</code> (PEP 465) over Julia's <code>*</code>. Element-wise <code>*</code> is
+how NumPy / pandas / xarray spell broadcasting, and the existing
+<code>__mul__</code> / <code>__array_ufunc__</code> machinery already covers it (range
+intersection, frequency check, etc.). Overloading <code>*</code> for the
+matrix product would break that contract, so the dunders use <code>@</code>
+exclusively; the Julia <code>A * t</code> idiom ports as <code>A @ t</code> (see
+<code>docs/design/migration_from_julia.md</code>).</p>
+<p>Not ported:</p>
+<ul>
+<li><code>transpose</code> / <code>adjoint</code>. Julia's overloads also strip labels
+  (<code>transpose(t)</code> returns a 1×N row vector; <code>adjoint(mvts)</code> a
+  <code>k × n</code> matrix). A <code>.T</code> property would have no clean semantics
+  on TSeries / MVTSeries — the row axis is <em>time</em>, not data, so a
+  transposed object has no natural type to wrap into. Users wanting
+  the bare transpose write <code>np.asarray(t).T</code>. Recorded as an
+  intentional non-port; see <code>claude_files/parity/PARITY_GAPS.md</code>
+  entry <strong>G12</strong> (closed M1.6.3g) for the rationale.</li>
+<li><code>\</code> / <code>/</code> (linear-solve overloads). <code>@</code> covers the
+  coefficient-matrix-times-series case that motivates the module;
+  callers needing a solve use <code>np.linalg.solve(A, np.asarray(t))</code>
+  directly. Promote on demand.</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+
+
+  </div>
+
+    </div>
+
 </div>
-<h2 id="whats-inside">What's inside<a class="headerlink" href="#whats-inside" title="Permanent link">&para;</a></h2>
-<ul>
-<li><strong><a href="tutorials/1_timeseriesecon/">Tutorials</a></strong> — narrative ports of the upstream
-  Julia tutorial corpus.</li>
-<li><strong><a href="reference/frequencies/">Reference</a></strong> — auto-generated API documentation.</li>
-<li><strong><a href="design/decisions/">Design notes</a></strong> — the deviations from the Julia
-  upstream that aren't obvious from reading the code, including the
-  <a href="design/cython_strategy/">Cython strategy</a> and the N=4 operation-shape
-  classification that's the central empirical contribution of the JSS paper.</li>
-<li><strong><a href="api_index/">API index</a></strong> — flat listing of every public symbol.</li>
-</ul>
-<h2 id="quick-links">Quick links<a class="headerlink" href="#quick-links" title="Permanent link">&para;</a></h2>
-<ul>
-<li><a href="https://github.com/Nic2020/TimeSeriesEconPy">GitHub repository</a></li>
-<li><a href="https://github.com/Nic2020/TimeSeriesEconPy/issues">Issues</a></li>
-<li><a href="https://github.com/bankofcanada/TimeSeriesEcon.jl">TimeSeriesEcon.jl (Julia upstream)</a></li>
-<li><a href="design/migration_from_julia/">Migration from Julia</a></li>
-</ul>
 
 
 
@@ -1479,12 +1543,12 @@ first date: 2020Q1</p>
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": ".", "features": ["navigation.instant", "navigation.tracking", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "content.code.copy", "content.code.annotate"], "search": "assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.tracking", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "content.code.copy", "content.code.annotate"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
       
-        <script src="assets/_markdown_exec_pyodide.js"></script>
+        <script src="../../assets/_markdown_exec_pyodide.js"></script>
       
     
   </body>

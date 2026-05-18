@@ -33,6 +33,8 @@ differences — what the spellings, not the semantics, look like.
 | `rangeof` with `drop=`             | `rangeof(t, drop=1)`               | `rangeof(t, drop=1)`                    |
 | `rangeof(workspace; method=)`      | `rangeof(w, method=union)`         | `rangeof(w, method="union")`            |
 | `TSeries(rng, ini::Function)`      | `TSeries(rng, zeros)` / `TSeries(rng, rand)` | `TSeries(rng, np.zeros)` / `TSeries(rng, rng_np.random)` |
+| `mean(mvts; dims=1)` (per-column)  | `mean(mvts; dims=1)`               | `mean(mvts, axis=0)` (NumPy convention) |
+| `mean(mvts; dims=2)` (per-row)     | `mean(mvts; dims=2)`               | `mean(mvts, axis=1)`                    |
 
 ## Semantics that are identical
 
@@ -75,6 +77,15 @@ differences — what the spellings, not the semantics, look like.
   becomes a Python `(old_mit, new_mit)` 2-tuple. Dispatch over MIT /
   MITRange / TSeries / MVTSeries / Workspace is identical; the `copy=`
   kwarg is the same (default `False`, wrap-by-default).
+- **`Statistics.*` axis kwarg is `axis=`, not `dims=`.** Julia's
+  `mean(mvts; dims=1)` reduces along rows (per-column); Python uses NumPy's
+  `axis=0` for the same operation. `dims=2` (per-row, Julia) maps to
+  `axis=1` (per-row, Python). `axis=None` (default) reduces flat to a
+  scalar — the existing behaviour. Returns: `axis=0` → single-row
+  MVTSeries (column names preserved); `axis=1` → 1-D TSeries indexed by
+  the input range. The convention switch is the same "Python idiom wins
+  for kwargs that are language-conventional" rule used elsewhere in this
+  table; the underlying behaviour matches Julia.
 - **`set_holidays_map(country, subdivision)` delegates to `python-holidays`.**
   The Julia upstream ships bundled CSVs (`TimeSeriesEcon.jl/src/holidays/`)
   and reads them on first call. Python delegates to the

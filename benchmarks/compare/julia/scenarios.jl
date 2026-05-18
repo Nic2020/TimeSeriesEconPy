@@ -313,6 +313,28 @@ end
 
 cov_mvts_5_columns_run(state) = cov(state.mvts)
 
+# MVTSeries axis= reductions (M1.6.3f — closes G11). Julia's
+# Statistics.mean(::MVTSeries; dims=1) reduces along rows (per-column →
+# 1-row MVTSeries); dims=2 reduces along columns (per-row → row vector).
+# Our Python port uses NumPy's axis= convention (axis=0 ≡ dims=1, axis=1 ≡
+# dims=2), so the harness compares axis=0 Python ↔ dims=1 Julia and
+# axis=1 Python ↔ dims=2 Julia.
+function mean_mvts_axis0_5cols_setup()
+    rng = MersenneTwister(20260518)
+    mvts = MVTSeries(qq(2020, 1), (:a, :b, :c, :d, :e), randn(rng, 100, 5))
+    return (mvts = mvts,)
+end
+
+mean_mvts_axis0_5cols_run(state) = mean(state.mvts; dims=1)
+
+function mean_mvts_axis1_100rows_setup()
+    rng = MersenneTwister(20260518)
+    mvts = MVTSeries(qq(2020, 1), (:a, :b, :c, :d, :e), randn(rng, 100, 5))
+    return (mvts = mvts,)
+end
+
+mean_mvts_axis1_100rows_run(state) = mean(state.mvts; dims=2)
+
 # ---------------------------------------------------------------------------
 # F14 expansion (session 30) — quantile / cov(x,y) / ytypct / lead, plus the
 # two missing higher-freq fconvert methods (linear, even). See
@@ -573,6 +595,8 @@ const SCENARIOS = Dict{String, Tuple{Function, Function}}(
     "cov_two_tseries"              => (cov_two_tseries_setup,              cov_two_tseries_run),
     "cor_mvts_5_columns"           => (cor_mvts_5_columns_setup,           cor_mvts_5_columns_run),
     "cov_mvts_5_columns"           => (cov_mvts_5_columns_setup,           cov_mvts_5_columns_run),
+    "mean_mvts_axis0_5cols"        => (mean_mvts_axis0_5cols_setup,        mean_mvts_axis0_5cols_run),
+    "mean_mvts_axis1_100rows"      => (mean_mvts_axis1_100rows_setup,      mean_mvts_axis1_100rows_run),
     # Stats — M1.5 third Cython port (kernel-direct + public API)
     "mean_quarterly_100_numpy"     => (mean_quarterly_100_numpy_setup,     mean_quarterly_100_numpy_run),
     "mean_quarterly_100_cython"    => (mean_quarterly_100_cython_setup,    mean_quarterly_100_cython_run),

@@ -23,14 +23,16 @@ column orientation matches Julia (variables = columns) by passing
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Any, Final
 
 import numpy as np
 
-from tsecon._bdaily import cleanedvalues
+from tsecon._bdaily import bdaily_row_keep_mask, cleanedvalues
 from tsecon._kernel_dispatch import _dispatch_kernel, _is_kernel_eligible
 from tsecon._stats_kernels import cor_numpy, mean_numpy, std_numpy, var_numpy
 from tsecon.frequencies import BDaily
+from tsecon.mitrange import MITRange
 from tsecon.mvtseries import MVTSeries
 from tsecon.tseries import TSeries
 
@@ -127,9 +129,107 @@ def _resolve_values(
     return np.asarray(t.values)
 
 
+# ---------------------------------------------------------------------------
+# axis= reductions for MVTSeries (G11)
+# ---------------------------------------------------------------------------
+#
+# ``axis=None`` → existing scalar return.
+# ``axis=0``    → per-column reduction → single-row MVTSeries with the input
+#                 column names, anchored at the input ``firstdate``.
+# ``axis=1``    → per-row reduction → 1-D TSeries indexed by the input range.
+#
+# For TSeries (1-D) input, ``axis=0`` is accepted as a NumPy-conventional alias
+# of ``axis=None`` (both return the scalar reduction); ``axis=1`` raises since
+# there is no axis 1 in a 1-D array. ``axis ∉ {None, 0, 1}`` always raises.
+#
+# BDaily filtering: axis=0 applies the row-mask to drop rows from each column's
+# reduction (single-row MVTSeries summarises the kept rows). axis=1 computes
+# the per-row reduction on the *full* matrix, then masks output positions to
+# NaN where the BDaily filter would have dropped the row — preserving the
+# contiguous MIT range of the output TSeries.
+
+
+def _axis_value_error(axis: object) -> ValueError:
+    msg = f"axis must be None, 0, or 1; got axis={axis!r}."
+    return ValueError(msg)
+
+
+def _per_column_reduce(
+    t: MVTSeries,
+    np_reducer_axis0: Callable[[np.ndarray], np.ndarray],
+    *,
+    skip_all_nans: bool,
+    skip_holidays: bool,
+    holidays_map: TSeries | None,
+) -> MVTSeries:
+    """Per-column reduction → single-row MVTSeries.
+
+    ``np_reducer_axis0`` is invoked on the resolved (post-filter) 2-D matrix
+    with ``axis=0`` baked in — e.g. ``lambda m: np.mean(m, axis=0)``. The
+    output is a single-row MVTSeries with the input column names anchored at
+    ``t.firstdate``.
+    """
+    matrix = _resolve_values(
+        t,
+        skip_all_nans=skip_all_nans,
+        skip_holidays=skip_holidays,
+        holidays_map=holidays_map,
+    )
+    if matrix.ndim != 2:
+        # Shouldn't happen — cleanedvalues(MVTSeries) returns 2-D and t.values
+        # is 2-D by construction. Defensive guard for future refactors.
+        msg = f"per-column reduction expects 2-D values, got ndim={matrix.ndim}."
+        raise AssertionError(msg)
+    reduced = np.asarray(np_reducer_axis0(matrix), dtype=float).reshape(1, -1)
+    single_rng = MITRange(t.firstdate, t.firstdate)
+    return MVTSeries(single_rng, t.column_names, reduced)
+
+
+def _per_row_reduce(
+    t: MVTSeries,
+    np_reducer_axis1: Callable[[np.ndarray], np.ndarray],
+    *,
+    skip_all_nans: bool,
+    skip_holidays: bool,
+    holidays_map: TSeries | None,
+) -> TSeries:
+    """Per-row reduction → 1-D TSeries indexed by the input range.
+
+    ``np_reducer_axis1`` is invoked on the *full* (pre-filter) 2-D matrix
+    with ``axis=1`` baked in — e.g. ``lambda m: np.mean(m, axis=1)``. When
+    BDaily kwargs are set, the resulting 1-D array is float-cast and NaN-
+    masked at positions where the BDaily filter would have dropped the row.
+    """
+    full = np.asarray(t.values, dtype=float)
+    reduced = np.asarray(np_reducer_axis1(full), dtype=float)
+    keep_mask = bdaily_row_keep_mask(
+        t,
+        skip_all_nans=skip_all_nans,
+        skip_holidays=skip_holidays,
+        holidays_map=holidays_map,
+    )
+    if keep_mask is not None:
+        reduced = reduced.copy()
+        reduced[~keep_mask] = np.nan
+    return TSeries(t.firstdate, reduced)
+
+
+def _axis_for_tseries(axis: int) -> None:
+    """Validate ``axis`` for a 1-D TSeries input. ``axis=0`` is accepted; raise on 1."""
+    if axis == 1:
+        msg = (
+            "axis=1 is not valid for a 1-D TSeries; use axis=None or axis=0 to "
+            "get the scalar reduction."
+        )
+        raise ValueError(msg)
+    if axis != 0:
+        raise _axis_value_error(axis)
+
+
 def mean(
     t: TSeries | MVTSeries,
     *,
+    axis: int | None = None,
     skip_all_nans: bool = False,
     skip_holidays: bool = False,
     holidays_map: TSeries | None = None,
@@ -137,15 +237,26 @@ def mean(
     """Arithmetic mean.
 
     For a :class:`~tsecon.tseries.TSeries` returns a scalar; for an
-    :class:`~tsecon.mvtseries.MVTSeries` returns the overall mean (matching
-    Julia's ``mean(::MVTSeries)`` which iterates the matrix flat). Use
-    ``np.mean(mvts.values, axis=0)`` for per-column means.
+    :class:`~tsecon.mvtseries.MVTSeries` the default (``axis=None``) returns
+    the overall mean (matching Julia's ``mean(::MVTSeries)`` which iterates
+    the matrix flat). ``axis=0`` reduces along rows to a single-row
+    MVTSeries (per-column means); ``axis=1`` reduces along columns to a 1-D
+    TSeries (per-row means).
 
     Parameters
     ----------
     t : TSeries or MVTSeries
-        Input series. Any non-Unit frequency. For an MVTSeries the
-        2-D values matrix is reduced flat.
+        Input series. Any non-Unit frequency.
+    axis : int or None, default None
+        Reduction axis (NumPy convention) — see G11 in
+        ``claude_files/parity/PARITY_GAPS.md``.
+
+        * ``None``: reduce flat (scalar return; existing behaviour).
+        * ``0``: per-column → single-row MVTSeries anchored at
+          ``t.firstdate`` with the input column names. For a 1-D TSeries,
+          equivalent to ``axis=None`` (scalar).
+        * ``1``: per-row → 1-D TSeries indexed by the input range.
+          ``ValueError`` for TSeries input (no axis 1).
     skip_all_nans : bool, default False
         BDaily only. If ``True``, drop entries that are NaN in
         ``t.values`` before reducing. ``TypeError`` on non-BDaily.
@@ -156,12 +267,15 @@ def mean(
     holidays_map : TSeries, optional
         BDaily only. Boolean TSeries flagging the business days to
         include (``True``) / drop (``False``); ``AND``-ed with the
-        NaN mask when ``skip_all_nans=True``.
+        NaN mask when ``skip_all_nans=True``. With ``axis=1`` the
+        filter masks output positions to NaN (preserving the
+        contiguous range) rather than dropping rows.
 
     Returns
     -------
-    float
-        The arithmetic mean over the resolved values.
+    float, MVTSeries, or TSeries
+        Scalar for ``axis=None``; single-row MVTSeries for ``axis=0`` on
+        an MVTSeries; 1-D TSeries for ``axis=1`` on an MVTSeries.
 
     Examples
     --------
@@ -170,19 +284,59 @@ def mean(
     >>> t = tse.TSeries(tse.qq(2020, 1), np.array([1.0, 2.0, 3.0, 4.0]))
     >>> tse.mean(t)
     2.5
+
+    Per-column reduction on an MVTSeries:
+
+    >>> m = tse.MVTSeries(tse.qq(2020, 1), ("a", "b"),
+    ...                   np.array([[1.0, 10.0], [2.0, 20.0], [3.0, 30.0]]))
+    >>> tse.mean(m, axis=0)["a"][tse.qq(2020, 1)]
+    2.0
+
+    Per-row reduction on an MVTSeries:
+
+    >>> tse.mean(m, axis=1)[tse.qq(2020, 1)]
+    5.5
     """
-    values = _resolve_values(
-        t, skip_all_nans=skip_all_nans, skip_holidays=skip_holidays, holidays_map=holidays_map
-    )
-    flat = _ravel_for_kernel(values)
-    if flat is not None and flat.shape[0] > 0:
-        return _dispatch_kernel(_CYTHON_AVAILABLE, mean_cython, mean_numpy, flat)
-    return np.mean(values)
+    if axis is None:
+        values = _resolve_values(
+            t, skip_all_nans=skip_all_nans, skip_holidays=skip_holidays, holidays_map=holidays_map
+        )
+        flat = _ravel_for_kernel(values)
+        if flat is not None and flat.shape[0] > 0:
+            return _dispatch_kernel(_CYTHON_AVAILABLE, mean_cython, mean_numpy, flat)
+        return np.mean(values)
+    if not isinstance(t, MVTSeries):
+        _axis_for_tseries(axis)
+        # axis=0 on TSeries → scalar path
+        return mean(
+            t,
+            skip_all_nans=skip_all_nans,
+            skip_holidays=skip_holidays,
+            holidays_map=holidays_map,
+        )
+    if axis == 0:
+        return _per_column_reduce(
+            t,
+            lambda m: np.mean(m, axis=0),
+            skip_all_nans=skip_all_nans,
+            skip_holidays=skip_holidays,
+            holidays_map=holidays_map,
+        )
+    if axis == 1:
+        return _per_row_reduce(
+            t,
+            lambda m: np.mean(m, axis=1),
+            skip_all_nans=skip_all_nans,
+            skip_holidays=skip_holidays,
+            holidays_map=holidays_map,
+        )
+    raise _axis_value_error(axis)
 
 
 def std(
     t: TSeries | MVTSeries,
     *,
+    axis: int | None = None,
     skip_all_nans: bool = False,
     skip_holidays: bool = False,
     holidays_map: TSeries | None = None,
@@ -196,8 +350,11 @@ def std(
     Parameters
     ----------
     t : TSeries or MVTSeries
-        Input series. Any non-Unit frequency. For an MVTSeries the
-        2-D values matrix is reduced flat.
+        Input series. Any non-Unit frequency.
+    axis : int or None, default None
+        Reduction axis (NumPy convention; see :func:`mean` for the return-
+        shape contract). ``None`` → scalar. ``0`` → per-column → single-row
+        MVTSeries. ``1`` → per-row → 1-D TSeries (MVTSeries only).
     skip_all_nans : bool, default False
         BDaily only. If ``True``, drop NaN entries before reducing.
     skip_holidays : bool, default False
@@ -207,9 +364,11 @@ def std(
 
     Returns
     -------
-    float
-        Sample standard deviation with ``ddof=1``. Returns ``nan`` for
-        an empty or single-element input.
+    float, MVTSeries, or TSeries
+        Sample standard deviation with ``ddof=1``. Scalar for ``axis=None``.
+        Single-row MVTSeries for ``axis=0`` on an MVTSeries. 1-D TSeries
+        for ``axis=1`` on an MVTSeries. Returns ``nan`` for an empty or
+        single-element input.
 
     Examples
     --------
@@ -219,18 +378,45 @@ def std(
     >>> tse.std(t)
     1.0
     """
-    values = _resolve_values(
-        t, skip_all_nans=skip_all_nans, skip_holidays=skip_holidays, holidays_map=holidays_map
-    )
-    flat = _ravel_for_kernel(values)
-    if flat is not None and flat.shape[0] > 1:
-        return _dispatch_kernel(_CYTHON_AVAILABLE, std_cython, std_numpy, flat, 1)
-    return np.std(values, ddof=1)
+    if axis is None:
+        values = _resolve_values(
+            t, skip_all_nans=skip_all_nans, skip_holidays=skip_holidays, holidays_map=holidays_map
+        )
+        flat = _ravel_for_kernel(values)
+        if flat is not None and flat.shape[0] > 1:
+            return _dispatch_kernel(_CYTHON_AVAILABLE, std_cython, std_numpy, flat, 1)
+        return np.std(values, ddof=1)
+    if not isinstance(t, MVTSeries):
+        _axis_for_tseries(axis)
+        return std(
+            t,
+            skip_all_nans=skip_all_nans,
+            skip_holidays=skip_holidays,
+            holidays_map=holidays_map,
+        )
+    if axis == 0:
+        return _per_column_reduce(
+            t,
+            lambda m: np.std(m, axis=0, ddof=1),
+            skip_all_nans=skip_all_nans,
+            skip_holidays=skip_holidays,
+            holidays_map=holidays_map,
+        )
+    if axis == 1:
+        return _per_row_reduce(
+            t,
+            lambda m: np.std(m, axis=1, ddof=1),
+            skip_all_nans=skip_all_nans,
+            skip_holidays=skip_holidays,
+            holidays_map=holidays_map,
+        )
+    raise _axis_value_error(axis)
 
 
 def var(
     t: TSeries | MVTSeries,
     *,
+    axis: int | None = None,
     skip_all_nans: bool = False,
     skip_holidays: bool = False,
     holidays_map: TSeries | None = None,
@@ -240,8 +426,11 @@ def var(
     Parameters
     ----------
     t : TSeries or MVTSeries
-        Input series. Any non-Unit frequency. For an MVTSeries the
-        2-D values matrix is reduced flat.
+        Input series. Any non-Unit frequency.
+    axis : int or None, default None
+        Reduction axis (NumPy convention; see :func:`mean` for the return-
+        shape contract). ``None`` → scalar. ``0`` → per-column → single-row
+        MVTSeries. ``1`` → per-row → 1-D TSeries (MVTSeries only).
     skip_all_nans : bool, default False
         BDaily only. If ``True``, drop NaN entries before reducing.
     skip_holidays : bool, default False
@@ -251,9 +440,10 @@ def var(
 
     Returns
     -------
-    float
-        Sample variance with ``ddof=1``. Returns ``nan`` for an empty
-        or single-element input.
+    float, MVTSeries, or TSeries
+        Sample variance with ``ddof=1``. Scalar for ``axis=None``;
+        single-row MVTSeries for ``axis=0``; 1-D TSeries for ``axis=1``.
+        Returns ``nan`` for an empty or single-element input.
 
     Examples
     --------
@@ -263,18 +453,45 @@ def var(
     >>> tse.var(t)
     1.0
     """
-    values = _resolve_values(
-        t, skip_all_nans=skip_all_nans, skip_holidays=skip_holidays, holidays_map=holidays_map
-    )
-    flat = _ravel_for_kernel(values)
-    if flat is not None and flat.shape[0] > 1:
-        return _dispatch_kernel(_CYTHON_AVAILABLE, var_cython, var_numpy, flat, 1)
-    return np.var(values, ddof=1)
+    if axis is None:
+        values = _resolve_values(
+            t, skip_all_nans=skip_all_nans, skip_holidays=skip_holidays, holidays_map=holidays_map
+        )
+        flat = _ravel_for_kernel(values)
+        if flat is not None and flat.shape[0] > 1:
+            return _dispatch_kernel(_CYTHON_AVAILABLE, var_cython, var_numpy, flat, 1)
+        return np.var(values, ddof=1)
+    if not isinstance(t, MVTSeries):
+        _axis_for_tseries(axis)
+        return var(
+            t,
+            skip_all_nans=skip_all_nans,
+            skip_holidays=skip_holidays,
+            holidays_map=holidays_map,
+        )
+    if axis == 0:
+        return _per_column_reduce(
+            t,
+            lambda m: np.var(m, axis=0, ddof=1),
+            skip_all_nans=skip_all_nans,
+            skip_holidays=skip_holidays,
+            holidays_map=holidays_map,
+        )
+    if axis == 1:
+        return _per_row_reduce(
+            t,
+            lambda m: np.var(m, axis=1, ddof=1),
+            skip_all_nans=skip_all_nans,
+            skip_holidays=skip_holidays,
+            holidays_map=holidays_map,
+        )
+    raise _axis_value_error(axis)
 
 
 def median(
     t: TSeries | MVTSeries,
     *,
+    axis: int | None = None,
     skip_all_nans: bool = False,
     skip_holidays: bool = False,
     holidays_map: TSeries | None = None,
@@ -287,8 +504,11 @@ def median(
     Parameters
     ----------
     t : TSeries or MVTSeries
-        Input series. Any non-Unit frequency. For an MVTSeries the
-        2-D values matrix is reduced flat.
+        Input series. Any non-Unit frequency.
+    axis : int or None, default None
+        Reduction axis (NumPy convention; see :func:`mean` for the return-
+        shape contract). ``None`` → scalar. ``0`` → per-column → single-row
+        MVTSeries. ``1`` → per-row → 1-D TSeries (MVTSeries only).
     skip_all_nans : bool, default False
         BDaily only. If ``True``, drop NaN entries before reducing.
     skip_holidays : bool, default False
@@ -298,8 +518,9 @@ def median(
 
     Returns
     -------
-    float
-        The median of the resolved values.
+    float, MVTSeries, or TSeries
+        The median of the resolved values. Scalar for ``axis=None``;
+        single-row MVTSeries for ``axis=0``; 1-D TSeries for ``axis=1``.
 
     Examples
     --------
@@ -309,16 +530,43 @@ def median(
     >>> float(tse.median(t))
     2.5
     """
-    values = _resolve_values(
-        t, skip_all_nans=skip_all_nans, skip_holidays=skip_holidays, holidays_map=holidays_map
-    )
-    return np.median(values)
+    if axis is None:
+        values = _resolve_values(
+            t, skip_all_nans=skip_all_nans, skip_holidays=skip_holidays, holidays_map=holidays_map
+        )
+        return np.median(values)
+    if not isinstance(t, MVTSeries):
+        _axis_for_tseries(axis)
+        return median(
+            t,
+            skip_all_nans=skip_all_nans,
+            skip_holidays=skip_holidays,
+            holidays_map=holidays_map,
+        )
+    if axis == 0:
+        return _per_column_reduce(
+            t,
+            lambda m: np.median(m, axis=0),
+            skip_all_nans=skip_all_nans,
+            skip_holidays=skip_holidays,
+            holidays_map=holidays_map,
+        )
+    if axis == 1:
+        return _per_row_reduce(
+            t,
+            lambda m: np.median(m, axis=1),
+            skip_all_nans=skip_all_nans,
+            skip_holidays=skip_holidays,
+            holidays_map=holidays_map,
+        )
+    raise _axis_value_error(axis)
 
 
 def quantile(
-    t: TSeries,
+    t: TSeries | MVTSeries,
     p: float | np.ndarray,
     *,
+    axis: int | None = None,
     skip_all_nans: bool = False,
     skip_holidays: bool = False,
     holidays_map: TSeries | None = None,
@@ -329,10 +577,18 @@ def quantile(
 
     Parameters
     ----------
-    t : TSeries
+    t : TSeries or MVTSeries
         Input series. Any non-Unit frequency.
     p : float or array-like of float
-        Probability (or probabilities) in ``[0, 1]``.
+        Probability (or probabilities) in ``[0, 1]``. Must be scalar when
+        ``axis`` is not ``None`` — array-``p`` × axis-reduction produces a
+        2-D return shape that does not fit the single-row-MVTSeries /
+        1-D-TSeries contract; raises ``TypeError`` in that combination.
+    axis : int or None, default None
+        Reduction axis (NumPy convention; see :func:`mean` for the return-
+        shape contract). ``None`` → scalar (or ndarray when ``p`` is
+        array-like). ``0`` → per-column → single-row MVTSeries. ``1`` →
+        per-row → 1-D TSeries (MVTSeries only).
     skip_all_nans : bool, default False
         BDaily only. If ``True``, drop NaN entries before reducing.
     skip_holidays : bool, default False
@@ -342,9 +598,10 @@ def quantile(
 
     Returns
     -------
-    float or ndarray
-        Scalar when ``p`` is a scalar, ndarray (same shape as ``p``)
-        otherwise.
+    float, ndarray, MVTSeries, or TSeries
+        Scalar when ``p`` is scalar and ``axis=None``; ndarray (same shape
+        as ``p``) when ``axis=None`` and ``p`` is array-like; single-row
+        MVTSeries for ``axis=0``; 1-D TSeries for ``axis=1``.
 
     Examples
     --------
@@ -354,10 +611,48 @@ def quantile(
     >>> float(tse.quantile(t, 0.5))
     2.5
     """
-    values = _resolve_values(
-        t, skip_all_nans=skip_all_nans, skip_holidays=skip_holidays, holidays_map=holidays_map
-    )
-    return np.quantile(values, p)
+    if axis is None:
+        values = _resolve_values(
+            t, skip_all_nans=skip_all_nans, skip_holidays=skip_holidays, holidays_map=holidays_map
+        )
+        return np.quantile(values, p)
+    if not np.isscalar(p):
+        msg = (
+            "quantile(t, p, axis=...): p must be a scalar probability when axis is "
+            f"not None; got p of type {type(p).__name__}. Call quantile separately "
+            "per probability, or use axis=None to get the array-shaped return."
+        )
+        raise TypeError(msg)
+    # Narrow p to a Python float for the per-axis paths — np.isscalar
+    # admits both Python scalars and numpy generic scalars, but mypy's
+    # function signature only narrows when the binding is float-typed.
+    p_scalar: float = float(p)  # type: ignore[arg-type]
+    if not isinstance(t, MVTSeries):
+        _axis_for_tseries(axis)
+        return quantile(
+            t,
+            p_scalar,
+            skip_all_nans=skip_all_nans,
+            skip_holidays=skip_holidays,
+            holidays_map=holidays_map,
+        )
+    if axis == 0:
+        return _per_column_reduce(
+            t,
+            lambda m: np.quantile(m, p_scalar, axis=0),
+            skip_all_nans=skip_all_nans,
+            skip_holidays=skip_holidays,
+            holidays_map=holidays_map,
+        )
+    if axis == 1:
+        return _per_row_reduce(
+            t,
+            lambda m: np.quantile(m, p_scalar, axis=1),
+            skip_all_nans=skip_all_nans,
+            skip_holidays=skip_holidays,
+            holidays_map=holidays_map,
+        )
+    raise _axis_value_error(axis)
 
 
 def stdm(

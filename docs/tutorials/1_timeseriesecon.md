@@ -901,6 +901,25 @@ for name, series in data.columns.items():
 The `for name in data` form iterates *rows* (NumPy semantics on a 2-D
 array). For column iteration always go through `.columns`.
 
+When you just want a per-column or per-row summary as a value (rather
+than printing inside a loop), reach for the `axis=` kwarg on the
+statistics reductions — `mean` / `std` / `var` / `median` / `quantile`
+all accept it:
+
+```python exec="true" source="material-block" session="tut1"
+# Per-column means → single-row MVTSeries with the same column names.
+print(mean(data, axis=0))
+
+# Per-row means → 1-D TSeries indexed by data.range.
+print(mean(data, axis=1))
+```
+
+!!! info "Julia ↔ Python"
+    Julia's `Statistics.mean(mvts; dims=1)` uses the `dims=` keyword
+    (1 = per-column, 2 = per-row); Python uses NumPy's `axis=`
+    (0 = per-column, 1 = per-row). Behaviour matches: per-column
+    returns a single-row MVTSeries, per-row returns a 1-D TSeries.
+
 !!! info "Julia ↔ Python"
     Corresponds to *Multi-variate Time Series*. Julia's column names
     are `Symbol`s (`:hex`); Python's are plain `str` (`"hex"`). The

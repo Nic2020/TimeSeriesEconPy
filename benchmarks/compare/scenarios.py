@@ -618,6 +618,36 @@ def _run_cor_two_tseries_cython(state: dict[str, Any]) -> float:
     return cor_cython(state["x"], state["y"])
 
 
+def _setup_mean_mvts_axis0_5cols() -> dict[str, Any]:
+    """100x5 MVTSeries for the per-column axis=0 reduction (G11)."""
+    rng = np.random.default_rng(seed=20260518)
+    mvts = MVTSeries(
+        qq(2020, 1),
+        ["a", "b", "c", "d", "e"],
+        rng.standard_normal((100, 5)),
+    )
+    return {"mvts": mvts}
+
+
+def _run_mean_mvts_axis0_5cols(state: dict[str, Any]) -> Any:
+    return mean(state["mvts"], axis=0)
+
+
+def _setup_mean_mvts_axis1_100rows() -> dict[str, Any]:
+    """Same 100x5 MVTSeries — the per-row axis=1 reduction (G11)."""
+    rng = np.random.default_rng(seed=20260518)
+    mvts = MVTSeries(
+        qq(2020, 1),
+        ["a", "b", "c", "d", "e"],
+        rng.standard_normal((100, 5)),
+    )
+    return {"mvts": mvts}
+
+
+def _run_mean_mvts_axis1_100rows(state: dict[str, Any]) -> Any:
+    return mean(state["mvts"], axis=1)
+
+
 def _setup_cor_mvts_5_columns() -> dict[str, Any]:
     rng = np.random.default_rng(seed=20260515)
     mvts = MVTSeries(
@@ -1113,6 +1143,9 @@ SETUP: dict[str, Callable[[], Any]] = {
     "cov_two_tseries": _setup_cov_two_tseries,
     "cor_mvts_5_columns": _setup_cor_mvts_5_columns,
     "cov_mvts_5_columns": _setup_cov_mvts_5_columns,
+    # MVTSeries axis= reductions (M1.6.3f — closes G11)
+    "mean_mvts_axis0_5cols": _setup_mean_mvts_axis0_5cols,
+    "mean_mvts_axis1_100rows": _setup_mean_mvts_axis1_100rows,
     # Stats (M1.5 third Cython port — kernel-direct + public API)
     "mean_quarterly_100_numpy": _setup_stats_scalar_kernel_100,
     "std_quarterly_100_numpy": _setup_stats_scalar_kernel_100,
@@ -1185,6 +1218,9 @@ RUN: dict[str, Callable[[Any], Any]] = {
     "cov_two_tseries": _run_cov_two_tseries,
     "cor_mvts_5_columns": _run_cor_mvts_5_columns,
     "cov_mvts_5_columns": _run_cov_mvts_5_columns,
+    # MVTSeries axis= reductions (M1.6.3f — closes G11)
+    "mean_mvts_axis0_5cols": _run_mean_mvts_axis0_5cols,
+    "mean_mvts_axis1_100rows": _run_mean_mvts_axis1_100rows,
     # Stats (M1.5 third Cython port — kernel-direct + public API)
     "mean_quarterly_100_numpy": _run_mean_quarterly_100_numpy,
     "std_quarterly_100_numpy": _run_std_quarterly_100_numpy,
@@ -1253,6 +1289,8 @@ DESCRIPTION: dict[str, str] = {
     "cov_two_tseries": "cov(a, b) on two TSeries",
     "cor_mvts_5_columns": "cor(mvts) — 5x5 corr matrix",
     "cov_mvts_5_columns": "cov(mvts) — 5x5 cov matrix",
+    "mean_mvts_axis0_5cols": "mean(mvts, axis=0) — per-column → 1-row MVTSeries",
+    "mean_mvts_axis1_100rows": "mean(mvts, axis=1) — per-row → 100-row TSeries",
     "mean_quarterly_100_numpy": "mean_numpy(values) — NumPy kernel",
     "std_quarterly_100_numpy": "std_numpy(values, 1) — NumPy kernel",
     "cor_two_tseries_numpy": "cor_numpy(x, y) — NumPy kernel",

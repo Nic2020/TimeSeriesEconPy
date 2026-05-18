@@ -33,6 +33,7 @@ from tsecon.mvtseries import MVTSeries
 from tsecon.tseries import TSeries
 
 __all__ = [
+    "bdaily_row_keep_mask",
     "bdvalues",
     "cleanedvalues",
     "nans_map",
@@ -109,6 +110,54 @@ def bdvalues(t: TSeries | MVTSeries, *, holidays_map: TSeries | None = None) -> 
     if isinstance(t, MVTSeries):
         return np.asarray(vals[mask, :])
     return np.asarray(vals[mask])
+
+
+def bdaily_row_keep_mask(
+    t: MVTSeries,
+    *,
+    skip_all_nans: bool = False,
+    skip_holidays: bool = False,
+    holidays_map: TSeries | None = None,
+) -> np.ndarray | None:
+    """Return a ``(nrows,)`` bool keep-mask, or ``None`` when no filter is requested.
+
+    ``True`` flags rows that survive the BDaily filter; ``False`` flags rows
+    dropped by ``cleanedvalues``. The companion to :func:`cleanedvalues` —
+    where ``cleanedvalues`` returns the filtered matrix (rows dropped), this
+    returns the boolean mask itself so callers that need the original
+    positions (e.g. ``axis=1`` per-row reductions producing an output TSeries
+    aligned with the input range) can mask the output instead of dropping.
+
+    Returns ``None`` iff none of the BDaily kwargs is set; this lets callers
+    write ``mask := bdaily_row_keep_mask(...); if mask is None: skip``
+    without re-doing the kwarg check.
+    """
+    if not (skip_all_nans or skip_holidays or holidays_map is not None):
+        return None
+    _require_bdaily(t)
+    rng = t.range
+    if holidays_map is not None:
+        _validate_holidays_arg(holidays_map)
+        if rng.first() < holidays_map.firstdate or rng.last() > holidays_map.lastdate:
+            msg = (
+                "holidays_map does not cover the full range of the series: "
+                f"series range {rng}, map range "
+                f"{MITRange(holidays_map.firstdate, holidays_map.lastdate)}."
+            )
+            raise IndexError(msg)
+        return np.asarray(holidays_map[rng].values, dtype=bool)
+    if skip_holidays:
+        h_map = getoption("bdaily_holidays_map")
+        if not isinstance(h_map, TSeries) or not isinstance(h_map.frequency, BDaily):
+            msg = (
+                "skip_holidays=True requires a BDaily TSeries stored under "
+                "getoption('bdaily_holidays_map'); none is currently set. "
+                "Use tsecon.set_holidays_map(...) to install one."
+            )
+            raise ValueError(msg)
+        return np.asarray(h_map[rng].values, dtype=bool)
+    keep = ~np.all(np.isnan(np.asarray(t.values, dtype=float)), axis=1)
+    return np.asarray(keep, dtype=bool)
 
 
 def nans_map(values: np.ndarray) -> np.ndarray:

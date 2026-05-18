@@ -52,7 +52,10 @@ jobs:
           CIBW_BUILD_VERBOSITY: 1
           # Test dependencies installed into the cibuildwheel test venv. numpy is
           # already a runtime dep of the wheel itself, so it's resolved automatically.
-          CIBW_TEST_REQUIRES: "pytest>=8.0 hypothesis>=6.100"
+          # pytest-benchmark is required because pyproject's `addopts` includes
+          # `--benchmark-skip`, which pytest rejects with exit code 4 ("command
+          # line usage error") when the plugin isn't installed.
+          CIBW_TEST_REQUIRES: "pytest>=8.0 hypothesis>=6.100 pytest-benchmark>=4.0"
           # Smoke test = (1) confirm the four Cython kernels are active in the
           # installed wheel, (2) run the kernel-specific test files end-to-end.
           # `--benchmark-skip` honours pyproject's addopts default but is set

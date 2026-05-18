@@ -34,7 +34,7 @@ elementwise (NumPy semantics), so ``TSeries`` is intentionally unhashable.
 
 from __future__ import annotations
 
-from collections.abc import Iterator, Sequence
+from collections.abc import Callable, Iterator, Sequence
 from typing import Any, ClassVar, Final, Union
 
 import numpy as np
@@ -152,12 +152,28 @@ class TSeries:
     def __init__(
         self,
         firstdate_or_range: MIT | MITRange,
-        values: _ArrayLike | float | int | bool | None = None,
+        values: _ArrayLike | float | int | bool | Callable[[int], np.ndarray] | None = None,
         *,
         dtype: npt.DTypeLike | None = None,
         copy: bool = False,
     ) -> None:
         """Construct a TSeries.
+
+        Parameters
+        ----------
+        firstdate_or_range : MIT or MITRange
+            Either the MIT of the first stored entry (with ``values`` supplying
+            the data) or an MITRange covering the whole series.
+        values : array-like, scalar, callable, or None
+            * ``None`` (only with an MITRange) — uninitialized storage filled
+              with the dtype's NaN sentinel.
+            * Scalar — fill the range with the scalar.
+            * Array-like — wrap (or copy, with ``copy=True``) as the underlying
+              buffer. Length must match the range.
+            * Callable (only with an MITRange) — invoked as ``values(len(rng))``;
+              the result must be a 1-D ``ndarray`` of matching length. Mirrors
+              Julia's ``TSeries(rng, ini::Function)`` (e.g.,
+              ``TSeries(rng, np.zeros)`` / ``TSeries(rng, np.ones)``).
 
         Notes
         -----
@@ -165,11 +181,38 @@ class TSeries:
         buffer rather than copying it (matching xarray's ``DataArray``;
         see ``claude_files/decisions/16_constructor_copy_semantics.md``).
         Set ``copy=True`` to force an independent allocation, or call
-        :meth:`copy` / :func:`copy.deepcopy` post-construction.
+        :meth:`copy` / :func:`copy.deepcopy` post-construction. The
+        wrap-vs-copy contract extends to the callable form: the array returned
+        by the callable is the user's, so the default is to wrap.
+
+        Examples
+        --------
+        >>> rng = MITRange(qq(2020, 1), qq(2020, 4))
+        >>> TSeries(rng, np.zeros).values
+        array([0., 0., 0., 0.])
+        >>> TSeries(rng, np.ones).values
+        array([1., 1., 1., 1.])
         """
         if isinstance(firstdate_or_range, MITRange):
             rng = firstdate_or_range
             length = len(rng)
+            if callable(values) and not isinstance(values, (np.ndarray, Sequence)):
+                result = values(length)
+                if not isinstance(result, np.ndarray) or result.ndim != 1:
+                    msg = (
+                        f"TSeries(rng, callable): callable returned "
+                        f"{type(result).__name__} of "
+                        f"ndim={getattr(result, 'ndim', '?')}; "
+                        f"expected 1-D ndarray of length {length}."
+                    )
+                    raise ValueError(msg)
+                if len(result) != length:
+                    msg = (
+                        f"TSeries(rng, callable): callable returned length "
+                        f"{len(result)}; expected {length} (matching range)."
+                    )
+                    raise ValueError(msg)
+                values = result
             if values is None:
                 target_dtype = np.dtype(dtype) if dtype is not None else np.dtype(np.float64)
                 arr = np.full(length, typenan(target_dtype), dtype=target_dtype)

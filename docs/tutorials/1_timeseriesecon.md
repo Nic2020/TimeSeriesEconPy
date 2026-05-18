@@ -400,7 +400,9 @@ scalar or an initialiser function to fill it:
 rng = MITRange(qq(2020, 1), qq(2021, 4))
 print(TSeries(rng))                # NaN-filled
 print(TSeries(rng, math.pi))       # scalar fill
-print(TSeries(rng, rng_np.random(len(rng))))   # explicit allocation
+print(TSeries(rng, np.zeros))      # callable form (Julia idiom)
+print(TSeries(rng, np.ones))       # likewise
+print(TSeries(rng, rng_np.random)) # any callable `fn(length) -> ndarray`
 print(TSeries.zeros(rng))          # classmethod shortcut for `np.zeros`
 print(TSeries.ones(rng))           # likewise for `np.ones`
 ```
@@ -426,12 +428,15 @@ print("copy:", c)
 
 !!! info "Julia ↔ Python"
     Corresponds to *Creation of TSeries* upstream. The Julia
-    function-as-initialiser idiom `TSeries(rng, rand)` becomes the
-    explicit `TSeries(rng, rng_np.random(len(rng)))` here — we
-    chose not to mirror callable initialisers because the NumPy idiom
-    is already explicit and the callable form has fewer guardrails. The
-    wrap-vs-copy semantics are deliberately the same as Julia *and*
-    xarray; see [decision 16](../design/decisions.md#locked-decisions) for the rationale.
+    function-as-initialiser idiom `TSeries(rng, rand)` / `TSeries(rng, zeros)`
+    ports line-by-line: `TSeries(rng, rng_np.random)` (any callable that
+    takes a length and returns an ndarray) / `TSeries(rng, np.zeros)`.
+    Behind the scenes the constructor invokes `fn(len(rng))` and validates
+    the result is a 1-D ndarray of matching length — a `ValueError` names
+    the offending value if not. The wrap-vs-copy semantics are deliberately
+    the same as Julia *and* xarray (and extend to the callable's returned
+    buffer); see [decision 16](../design/decisions.md#locked-decisions) for
+    the rationale.
 
 ## 4. TSeries — Access { #4-tseries-access }
 

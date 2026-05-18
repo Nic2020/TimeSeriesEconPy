@@ -15,6 +15,8 @@ import copy as _copy
 
 import numpy as np
 import pytest
+from hypothesis import given, settings
+from hypothesis import strategies as st
 
 from tsecon import (
     MIT,
@@ -217,6 +219,96 @@ def test_trues_falses() -> None:
     assert t.dtype == np.bool_
     assert list(t.values) == [True, True, True]
     assert list(f.values) == [False, False, False]
+
+
+# ---------------------------------------------------------------------------
+# Callable-initializer form — TSeries(rng, fn) mirrors Julia's
+# TSeries(rng, ini::Function); see PARITY_GAPS G10.
+# ---------------------------------------------------------------------------
+
+
+class TestCallableInitializer:
+    """``TSeries(rng, fn)`` invokes ``fn(len(rng))`` and wraps the result."""
+
+    def test_np_zeros_callable_initializer(self) -> None:
+        rng = mitrange(qq(2020, 1), qq(2020, 4))
+        s = TSeries(rng, np.zeros)
+        assert s.range == rng
+        np.testing.assert_array_equal(s.values, np.zeros(4))
+
+    def test_np_ones_callable_initializer(self) -> None:
+        rng = mitrange(qq(2020, 1), qq(2020, 4))
+        s = TSeries(rng, np.ones)
+        assert s.range == rng
+        np.testing.assert_array_equal(s.values, np.ones(4))
+
+    def test_lambda_returning_ndarray(self) -> None:
+        rng = mitrange(qq(2020, 1), qq(2020, 4))
+        s = TSeries(rng, lambda n: np.random.default_rng(0).random(n))
+        assert s.range == rng
+        expected = np.random.default_rng(0).random(4)
+        np.testing.assert_array_equal(s.values, expected)
+
+    def test_length_mismatch_raises_value_error(self) -> None:
+        rng = mitrange(qq(2020, 1), qq(2020, 4))
+        with pytest.raises(ValueError, match=r"callable returned length 5; expected 4"):
+            TSeries(rng, lambda n: np.zeros(n + 1))
+
+    def test_non_ndarray_return_raises_value_error(self) -> None:
+        rng = mitrange(qq(2020, 1), qq(2020, 4))
+        with pytest.raises(ValueError, match=r"callable returned int .* expected 1-D ndarray"):
+            TSeries(rng, lambda n: 42)
+
+    def test_ndim_mismatch_raises_value_error(self) -> None:
+        rng = mitrange(qq(2020, 1), qq(2020, 4))
+        with pytest.raises(ValueError, match=r"ndim=2; expected 1-D ndarray"):
+            TSeries(rng, lambda n: np.zeros((n, 2)))
+
+    def test_callable_result_wrapped_by_default(self) -> None:
+        # Per decision 16: the callable's returned ndarray is the user's;
+        # wrap by default so two TSeries built from the same shared buffer
+        # mutate in lockstep until copy=True forces an allocation.
+        rng = mitrange(qq(2020, 1), qq(2020, 4))
+        shared = np.array([1.0, 2.0, 3.0, 4.0])
+
+        def hand_off(_n: int) -> np.ndarray:
+            return shared
+
+        wrapped = TSeries(rng, hand_off)
+        assert np.shares_memory(wrapped.values, shared)
+
+    def test_callable_result_copied_with_copy_true(self) -> None:
+        rng = mitrange(qq(2020, 1), qq(2020, 4))
+        shared = np.array([1.0, 2.0, 3.0, 4.0])
+
+        def hand_off(_n: int) -> np.ndarray:
+            return shared
+
+        copied = TSeries(rng, hand_off, copy=True)
+        assert not np.shares_memory(copied.values, shared)
+        # And the values still match at construction.
+        np.testing.assert_array_equal(copied.values, shared)
+
+
+class TestCallableInitializerProperty:
+    """For any ``n > 0`` and any ``fn`` returning a length-``n`` 1-D ndarray,
+    ``TSeries(rng_of_length_n, fn).values`` equals ``fn(n)`` elementwise.
+    """
+
+    @settings(max_examples=100)
+    @given(
+        n=st.integers(min_value=1, max_value=200),
+        seed=st.integers(min_value=0, max_value=2**32 - 1),
+    )
+    def test_callable_result_round_trips(self, n: int, seed: int) -> None:
+        rng = mitrange(qq(2020, 1), qq(2020, 1) + (n - 1))
+
+        def fn(length: int) -> np.ndarray:
+            return np.random.default_rng(seed).random(length)
+
+        s = TSeries(rng, fn)
+        assert len(s) == n
+        np.testing.assert_array_equal(s.values, fn(n))
 
 
 # ---------------------------------------------------------------------------

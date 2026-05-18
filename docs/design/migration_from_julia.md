@@ -32,6 +32,7 @@ differences — what the spellings, not the semantics, look like.
 | `reindex` (label shift)            | `reindex(t, 2021Q1 => 1U)`         | `reindex(t, (qq(2021, 1), MIT(Unit(), 1)))` |
 | `rangeof` with `drop=`             | `rangeof(t, drop=1)`               | `rangeof(t, drop=1)`                    |
 | `rangeof(workspace; method=)`      | `rangeof(w, method=union)`         | `rangeof(w, method="union")`            |
+| `TSeries(rng, ini::Function)`      | `TSeries(rng, zeros)` / `TSeries(rng, rand)` | `TSeries(rng, np.zeros)` / `TSeries(rng, rng_np.random)` |
 
 ## Semantics that are identical
 

@@ -41,12 +41,36 @@ jobs:
           enable-cache: true
       - name: Install dependencies
         run: uv sync --all-extras --group dev
-      # `--strict` upgrades broken links / undocumented references to errors;
-      # `markdown-exec` fails the build on any uncaught exception in an
-      # executable fenced block. Together they catch the failure modes that
-      # the deploy-on-merge `docs.yml` workflow can't see until after merge.
+      # `--strict` upgrades broken links / undocumented references to errors.
+      # `markdown-exec`, by contrast, CAPTURES uncaught exceptions in
+      # executable fenced blocks and embeds the traceback inline in the
+      # rendered HTML — it does NOT fail the build by default. We
+      # therefore need the explicit "Verify no embedded tracebacks" step
+      # below to gate the kind of failure mode the deploy-on-merge
+      # `docs.yml` workflow would otherwise publish silently.
       - name: mkdocs build --strict
         run: uv run mkdocs build --strict
+      # markdown-exec captures exec-block exceptions and embeds the
+      # traceback in the rendered HTML rather than failing the build. The
+      # specific marker `markdown_exec/_internal/formatters` only appears
+      # in embedded runtime tracebacks (not in any docstring or prose),
+      # so grepping for it is a tight discriminator. Pre-public regression
+      # 2026-05-18: the deploy env was missing matplotlib (`docs.yml`
+      # installed `--group dev` without `--extra all`), block n1 of the
+      # tutorial raised ModuleNotFoundError, and the 50+ cascading
+      # NameError tracebacks reached the public docs site because
+      # mkdocs-strict didn't catch them. This step closes that gate.
+      - name: Verify no embedded tracebacks in built site
+        run: |
+          if grep -lr --include='*.html' 'markdown_exec/_internal/formatters' site/; then
+            echo ""
+            echo "::error::Embedded markdown-exec runtime traceback(s) detected in built site."
+            echo "::error::An executable code block raised during mkdocs build."
+            echo "::error::The files listed above contain the embedded tracebacks."
+            echo "::error::Inspect the source markdown for the failing block, or check that all required extras are installed in the CI env."
+            exit 1
+          fi
+          echo "OK: no embedded markdown-exec tracebacks in site/"
 
   test:
     name: tests (py${{ matrix.python }} on ${{ matrix.os }})

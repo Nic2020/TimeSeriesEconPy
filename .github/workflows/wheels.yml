@@ -68,7 +68,7 @@ jobs:
             {project}/tests/test_fconvert_kernels.py
 
       - name: Upload wheels
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: wheels-${{ matrix.os }}-${{ matrix.python }}
           path: ./wheelhouse/*.whl

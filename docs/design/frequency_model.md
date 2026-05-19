@@ -1,8 +1,7 @@
 # Frequency model
 
 !!! info "Work in progress"
-    This page is a stub. Paper-voice content arrives in a follow-up writing session.
-    The full rationale lives in `claude_files/decisions/15_frequency_model.md`.
+    This page is a stub. Paper-voice content arrives in a follow-up writing pass.
 
 Three design choices that diverge from the Julia upstream:
 

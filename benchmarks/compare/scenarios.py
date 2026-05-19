@@ -188,8 +188,7 @@ def _run_indexing_mit_lookup_100(state: dict[str, Any]) -> float:
 # (``np.take`` runs in C). So the kernel-direct numpy/cython columns
 # should land within a small factor of each other; the *big* win is the
 # gap between the per-element loop (935x) and the vectorised public API.
-# See decisions/18 and paper/NOTES.md § "Indexing kernel — vectorised
-# API is the win" for the framing.
+# The framing: vectorised API is the win, not the Cython kernel itself.
 # ---------------------------------------------------------------------------
 
 
@@ -395,8 +394,8 @@ def _run_rec_linear_ar2_100_cython(state: dict[str, Any]) -> np.ndarray:
 # ---------------------------------------------------------------------------
 # rec_linear_ar2_100_pylist — the four-column-shape "Python native" baseline.
 # Decomposes the gap into (data structure: list vs ndarray) and (loop:
-# interpreted vs compiled). See claude_files/paper/NOTES.md § "M1.5 first
-# Cython port" for the framing.
+# interpreted vs compiled). The pure-Python list+loop column is the
+# rec_linear M1.5 framing baseline.
 # ---------------------------------------------------------------------------
 
 
@@ -417,11 +416,11 @@ def _run_rec_linear_ar2_100_pylist(state: dict[str, Any]) -> list[float]:
 
 
 # ---------------------------------------------------------------------------
-# Inventory expansion (session 18). The next blocks add coverage across the
-# rest of the M1 public surface so the harness produces a comprehensive
-# ratio table for [decision 18](decisions/18_cython_port_plan.md). Each new
-# scenario follows the same setup/run shape as the originals; the matching
-# Julia scenarios live in julia/scenarios.jl.
+# Inventory expansion. The next blocks add coverage across the rest of
+# the M1 public surface so the harness produces a comprehensive ratio
+# table for the Cython port plan (see docs/design/decisions.md #18).
+# Each new scenario follows the same setup/run shape as the originals;
+# the matching Julia scenarios live in julia/scenarios.jl.
 # ---------------------------------------------------------------------------
 
 
@@ -502,7 +501,7 @@ def _run_diff_quarterly(state: dict[str, Any]) -> TSeries:
 
 def _setup_pct_quarterly() -> dict[str, Any]:
     # pct emits a RuntimeWarning on zero values; start at 1.0 to avoid it
-    # (sister test in test_math.py mirrors this — see SESSION_LOG session 13).
+    # (sister test in test_math.py mirrors this).
     return {"t": TSeries(qq(2020, 1), np.arange(1.0, 101.0))}
 
 
@@ -574,9 +573,7 @@ def _run_cor_two_tseries(state: dict[str, Any]) -> float:
 # The same shape applies for ``std`` and ``cor``. The kernel-direct numpy
 # rows skip the ``_resolve_values`` overhead that the public path pays;
 # the kernel-direct cython rows additionally skip NumPy's per-call dispatch
-# and 0-D scalar boxing tax. See ``decisions/18`` and
-# ``paper/NOTES.md`` § "Stats kernels — the scalar-return tax" for the
-# framing. The Julia side has no kernel split (Julia's ``mean(t)`` inlines
+# and 0-D scalar boxing tax. The Julia side has no kernel split (Julia's ``mean(t)`` inlines
 # directly), so all three Python flavors share a single Julia counterpart.
 # ---------------------------------------------------------------------------
 
@@ -698,9 +695,8 @@ def _run_cov_mvts_5_columns(state: dict[str, Any]) -> np.ndarray:
 
 
 # ---------------------------------------------------------------------------
-# F14 expansion (session 30) — quantile / cov(x,y) / ytypct / lead, plus
-# the two missing higher-freq fconvert methods (linear, even). See
-# claude_files/reviews/2026-05-16_holistic/F14_benchmark_coverage_gaps.md.
+# M1.6 coverage expansion — quantile / cov(x,y) / ytypct / lead, plus the
+# two missing higher-freq fconvert methods (linear, even).
 # ---------------------------------------------------------------------------
 
 
@@ -768,10 +764,8 @@ def _run_undiff_quarterly(state: dict[str, Any]) -> TSeries:
 # compound the cumsum into infinity. The reset cost is small and identical
 # across the NumPy and Cython rows, so it doesn't bias the comparison.
 #
-# See ``decisions/20`` (canonical dispatch template) and ``paper/NOTES.md``
-# § "undiff kernel — the N=5 row" for the framing. The Julia side has no
-# kernel split (Julia's ``undiff`` inlines directly), so all three Python
-# flavors share a single Julia counterpart.
+# The Julia side has no kernel split (Julia's ``undiff`` inlines directly),
+# so all three Python flavors share a single Julia counterpart.
 # ---------------------------------------------------------------------------
 
 
@@ -899,9 +893,8 @@ def _run_fconvert_mm_to_qq_mean(state: dict[str, Any]) -> TSeries:
 #
 # The kernel-direct numpy rows skip the truncation arithmetic and
 # TSeries-wrap that the public path pays; the kernel-direct cython rows
-# additionally fuse the outer per-group dispatch loop into C. See
-# ``decisions/18`` and ``paper/NOTES.md`` § "fconvert kernel — the
-# outer-loop tax" for the framing. The Julia side has no kernel split
+# additionally fuse the outer per-group dispatch loop into C. The Julia
+# side has no kernel split
 # (Julia's frequency conversion inlines directly), so all three Python
 # flavors share a single Julia counterpart.
 # ---------------------------------------------------------------------------

@@ -12,11 +12,8 @@ regressions (a switch to fancy indexing ``values[indices]`` would
 silently change the array-allocation behaviour even though the values
 agree).
 
-See review file ``F04_hypothesis_property_tests_missing`` for the
-motivation; the deferral was logged in
-``decisions/18_cython_port_plan.md`` and ``MASTER_PLAN.md`` § M1.5
-"Outstanding" since session 22 and bundled into this M1.5-followup
-session.
+Property-style coverage for the M1.5 kernel ports, complementing the
+hand-picked parametric cases in the corresponding ``test_*_kernels.py``.
 """
 
 from __future__ import annotations

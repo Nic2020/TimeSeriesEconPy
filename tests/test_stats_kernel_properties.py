@@ -12,11 +12,8 @@ magnitude at ``1e6`` so length-1000 well-conditioned arrays stay well
 within ``rtol=1e-12`` — the same regime ``test_stats_kernels.py``
 parametric cases already cover (length 100, well-conditioned).
 
-See review file ``F04_hypothesis_property_tests_missing`` for the
-motivation; the deferral was logged in
-``decisions/18_cython_port_plan.md`` and ``MASTER_PLAN.md`` § M1.5
-"Outstanding" since session 22 and bundled into this M1.5-followup
-session.
+Property-style coverage for the M1.5 kernel ports, complementing the
+hand-picked parametric cases in the corresponding ``test_*_kernels.py``.
 """
 
 from __future__ import annotations
@@ -75,9 +72,6 @@ def _scale_aware_atol_var(a: np.ndarray) -> float:
     — but the bit-equivalence claim at fixed ``atol=1e-15`` is only
     meaningful when the expected variance is large relative to the
     catastrophic-cancellation residual.
-
-    See ``claude_files/paper/NOTES.md`` § "Property tests caught the
-    naive-vs-pairwise summation residual".
     """
     return max(1e-15, 1e-10 * float(np.max(np.abs(a))) ** 2)
 

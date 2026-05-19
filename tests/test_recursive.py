@@ -196,9 +196,9 @@ class TestRecBackcastingViaLambda:
 
 # ---------------------------------------------------------------------------
 # rec_linear — Cython-backed specialisation for closed-form linear recurrences.
-# Decision 17 / MASTER_PLAN § M1.5. The same tests cover both the Cython
-# path (when the compiled extension is importable) and the pure-NumPy
-# fallback — public `rec_linear` dispatches based on availability.
+# The same tests cover both the Cython path (when the compiled extension is
+# importable) and the pure-NumPy fallback — public `rec_linear` dispatches
+# based on availability.
 # ---------------------------------------------------------------------------
 
 
@@ -418,8 +418,7 @@ class TestRecLinearContractErrors:
     ``min(lags) < 1`` branch points at :func:`tsecon.undiff` and
     :func:`tsecon.rec` for the two common near-misses).
 
-    Lands the M1.6.3a closure of [PARITY_GAPS G2 + G4] and clears
-    [BUGS B5]. The ten cases correspond 1:1 to the ten raise sites in
+    The ten cases correspond 1:1 to the ten raise sites in
     ``rec_linear``; adding a raise site means adding a case here.
     """
 

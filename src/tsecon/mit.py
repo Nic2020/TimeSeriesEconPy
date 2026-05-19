@@ -14,8 +14,8 @@ represents a *distance* between two MITs of the same frequency.
 
 Constructor functions :func:`qq`, :func:`mm`, :func:`yy`, :func:`daily`,
 :func:`bdaily`, :func:`weekly` are the Pythonic equivalent of the Julia
-literal-suffix syntax ``2020Q1``, ``2020M3``, ``2020Y``, etc. See
-``claude_files/decisions/15_frequency_model.md``.
+literal-suffix syntax ``2020Q1``, ``2020M3``, ``2020Y``, etc. See the
+[Frequency model](../../docs/design/frequency_model.md) design note.
 
 Equality with plain integers is **not** supported (unlike Julia, where
 ``MIT(Quarterly, 5) == 5`` is true). The Julia idiom violates Python's

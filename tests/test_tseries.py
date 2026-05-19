@@ -223,7 +223,7 @@ def test_trues_falses() -> None:
 
 # ---------------------------------------------------------------------------
 # Callable-initializer form — TSeries(rng, fn) mirrors Julia's
-# TSeries(rng, ini::Function); see PARITY_GAPS G10.
+# TSeries(rng, ini::Function).
 # ---------------------------------------------------------------------------
 
 

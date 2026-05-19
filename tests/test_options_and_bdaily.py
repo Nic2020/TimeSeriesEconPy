@@ -529,8 +529,7 @@ class TestHolidaysCountryLoader:
     Mirrors Julia's ``set_holidays_map(country, subdivision)`` in
     ``TimeSeriesEcon.jl/src/options.jl``. Delegates to the
     ``python-holidays`` PyPI package; the bundled-CSV path Julia uses is
-    intentionally not vendored — see ``claude_files/parity/PARITY_GAPS.md``
-    G8 closure.
+    intentionally not vendored.
     """
 
     def test_us_installs_federal_calendar(self) -> None:

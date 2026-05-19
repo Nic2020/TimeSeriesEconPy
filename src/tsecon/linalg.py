@@ -27,8 +27,7 @@ Not ported:
   on TSeries / MVTSeries — the row axis is *time*, not data, so a
   transposed object has no natural type to wrap into. Users wanting
   the bare transpose write ``np.asarray(t).T``. Recorded as an
-  intentional non-port; see ``claude_files/parity/PARITY_GAPS.md``
-  entry **G12** (closed M1.6.3g) for the rationale.
+  intentional non-port.
 * ``\`` / ``/`` (linear-solve overloads). ``@`` covers the
   coefficient-matrix-times-series case that motivates the module;
   callers needing a solve use ``np.linalg.solve(A, np.asarray(t))``

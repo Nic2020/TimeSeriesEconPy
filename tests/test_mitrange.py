@@ -269,7 +269,7 @@ def test_rangeof_span_empty() -> None:
 
 
 # ---------------------------------------------------------------------------
-# rangeof() free function — closes PARITY_GAPS G5 (M1.6.3c)
+# rangeof() free function
 # ---------------------------------------------------------------------------
 
 

@@ -21,7 +21,8 @@ The hierarchy:
   number of periods per year (Yearly / HalfYearly / Quarterly / Monthly).
 * :class:`Daily`, :class:`BDaily`, :class:`Weekly` — non-YP calendar frequencies.
 
-See ``claude_files/decisions/15_frequency_model.md`` for the rationale.
+See the [Frequency model](../../docs/design/frequency_model.md) design note
+for the rationale.
 """
 
 from __future__ import annotations

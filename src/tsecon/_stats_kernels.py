@@ -6,12 +6,11 @@ expose ``mean / var / std / cor`` kernels with the same signature; the
 Cython version (when compiled) is faster, while this module is the canonical
 fallback for installs without a C toolchain.
 
-The split exists for the multi-flavor benchmark thread described in
-``claude_files/decisions/17_cython_dispatch_strategy.md`` and
-``claude_files/paper/NOTES.md`` § "Three-flavor benchmark". Each kernel is
-timed independently (option β in decision 17) so the comparison table can
-show "vectorised NumPy" and "compiled Cython" without public-API dispatch
-bias.
+The split exists for the three-flavor benchmark thread (pure-NumPy
+reference vs. compiled Cython vs. Julia upstream). Each kernel is timed
+independently so the comparison table can show "vectorised NumPy" and
+"compiled Cython" without public-API dispatch bias. See
+[Cython strategy](../../docs/design/cython_strategy.md).
 
 Layout note
 -----------
@@ -48,8 +47,7 @@ Cython actually helps a Python time-series library:
 
 That asymmetry is itself a JSS-paper finding: **for tiny scalar
 reductions, Cython removes per-call constants that NumPy can't avoid
-without breaking its general API contract.** See ``paper/NOTES.md``
-§ "Stats kernels — the scalar-return tax" for the framing.
+without breaking its general API contract.**
 
 Kernel contract
 ---------------

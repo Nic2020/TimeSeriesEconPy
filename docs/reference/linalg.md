@@ -43,9 +43,7 @@ TSeries still does the range-intersection, frequency-checked broadcast
   labels stripped. A `.T` property on `TSeries` / `MVTSeries` would have no
   clean semantics in Python — the row axis of an `MVTSeries` is *time*,
   not data, so a transposed object has no natural type to wrap. Users
-  wanting the bare transpose write `np.asarray(x).T`. See
-  `claude_files/parity/PARITY_GAPS.md` entry **G12** (closed M1.6.3g) for
-  the full rationale.
+  wanting the bare transpose write `np.asarray(x).T`.
 * **`\` / `/` (linear-solve).** `@` covers the common
   `A @ t` coefficient-matrix case. Callers needing a solve use
   [`numpy.linalg.solve`][] directly:

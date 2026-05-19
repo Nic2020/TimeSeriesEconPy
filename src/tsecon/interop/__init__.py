@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: MIT
 """DataFrame interop: pandas and polars adapters.
 
-Both libraries are optional extras (see
-``claude_files/decisions/05_dataframe_interop.md``). The submodules here
+Both libraries are optional extras (install with ``pip install
+"TimeSeriesEconPy[pandas]"`` or ``[polars]``). The submodules here
 lazy-import the underlying library only when a conversion function is called,
 so ``import tsecon.interop`` is cheap and does not require pandas or polars to
 be installed.

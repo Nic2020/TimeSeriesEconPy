@@ -31,8 +31,7 @@ Julia file                  Python sibling                Lands in
                                                          readers)
 ==========================  ===========================  ==================
 
-The public surface this subpackage will eventually export — locked in
-[decision 24](../../../../claude_files/decisions/24_x13_kickoff.md):
+The public surface this subpackage will eventually export:
 
 * :func:`run` — execute X-13ARIMA-SEATS on a spec; returns an
   :class:`X13result`.

@@ -14,8 +14,6 @@ time. ``backend="auto"`` resolves to the first installed backend in the
 preference order ``matplotlib -> plotly``; passing ``backend="matplotlib"``
 or ``backend="plotly"`` raises :class:`ImportError` with an install hint
 if that backend is missing.
-
-See ``claude_files/decisions/06_plotting_adapter.md`` for the rationale.
 """
 
 from __future__ import annotations

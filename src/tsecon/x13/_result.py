@@ -11,9 +11,7 @@ Content planned:
   :meth:`__getitem__` materialises to a :class:`~tsecon.tseries.TSeries`
   / :class:`~tsecon.workspace.Workspace` on first access. The result is
   cached in the owning workspace's ``_c`` dict (Julia: ``x13result.jl:49-
-  56``). Mirrors the eager-on-``load=`` + lazy-everything-else contract
-  locked in [decision 24](../../../../claude_files/decisions/24_x13_kickoff.md)
-  pick 3.
+  56``). Mirrors the eager-on-``load=`` + lazy-everything-else contract.
 * :class:`X13result` (``x13result.jl:23-40``) — the top-level result
   container with ``spec`` / ``outfolder`` / ``series`` / ``tables`` /
   ``text`` / ``other`` / ``stdout`` / ``errors`` / ``warnings`` /

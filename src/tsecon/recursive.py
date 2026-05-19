@@ -19,9 +19,8 @@ For multi-target recurrences (two series updated together each step),
 write the explicit ``for t in rng`` loop — the wrapper buys nothing once
 there is more than one target.
 
-Performance notes (see also ``claude_files/decisions/01_acceleration_strategy.md``
-and the M1.5 milestone in ``MASTER_PLAN.md``)
------------------------------------------------------------------------
+Performance notes
+-----------------
 Per-iteration cost is dominated by the lambda call and the
 :class:`~tsecon.tseries.TSeries` ``__getitem__`` / ``__setitem__``
 dispatch (each indexing step allocates a fresh :class:`~tsecon.mit.MIT`
@@ -163,8 +162,7 @@ def rec_linear(
     where each step's value is a fixed linear combination of *earlier-
     written* values of the *same* series. Covers Fibonacci, AR(p),
     arbitrary lag polynomials — the recurrences that account for ~80%
-    of pipeline workloads per the M1 benchmark (see
-    ``claude_files/MASTER_PLAN.md`` § M1.5).
+    of pipeline workloads per the M1 benchmark.
 
     The body of the loop is::
 

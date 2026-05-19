@@ -1,9 +1,8 @@
 # SPDX-License-Identifier: MIT
 """pandas DataFrame interop (lazy / optional).
 
-See :doc:`/decisions/05_dataframe_interop` for the design rationale. pandas
-is *not* a hard dependency: this module raises :class:`ImportError` with an
-install hint when called without pandas installed.
+pandas is *not* a hard dependency: this module raises :class:`ImportError`
+with an install hint when called without pandas installed.
 
 Public API
 ----------

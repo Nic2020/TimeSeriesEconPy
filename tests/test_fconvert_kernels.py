@@ -10,8 +10,6 @@ the full fconvert surface live in ``test_fconvert.py``; this file
 validates the kernel-direct contract and the equivalence between the
 Cython kernel (when present) and its NumPy reference sibling.
 
-See ``claude_files/decisions/18_cython_port_plan.md`` § "Tier 1 —
-fconvert_lower_aggregate_kernel".
 """
 
 from __future__ import annotations
@@ -284,15 +282,13 @@ class TestFconvertKernelEdgeCases:
 
 
 class TestKernelScopeCut:
-    """Lock the session-21 YP-only scope cut for the aggregate-groups kernel.
+    """Lock the YP-only scope cut for the aggregate-groups kernel.
 
     The kernel signature is integer-offset group-based and was wired
     only for YPFrequency → YPFrequency aggregation
     (Quarterly→Yearly, Monthly→Quarterly, Monthly→Yearly). The calendar
     aggregate path (``_fconvert_lower_calendar_to_yp_or_weekly``) has
-    irregular group spec and deliberately does not call the dispatcher
-    — see ``claude_files/parity/PARITY.md:86`` and
-    ``claude_files/decisions/18_cython_port_plan.md``.
+    irregular group spec and deliberately does not call the dispatcher.
 
     Without these tests, a future patch could accidentally route a
     calendar input through the kernel; the integer-offset group-start

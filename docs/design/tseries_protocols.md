@@ -1,8 +1,7 @@
 # TSeries protocols
 
 !!! info "Work in progress"
-    This page is a stub. Paper-voice content arrives in a follow-up writing session.
-    The full rationale lives in `claude_files/decisions/02_tseries_internal_design.md`.
+    This page is a stub. Paper-voice content arrives in a follow-up writing pass.
 
 `TSeries` and `MVTSeries` *wrap* NumPy arrays — they don't subclass `ndarray`.
 This is the same pattern `xarray.DataArray` uses, for the same reason:

@@ -3,8 +3,7 @@ name: wheels
 # Build + smoke-test platform wheels via cibuildwheel.
 #
 # The wheels contain compiled Cython extensions for the four M1.5 kernels
-# (rec_linear / lookup / stats_scalar / fconvert_lower_aggregate) — see
-# claude_files/decisions/17_cython_dispatch_strategy.md and 18_cython_port_plan.md.
+# (rec_linear / lookup / stats_scalar / fconvert_lower_aggregate).
 # Smoke test verifies the kernels are active in the installed wheel (not
 # only on a `pip install -e .` source tree) and re-runs the four kernel
 # test files against the wheel-installed package.

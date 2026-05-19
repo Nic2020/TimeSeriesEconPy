@@ -6,10 +6,8 @@ shape decisions therefore start from "what does the Julia upstream do?" and end 
 "what is the smallest deviation that's idiomatic in Python?". The notes in this
 section document the deviations that *aren't* obvious from reading the code.
 
-The full decision history lives outside this site in
-[`claude_files/decisions/`](https://github.com/Nic2020/claude-files-TimeSeriesEconPy)
-(a separate private repo). The pages here are a curated, paper-voice cross-section
-of those records.
+The pages here are a curated, paper-voice cross-section of the design decisions.
+Inline rationale in the source docstrings complements this prose.
 
 ## In this section
 

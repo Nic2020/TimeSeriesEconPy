@@ -1,9 +1,8 @@
 # SPDX-License-Identifier: MIT
 """polars DataFrame interop (lazy / optional).
 
-See :doc:`/decisions/05_dataframe_interop`. polars is *not* a hard
-dependency: this module raises :class:`ImportError` with an install hint
-when called without polars installed.
+polars is *not* a hard dependency: this module raises :class:`ImportError`
+with an install hint when called without polars installed.
 
 polars has no row-index concept, so the time axis is always a regular
 column. The default name is ``"time"`` (override with ``time_col=``).

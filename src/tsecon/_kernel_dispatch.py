@@ -1,11 +1,11 @@
 # SPDX-License-Identifier: MIT
 """Shared Cython-vs-NumPy dispatch helpers for the four M1.5 kernels.
 
-Codifies the canonical pattern for the four ports landed in sessions
-17-21 (``rec_linear`` / ``lookup`` / ``stats`` / ``fconvert``) and gives
-future M2/M3 kernel ports a single import to depend on. See
-``claude_files/decisions/20_kernel_dispatch_template.md`` for the
-rationale and the call-site recipe.
+Codifies the canonical pattern for the four M1.5 ports (``rec_linear`` /
+``lookup`` / ``stats`` / ``fconvert``) and gives future M2/M3 kernel ports
+a single import to depend on. See
+[Cython strategy](../../docs/design/cython_strategy.md) for the
+rationale.
 
 The pattern has two pieces:
 

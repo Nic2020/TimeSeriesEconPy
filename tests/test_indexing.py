@@ -9,9 +9,6 @@ in the absence of :func:`lookup`). The kernel pair
 ``_indexing_kernels_cy.gather_cython`` when compiled) is also exercised
 directly so the NumPy fallback path stays validated regardless of
 local toolchain availability.
-
-See ``claude_files/decisions/18_cython_port_plan.md`` (M1.5 second
-Cython port).
 """
 
 from __future__ import annotations

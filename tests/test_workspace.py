@@ -690,8 +690,6 @@ class TestCopyto:
 class TestWorkspaceAsNamespace:
     """Cover :meth:`Workspace.as_namespace` — the snapshot context manager
     that is the Pythonic alternative to Julia's ``@weval`` macro.
-
-    See ``claude_files/decisions/23_workspace_namespace_context.md``.
     """
 
     def test_basic_attribute_access(self) -> None:

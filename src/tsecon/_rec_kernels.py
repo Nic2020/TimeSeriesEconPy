@@ -6,12 +6,12 @@ modules expose kernels with the same signature; the Cython version
 (when compiled) is much faster, while this module is the canonical
 fallback for installs without a C toolchain.
 
-The split exists for the three-flavor benchmark thread described in
-``claude_files/decisions/17_cython_dispatch_strategy.md`` and
-``claude_files/paper/NOTES.md`` § "Three-flavor benchmark". Each kernel
-is timed independently (option β in decision 17) so the comparison
-table can show *both* "pure Python's ceiling" and "what Cython buys us"
-without dispatch overhead biasing either measurement.
+The split exists for the three-flavor benchmark thread (pure-NumPy
+reference vs. compiled Cython vs. Julia upstream). Each kernel is
+timed independently so the comparison table can show *both* "pure
+Python's ceiling" and "what Cython buys us" without dispatch overhead
+biasing either measurement. See
+[Cython strategy](../../docs/design/cython_strategy.md).
 
 Layout note
 -----------

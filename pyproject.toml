@@ -1,10 +1,9 @@
 [build-system]
 # Cython + NumPy + setuptools are build-time deps because the wheel ships
-# compiled extension modules (see hatch_build.py / decision 17 /
-# src/tsecon/_rec_kernels_cy.pyx). setuptools.command.build_ext drives the
-# C-compiler invocation; Cython produces the C sources from .pyx; NumPy
-# provides include directories the .pyx imports. At runtime, only NumPy is
-# required — Cython and setuptools are purely build tools.
+# compiled extension modules (see hatch_build.py and src/tsecon/_*_kernels_cy.pyx).
+# setuptools.command.build_ext drives the C-compiler invocation; Cython produces
+# the C sources from .pyx; NumPy provides include directories the .pyx imports.
+# At runtime, only NumPy is required — Cython and setuptools are purely build tools.
 requires = ["hatchling>=1.27", "Cython>=3.0", "numpy>=1.26", "setuptools>=68"]
 build-backend = "hatchling.build"
 
@@ -279,25 +278,8 @@ markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "benchmark: marks performance benchmarks",
 ]
-# Escalate UserWarning and RuntimeWarning to test failures. The intent:
-# every such warning the code emits should be either (a) an assertion
-# target (`pytest.warns(...)`), (b) explicitly accepted on a single test
-# (`@pytest.mark.filterwarnings`), or (c) suppressed at the source because
-# its cause has been fixed. Letting an unannotated warning land in test
-# output means "we noticed but didn't decide" — and that's how real
-# bugs-in-disguise survive unnoticed until a user files an issue.
-#
-# Originating cases:
-# * matplotlib YP auto-tick "+" UserWarning on default renders (session 13,
-#   fixed 2026-05-15) — was rationalized as "informational" until pushed on.
-# * pct() divide-by-zero RuntimeWarning fired incidentally from
-#   test_frequency_propagates (input started at 0.0) — the library decision
-#   to NOT silence is paper-noted; the test triggering it incidentally was
-#   not. Fixed 2026-05-15 by adjusting the test input and adding a
-#   deliberate TestPctZeroSemantics::test_pct_emits_runtimewarning_on_zero
-#   test that locks the user-facing contract in via pytest.warns.
-#
-# See claude_files/SESSION_LOG.md session 13 follow-ups for both case studies.
+# Promotes UserWarning/RuntimeWarning to errors so tests catch contract-breaking
+# warnings (see TestPctZeroSemantics for the lock-in test).
 filterwarnings = [
     "error::UserWarning",
     "error::RuntimeWarning",

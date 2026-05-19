@@ -4,10 +4,11 @@
 Mirrors ``TimeSeriesEcon.jl``'s ``TSeries``: a value array paired with a
 frequency-tagged ``firstdate`` (an :class:`~tsecon.mit.MIT`).
 
-Design follows ``claude_files/decisions/02_tseries_internal_design.md``:
-composition over an :class:`numpy.ndarray` plus the
+Design: composition over an :class:`numpy.ndarray` plus the
 ``__array_ufunc__`` / ``__array_function__`` / ``__array__`` protocols. No
-subclassing of ``ndarray``.
+subclassing of ``ndarray`` (subclassing is a well-known source of
+return-type surprises; see
+[TSeries protocols](../../docs/design/tseries_protocols.md)).
 
 Indexing:
 
@@ -179,8 +180,7 @@ class TSeries:
         Notes
         -----
         Passing an already-compatible ``ndarray`` as ``values`` *wraps* the
-        buffer rather than copying it (matching xarray's ``DataArray``;
-        see ``claude_files/decisions/16_constructor_copy_semantics.md``).
+        buffer rather than copying it (matching xarray's ``DataArray``).
         Set ``copy=True`` to force an independent allocation, or call
         :meth:`copy` / :func:`copy.deepcopy` post-construction. The
         wrap-vs-copy contract extends to the callable form: the array returned
@@ -377,8 +377,7 @@ class TSeries:
         types (:class:`~tsecon.workspace.Workspace`, MVTSeries) where a
         shallow copy would share value references. TSeries has no nested
         containers — the underlying ndarray is always copied — so
-        ``deep=True`` is a semantic no-op here. See
-        ``claude_files/decisions/16_constructor_copy_semantics.md``.
+        ``deep=True`` is a semantic no-op here.
         """
         del deep  # accepted for uniformity; see docstring
         return TSeries(self._firstdate, self._values.copy())

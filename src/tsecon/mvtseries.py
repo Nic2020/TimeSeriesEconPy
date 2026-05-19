@@ -10,9 +10,8 @@ Storage follows the Julia design: a contiguous ``ndarray`` of shape
 ``.values`` is a view onto the matrix column. Mutating ``mvts.a[date] = v``
 writes back into the parent matrix.
 
-Construction follows
-``claude_files/decisions/16_constructor_copy_semantics.md``: a compatible
-2-D ``ndarray`` passed as ``values`` is **wrapped** by default;
+Construction follows the wrap-by-default contract: a compatible
+2-D ``ndarray`` passed as ``values`` is **wrapped** (aliased) by default;
 ``copy=True`` forces an independent allocation. The constructor's
 fast-path mirrors xarray's ``DataArray``.
 
@@ -137,9 +136,8 @@ def _build_column_views(
 class MVTSeries:
     """A 2-D NumPy array paired with a frequency-tagged firstdate and named columns.
 
-    See module docstring for the storage model; see
-    ``claude_files/decisions/16_constructor_copy_semantics.md`` for the
-    wrap-vs-copy contract on the constructor.
+    See the module docstring for the storage model and the wrap-vs-copy
+    contract on the constructor.
     """
 
     __slots__ = ("_columns", "_firstdate", "_values")
@@ -201,8 +199,7 @@ class MVTSeries:
         -----
         Wrap-by-default: passing an already-compatible 2-D ``ndarray`` as
         ``values`` aliases that buffer (matches xarray's ``DataArray``).
-        Use ``copy=True`` for an independent allocation. See
-        ``claude_files/decisions/16_constructor_copy_semantics.md``.
+        Use ``copy=True`` for an independent allocation.
         """
         # -- kwargs-only form: MVTSeries(rng?, **columns)
         if columns and (values is None and names is None):
@@ -529,7 +526,6 @@ class MVTSeries:
         semantic no-op because the only mutable referents below the
         wrapper are the matrix buffer (always copied) and the per-column
         TSeries views (which are rebuilt to point at the fresh buffer).
-        See ``claude_files/decisions/16_constructor_copy_semantics.md``.
         """
         del deep  # accepted for uniformity; see docstring
         return MVTSeries(

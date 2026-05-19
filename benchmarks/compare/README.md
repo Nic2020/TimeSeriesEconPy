@@ -1,8 +1,7 @@
 # 4-column comparison harness — tsecon / Julia / pandas / polars
 
-This is the cross-language benchmark suite called out in
-[decision 08](../../../claude_files/decisions/08_test_and_benchmark_stack.md)
-and the M1 exit criteria. It runs the same set of scenarios in
+This is the cross-language benchmark suite that satisfies the M1 exit
+criteria for empirical performance evidence. It runs the same set of scenarios in
 `TimeSeriesEconPy` (Python) and `TimeSeriesEcon.jl` (Julia), and — for the
 paper-strategic subset — also in pandas and polars, then writes a
 side-by-side comparison table. The pandas / polars columns underwrite the
@@ -149,8 +148,8 @@ include both so a reader can pick whichever statistic they trust.
 
 A Python/Julia ratio of 1.0 means "same speed". Anything > 1.0 means Python
 is slower. Ratios > ~50× on a single primitive call are the canonical hot-
-path candidates for the M1.5 Cython port (see
-[decision 01](../../../claude_files/decisions/01_acceleration_strategy.md)).
+path candidates for the Cython port (see the
+[Cython strategy](../../docs/design/cython_strategy.md) design note).
 
 ## Caveats
 

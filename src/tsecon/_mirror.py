@@ -6,8 +6,7 @@ diffs the pinned SHA against the upstream default branch, and opens / updates a
 tracking issue when there are unported changes.
 
 When porting an upstream change, update ``MIRRORS_JULIA_SHA`` to the new
-commit and close the associated tracking issue. See
-``claude_files/decisions/09_version_mirror_tracking.md`` for the rationale.
+commit and close the associated tracking issue.
 """
 
 from __future__ import annotations

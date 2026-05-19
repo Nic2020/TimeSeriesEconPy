@@ -9,9 +9,6 @@ matching ``_stats_kernels_cy`` Cython kernels when compiled), the public
 :class:`TestStatisticsBDaily`; this file validates the kernel-direct
 contract and the equivalence between the Cython kernels (when present)
 and their NumPy reference siblings.
-
-See ``claude_files/decisions/18_cython_port_plan.md`` § "Tier 1 —
-stats_scalar_kernel".
 """
 
 from __future__ import annotations

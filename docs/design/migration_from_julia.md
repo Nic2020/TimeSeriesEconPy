@@ -1,9 +1,8 @@
 # Migration from Julia
 
 !!! info "Work in progress"
-    This page is a stub. The exhaustive idiom table lives in
-    `claude_files/docs/TUTORIAL_1_PORT_MAP.md` and will be folded in here once
-    the tutorial port has settled.
+    This page is a stub. An exhaustive idiom table will be folded in here
+    once the tutorial port has settled.
 
 A reader coming from
 [`TimeSeriesEcon.jl`](https://github.com/bankofcanada/TimeSeriesEcon.jl) will
@@ -153,6 +152,7 @@ differences — what the spellings, not the semantics, look like.
   TSeries / MVTSeries through the namespace still mutates the same
   object inside `w`. Non-identifier keys (e.g. `"1x"`) are silently
   omitted from the snapshot — keep using `w["..."]` for those. No
-  `eval`-based form is provided; see
-  `claude_files/decisions/23_workspace_namespace_context.md` for the
-  security / tooling rationale.
+  `eval`-based form is provided: deferring identifier resolution to
+  runtime `eval` of arbitrary expression strings would break static
+  tooling (mypy, IDE refactors, "find references") and is a security
+  footgun on workspaces loaded from untrusted sources.

@@ -73,8 +73,8 @@ from tsecon.tseries import TSeries
 # built without the C toolchain (or for editable installs that skipped the
 # build hook), the import fails silently and the public lower-aggregate
 # path falls back to the NumPy reference. The user-facing surface is
-# otherwise unchanged — this is the "always-fast public API" arm of
-# [decision 17](claude_files/decisions/17_cython_dispatch_strategy.md).
+# otherwise unchanged — this is the "always-fast public API" arm of the
+# Cython dispatch strategy (see docs/design/cython_strategy.md).
 try:
     from tsecon._fconvert_kernels_cy import (  # type: ignore[import-not-found, unused-ignore]
         aggregate_groups_cython,
@@ -164,12 +164,9 @@ def _aggregate_groups_dispatch(
     Routes through the shared :func:`_dispatch_kernel` /
     :func:`_is_kernel_eligible` helpers from :mod:`tsecon._kernel_dispatch`
     so the four M1.5 ports share one fast-path contract (``float64`` AND
-    ``C_CONTIGUOUS`` AND ``_CYTHON_AVAILABLE``); see
-    ``claude_files/decisions/20_kernel_dispatch_template.md``.
+    ``C_CONTIGUOUS`` AND ``_CYTHON_AVAILABLE``).
 
-    The ``is_yp_target`` guard codifies the session-21 scope cut
-    documented in ``claude_files/parity/PARITY.md:86`` and
-    ``claude_files/decisions/18_cython_port_plan.md``: the kernel is
+    The ``is_yp_target`` guard codifies the YP-only scope cut: the kernel is
     only wired for ``YPFrequency → YPFrequency`` aggregation
     (Quarterly→Yearly, Monthly→Quarterly, Monthly→Yearly). The calendar
     aggregation path (``_fconvert_lower_calendar_to_yp_or_weekly``)
@@ -192,10 +189,9 @@ def _aggregate_groups_dispatch(
     """
     if not is_yp_target:
         msg = (
-            "fconvert: aggregate-groups kernel is YP-only (session-21 scope cut). "
+            "fconvert: aggregate-groups kernel is YP-only. "
             "Calendar inputs must use _fconvert_lower_calendar_to_yp_or_weekly's "
-            "per-target aggregation loop, not this dispatcher. "
-            "See claude_files/decisions/18_cython_port_plan.md."
+            "per-target aggregation loop, not this dispatcher."
         )
         raise AssertionError(msg)
     if _is_kernel_eligible(values, group_starts, group_lengths):

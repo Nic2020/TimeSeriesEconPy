@@ -7,12 +7,11 @@ group_lengths, method_code)`` kernel with the same signature and return
 value; the Cython version (when compiled) is faster, while this module
 is the canonical fallback for installs without a C toolchain.
 
-The split exists for the multi-flavor benchmark thread described in
-``claude_files/decisions/17_cython_dispatch_strategy.md`` and
-``claude_files/paper/NOTES.md`` § "Three-flavor benchmark". Each kernel
-is timed independently (option β in decision 17) so the comparison
-table can show both "NumPy reference" and "compiled Cython" without
-public-API dispatch bias.
+The split exists for the three-flavor benchmark thread (pure-NumPy
+reference vs. compiled Cython vs. Julia upstream). Each kernel is
+timed independently so the comparison table can show both "NumPy
+reference" and "compiled Cython" without public-API dispatch bias.
+See [Cython strategy](../../docs/design/cython_strategy.md).
 
 Layout note
 -----------
@@ -47,8 +46,7 @@ where Cython actually helps a Python time-series library:
 That asymmetry — the "outer Python loop over inner C reductions" — is
 itself a JSS-paper finding: **the per-group dispatch cost dominates
 when groups are small (4-12 elements), exactly the regime
-frequency-conversion lives in.** See ``paper/NOTES.md`` §
-"fconvert kernel — the outer-loop tax" for the framing.
+frequency-conversion lives in.**
 
 Kernel contract
 ---------------

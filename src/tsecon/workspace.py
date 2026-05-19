@@ -20,18 +20,20 @@ pre-allocated MVTSeries without re-allocating the matrix buffer.
 
 The :meth:`Workspace.as_namespace` context manager exposes members as
 attributes on a snapshot ``SimpleNamespace``, the Pythonic alternative to
-Julia's ``@weval`` macro (see ``claude_files/decisions/23_workspace_namespace_context.md``).
+Julia's ``@weval`` macro.
 
 Intentional non-ports (do not re-litigate):
 
 * ``@weval`` — Julia AST-rewriting macro. Python has no analogue; the
   idiomatic shapes are direct attribute access (``w.x + w.alpha``) or
-  the snapshot context manager :meth:`Workspace.as_namespace`. See
-  ``claude_files/decisions/23_workspace_namespace_context.md``.
+  the snapshot context manager :meth:`Workspace.as_namespace`. An
+  ``eval``-based form is not provided because runtime ``eval`` of
+  arbitrary expression strings breaks static tooling (mypy, IDE refactors,
+  "find references") and is a security footgun on untrusted workspaces.
 * ``clean_old_frequencies`` — Julia compatibility shim for legacy
   quarterly numbering. The Python cached-singleton frequency model
-  (decision 15) makes the legacy encoding structurally impossible. See
-  ``claude_files/decisions/22_no_clean_old_frequencies.md``.
+  makes the legacy encoding structurally impossible to construct, so
+  the migration helper has no input to operate on.
 
 The standalone ``strip!(t::TSeries)`` helper now lives in the ported fconvert
 subpackage as :func:`tsecon.fconvert.strip_tseries_inplace`; the workspace
@@ -247,12 +249,10 @@ class Workspace:
         are held by reference, so mutating a contained TSeries / MVTSeries
         through the namespace also mutates the same object in ``self``.
 
-        The Pythonic alternative to Julia's ``@weval(W, EXPR)`` macro: see
-        ``claude_files/decisions/23_workspace_namespace_context.md`` for
-        the structural rationale. For most call sites direct attribute
-        access ``w.a + w.b`` is shorter and clearer; reach for
-        ``as_namespace`` only when several unprefixed reads in a row earn
-        their keep over the explicit prefix.
+        The Pythonic alternative to Julia's ``@weval(W, EXPR)`` macro.
+        For most call sites direct attribute access ``w.a + w.b`` is
+        shorter and clearer; reach for ``as_namespace`` only when several
+        unprefixed reads in a row earn their keep over the explicit prefix.
         """
         valid = {k: v for k, v in self._c.items() if k.isidentifier()}
         yield SimpleNamespace(**valid)
@@ -291,8 +291,7 @@ class Workspace:
         values are shared by reference — Python-dict semantics. With
         ``deep=True``, every value is recursively :func:`copy.deepcopy`-ed,
         equivalent to ``copy.deepcopy(self)``. The kwarg matches the
-        :meth:`TSeries.copy` signature for API uniformity; see
-        ``claude_files/decisions/16_constructor_copy_semantics.md``.
+        :meth:`TSeries.copy` signature for API uniformity.
         """
         if deep:
             return deepcopy(self)

@@ -1,9 +1,8 @@
 # SPDX-License-Identifier: MIT
 """Behavioural tests for the ``axis=`` kwarg on the five MVTSeries reductions.
 
-Closes ``claude_files/parity/PARITY_GAPS.md`` G11: Julia's
-``Statistics.{mean,std,var,median,quantile}(::MVTSeries; dims=)`` overloads
-return per-column / per-row TSeries; the Python port now exposes the same
+Julia's ``Statistics.{mean,std,var,median,quantile}(::MVTSeries; dims=)`` overloads
+return per-column / per-row TSeries; the Python port exposes the same
 through a NumPy-conventional ``axis=`` kwarg.
 
 Scope (M1.6.3f): five public functions (:func:`tsecon.mean`,

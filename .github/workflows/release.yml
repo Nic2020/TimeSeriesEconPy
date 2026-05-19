@@ -1,7 +1,8 @@
 name: release
 
 # Publish to PyPI on tag push (vX.Y.Z) via PyPI Trusted Publishing (OIDC) —
-# no long-lived API token, see claude_files/decisions/13_github_provisioning.md.
+# no long-lived API token is required; auth is via short-lived OIDC tokens
+# minted at workflow run time.
 #
 # Flow on `git push origin vX.Y.Z`:
 #   1. verify-tag    — assert pyproject.toml [project] version == tag (minus the leading 'v').

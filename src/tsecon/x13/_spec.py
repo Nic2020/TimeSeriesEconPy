@@ -44,8 +44,7 @@ This module ships:
   ``__str__`` output uses ``type(self).__name__`` — capitalising the
   classes would break .spc serialization or require a parallel name map.
 
-  The Julia source has **26** ``X13var`` types; the session-48 inventory
-  prose said 25 — see the session-49 SESSION_LOG entry for the correction.
+  The Julia source has **26** ``X13var`` types.
 
 * :class:`ArimaSpec` and :class:`ArimaModel` — the generic
   ``(p, d, q)(P, D, Q)[period]`` ARIMA builders the :func:`arima` /
@@ -87,7 +86,6 @@ the canonical two-argument constructor plus an :meth:`~aos.from_range`
 :func:`classmethod` accepting an :class:`~tsecon.mitrange.MITRange`. This
 keeps the frozen-slots dataclass shape uniform and matches how
 :class:`MIT` itself surfaces alternate constructors (``MIT.from_yp``).
-Decision recorded in session 49 (see ``claude_files/SESSION_LOG.md``).
 
 The Julia ``regimechange::Symbol`` field ports as a :class:`RegimeChange`
 :class:`~enum.StrEnum`; users may pass either the enum member

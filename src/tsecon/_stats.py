@@ -40,8 +40,8 @@ from tsecon.tseries import TSeries
 # built without the C toolchain (or for editable installs that skipped the
 # build hook), the import fails silently and the public API falls back to
 # the NumPy reference. The user-facing surface is otherwise unchanged — this
-# is the "always-fast public API" arm of [decision 17](claude_files/decisions/
-# 17_cython_dispatch_strategy.md).
+# is the "always-fast public API" arm of the Cython dispatch strategy (see
+# docs/design/cython_strategy.md).
 try:
     from tsecon._stats_kernels_cy import (  # type: ignore[import-not-found, unused-ignore]
         cor_cython,
@@ -248,8 +248,7 @@ def mean(
     t : TSeries or MVTSeries
         Input series. Any non-Unit frequency.
     axis : int or None, default None
-        Reduction axis (NumPy convention) — see G11 in
-        ``claude_files/parity/PARITY_GAPS.md``.
+        Reduction axis (NumPy convention).
 
         * ``None``: reduce flat (scalar return; existing behaviour).
         * ``0``: per-column → single-row MVTSeries anchored at

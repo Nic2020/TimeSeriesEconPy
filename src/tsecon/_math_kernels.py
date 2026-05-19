@@ -7,12 +7,11 @@ and behaviour; the Cython version (when compiled) fuses the cumsum and
 the constant-shift correction into a single C pass, while this module
 is the canonical fallback for installs without a C toolchain.
 
-The split exists for the multi-flavor benchmark thread described in
-``claude_files/decisions/17_cython_dispatch_strategy.md`` and
-``claude_files/paper/NOTES.md`` § "Three-flavor benchmark". Each kernel
-is timed independently (option β in decision 17) so the comparison
-table can show both "vectorised NumPy" and "compiled Cython" without
-public-API dispatch bias.
+The split exists for the three-flavor benchmark thread (pure-NumPy
+reference vs. compiled Cython vs. Julia upstream). Each kernel is
+timed independently so the comparison table can show both "vectorised
+NumPy" and "compiled Cython" without public-API dispatch bias.
+See [Cython strategy](../../docs/design/cython_strategy.md).
 
 Layout note
 -----------
@@ -28,8 +27,8 @@ M1.5 kernel pairs (``_rec_kernels`` / ``_indexing_kernels`` /
 Anchored-cumsum vs the N=4 multi-port classification
 ----------------------------------------------------
 The five M1.6.2 ports now establish a structural classification of
-where Cython actually helps a Python time-series library (extends the
-session-21 N=4 table in ``decisions/18_cython_port_plan.md``):
+where Cython actually helps a Python time-series library (refines the
+N=4 tier classification to N=5):
 
 * **Recursion** (``_rec_kernels``) — non-vectorisable inner loop.
   Cython buys ~65x over NumPy.
@@ -50,9 +49,6 @@ session-21 N=4 table in ``decisions/18_cython_port_plan.md``):
   (low single-digit multiplier) than to the recursion regime,
   refining the N=4 classification's "outer-loop tax" band downward
   for fully-vectorisable ops.
-
-See ``paper/NOTES.md`` § "undiff kernel — the N=5 row" for the
-empirical confirmation once benchmarks land.
 
 Kernel contract
 ---------------

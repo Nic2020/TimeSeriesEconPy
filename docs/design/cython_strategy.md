@@ -2,8 +2,6 @@
 
 !!! info "Work in progress"
     This page is a stub. The full thesis arrives in the JSS paper.
-    Decision records: `claude_files/decisions/01_acceleration_strategy.md`,
-    `17_cython_dispatch_strategy.md`, `18_cython_port_plan.md`.
 
 ## The rule
 

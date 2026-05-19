@@ -7,12 +7,11 @@ signature and return value; the Cython version (when compiled) is
 slightly faster, while this module is the canonical fallback for
 installs without a C toolchain.
 
-The split exists for the multi-flavor benchmark thread described in
-``claude_files/decisions/17_cython_dispatch_strategy.md`` and
-``claude_files/paper/NOTES.md`` § "Three-flavor benchmark". Each kernel
-is timed independently (option β in decision 17) so the comparison
-table can show both "vectorised NumPy" and "compiled Cython" without
-public-API dispatch bias.
+The split exists for the three-flavor benchmark thread (pure-NumPy
+reference vs. compiled Cython vs. Julia upstream). Each kernel is
+timed independently so the comparison table can show both "vectorised
+NumPy" and "compiled Cython" without public-API dispatch bias.
+See [Cython strategy](../../docs/design/cython_strategy.md).
 
 Layout note
 -----------
@@ -38,8 +37,7 @@ per-call dispatch overhead, not a 50x improvement of the kind
 That asymmetry is itself a JSS-paper finding: **for vectorisable ops,
 exposing the vectorised API is the win; Cython is only the cherry on
 top.** For non-vectorisable ops (like ``rec_linear``), Cython is the
-load-bearing fix. See ``paper/NOTES.md`` § "Indexing kernel — the
-'expose a vectorised API' finding" for the framing.
+load-bearing fix.
 
 Kernel contract
 ---------------

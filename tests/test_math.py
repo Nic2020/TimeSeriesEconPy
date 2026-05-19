@@ -337,8 +337,7 @@ class TestCrossReferences:
 
 
 # ---------------------------------------------------------------------------
-# pct divide-by-zero contract — locks in the library decision documented
-# in claude_files/paper/NOTES.md "Performance / NumPy semantics".
+# pct divide-by-zero contract
 # ---------------------------------------------------------------------------
 
 
@@ -348,11 +347,8 @@ class TestPctZeroSemantics:
     preserve NumPy semantics rather than pandas-style "raise on zero" so
     users who already understand NumPy aren't re-trained.
 
-    See ``claude_files/paper/NOTES.md`` "Performance / NumPy semantics"
-    for the design rationale. This test is the executable counterpart of
-    that paper note — if a future change accidentally silences the
-    warning (e.g. by wrapping pct in ``np.errstate(divide='ignore')``),
-    this test fires.
+    If a future change accidentally silences the warning (e.g. by wrapping
+    pct in ``np.errstate(divide='ignore')``), this test fires.
     """
 
     def test_pct_emits_runtimewarning_on_zero(self) -> None:

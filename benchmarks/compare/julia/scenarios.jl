@@ -336,9 +336,8 @@ end
 mean_mvts_axis1_100rows_run(state) = mean(state.mvts; dims=2)
 
 # ---------------------------------------------------------------------------
-# F14 expansion (session 30) — quantile / cov(x,y) / ytypct / lead, plus the
-# two missing higher-freq fconvert methods (linear, even). See
-# claude_files/reviews/2026-05-16_holistic/F14_benchmark_coverage_gaps.md.
+# M1.6 coverage expansion — quantile / cov(x,y) / ytypct / lead, plus the
+# two missing higher-freq fconvert methods (linear, even).
 # ---------------------------------------------------------------------------
 
 function quantile_quarterly_100_setup()

@@ -47,9 +47,9 @@ uv run pre-commit install
 
 ## Architectural decisions
 
-The design has a series of recorded decisions in
-`claude_files/decisions/`. Read those before proposing structural changes.
-Open an issue first if you want to revise an accepted decision.
+The design rationale lives in [`docs/design/`](docs/design/) and in inline
+docstrings on the affected modules. Read those before proposing structural
+changes; open an issue first if you want to revise an accepted decision.
 
 ## Reporting bugs
 

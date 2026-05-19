@@ -9,8 +9,6 @@ compiled artifacts land next to their ``.pyx`` siblings, so the wheel
 includes them via the ``[tool.hatch.build.targets.wheel].artifacts`` glob
 in ``pyproject.toml``.
 
-Background: see ``claude_files/decisions/17_cython_dispatch_strategy.md``.
-
 The hook is a no-op when the build target is not the wheel (e.g. the
 sdist build, which ships ``.pyx`` sources and lets the consumer's wheel
 build compile them).

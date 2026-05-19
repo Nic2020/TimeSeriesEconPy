@@ -3,8 +3,7 @@
 overloads on :class:`~tsecon.tseries.TSeries` and
 :class:`~tsecon.mvtseries.MVTSeries`.
 
-Closes ``claude_files/parity/PARITY_GAPS.md`` **G12** (M1.6.3g). The Python
-port mirrors ``TimeSeriesEcon.jl/src/linalg.jl`` exactly: every overload
+The Python port mirrors ``TimeSeriesEcon.jl/src/linalg.jl`` exactly: every overload
 forwards to the underlying ``Vector`` / ``Matrix`` and returns a plain
 :class:`numpy.ndarray` (the Julia test row ``x * x3 == _vals(x) * _vals(x3)``
 documents the same). ``@`` is the PEP 465 spelling of Julia's ``*`` matrix

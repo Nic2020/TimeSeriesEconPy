@@ -2006,8 +2006,8 @@ represents a <em>distance</em> between two MITs of the same frequency.</p>
 </ul>
 <p>Constructor functions :func:<code>qq</code>, :func:<code>mm</code>, :func:<code>yy</code>, :func:<code>daily</code>,
 :func:<code>bdaily</code>, :func:<code>weekly</code> are the Pythonic equivalent of the Julia
-literal-suffix syntax <code>2020Q1</code>, <code>2020M3</code>, <code>2020Y</code>, etc. See
-<code>claude_files/decisions/15_frequency_model.md</code>.</p>
+literal-suffix syntax <code>2020Q1</code>, <code>2020M3</code>, <code>2020Y</code>, etc. See the
+<a href="../../docs/design/frequency_model.md">Frequency model</a> design note.</p>
 <p>Equality with plain integers is <strong>not</strong> supported (unlike Julia, where
 <code>MIT(Quarterly, 5) == 5</code> is true). The Julia idiom violates Python's
 <code>__hash__</code>/<code>__eq__</code> invariant; use <code>int(mit)</code> or <code>mit.value</code> to

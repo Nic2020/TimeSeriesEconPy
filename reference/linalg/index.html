@@ -1385,7 +1385,7 @@ upstream <code>TimeSeriesEcon.jl</code> idiom</p>
 <p>Both directions are supported (<code>A @ t</code>, <code>t @ A</code>, <code>mvts @ A</code>, <code>A @ mvts</code>,
 <code>t @ t</code>, <code>mvts @ mvts</code>).</p>
 <h2 id="what-returns">What <code>@</code> returns<a class="headerlink" href="#what-returns" title="Permanent link">&para;</a></h2>
-<p>A plain [<code>numpy.ndarray</code>][]. <strong>Frequency / range / column-name labels are
+<p>A plain <a class="autorefs autorefs-external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray"><code>numpy.ndarray</code></a>. <strong>Frequency / range / column-name labels are
 stripped.</strong> This matches the Julia upstream exactly: every method body in
 <code>linalg.jl</code> is of the shape <code>op(_vals(A), _vals(B))</code>, returning a bare
 <code>Vector</code> or <code>Matrix</code>. The upstream test
@@ -1405,12 +1405,10 @@ TSeries still does the range-intersection, frequency-checked broadcast
   labels stripped. A <code>.T</code> property on <code>TSeries</code> / <code>MVTSeries</code> would have no
   clean semantics in Python — the row axis of an <code>MVTSeries</code> is <em>time</em>,
   not data, so a transposed object has no natural type to wrap. Users
-  wanting the bare transpose write <code>np.asarray(x).T</code>. See
-  <code>claude_files/parity/PARITY_GAPS.md</code> entry <strong>G12</strong> (closed M1.6.3g) for
-  the full rationale.</li>
+  wanting the bare transpose write <code>np.asarray(x).T</code>.</li>
 <li><strong><code>\</code> / <code>/</code> (linear-solve).</strong> <code>@</code> covers the common
   <code>A @ t</code> coefficient-matrix case. Callers needing a solve use
-  [<code>numpy.linalg.solve</code>][] directly:
+  <a class="autorefs autorefs-external" href="https://numpy.org/doc/stable/reference/generated/numpy.linalg.solve.html#numpy.linalg.solve"><code>numpy.linalg.solve</code></a> directly:
   <code>numpy.linalg.solve(A, np.asarray(t))</code>.</li>
 </ul>
 <h2 id="module-reference">Module reference<a class="headerlink" href="#module-reference" title="Permanent link">&para;</a></h2>
@@ -1453,8 +1451,7 @@ exclusively; the Julia <code>A * t</code> idiom ports as <code>A @ t</code> (see
   on TSeries / MVTSeries — the row axis is <em>time</em>, not data, so a
   transposed object has no natural type to wrap into. Users wanting
   the bare transpose write <code>np.asarray(t).T</code>. Recorded as an
-  intentional non-port; see <code>claude_files/parity/PARITY_GAPS.md</code>
-  entry <strong>G12</strong> (closed M1.6.3g) for the rationale.</li>
+  intentional non-port.</li>
 <li><code>\</code> / <code>/</code> (linear-solve overloads). <code>@</code> covers the
   coefficient-matrix-times-series case that motivates the module;
   callers needing a solve use <code>np.linalg.solve(A, np.asarray(t))</code>

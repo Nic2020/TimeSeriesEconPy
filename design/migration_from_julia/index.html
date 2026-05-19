@@ -1333,9 +1333,8 @@
 <h1 id="migration-from-julia">Migration from Julia<a class="headerlink" href="#migration-from-julia" title="Permanent link">&para;</a></h1>
 <div class="admonition info">
 <p class="admonition-title">Work in progress</p>
-<p>This page is a stub. The exhaustive idiom table lives in
-<code>claude_files/docs/TUTORIAL_1_PORT_MAP.md</code> and will be folded in here once
-the tutorial port has settled.</p>
+<p>This page is a stub. An exhaustive idiom table will be folded in here
+once the tutorial port has settled.</p>
 </div>
 <p>A reader coming from
 <a href="https://github.com/bankofcanada/TimeSeriesEcon.jl"><code>TimeSeriesEcon.jl</code></a> will
@@ -1480,6 +1479,16 @@ differences — what the spellings, not the semantics, look like.</p>
 <td><code>transpose(t)</code> / <code>adjoint(mvts)</code></td>
 <td><em>not ported</em> — use <code>np.asarray(x).T</code></td>
 </tr>
+<tr>
+<td>In-place copy Workspace → MVTSeries</td>
+<td><code>copyto!(mvts, w; verbose=, trange=)</code></td>
+<td><code>tsecon.copyto(mvts, w, *, verbose=, trange=)</code></td>
+</tr>
+<tr>
+<td><code>@weval</code> macro (Workspace-scoped eval)</td>
+<td><code>@weval w b + a</code></td>
+<td><code>w.b + w.a</code> <em>(preferred)</em> or <code>with w.as_namespace() as ns: ns.b + ns.a</code></td>
+</tr>
 </tbody>
 </table>
 <h2 id="semantics-that-are-identical">Semantics that are identical<a class="headerlink" href="#semantics-that-are-identical" title="Permanent link">&para;</a></h2>
@@ -1548,6 +1557,20 @@ differences — what the spellings, not the semantics, look like.</p>
   overload is defined; in Python, <code>t1 @ t2</code> returns the inner product
   (NumPy 1-D matmul semantics) — the Python form is <em>more</em> useful, not
   less.</li>
+<li><strong><code>copyto</code> is a free function, not a method or a <code>!</code>-suffixed mutator.</strong>
+  Julia spells the in-place materialiser <code>Base.copyto!(mvts, w; verbose=,
+  trange=)</code> — the <code>!</code> suffix is the Julia convention for an in-place
+  mutator. Python has no syntactic mutation marker; <code>tsecon</code> exports
+  <code>copyto(dst: MVTSeries, src: Workspace, *, verbose=False, trange=None)</code>
+  as a free function, mirroring NumPy's <code>np.copyto(dst, src)</code> signature
+  and convention. The function is still in-place — <code>id(dst._values)</code> is
+  preserved across the call — and returns <code>dst</code> for chaining. The
+  per-column write goes through the destination's existing <code>__setitem__</code>
+  with frequency / contained-range checks; a non-<code>TSeries</code> value at a
+  matching key raises <code>TypeError</code> (matching Julia's behaviour, which
+  would error inside the inner <code>copyto!</code>). <code>verbose=True</code> emits a single
+  <code>UserWarning</code> at the end of the loop with all missing-from-workspace
+  column names joined, matching Julia's end-of-loop <code>@warn</code>.</li>
 <li><strong><code>set_holidays_map(country, subdivision)</code> delegates to <code>python-holidays</code>.</strong>
   The Julia upstream ships bundled CSVs (<code>TimeSeriesEcon.jl/src/holidays/</code>)
   and reads them on first call. Python delegates to the
@@ -1560,7 +1583,28 @@ differences — what the spellings, not the semantics, look like.</p>
   and <code>get_holidays_options("CA")</code> to discover the supported codes. The
   map's default range (<code>bdaily("1970-01-01")</code> to <code>bdaily("2049-12-31")</code>)
   is identical.</li>
+<li><strong><code>@weval</code> becomes plain attribute access (or a snapshot context manager).</strong>
+  Julia's <code>@weval(w, EXPR)</code> macro rewrites <code>EXPR</code> so bare identifiers
+  resolve against <code>w</code>'s namespace; Python has no AST-rewriting macros.
+  The Pythonic spellings are direct attribute access (<code>w.b + w.a</code>, the
+  default — almost always sufficient) or, when several unprefixed reads
+  cluster, the snapshot context manager <code>Workspace.as_namespace()</code>:</li>
 </ul>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">with</span> <span class="n">w</span><span class="o">.</span><span class="n">as_namespace</span><span class="p">()</span> <span class="k">as</span> <span class="n">ns</span><span class="p">:</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">w</span><span class="o">.</span><span class="n">b1</span> <span class="o">=</span> <span class="n">ns</span><span class="o">.</span><span class="n">b</span> <span class="o">+</span> <span class="n">ns</span><span class="o">.</span><span class="n">a</span>       <span class="c1"># ports Julia&#39;s `w.b1 = @weval w b + a`</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">w</span><span class="o">.</span><span class="n">alpha</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">pi</span><span class="p">)</span> <span class="o">+</span> <span class="n">ns</span><span class="o">.</span><span class="n">a</span> <span class="o">-</span> <span class="n">ns</span><span class="o">.</span><span class="n">a</span>
+</code></pre></div>
+<p>The namespace is a <code>types.SimpleNamespace</code> snapshot taken at
+  <code>__enter__</code>: mutations to <code>w</code> after entry are invisible, and mutating
+  the namespace does not write back to <code>w</code>. Use <code>w.x = ...</code> directly
+  for writes. Values are held by reference, so mutating a contained
+  TSeries / MVTSeries through the namespace still mutates the same
+  object inside <code>w</code>. Non-identifier keys (e.g. <code>"1x"</code>) are silently
+  omitted from the snapshot — keep using <code>w["..."]</code> for those. No
+  <code>eval</code>-based form is provided: deferring identifier resolution to
+  runtime <code>eval</code> of arbitrary expression strings would break static
+  tooling (mypy, IDE refactors, "find references") and is a security
+  footgun on workspaces loaded from untrusted sources.</p>
 
 
 

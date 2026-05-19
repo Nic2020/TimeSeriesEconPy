@@ -6,6 +6,10 @@ Ported from `TimeSeriesEcon.jl`_ (Bank of Canada).
 .. _TimeSeriesEcon.jl: https://github.com/bankofcanada/TimeSeriesEcon.jl
 """
 
+# Subpackage re-export: ``tsecon.x13.ao(...)`` etc. The leaves stay under
+# the ``tsecon.x13`` namespace (mirrors Julia's ``TimeSeriesEcon.X13``);
+# only the subpackage itself appears in ``tsecon.__all__``.
+from tsecon import x13
 from tsecon._bdaily import bdvalues, cleanedvalues
 from tsecon._math import (
     apct,
@@ -236,6 +240,7 @@ __all__ = [
     "vcat",
     "weekly",
     "weekly_from_iso",
+    "x13",
     "year",
     "ytypct",
     "yy",

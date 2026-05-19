@@ -83,12 +83,83 @@ Sub-decisions locked in M2.0 follow-up (this session):
   at runtime. arm64 wheels stay deferred until user demand surfaces
   (existing matrix already covers macOS arm64 via ``macos-latest``).
 
-Stub modules below ship with empty ``__all__`` lists; the public surface
-is wired in M2.1+. ``tsecon.x13`` is intentionally **not** re-exported
-from the top-level ``tsecon/__init__.py`` until M2.1 lands at least one
-public symbol; users access it via ``import tsecon.x13``.
+M2.1 landed the spec-type surface (session 49): 26 :class:`X13var` leaves,
+:class:`RegimeChange`, :class:`X13default`, :class:`ArimaSpec`, and
+:class:`ArimaModel` are re-exported below. M2.2+ extends the public
+surface with the spec builders and runtime entry points.
+
+``tsecon.x13`` is now re-exported from the top-level ``tsecon/__init__.py``
+(``import tsecon; tsecon.x13.ao(2020 // 1)`` works). The other private
+siblings (``_x13`` / ``_write`` / ``_result``) ship empty ``__all__`` until
+their owning sub-milestone lands.
 """
 
 from __future__ import annotations
 
-__all__: list[str] = []
+from tsecon.x13._spec import (
+    ArimaModel,
+    ArimaSpec,
+    RegimeChange,
+    X13default,
+    X13var,
+    ao,
+    aos,
+    easter,
+    easterstock,
+    labor,
+    lom,
+    loq,
+    lpyear,
+    ls,
+    lss,
+    qd,
+    qi,
+    rp,
+    sceaster,
+    seasonal,
+    sincos,
+    so,
+    tc,
+    td,
+    td1coef,
+    td1nolpyear,
+    tdnolpyear,
+    tdstock,
+    tdstock1coef,
+    thank,
+    tl,
+)
+
+__all__ = [
+    "ArimaModel",
+    "ArimaSpec",
+    "RegimeChange",
+    "X13default",
+    "X13var",
+    "ao",
+    "aos",
+    "easter",
+    "easterstock",
+    "labor",
+    "lom",
+    "loq",
+    "lpyear",
+    "ls",
+    "lss",
+    "qd",
+    "qi",
+    "rp",
+    "sceaster",
+    "seasonal",
+    "sincos",
+    "so",
+    "tc",
+    "td",
+    "td1coef",
+    "td1nolpyear",
+    "tdnolpyear",
+    "tdstock",
+    "tdstock1coef",
+    "thank",
+    "tl",
+]

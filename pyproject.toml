@@ -220,6 +220,13 @@ convention = "numpy"
 # __post_init__ / __new__ are constructor-flavored; D102 (undocumented public method)
 # is noise for them and for slot dunders ruff hasn't classified.
 "src/tsecon/**" = ["D102"]
+# X13var leaf class names (ao, ls, tc, so, aos, ...) are the X-13ARIMA-SEATS
+# .spc grammar keywords. The Python port preserves the lowercase Julia-mirror
+# names because __str__ uses ``type(self).__name__`` for serialization;
+# capitalising them would break .spc output or require a parallel name map.
+# N801 (Class name should use CapWords convention) is therefore disabled
+# for _spec.py — see the module docstring for the rationale.
+"src/tsecon/x13/_spec.py" = ["N801"]
 
 [tool.ruff.format]
 quote-style = "double"

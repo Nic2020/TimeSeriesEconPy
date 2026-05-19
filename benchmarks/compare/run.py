@@ -11,7 +11,7 @@ appears as ``n/a`` in its column.
 
 Two output forms:
 
-* ``results/<date>_<sha>.json`` — full numerical record, one record per
+* ``results/<date>.json`` — full numerical record, one record per
   scenario with one block per available backend.
 * Markdown table to stdout (and optionally to a file via ``--markdown``).
 
@@ -478,17 +478,8 @@ def main(argv: list[str] | None = None) -> int:
             polars_available=include_polars,
         )
         RESULTS_DIR.mkdir(exist_ok=True)
-        try:
-            sha = subprocess.run(
-                ["git", "-C", str(REPO_ROOT), "rev-parse", "--short", "HEAD"],
-                capture_output=True,
-                text=True,
-                check=True,
-            ).stdout.strip()
-        except (subprocess.CalledProcessError, FileNotFoundError):
-            sha = "nogit"
         timestamp = datetime.now(UTC).strftime("%Y-%m-%d_%H%M%SZ")
-        out = RESULTS_DIR / f"{timestamp}_{sha}.json"
+        out = RESULTS_DIR / f"{timestamp}.json"
         out.write_text(json.dumps(payload, indent=2), encoding="utf-8")
         print(f"\nWrote results to {out}", file=sys.stderr)
     return 0

@@ -129,7 +129,7 @@ Each successful run writes two artefacts:
 
 * **Markdown table** to stdout. Use `--markdown PATH` to also write it to a
   file.
-* **JSON snapshot** to `results/<UTC-timestamp>_<short-sha>.json` with the
+* **JSON snapshot** to `results/<UTC-timestamp>.json` with the
   full per-scenario record (median, min, sample count for each language).
   Each scenario has `python` / `julia` / `pandas` / `polars` blocks;
   absent backends serialise as `null`. Use `--no-json` to suppress.

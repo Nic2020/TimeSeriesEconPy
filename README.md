@@ -34,7 +34,7 @@ pip install "TimeSeriesEconPy[all]"          # everything
 
 ## Documentation
 
-Full docs at <https://Nic2020.github.io/TimeSeriesEconPy/> (once published).
+Full docs at <https://Nic2020.github.io/TimeSeriesEconPy/>.
 
 ## License
 

@@ -7,8 +7,7 @@ frequency-tagged ``firstdate`` (an :class:`~tsecon.mit.MIT`).
 Design: composition over an :class:`numpy.ndarray` plus the
 ``__array_ufunc__`` / ``__array_function__`` / ``__array__`` protocols. No
 subclassing of ``ndarray`` (subclassing is a well-known source of
-return-type surprises; see
-[TSeries protocols](../../docs/design/tseries_protocols.md)).
+return-type surprises around the views returned by indexing).
 
 Indexing:
 

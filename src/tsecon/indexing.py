@@ -40,9 +40,7 @@ the gather is *vectorisable*, so the NumPy reference is already a tight
 C loop via :func:`numpy.take`, and the Cython kernel only buys a
 marginal further win (~1.5-3x, mostly from removing NumPy's per-call
 dispatch overhead). The big win here is exposing the vectorised API at
-all — that's where the 935x → ~1x recovery happens. See
-[Cython strategy](../../docs/design/cython_strategy.md) for the empirical
-tier classification.
+all — that's where the 935x → ~1x recovery happens.
 """
 
 from __future__ import annotations
@@ -99,8 +97,7 @@ def lookup(
     single MIT- or int-keyed position, :func:`lookup` reads many at
     once with a single NumPy/Cython gather, avoiding the per-element
     ``__getitem__`` dispatch tax that makes the Python loop pattern
-    **935x slower than the Julia equivalent** on the M1.5 benchmark
-    (see [Cython strategy](../../docs/design/cython_strategy.md)).
+    **935x slower than the Julia equivalent** on the M1.5 benchmark.
 
     Parameters
     ----------

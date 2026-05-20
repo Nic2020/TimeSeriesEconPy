@@ -111,7 +111,15 @@ jobs:
           # Tarball top-level dir keeps the leading "v" (e.g. v1-1-b62).
           src_dir="x13as_asciisrc-${X13AS_VERSION}"
           cd "$src_dir"
-          make -f makefile.gf
+          # `-fallow-argument-mismatch` demotes modern-gfortran's argument-
+          # count-mismatch error back to a warning; X-13 b62 has at least
+          # one legacy 3-vs-4 arity site (adpdrg.f:407-409's CALL inpter
+          # with a trailing `,T)` against inpter.f's 3-arg signature) that
+          # older gfortran (pre-10, what Yggdrasil's BinaryBuilder ships,
+          # and what R's bundled gfortran wrapper allows by default) was
+          # lenient on. setup-fortran@v1 installs gfortran 13.x which is
+          # strict by default; the flag restores the legacy behaviour.
+          make -f makefile.gf FFLAGS='-O2 -fallow-argument-mismatch'
           dest="${GITHUB_WORKSPACE}/src/tsecon/x13/_binary"
           if [ "${RUNNER_OS}" = "Windows" ]; then
             cp x13as_ascii.exe "$dest/x13as.exe"
@@ -148,7 +156,11 @@ jobs:
             tar xzf x13as_src.tar.gz
             # Tarball top-level dir keeps the leading "v" (e.g. v1-1-b62).
             cd x13as_asciisrc-${{ steps.x13_meta.outputs.x13as_version }}
-            make -f makefile.gf
+            # See the host step's comment on -fallow-argument-mismatch —
+            # the manylinux2014 container ships gfortran 10+ via yum's
+            # gcc-gfortran, which has the same strict-by-default behaviour
+            # as setup-fortran@v1.
+            make -f makefile.gf FFLAGS='-O2 -fallow-argument-mismatch'
             mkdir -p {project}/src/tsecon/x13/_binary
             cp x13as_ascii {project}/src/tsecon/x13/_binary/x13as
             chmod +x {project}/src/tsecon/x13/_binary/x13as

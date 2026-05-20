@@ -772,6 +772,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../x13/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    X-13ARIMA-SEATS (x13)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../options/" class="md-nav__link">
         
   
@@ -982,6 +1010,61 @@
     <span class="md-ellipsis">
       
         MIRRORS_JULIA_REPO
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tsecon._mirror.X13AS_VERSION" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        X13AS_VERSION
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tsecon._mirror.X13AS_SOURCE_URL" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        X13AS_SOURCE_URL
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tsecon._mirror.X13AS_SOURCE_SHA256" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        X13AS_SOURCE_SHA256
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tsecon._mirror.X13AS_WINDOWS_PREBUILT_URL" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        X13AS_WINDOWS_PREBUILT_URL
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tsecon._mirror.X13AS_WINDOWS_PREBUILT_SHA256" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        X13AS_WINDOWS_PREBUILT_SHA256
       
     </span>
   </a>
@@ -1361,6 +1444,61 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#tsecon._mirror.X13AS_VERSION" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        X13AS_VERSION
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tsecon._mirror.X13AS_SOURCE_URL" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        X13AS_SOURCE_URL
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tsecon._mirror.X13AS_SOURCE_SHA256" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        X13AS_SOURCE_SHA256
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tsecon._mirror.X13AS_WINDOWS_PREBUILT_URL" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        X13AS_WINDOWS_PREBUILT_URL
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tsecon._mirror.X13AS_WINDOWS_PREBUILT_SHA256" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        X13AS_WINDOWS_PREBUILT_SHA256
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1499,6 +1637,151 @@ commit and close the associated tracking issue.</p>
     <div class="doc doc-contents ">
 
         <p>GitHub <code>owner/name</code> of the mirrored upstream repository.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="tsecon._mirror.X13AS_VERSION" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">X13AS_VERSION</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-module-attribute"><code>module-attribute</code></small>
+  </span>
+
+<a href="#tsecon._mirror.X13AS_VERSION" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">X13AS_VERSION</span><span class="p">:</span> <span class="n">Final</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;v1-1-b62&#39;</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Pinned X-13ARIMA-SEATS version used by the wheels build (M2.6).</p>
+<p>The Census Bureau source archive at
+<code>https://www2.census.gov/software/x-13arima-seats/x13as/unix-linux/program-archives/x13as_asciisrc-v1-1-b62.tar.gz</code>
+is downloaded by <code>wheels.yml</code> and compiled in each per-platform job via
+<code>fortran-lang/setup-fortran@v1</code>. The same version is fetched by
+<code>scripts/fetch_x13as_local.py</code> for local development.</p>
+<p>Bumped from <code>v1-1-b60</code> (decision 24 sub-decision 2's original pin) to
+<code>v1-1-b62</code> in M2.6 (session 54) after Census Bureau dropped b60 from the
+public archive. Yggdrasil still ships b60; the fidelity test compensates by
+running both the Julia and Python sides through the same locally-resolved
+binary via <code>getoption("x13path")</code>.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="tsecon._mirror.X13AS_SOURCE_URL" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">X13AS_SOURCE_URL</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-module-attribute"><code>module-attribute</code></small>
+  </span>
+
+<a href="#tsecon._mirror.X13AS_SOURCE_URL" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">X13AS_SOURCE_URL</span><span class="p">:</span> <span class="n">Final</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="s2">&quot;https://www2.census.gov/software/x-13arima-seats/x13as/unix-linux/program-archives/x13as_asciisrc-v1-1-b62.tar.gz&quot;</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Census Bureau source tarball URL for <code>X13AS_VERSION</code>.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="tsecon._mirror.X13AS_SOURCE_SHA256" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">X13AS_SOURCE_SHA256</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-module-attribute"><code>module-attribute</code></small>
+  </span>
+
+<a href="#tsecon._mirror.X13AS_SOURCE_SHA256" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">X13AS_SOURCE_SHA256</span><span class="p">:</span> <span class="n">Final</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="s2">&quot;82796c84b54891474df1a6ffb16be7bf7bd4a992e3679158645c888e6cddda12&quot;</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>SHA-256 of <code>X13AS_SOURCE_URL</code> (verified 2026-05-20).</p>
+<p>Lifted from the live Census archive listing; re-check on any version bump.
+<code>wheels.yml</code>'s download step pipes the response through <code>sha256sum -c</code>
+against this constant so a Census-side replacement cannot silently change
+the binary inputs.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="tsecon._mirror.X13AS_WINDOWS_PREBUILT_URL" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">X13AS_WINDOWS_PREBUILT_URL</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-module-attribute"><code>module-attribute</code></small>
+  </span>
+
+<a href="#tsecon._mirror.X13AS_WINDOWS_PREBUILT_URL" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">X13AS_WINDOWS_PREBUILT_URL</span><span class="p">:</span> <span class="n">Final</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="s2">&quot;https://www2.census.gov/software/x-13arima-seats/x13as/windows/program-archives/x13as_ascii-v1-1-b62.zip&quot;</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Census Bureau pre-built Windows zip for <code>X13AS_VERSION</code>.</p>
+<p>Used by <code>scripts/fetch_x13as_local.py</code> on Windows so a Fortran toolchain
+is not required for local development. Not used by <code>wheels.yml</code> (the CI
+build compiles from source for parity with the Linux / macOS jobs).</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="tsecon._mirror.X13AS_WINDOWS_PREBUILT_SHA256" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">X13AS_WINDOWS_PREBUILT_SHA256</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-module-attribute"><code>module-attribute</code></small>
+  </span>
+
+<a href="#tsecon._mirror.X13AS_WINDOWS_PREBUILT_SHA256" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">X13AS_WINDOWS_PREBUILT_SHA256</span><span class="p">:</span> <span class="n">Final</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="s2">&quot;c6bd65132a3219555d00abf794649e75c133f23c0db066ed03c0b5ca30e694c2&quot;</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>SHA-256 of <code>X13AS_WINDOWS_PREBUILT_URL</code> (verified 2026-05-20).</p>
 
     </div>
 

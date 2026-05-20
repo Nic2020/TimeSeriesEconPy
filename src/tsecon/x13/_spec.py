@@ -106,25 +106,42 @@ regime-bearing types (``tdnolpyear``, ``td1coef``, ``td1nolpyear``,
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import ClassVar, Final
 
-from tsecon.frequencies import Monthly
+import numpy as np
+
+from tsecon.frequencies import Monthly, Yearly, ppy
 from tsecon.mit import MIT, mit2yp
 from tsecon.mitrange import MITRange
+from tsecon.mvtseries import MVTSeries
+from tsecon.tseries import TSeries
 from tsecon.x13._consts import _ORDERED_MONTH_NAMES
 
 __all__ = [
     "ArimaModel",
     "ArimaSpec",
     "RegimeChange",
+    "Span",
+    "X13arima",
+    "X13automdl",
     "X13default",
+    "X13forecast",
+    "X13regression",
+    "X13seats",
+    "X13series",
+    "X13transform",
     "X13var",
+    "X13x11",
     "ao",
     "aos",
+    "arima",
+    "automdl",
     "easter",
     "easterstock",
+    "forecast",
     "labor",
     "lom",
     "loq",
@@ -133,9 +150,12 @@ __all__ = [
     "lss",
     "qd",
     "qi",
+    "regression",
     "rp",
     "sceaster",
     "seasonal",
+    "seats",
+    "series",
     "sincos",
     "so",
     "tc",
@@ -147,6 +167,8 @@ __all__ = [
     "tdstock1coef",
     "thank",
     "tl",
+    "transform",
+    "x11",
 ]
 
 
@@ -986,3 +1008,1594 @@ class ArimaModel:
             msg = "ArimaModel.from_specs requires at least one ArimaSpec."
             raise ValueError(msg)
         return cls(list(specs), default=default)
+
+
+# ---------------------------------------------------------------------------
+# Span helper
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True, slots=True)
+class Span:
+    """A start/end MIT pair with optional open endpoints.
+
+    Mirrors ``x13spec.jl:163-171``. Either endpoint may be :data:`None`
+    (Julia ``missing``), meaning "use the underlying series' first or last
+    observation". Both endpoints together define an inclusive range.
+
+    The Julia upstream also accepts fuzzy ``end`` values such as ``M11`` or
+    ``Q2`` (resolved to the most recent occurrence in the series); the
+    Python port restricts ``b`` and ``e`` to :class:`MIT` or :data:`None`
+    in M2.2. Fuzzy endings land in a later session if a builder (e.g.
+    ``x11regression``) requires them.
+
+    Construct from an :class:`~tsecon.mitrange.MITRange` via
+    :meth:`from_range` (mirrors Julia's
+    ``Span(x::UnitRange{<:MIT}) = new(first(x), last(x))``).
+    """
+
+    b: MIT | None = None
+    e: MIT | None = None
+
+    @classmethod
+    def from_range(cls, mr: MITRange) -> Span:
+        """Construct from an inclusive :class:`~tsecon.mitrange.MITRange`."""
+        return cls(mr.first(), mr.last())
+
+
+# ---------------------------------------------------------------------------
+# X13series container + series() builder
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True, slots=True)
+class X13series:
+    """The ``series`` spec block — the time series + its load-time options.
+
+    Mirrors ``x13spec.jl:175-199`` (``X13series{F<:Frequency}``). The Julia
+    type-parameter ``F`` is dropped — the underlying :class:`~tsecon.tseries.TSeries`
+    already carries its own :class:`~tsecon.frequencies.Frequency` instance.
+
+    Constructed by :func:`series`; never construct directly outside the
+    spec-builder path (validation happens in :func:`series`, not in
+    ``__init__``).
+    """
+
+    appendbcst: bool | X13default
+    appendfcst: bool | X13default
+    comptype: str | X13default
+    compwt: float | X13default
+    data: TSeries
+    decimals: int | X13default
+    file: str | X13default
+    format: str | X13default
+    modelspan: MITRange | Span | X13default
+    name: str | X13default
+    period: int | X13default
+    precision: int | X13default
+    print: str | list[str] | X13default
+    save: str | list[str] | X13default
+    span: MITRange | Span | X13default
+    start: MIT | X13default
+    title: str | X13default
+    type: str | X13default
+    divpower: int | X13default
+    missingcode: float | X13default
+    missingval: float | X13default
+    saveprecision: int | X13default
+    trimzero: bool | str | X13default
+
+
+_SERIES_PRINT_ALL: Final[list[str]] = [
+    "default",
+    "adjoriginal",
+    "adjorigplot",
+    "calendaradjorig",
+    "outlieradjorig",
+    "seriesplot",
+]
+_SERIES_SAVE_ALL: Final[list[str]] = [
+    "span",
+    "specfile",
+    "adjoriginal",
+    "calendaradjorig",
+    "outlieradjorig",
+    "seriesmvadj",
+]
+
+
+def _expand_all(
+    value: str | list[str] | X13default,
+    all_list: list[str],
+) -> str | list[str] | X13default:
+    """Mirror Julia's ``print=:all`` / ``save=:all`` expansion to a fixed list.
+
+    Mirrors the per-builder pattern at e.g. ``x13spec.jl:814-819``:
+    if the user passed ``"all"`` (scalar) or ``["all"]`` (1-element list),
+    expand to the spec-specific "everything" list. Otherwise return
+    ``value`` unchanged.
+    """
+    if isinstance(value, str) and value == "all":
+        return list(all_list)
+    if isinstance(value, list) and value == ["all"]:
+        return list(all_list)
+    return value
+
+
+def _check_span_against(
+    span: MITRange | Span | X13default,
+    data: TSeries,
+    *,
+    arg_name: str = "span",
+) -> None:
+    """Verify a span argument lies within ``data.range``.
+
+    Mirrors the ``span isa UnitRange`` / ``span isa Span`` containment
+    checks at ``x13spec.jl:777-788``. ``X13default`` and absent endpoints
+    short-circuit. Raises :exc:`ValueError` (Python idiom for
+    Julia's ``ArgumentError``).
+    """
+    if isinstance(span, X13default):
+        return
+    data_first = data.range.first()
+    data_last = data.range.last()
+    if isinstance(span, MITRange):
+        if span.first() < data_first or span.last() > data_last:
+            msg = (
+                f"{arg_name} ({span!r}) must be contained within the range "
+                f"of the provided series ({data.range!r})."
+            )
+            raise ValueError(msg)
+    elif isinstance(span, Span):
+        if span.b is not None and span.b < data_first:
+            msg = (
+                f"The start of the specified {arg_name} must be on or after "
+                f"the start of the provided series ({data_first!r}). "
+                f"Received: {span.b!r}"
+            )
+            raise ValueError(msg)
+        if span.e is not None and span.e > data_last:
+            msg = (
+                f"The end of the specified {arg_name} must be on or before "
+                f"the end of the provided series ({data_last!r}). "
+                f"Received: {span.e!r}"
+            )
+            raise ValueError(msg)
+
+
+def series(
+    t: TSeries,
+    *,
+    appendbcst: bool | X13default = _X13DEFAULT,
+    appendfcst: bool | X13default = _X13DEFAULT,
+    comptype: str | X13default = _X13DEFAULT,
+    compwt: float | X13default = _X13DEFAULT,
+    decimals: int | X13default = _X13DEFAULT,
+    file: str | X13default = _X13DEFAULT,
+    format: str | X13default = _X13DEFAULT,
+    modelspan: MITRange | Span | X13default = _X13DEFAULT,
+    name: str | X13default = _X13DEFAULT,
+    period: int | X13default = _X13DEFAULT,
+    precision: int | X13default = _X13DEFAULT,
+    print: str | list[str] | X13default = _X13DEFAULT,
+    save: str | list[str] | X13default = _X13DEFAULT,
+    span: MITRange | Span | X13default = _X13DEFAULT,
+    start: MIT | X13default = _X13DEFAULT,
+    title: str | X13default = _X13DEFAULT,
+    type: str | X13default = _X13DEFAULT,
+    divpower: int | X13default = _X13DEFAULT,
+    missingcode: float | X13default = _X13DEFAULT,
+    missingval: float | X13default = _X13DEFAULT,
+    saveprecision: int | X13default = _X13DEFAULT,
+    trimzero: bool | str | X13default = _X13DEFAULT,
+) -> X13series:
+    """Build the ``series`` spec — required for every X-13 run.
+
+    Mirrors ``x13spec.jl:732-822``. The ``t`` argument is the input
+    :class:`~tsecon.tseries.TSeries`; all other arguments are keyword-only
+    and mirror the Julia spec's named parameters one-for-one. Defaults are
+    the :data:`_X13DEFAULT` sentinel — fields holding the sentinel are
+    omitted by the M2.4 ``.spc`` writer, letting X-13 apply its built-in
+    default.
+
+    Validation performed:
+
+    * ``name`` and ``title`` truncated (with a :class:`UserWarning`) to 64
+      and 79 characters respectively, mirroring Julia.
+    * ``period`` is auto-set to ``ppy(t)`` for non-Monthly / non-Yearly
+      frequencies (Quarterly defaults to 4, etc.).
+    * ``span`` (whether :class:`~tsecon.mitrange.MITRange` or
+      :class:`Span`) must be contained within ``t.range``.
+    * :class:`Span` ``span`` endpoints must be :class:`MIT` or
+      :data:`None` — fuzzy endings (Julia's ``M11`` / ``Q2``) are
+      rejected here per upstream.
+    * ``divpower`` must be in ``[-9, 9]``.
+    * If ``t.values`` contains ``NaN``, ``missingcode`` must be set; the
+      output's ``data`` field has NaN replaced with ``missingcode`` in a
+      fresh copy (input ``t`` is not mutated).
+    * ``print="all"`` / ``save="all"`` expand to the upstream-defined
+      "everything" lists.
+
+    Returns an :class:`X13series` carrying the (possibly cropped /
+    NaN-replaced) data and the validated field values.
+    """
+    if not isinstance(t, TSeries):
+        # Runtime guard: the annotation says TSeries so mypy marks this path
+        # unreachable. Callers that bypass the annotation (``Any``-typed glue
+        # code, dynamic dispatch) still hit a sharp error rather than failing
+        # mid-derivation on ``t.range``.
+        msg = (  # type: ignore[unreachable]
+            f"series() requires a TSeries; got {t.__class__.__name__}."
+        )
+        raise TypeError(msg)
+
+    data = t.copy()
+    if not isinstance(start, X13default):
+        if start < data.range.first() or start > data.range.last():
+            msg = f"series() start={start!r} must be within the series range {data.range!r}."
+            raise ValueError(msg)
+        # Crop to start..end (inclusive).
+        start_idx = start - data.range.first()
+        data = TSeries(start, data.values[start_idx:].copy())
+        start_value: MIT | X13default = start
+    else:
+        start_value = data.range.first()
+
+    if isinstance(name, str) and len(name) > 64:
+        warnings.warn(
+            f"Series name truncated to 64 characters. Full name: {name}",
+            UserWarning,
+            stacklevel=2,
+        )
+        name = name[:64]
+
+    if isinstance(title, str) and len(title) > 79:
+        warnings.warn(
+            f"Series title truncated to 79 characters. Full title: {title}",
+            UserWarning,
+            stacklevel=2,
+        )
+        title = title[:79]
+
+    if not isinstance(t.frequency, Monthly) and not isinstance(t.frequency, Yearly):
+        period = ppy(t.frequency)
+
+    _check_span_against(span, t, arg_name="span")
+    _check_span_against(modelspan, t, arg_name="modelspan")
+
+    if not isinstance(divpower, X13default) and (divpower < -9 or divpower > 9):
+        msg = f"divpower values must be between -9 and 9 (inclusive). Received: {divpower}."
+        raise ValueError(msg)
+
+    if np.isnan(data.values).any():
+        if isinstance(missingcode, X13default):
+            msg = (
+                "The provided tseries has NaN values but no `missingcode` "
+                "was specified. Please specify a missingcode for your "
+                "Series argument. I.e. missingcode = -99999.0."
+            )
+            raise ValueError(msg)
+        data = data.copy()
+        nan_mask = np.isnan(data.values)
+        data.values[nan_mask] = missingcode
+
+    print = _expand_all(print, _SERIES_PRINT_ALL)
+    save = _expand_all(save, _SERIES_SAVE_ALL)
+
+    return X13series(
+        appendbcst=appendbcst,
+        appendfcst=appendfcst,
+        comptype=comptype,
+        compwt=compwt,
+        data=data,
+        decimals=decimals,
+        file=file,
+        format=format,
+        modelspan=modelspan,
+        name=name,
+        period=period,
+        precision=precision,
+        print=print,
+        save=save,
+        span=span,
+        start=start_value,
+        title=title,
+        type=type,
+        divpower=divpower,
+        missingcode=missingcode,
+        missingval=missingval,
+        saveprecision=saveprecision,
+        trimzero=trimzero,
+    )
+
+
+# ---------------------------------------------------------------------------
+# X13arima container + arima() builder
+# ---------------------------------------------------------------------------
+
+
+_FloatOrNone = float | None
+_ArArg = list[_FloatOrNone] | list[float] | X13default
+
+
+@dataclass(frozen=True, slots=True)
+class X13arima:
+    """The ``arima`` spec block — the ARIMA(p, d, q)(P, D, Q) component.
+
+    Mirrors ``x13spec.jl:245-252``. The ``model`` field is an
+    :class:`ArimaModel` (one or more :class:`ArimaSpec` operators); the
+    AR / MA initial-value vectors (``ar`` / ``ma``) and their fixed-flag
+    counterparts (``fixar`` / ``fixma``) align position-by-position with
+    the model's coefficient sequence. Missing initial values default to
+    ``0.1`` in the binary, encoded as :data:`None` here.
+    """
+
+    model: ArimaModel
+    title: str | X13default
+    ar: list[_FloatOrNone] | list[float] | X13default
+    ma: list[_FloatOrNone] | list[float] | X13default
+    fixar: list[bool] | X13default
+    fixma: list[bool] | X13default
+
+
+def arima(
+    model: ArimaModel | ArimaSpec | tuple[ArimaSpec, ...],
+    *,
+    title: str | X13default = _X13DEFAULT,
+    ar: _ArArg = _X13DEFAULT,
+    ma: _ArArg = _X13DEFAULT,
+    fixar: list[bool] | X13default = _X13DEFAULT,
+    fixma: list[bool] | X13default = _X13DEFAULT,
+) -> X13arima:
+    """Build the ``arima`` spec — the ARIMA part of the regARIMA model.
+
+    Mirrors ``x13spec.jl:873-911``. Accepts any of:
+
+    * an :class:`ArimaModel` (the primary Julia overload),
+    * a single :class:`ArimaSpec` (wrapped via :meth:`ArimaModel.from_specs`),
+    * a tuple of :class:`ArimaSpec` (wrapped via :meth:`ArimaModel.from_specs`).
+
+    The two-positional-tuple form mirrors :meth:`ArimaSpec.two_seasonal`'s
+    return shape, so ``arima(ArimaSpec.two_seasonal(1,1,1,0,1,1))`` ports
+    Julia's ``arima(ArimaSpec(1,1,1,0,1,1)...)`` idiom.
+
+    Validation:
+
+    * ``fixar`` length must match ``ar`` length (if both set).
+    * ``fixma`` length must match ``ma`` length (if both set).
+    * ``title`` truncated to 79 chars with a :class:`UserWarning`.
+    """
+    if isinstance(model, ArimaSpec):
+        wrapped: ArimaModel = ArimaModel.from_specs(model)
+    elif isinstance(model, tuple):
+        wrapped = ArimaModel.from_specs(*model)
+    elif isinstance(model, ArimaModel):
+        wrapped = model
+    else:
+        # Type annotation enumerates every branch above; this catch-all
+        # guards Any-typed glue code from M2.4 (X13spec.arima = arima(...)).
+        msg = (  # type: ignore[unreachable]
+            f"arima() model must be ArimaModel, ArimaSpec, or tuple of "
+            f"ArimaSpec; got {model.__class__.__name__}."
+        )
+        raise TypeError(msg)
+
+    if (
+        not isinstance(fixar, X13default)
+        and not isinstance(ar, X13default)
+        and len(fixar) != len(ar)
+    ):
+        msg = f"fixar must have the same length as ar. Provided ar={ar}, fixar={fixar}."
+        raise ValueError(msg)
+    if (
+        not isinstance(fixma, X13default)
+        and not isinstance(ma, X13default)
+        and len(fixma) != len(ma)
+    ):
+        msg = f"fixma must have the same length as ma. Provided ma={ma}, fixma={fixma}."
+        raise ValueError(msg)
+
+    if isinstance(title, str) and len(title) > 79:
+        warnings.warn(
+            f"Arima title truncated to 79 characters. Full title: {title}",
+            UserWarning,
+            stacklevel=2,
+        )
+        title = title[:79]
+
+    return X13arima(
+        model=wrapped,
+        title=title,
+        ar=ar,
+        ma=ma,
+        fixar=fixar,
+        fixma=fixma,
+    )
+
+
+# ---------------------------------------------------------------------------
+# X13automdl container + automdl() builder
+# ---------------------------------------------------------------------------
+
+
+_IntOrNone = int | None
+
+
+@dataclass(frozen=True, slots=True)
+class X13automdl:
+    """The ``automdl`` spec block — automatic ARIMA model selection.
+
+    Mirrors ``x13spec.jl:254-272``. Auto-selects the ARIMA orders given
+    bounds on the regular/seasonal differencing and ARMA polynomial
+    degrees. Mutually exclusive with ``arima``.
+    """
+
+    diff: list[int] | X13default
+    acceptdefault: bool | X13default
+    checkmu: bool | X13default
+    ljungboxlimit: float | X13default
+    maxorder: list[_IntOrNone] | X13default
+    maxdiff: list[_IntOrNone] | X13default
+    mixed: bool | X13default
+    print: str | list[str] | X13default
+    savelog: str | list[str] | X13default
+    armalimit: float | X13default
+    balanced: bool | X13default
+    exactdiff: bool | str | X13default
+    fcstlim: int | X13default
+    hrinitial: bool | X13default
+    reducecv: float | X13default
+    rejectfcst: bool | X13default
+    urfinal: float | X13default
+
+
+_AUTOMDL_DEFAULT_PRINT: Final[list[str]] = [
+    "autochoice",
+    "autochoicemdl",
+    "autodefaulttests",
+    "autofinaltests",
+    "autoljungboxtest",
+    "bestfivemdl",
+    "header",
+    "unitroottest",
+    "unitroottestmdl",
+]
+
+
+def automdl(  # noqa: PLR0912
+    *,
+    diff: list[int] | X13default = _X13DEFAULT,
+    acceptdefault: bool | X13default = _X13DEFAULT,
+    checkmu: bool | X13default = _X13DEFAULT,
+    ljungboxlimit: float | X13default = _X13DEFAULT,
+    maxorder: list[_IntOrNone] | X13default = _X13DEFAULT,
+    maxdiff: list[_IntOrNone] | X13default = _X13DEFAULT,
+    mixed: bool | X13default = _X13DEFAULT,
+    print: str | list[str] | X13default | None = None,
+    savelog: str | list[str] | X13default | None = None,
+    armalimit: float | X13default = _X13DEFAULT,
+    balanced: bool | X13default = _X13DEFAULT,
+    exactdiff: bool | str | X13default = _X13DEFAULT,
+    fcstlim: int | X13default = _X13DEFAULT,
+    hrinitial: bool | X13default = _X13DEFAULT,
+    reducecv: float | X13default = _X13DEFAULT,
+    rejectfcst: bool | X13default = _X13DEFAULT,
+    urfinal: float | X13default = _X13DEFAULT,
+) -> X13automdl:
+    """Build the ``automdl`` spec — automatic ARIMA model selection.
+
+    Mirrors ``x13spec.jl:1034-1141``. The ``print`` and ``savelog``
+    arguments default (in upstream Julia) to specific multi-element lists,
+    not :data:`_X13DEFAULT`. In Python the ``None`` sentinel triggers the
+    same defaults (a non-:data:`X13default` default would otherwise be
+    serialized as the *user's* choice, masking that the binary's default
+    differs).
+
+    Validation:
+
+    * ``diff`` must be length 2; values ``∈ {0, 1, 2}`` (regular) and
+      ``{0, 1}`` (seasonal).
+    * ``maxdiff`` must be length 2; values ``∈ {1, 2}`` (regular) and
+      ``{1}`` (seasonal). :data:`None` slots accepted.
+    * ``maxorder`` must be length 2; values ``∈ {1, 2, 3, 4}`` (regular)
+      and ``{1, 2}`` (seasonal). :data:`None` slots accepted.
+    * ``diff`` is ignored if both ``diff`` and ``maxdiff`` are set; a
+      :class:`UserWarning` flags the redundancy (upstream Julia parity).
+    """
+    if print is None:
+        print = list(_AUTOMDL_DEFAULT_PRINT)
+    if savelog is None:
+        savelog = "alldiagnostics"
+
+    if not isinstance(diff, X13default):
+        if len(diff) != 2:
+            msg = "The diff argument of the automdl spec must contain exactly two values."
+            raise ValueError(msg)
+        if diff[0] not in (0, 1, 2):
+            msg = (
+                f"Acceptable values for the regular differencing orders of "
+                f"the automdl spec are 0, 1, and 2. Received: {diff[0]}."
+            )
+            raise ValueError(msg)
+        if diff[1] not in (0, 1):
+            msg = (
+                f"Acceptable values for the seasonal differencing orders of "
+                f"the automdl spec are 0 and 1. Received: {diff[1]}."
+            )
+            raise ValueError(msg)
+        if not isinstance(maxdiff, X13default):
+            warnings.warn(
+                "The diff argument of the automdl spec will be ignored "
+                "because a maxdiff argument is specified.",
+                UserWarning,
+                stacklevel=2,
+            )
+
+    if not isinstance(maxdiff, X13default):
+        if len(maxdiff) != 2:
+            msg = "The maxdiff argument of the automdl spec must contain exactly two values."
+            raise ValueError(msg)
+        if maxdiff[0] is not None and maxdiff[0] not in (1, 2):
+            msg = (
+                f"Acceptable values for the regular maximum differencing "
+                f"orders of the automdl spec are 1 and 2. "
+                f"Received: {maxdiff[0]}."
+            )
+            raise ValueError(msg)
+        if maxdiff[1] is not None and maxdiff[1] not in (1,):
+            msg = (
+                f"The only acceptable value for the seasonal maximum "
+                f"differencing order of the automdl spec is 1. "
+                f"Received: {maxdiff[1]}."
+            )
+            raise ValueError(msg)
+
+    if not isinstance(maxorder, X13default):
+        if len(maxorder) != 2:
+            msg = "The maxorder argument of the automdl spec must contain exactly two values."
+            raise ValueError(msg)
+        if maxorder[0] is not None and maxorder[0] not in (1, 2, 3, 4):
+            msg = (
+                f"The maximum order for the regular ARMA model must be "
+                f"greater than zero and can be at most 4. "
+                f"Received: {maxorder[0]}."
+            )
+            raise ValueError(msg)
+        if maxorder[1] is not None and maxorder[1] not in (1, 2):
+            msg = (
+                f"The maximum order for the seasonal ARMA model can be "
+                f"either 1 or 2. Received: {maxorder[1]}."
+            )
+            raise ValueError(msg)
+
+    return X13automdl(
+        diff=diff,
+        acceptdefault=acceptdefault,
+        checkmu=checkmu,
+        ljungboxlimit=ljungboxlimit,
+        maxorder=maxorder,
+        maxdiff=maxdiff,
+        mixed=mixed,
+        print=print,
+        savelog=savelog,
+        armalimit=armalimit,
+        balanced=balanced,
+        exactdiff=exactdiff,
+        fcstlim=fcstlim,
+        hrinitial=hrinitial,
+        reducecv=reducecv,
+        rejectfcst=rejectfcst,
+        urfinal=urfinal,
+    )
+
+
+# ---------------------------------------------------------------------------
+# X13transform container + transform() builder
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True, slots=True)
+class X13transform:
+    """The ``transform`` spec block — pre-modeling data transformation.
+
+    Mirrors ``x13spec.jl:467-486``. Selects between log, Box-Cox-power,
+    or user-supplied prior-adjustment transformation modes.
+    """
+
+    adjust: str | X13default
+    aicdiff: float | X13default
+    data: TSeries | MVTSeries | X13default
+    file: str | X13default
+    format: str | X13default
+    func: str | X13default
+    mode: str | list[str] | X13default
+    name: str | list[str] | X13default
+    power: float | X13default
+    precision: int | X13default
+    print: str | list[str] | X13default
+    save: str | list[str] | X13default
+    savelog: str | list[str] | X13default
+    start: MIT | list[MIT] | X13default
+    title: str | X13default
+    type: str | list[str] | X13default
+    constant: float | X13default
+    trimzero: bool | str | X13default
+
+
+_TRANSFORM_PRINT_ALL: Final[list[str]] = [
+    "aictransform",
+    "seriesconstant",
+    "seriesconstantplot",
+    "prior",
+    "permprior",
+    "tempprior",
+    "prioradjusted",
+    "permprioradjusted",
+    "prioradjustedptd",
+    "permprioradjustedptd",
+    "transformed",
+]
+_TRANSFORM_SAVE_ALL: Final[list[str]] = [
+    "seriesconstant",
+    "prior",
+    "permprior",
+    "tempprior",
+    "prioradjusted",
+    "permprioradjusted",
+    "prioradjustedptd",
+    "permprioradjustedptd",
+    "transformed",
+]
+
+
+def transform(  # noqa: PLR0912
+    *,
+    adjust: str | X13default = _X13DEFAULT,
+    aicdiff: float | X13default = _X13DEFAULT,
+    data: TSeries | MVTSeries | X13default = _X13DEFAULT,
+    file: str | X13default = _X13DEFAULT,
+    format: str | X13default = _X13DEFAULT,
+    func: str | X13default = _X13DEFAULT,
+    mode: str | list[str] | X13default = _X13DEFAULT,
+    power: float | X13default = _X13DEFAULT,
+    precision: int | X13default = _X13DEFAULT,
+    print: str | list[str] | X13default = _X13DEFAULT,
+    save: str | list[str] | X13default = _X13DEFAULT,
+    savelog: str | list[str] | X13default | None = None,
+    title: str | X13default = _X13DEFAULT,
+    type: str | list[str] | X13default = _X13DEFAULT,
+    constant: float | X13default = _X13DEFAULT,
+    trimzero: bool | str | X13default = _X13DEFAULT,
+) -> X13transform:
+    """Build the ``transform`` spec — pre-modeling transformation selector.
+
+    Mirrors ``x13spec.jl:2928-3010``. Derives ``start`` and ``name`` from
+    ``data`` when set (mirrors the Julia upstream's derivation block).
+
+    Validation:
+
+    * ``power`` and ``func`` are mutually exclusive.
+    * ``adjust="lpyear"`` is only valid with a log-transform
+      (``power=0.0`` or ``func="log"``).
+    * ``mode`` is at most two values; ``"diff"`` is incompatible with
+      ``"ratio"`` / ``"percent"`` in the same list.
+    * ``title`` truncated to 79 chars with a :class:`UserWarning`.
+    * ``type`` requires ``data`` set; ``type`` list length must match
+      the number of provided series.
+    """
+    if savelog is None:
+        savelog = "autotransform"
+
+    start: MIT | list[MIT] | X13default = _X13DEFAULT
+    name: str | list[str] | X13default = _X13DEFAULT
+    if not isinstance(data, X13default):
+        start = data.range.first()
+        if isinstance(data, MVTSeries):
+            names = list(data.column_names)
+            name = names[0] if len(names) == 1 else names
+
+    if not isinstance(func, X13default) and not isinstance(power, X13default):
+        msg = "Either power or func can be specified, but not both."
+        raise ValueError(msg)
+
+    if not isinstance(adjust, X13default) and adjust == "lpyear":
+        if not isinstance(power, X13default) and power != 0.0:
+            msg = "adjust='lpyear' is only allowed when a log-transform (power=0.0) is specified."
+            raise ValueError(msg)
+        if not isinstance(func, X13default) and func != "log":
+            msg = "adjust='lpyear' is only allowed when a log-transform (func='log') is specified."
+            raise ValueError(msg)
+
+    if isinstance(mode, list):
+        if len(mode) > 2:
+            msg = (
+                f"Only up to two values can be included in the mode "
+                f"argument. Received: {len(mode)}."
+            )
+            raise ValueError(msg)
+        if "diff" in mode and ("ratio" in mode or "percent" in mode):
+            msg = (
+                f"The 'diff' mode is not compatible with the 'ratio' or "
+                f"'percent' modes. Received: {mode}."
+            )
+            raise ValueError(msg)
+
+    if isinstance(title, str) and len(title) > 79:
+        warnings.warn(
+            f"Transform title truncated to 79 characters. Full title: {title}",
+            UserWarning,
+            stacklevel=2,
+        )
+        title = title[:79]
+
+    if not isinstance(type, X13default):
+        if isinstance(data, X13default):
+            msg = (
+                "A user-defined prior-adjustment type is specified, but no data has been provided."
+            )
+            raise ValueError(msg)
+        if isinstance(data, TSeries) and isinstance(type, list) and len(type) > 1:
+            msg = (
+                f"The number of user-defined prior adjustment types "
+                f"provided ({len(type)}) must match the number of data "
+                f"series provided (1)."
+            )
+            raise ValueError(msg)
+        if isinstance(data, MVTSeries):
+            ncols = data.shape[1]
+            if isinstance(type, list) and len(type) != ncols:
+                msg = (
+                    f"The number of user-defined prior adjustment types "
+                    f"provided ({len(type)}) must match the number of data "
+                    f"series provided ({ncols})."
+                )
+                raise ValueError(msg)
+            if isinstance(type, str) and ncols != 1:
+                msg = (
+                    f"The number of user-defined prior adjustment types "
+                    f"provided (1) must match the number of data series "
+                    f"provided ({ncols})."
+                )
+                raise ValueError(msg)
+
+    print = _expand_all(print, _TRANSFORM_PRINT_ALL)
+    save = _expand_all(save, _TRANSFORM_SAVE_ALL)
+
+    return X13transform(
+        adjust=adjust,
+        aicdiff=aicdiff,
+        data=data,
+        file=file,
+        format=format,
+        func=func,
+        mode=mode,
+        name=name,
+        power=power,
+        precision=precision,
+        print=print,
+        save=save,
+        savelog=savelog,
+        start=start,
+        title=title,
+        type=type,
+        constant=constant,
+        trimzero=trimzero,
+    )
+
+
+# ---------------------------------------------------------------------------
+# X13regression container + regression() builder
+# ---------------------------------------------------------------------------
+
+
+_VariableArg = str | X13var
+_VariablesField = _VariableArg | list[_VariableArg] | X13default
+
+
+@dataclass(frozen=True, slots=True)
+class X13regression:
+    """The ``regression`` spec block — regARIMA regressors / outliers.
+
+    Mirrors ``x13spec.jl:383-407``. Carries the predefined regressor list
+    (``variables``), the user-supplied regressors (``data`` /  ``user``),
+    initial coefficient values (``b``) and fix-flags (``fixb``), and the
+    AIC-comparison configuration (``aictest`` / ``aicdiff``).
+    """
+
+    aicdiff: list[_FloatOrNone] | list[float] | X13default
+    aictest: str | list[str] | X13default
+    chi2test: bool | X13default
+    chi2testcv: float | X13default
+    data: MVTSeries | X13default
+    file: str | X13default
+    format: str | X13default
+    print: str | list[str] | X13default
+    save: str | list[str] | X13default
+    savelog: str | list[str] | X13default
+    pvaictest: float | X13default
+    start: MIT | X13default
+    testalleaster: bool | X13default
+    tlimit: float | X13default
+    user: str | list[str] | X13default
+    usertype: str | list[str] | X13default
+    variables: _VariablesField
+    b: list[float] | X13default
+    fixb: list[bool] | X13default
+    centeruser: str | X13default
+    eastermeans: bool | X13default
+    noapply: str | X13default
+    tcrate: float | X13default
+
+
+_REGRESSION_USERTYPE_ALLOWED: Final[frozenset[str]] = frozenset(
+    {
+        "constant",
+        "seasonal",
+        "td",
+        "lom",
+        "loq",
+        "lpyear",
+        "ao",
+        "ls",
+        "so",
+        "transitory",
+        "user",
+        "holiday",
+        "holiday2",
+        "holiday3",
+        "holiday4",
+        "holiday5",
+    }
+)
+_REGRESSION_AICTEST_ALLOWED: Final[frozenset[str]] = frozenset(
+    {
+        "td",
+        "tdnolpyear",
+        "tdstock",
+        "td1coef",
+        "td1nolpyear",
+        "tdstock1coef",
+        "lom",
+        "loq",
+        "lpyear",
+        "easter",
+        "easterstock",
+        "user",
+    }
+)
+_REGRESSION_PRINT_ALL: Final[list[str]] = [
+    "regressionmatrix",
+    "aictest",
+    "outlier",
+    "aoutlier",
+    "levelshift",
+    "seasonaloutlier",
+    "transitory",
+    "temporarychange",
+    "tradingday",
+    "holiday",
+    "regseasonal",
+    "userdef",
+    "chi2test",
+    "dailyweights",
+]
+_REGRESSION_SAVE_ALL: Final[list[str]] = [
+    "regressionmatrix",
+    "outlier",
+    "aoutlier",
+    "levelshift",
+    "seasonaloutlier",
+    "transitory",
+    "temporarychange",
+    "tradingday",
+    "holiday",
+    "regseasonal",
+    "userdef",
+]
+
+
+def _check_calendar_variable_bounds(v: X13var) -> None:
+    """Enforce per-type ``n`` bounds for calendar-int X13var regressors.
+
+    Mirrors ``x13spec.jl:2294-2311``. Bounds are X-13 documented limits:
+    ``tdstock`` ∈ [1, 31], ``easter`` ∈ [0, 25], ``labor`` ∈ [1, 25],
+    ``thank`` ∈ [-8, 17], ``sceaster`` ∈ [1, 24], ``easterstock`` ∈ [1, 25].
+    """
+    if isinstance(v, tdstock):
+        if v.n < 1 or v.n > 31:
+            msg = (
+                f"tdstock variables must have a value between 1 and 31 "
+                f"(inclusive). Received: {v.n}."
+            )
+            raise ValueError(msg)
+    elif isinstance(v, easter):
+        if v.n < 0 or v.n > 25:
+            msg = (
+                f"easter variables must have a value between 1 and 25 (inclusive). Received: {v.n}."
+            )
+            raise ValueError(msg)
+    elif isinstance(v, labor):
+        if v.n < 1 or v.n > 25:
+            msg = (
+                f"labor variables must have a value between 1 and 25 (inclusive). Received: {v.n}."
+            )
+            raise ValueError(msg)
+    elif isinstance(v, thank):
+        if v.n < -8 or v.n > 17:
+            msg = (
+                f"thank variables must have a value between -8 and 17 (inclusive). Received: {v.n}."
+            )
+            raise ValueError(msg)
+    elif isinstance(v, sceaster):
+        if v.n < 1 or v.n > 24:
+            msg = (
+                f"sceaster variables must have a value between 1 and 24 "
+                f"(inclusive). Received: {v.n}."
+            )
+            raise ValueError(msg)
+    elif isinstance(v, easterstock) and (v.n < 1 or v.n > 25):
+        msg = (
+            f"easterstock variables must have a value between 1 and 25 "
+            f"(inclusive). Received: {v.n}."
+        )
+        raise ValueError(msg)
+
+
+def _check_outlier_overlaps(
+    variables: list[_VariableArg],
+) -> None:
+    """Warn (via :class:`UserWarning`) on overlapping ``aos`` / ``lss`` ranges.
+
+    Mirrors ``x13spec.jl:2319-2332``. Range outliers (``aos`` / ``lss``)
+    in the same regression cause coefficient identification issues; the
+    upstream warns, we follow.
+    """
+    aos_ranges: list[MITRange] = [MITRange(v.mit1, v.mit2) for v in variables if isinstance(v, aos)]
+    lss_ranges: list[MITRange] = [MITRange(v.mit1, v.mit2) for v in variables if isinstance(v, lss)]
+    for label, ranges in (("aos", aos_ranges), ("lss", lss_ranges)):
+        for i in range(len(ranges)):
+            for j in range(i + 1, len(ranges)):
+                a, b = ranges[i], ranges[j]
+                if not (a.last() < b.first() or b.last() < a.first()):
+                    warnings.warn(
+                        f"The variables argument has overlapping {label} "
+                        f"specifications: {a!r} and {b!r}.",
+                        UserWarning,
+                        stacklevel=3,
+                    )
+
+
+def regression(  # noqa: PLR0912
+    *,
+    aicdiff: list[_FloatOrNone] | list[float] | X13default = _X13DEFAULT,
+    aictest: str | list[str] | X13default = _X13DEFAULT,
+    chi2test: bool | X13default = _X13DEFAULT,
+    chi2testcv: float | X13default = _X13DEFAULT,
+    data: MVTSeries | X13default = _X13DEFAULT,
+    file: str | X13default = _X13DEFAULT,
+    format: str | X13default = _X13DEFAULT,
+    print: str | list[str] | X13default = _X13DEFAULT,
+    save: str | list[str] | X13default = _X13DEFAULT,
+    savelog: str | list[str] | X13default | None = None,
+    pvaictest: float | X13default = _X13DEFAULT,
+    testalleaster: bool | X13default = _X13DEFAULT,
+    tlimit: float | X13default = _X13DEFAULT,
+    usertype: str | list[str] | X13default = _X13DEFAULT,
+    variables: _VariablesField = _X13DEFAULT,
+    b: list[float] | X13default = _X13DEFAULT,
+    fixb: list[bool] | X13default = _X13DEFAULT,
+    centeruser: str | X13default = _X13DEFAULT,
+    eastermeans: bool | X13default = _X13DEFAULT,
+    noapply: str | X13default = _X13DEFAULT,
+    tcrate: float | X13default = _X13DEFAULT,
+) -> X13regression:
+    """Build the ``regression`` spec — regressors / outliers for regARIMA.
+
+    Mirrors ``x13spec.jl:2219-2354``. The ``start`` and ``user`` fields
+    are derived from ``data`` (mirrors the Julia upstream's derivation;
+    no user-facing ``start=`` / ``user=`` kwargs are accepted because
+    Julia overrides them).
+
+    Validation:
+
+    * ``aicdiff`` and ``pvaictest`` are mutually exclusive.
+    * ``usertype`` (when set) must be one of the documented X-13 effect
+      types; vector form's length must match the number of user series.
+    * ``aictest`` (when set) must be in the documented set of testable
+      effects.
+    * Per-variable ``n`` bounds checked for ``tdstock`` / ``easter`` /
+      ``labor`` / ``thank`` / ``sceaster`` / ``easterstock``.
+    * Overlapping ``aos`` / ``lss`` ranges emit a :class:`UserWarning`.
+    """
+    if savelog is None:
+        savelog = ["aictest", "chi2test"]
+
+    start: MIT | X13default = _X13DEFAULT
+    user: str | list[str] | X13default = _X13DEFAULT
+    if not isinstance(data, X13default):
+        start = data.range.first()
+        names = list(data.column_names)
+        user = names[0] if len(names) == 1 else names
+
+    if not isinstance(aicdiff, X13default) and not isinstance(pvaictest, X13default):
+        msg = (
+            "The aicdiff argument cannot be used in the same regression spec "
+            "as the pvaictest argument."
+        )
+        raise ValueError(msg)
+
+    if not isinstance(usertype, X13default):
+        if (
+            isinstance(usertype, list)
+            and isinstance(user, list)
+            and len(usertype) > 1
+            and len(usertype) != len(user)
+        ):
+            msg = (
+                f"The usertype argument must have the same length as "
+                f"the number of user series provided ({len(user)}) when "
+                f"more than a single type is specified. "
+                f"Received: {usertype}"
+            )
+            raise ValueError(msg)
+        if isinstance(usertype, list):
+            bad = [u for u in usertype if u not in _REGRESSION_USERTYPE_ALLOWED]
+            if bad:
+                msg = (
+                    f"The usertype argument can only have the following "
+                    f"values: {sorted(_REGRESSION_USERTYPE_ALLOWED)}. "
+                    f"Received: {usertype}"
+                )
+                raise ValueError(msg)
+        elif isinstance(usertype, str) and usertype not in _REGRESSION_USERTYPE_ALLOWED:
+            msg = (
+                f"The usertype argument can only have the following values: "
+                f"{sorted(_REGRESSION_USERTYPE_ALLOWED)}. "
+                f"Received: {usertype}"
+            )
+            raise ValueError(msg)
+
+    if not isinstance(variables, X13default):
+        vars_list: list[_VariableArg] = (
+            list(variables) if isinstance(variables, list) else [variables]
+        )
+        for v in vars_list:
+            if isinstance(v, X13var):
+                _check_calendar_variable_bounds(v)
+        _check_outlier_overlaps(vars_list)
+
+    if isinstance(aictest, str):
+        if aictest not in _REGRESSION_AICTEST_ALLOWED:
+            msg = (
+                f"aictest can only contain these entries: "
+                f"{sorted(_REGRESSION_AICTEST_ALLOWED)}. Received: {aictest}."
+            )
+            raise ValueError(msg)
+    elif isinstance(aictest, list):
+        bad_aic = [a for a in aictest if a not in _REGRESSION_AICTEST_ALLOWED]
+        if bad_aic:
+            msg = (
+                f"aictest can only contain these entries: "
+                f"{sorted(_REGRESSION_AICTEST_ALLOWED)}. Received: {aictest}."
+            )
+            raise ValueError(msg)
+
+    print = _expand_all(print, _REGRESSION_PRINT_ALL)
+    save = _expand_all(save, _REGRESSION_SAVE_ALL)
+
+    return X13regression(
+        aicdiff=aicdiff,
+        aictest=aictest,
+        chi2test=chi2test,
+        chi2testcv=chi2testcv,
+        data=data,
+        file=file,
+        format=format,
+        print=print,
+        save=save,
+        savelog=savelog,
+        pvaictest=pvaictest,
+        start=start,
+        testalleaster=testalleaster,
+        tlimit=tlimit,
+        user=user,
+        usertype=usertype,
+        variables=variables,
+        b=b,
+        fixb=fixb,
+        centeruser=centeruser,
+        eastermeans=eastermeans,
+        noapply=noapply,
+        tcrate=tcrate,
+    )
+
+
+# ---------------------------------------------------------------------------
+# X13forecast container + forecast() builder
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True, slots=True)
+class X13forecast:
+    """The ``forecast`` spec block — out-of-sample forecast generation.
+
+    Mirrors ``x13spec.jl:310-318``. ``maxlead`` controls how far ahead
+    point forecasts and their variances are produced; ``maxback`` does
+    the same for backcasts.
+    """
+
+    exclude: int | X13default
+    lognormal: bool | X13default
+    maxback: int | X13default
+    maxlead: int | X13default
+    print: str | list[str] | X13default
+    save: str | list[str] | X13default
+    probability: float | X13default
+
+
+_FORECAST_PRINT_ALL: Final[list[str]] = [
+    "transformed",
+    "variances",
+    "forecasts",
+    "transformedbcst",
+    "backcasts",
+]
+_FORECAST_SAVE_ALL: Final[list[str]] = list(_FORECAST_PRINT_ALL)
+
+
+def forecast(
+    *,
+    exclude: int | X13default = _X13DEFAULT,
+    lognormal: bool | X13default = _X13DEFAULT,
+    maxback: int | X13default = _X13DEFAULT,
+    maxlead: int | X13default = _X13DEFAULT,
+    print: str | list[str] | X13default = _X13DEFAULT,
+    save: str | list[str] | X13default = _X13DEFAULT,
+    probability: float | X13default = _X13DEFAULT,
+) -> X13forecast:
+    """Build the ``forecast`` spec — forecast / backcast options.
+
+    Mirrors ``x13spec.jl:1409-1429``. Expands ``print="all"`` /
+    ``save="all"`` to the upstream-defined "everything" lists; otherwise
+    pass-through.
+    """
+    print = _expand_all(print, _FORECAST_PRINT_ALL)
+    save = _expand_all(save, _FORECAST_SAVE_ALL)
+    return X13forecast(
+        exclude=exclude,
+        lognormal=lognormal,
+        maxback=maxback,
+        maxlead=maxlead,
+        print=print,
+        save=save,
+        probability=probability,
+    )
+
+
+# ---------------------------------------------------------------------------
+# X13seats container + seats() builder
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True, slots=True)
+class X13seats:
+    """The ``seats`` spec block — model-based signal-extraction adjustment.
+
+    Mirrors ``x13spec.jl:409-430``. Activates the SEATS module for
+    seasonal decomposition based on the regARIMA model.
+    """
+
+    appendfcst: bool | X13default
+    finite: bool | X13default
+    hpcycle: bool | X13default
+    noadmiss: bool | X13default
+    out: int | X13default
+    print: str | list[str] | X13default
+    save: str | list[str] | X13default
+    savelog: str | list[str] | X13default
+    printphtrf: bool | X13default
+    qmax: int | X13default
+    statseas: bool | X13default
+    tabtables: list[str] | X13default
+    bias: int | X13default
+    epsiv: float | X13default
+    epsphi: int | X13default
+    hplan: int | X13default
+    imean: bool | X13default
+    maxit: int | X13default
+    rmod: float | X13default
+    xl: float | X13default
+
+
+_SEATS_SAVE_ALL: Final[list[str]] = [
+    "trend",
+    "seasonal",
+    "irregular",
+    "seasonaladj",
+    "transitory",
+    "adjustfac",
+    "adjustmentratio",
+    "trendfcstdecomp",
+    "seasonalfcstdecomp",
+    "ofd",
+    "seasonaladjfcstdecomp",
+    "transitoryfcstdecomp",
+    "seasadjconst",
+    "trendconst",
+    "totaladjustment",
+    "difforiginal",
+    "diffseasonaladj",
+    "difftrend",
+    "seasonalsum",
+    "cycle",
+    "longtermtrend",
+    "componentmodels",
+    "filtersaconc",
+    "filtersasym",
+    "filtertrendconc",
+    "filtertrendsym",
+    "squaredgainsaconc",
+    "squaredgainsasym",
+    "squaredgaintrendconc",
+    "squaredgaintrendsym",
+    "timeshiftsaconc",
+    "timeshifttrendconc",
+    "wkendfilter",
+    "seasonalpct",
+    "irregularpct",
+    "transitorypct",
+    "adjustfacpct",
+]
+
+
+def seats(
+    *,
+    appendfcst: bool | X13default = _X13DEFAULT,
+    finite: bool | X13default = _X13DEFAULT,
+    hpcycle: bool | X13default = _X13DEFAULT,
+    noadmiss: bool | X13default = _X13DEFAULT,
+    out: int | X13default = 0,
+    print: str | list[str] | X13default = _X13DEFAULT,
+    save: str | list[str] | X13default = _X13DEFAULT,
+    printphtrf: bool | X13default = _X13DEFAULT,
+    qmax: int | X13default = _X13DEFAULT,
+    statseas: bool | X13default = _X13DEFAULT,
+    tabtables: list[str] | X13default = _X13DEFAULT,
+    bias: int | X13default = _X13DEFAULT,
+    epsiv: float | X13default = _X13DEFAULT,
+    epsphi: int | X13default = _X13DEFAULT,
+    hplan: int | X13default = _X13DEFAULT,
+    imean: bool | X13default = _X13DEFAULT,
+    maxit: int | X13default = _X13DEFAULT,
+    rmod: float | X13default = _X13DEFAULT,
+    xl: float | X13default = _X13DEFAULT,
+) -> X13seats:
+    """Build the ``seats`` spec — SEATS signal-extraction options.
+
+    Mirrors ``x13spec.jl:2478-2527``. The upstream's ``savelog`` default
+    is the empty list to keep the binary happy on writethrough (see the
+    ``savelog = _X13default`` line at ``x13spec.jl:2513``); we honour
+    that and surface ``savelog`` as :data:`_X13DEFAULT` internally rather
+    than as a user-tunable kwarg.
+
+    Validation:
+
+    * ``epsiv`` must be > 0.
+    * Setting ``hplan`` while ``hpcycle=False`` emits a warning (HP
+      filters are applied regardless because ``hplan`` is set).
+    * ``print="all"`` is rejected (upstream Julia warns + drops); we
+      raise :exc:`ValueError` to surface the misuse explicitly under
+      the project's ``error::UserWarning`` filter.
+    * ``save="all"`` expands to the SEATS-specific everything list AND
+      forces ``out=0`` (mirrors upstream ``out=0`` reset).
+    """
+    if not isinstance(epsiv, X13default) and epsiv <= 0.0:
+        msg = f"epsiv should be a small positive number. Received: {epsiv}."
+        raise ValueError(msg)
+
+    if (
+        not isinstance(hpcycle, X13default)
+        and not isinstance(hplan, X13default)
+        and hpcycle is False
+    ):
+        warnings.warn(
+            f"Hodrick-Prescott filters will be used even though hpcycle is "
+            f"{hpcycle} because an hplan value has been specified.",
+            UserWarning,
+            stacklevel=2,
+        )
+
+    if (isinstance(print, str) and print == "all") or (
+        isinstance(print, list) and print == ["all"]
+    ):
+        msg = (
+            "The print='all' option is not available for the seats spec. "
+            "Pass an explicit list of table names instead."
+        )
+        raise ValueError(msg)
+
+    if (isinstance(save, str) and save == "all") or (isinstance(save, list) and save == ["all"]):
+        save = list(_SEATS_SAVE_ALL)
+        out = 0
+
+    return X13seats(
+        appendfcst=appendfcst,
+        finite=finite,
+        hpcycle=hpcycle,
+        noadmiss=noadmiss,
+        out=out,
+        print=print,
+        save=save,
+        savelog=_X13DEFAULT,
+        printphtrf=printphtrf,
+        qmax=qmax,
+        statseas=statseas,
+        tabtables=tabtables,
+        bias=bias,
+        epsiv=epsiv,
+        epsphi=epsphi,
+        hplan=hplan,
+        imean=imean,
+        maxit=maxit,
+        rmod=rmod,
+        xl=xl,
+    )
+
+
+# ---------------------------------------------------------------------------
+# X13x11 container + x11() builder
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True, slots=True)
+class X13x11:
+    """The ``x11`` spec block — X-11 (enhanced) seasonal adjustment.
+
+    Mirrors ``x13spec.jl:489-510``. The traditional Census-Bureau X-11
+    method, with auto-selection or per-period seasonal-MA configuration
+    and Henderson trend-MA selection.
+    """
+
+    appendbcst: bool | X13default
+    appendfcst: bool | X13default
+    final: str | list[str] | X13default
+    mode: str | X13default
+    print: str | list[str] | X13default
+    save: str | list[str] | X13default
+    savelog: str | list[str] | X13default
+    seasonalma: str | list[str] | X13default
+    sigmalim: list[_FloatOrNone] | list[float] | X13default
+    title: str | list[str] | X13default
+    trendma: int | X13default
+    type: str | X13default
+    calendarsigma: str | X13default
+    centerseasonal: bool | X13default
+    keepholiday: bool | X13default
+    print1stpass: bool | X13default
+    sfshort: bool | X13default
+    sigmavec: list[str] | X13default
+    trendic: float | X13default
+    true7term: bool | X13default
+
+
+_X11_PRINT_ALL: Final[list[str]] = [
+    "adjustdiff",
+    "adjustfac",
+    "adjustmentratio",
+    "calendar",
+    "calendaradjchanges",
+    "combholiday",
+    "ftestd8",
+    "irregular",
+    "irrwt",
+    "movseasrat",
+    "origchanges",
+    "qstat",
+    "replacsi",
+    "residualseasf",
+    "sachanges",
+    "seasadj",
+    "seasonal",
+    "seasonaldiff",
+    "tdaytype",
+    "trend",
+    "trendchanges",
+    "unmodsi",
+    "unmodsiox",
+    "x11diag",
+    "yrtotals",
+    "adjoriginalc",
+    "adjoriginald",
+    "autosf",
+    "extreme",
+    "extremeb",
+    "ftestb1",
+    "irregularadjao",
+    "irregularb",
+    "irregularc",
+    "irrwtb",
+    "mcdmovavg",
+    "modirregular",
+    "modoriginal",
+    "modseasadj",
+    "modsic4",
+    "modsid4",
+    "replacsib4",
+    "replacsib9",
+    "replacsic9",
+    "robustsa",
+    "seasadjb11",
+    "seasadjb6",
+    "seasadjc11",
+    "seasadjc6",
+    "seasadjconst",
+    "seasadjd6",
+    "seasonalb10",
+    "seasonalb5",
+    "seasonalc10",
+    "seasonalc5",
+    "seasonald5",
+    "sib3",
+    "sib8",
+    "tdadjorig",
+    "tdadjorigb",
+    "trendadjls",
+    "trendb2",
+    "trendb7",
+    "trendc2",
+    "trendc7",
+    "trendconst",
+    "trendd2",
+    "trendd7",
+    "irregularplot",
+    "origwsaplot",
+    "ratioplotorig",
+    "ratioplotsa",
+    "seasadjplot",
+    "seasonalplot",
+    "trendplot",
+]
+_X11_SAVE_ALL: Final[list[str]] = [
+    "adjustdiff",
+    "adjustfac",
+    "adjustmentratio",
+    "calendar",
+    "calendaradjchanges",
+    "combholiday",
+    "irregular",
+    "irrwt",
+    "origchanges",
+    "replacsi",
+    "sachanges",
+    "seasadj",
+    "seasonal",
+    "seasonaldiff",
+    "totaladjustment",
+    "trend",
+    "trendchanges",
+    "unmodsi",
+    "unmodsiox",
+    "adjoriginalc",
+    "adjoriginald",
+    "extreme",
+    "extremeb",
+    "irregularadjao",
+    "irregularb",
+    "irregularc",
+    "irrwtb",
+    "mcdmovavg",
+    "modirregular",
+    "modoriginal",
+    "modseasadj",
+    "modsic4",
+    "modsid4",
+    "replacsic9",
+    "robustsa",
+    "seasadjb11",
+    "seasadjb6",
+    "seasadjc11",
+    "seasadjc6",
+    "seasadjconst",
+    "seasadjd6",
+    "seasonalb10",
+    "seasonalb5",
+    "seasonalc10",
+    "seasonalc5",
+    "seasonald5",
+    "sib3",
+    "sib8",
+    "tdadjorig",
+    "tdadjorigb",
+    "trendadjls",
+    "trendb2",
+    "trendb7",
+    "trendc2",
+    "trendc7",
+    "trendconst",
+    "trendd2",
+    "trendd7",
+    "adjustfacpct",
+    "calendaradjchangespct",
+    "irregularpct",
+    "origchangespct",
+    "sachangespct",
+    "seasonalpct",
+    "trendchangespct",
+]
+
+
+def x11(
+    *,
+    appendbcst: bool | X13default = _X13DEFAULT,
+    appendfcst: bool | X13default = _X13DEFAULT,
+    final: str | list[str] | X13default = _X13DEFAULT,
+    mode: str | X13default = _X13DEFAULT,
+    print: str | list[str] | X13default = _X13DEFAULT,
+    save: str | list[str] | X13default = _X13DEFAULT,
+    savelog: str | list[str] | X13default | None = None,
+    seasonalma: str | list[str] | X13default = _X13DEFAULT,
+    sigmalim: list[_FloatOrNone] | list[float] | X13default = _X13DEFAULT,
+    title: str | list[str] | X13default = _X13DEFAULT,
+    trendma: int | X13default = _X13DEFAULT,
+    type: str | X13default = _X13DEFAULT,
+    calendarsigma: str | X13default = _X13DEFAULT,
+    centerseasonal: bool | X13default = _X13DEFAULT,
+    keepholiday: bool | X13default = _X13DEFAULT,
+    print1stpass: bool | X13default = _X13DEFAULT,
+    sfshort: bool | X13default = _X13DEFAULT,
+    sigmavec: list[str] | X13default = _X13DEFAULT,
+    trendic: float | X13default = _X13DEFAULT,
+    true7term: bool | X13default = _X13DEFAULT,
+) -> X13x11:
+    """Build the ``x11`` spec — X-11 enhanced seasonal-adjustment options.
+
+    Mirrors ``x13spec.jl:3180-3228``. The upstream's ``savelog`` default
+    is ``"alldiagnostics"``; the Python port uses :data:`None` as the
+    sentinel that triggers that default (per the established pattern in
+    :func:`automdl` / :func:`regression` etc.).
+
+    Validation:
+
+    * ``trendma`` must be an odd integer in ``[3, 101]``.
+    * ``sigmavec`` requires ``calendarsigma="select"`` (other values
+      raise :exc:`ValueError`).
+    """
+    if savelog is None:
+        savelog = "alldiagnostics"
+
+    if not isinstance(trendma, X13default) and (trendma % 2 != 1 or trendma < 3 or trendma > 101):
+        msg = f"trendma must be an odd number between 3 and 101. Received: {trendma}."
+        raise ValueError(msg)
+
+    if not isinstance(sigmavec, X13default) and (
+        isinstance(calendarsigma, X13default)
+        or (isinstance(calendarsigma, str) and calendarsigma != "select")
+    ):
+        msg = "The sigmavec argument can only be specified when calendarsigma='select'."
+        raise ValueError(msg)
+
+    print = _expand_all(print, _X11_PRINT_ALL)
+    save = _expand_all(save, _X11_SAVE_ALL)
+
+    return X13x11(
+        appendbcst=appendbcst,
+        appendfcst=appendfcst,
+        final=final,
+        mode=mode,
+        print=print,
+        save=save,
+        savelog=savelog,
+        seasonalma=seasonalma,
+        sigmalim=sigmalim,
+        title=title,
+        trendma=trendma,
+        type=type,
+        calendarsigma=calendarsigma,
+        centerseasonal=centerseasonal,
+        keepholiday=keepholiday,
+        print1stpass=print1stpass,
+        sfshort=sfshort,
+        sigmavec=sigmavec,
+        trendic=trendic,
+        true7term=true7term,
+    )

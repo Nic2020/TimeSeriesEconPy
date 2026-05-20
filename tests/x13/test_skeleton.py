@@ -27,14 +27,22 @@ _ALL_SIBLINGS = _EMPTY_SURFACE_SIBLINGS + _POPULATED_SIBLINGS
 
 
 def test_subpackage_imports() -> None:
-    """``import tsecon.x13`` succeeds and exposes the M2.1 surface."""
+    """``import tsecon.x13`` succeeds and exposes the M2.1 + M2.2 surface."""
     mod = importlib.import_module("tsecon.x13")
-    # 26 X13var leaves + 5 supporting types (X13var, X13default, RegimeChange,
-    # ArimaSpec, ArimaModel) = 31 public symbols.
-    assert len(mod.__all__) == 31
+    # M2.1 (31): 26 X13var leaves + 5 supporting types
+    # (X13var, X13default, RegimeChange, ArimaSpec, ArimaModel).
+    # M2.2 (+17): Span + 8 spec-container dataclasses (X13series, X13arima,
+    # X13automdl, X13transform, X13regression, X13forecast, X13seats,
+    # X13x11) + 8 builder functions (series, arima, automdl, transform,
+    # regression, forecast, seats, x11).
+    assert len(mod.__all__) == 48
     assert "ao" in mod.__all__
     assert "ArimaSpec" in mod.__all__
     assert "RegimeChange" in mod.__all__
+    assert "Span" in mod.__all__
+    assert "X13series" in mod.__all__
+    assert "series" in mod.__all__
+    assert "x11" in mod.__all__
 
 
 @pytest.mark.parametrize("name", _EMPTY_SURFACE_SIBLINGS)
@@ -57,11 +65,12 @@ def test_populated_sibling_imports(name: str) -> None:
         # Constants are module-private; consumed by sibling modules, not users.
         assert mod.__all__ == []
     else:
-        # _spec re-exports the X13var family.
-        assert len(mod.__all__) == 31, (
+        # _spec re-exports the X13var family (M2.1, 31) + the spec-container
+        # dataclasses and builder functions (M2.2, +17) = 48.
+        assert len(mod.__all__) == 48, (
             f"tsecon.x13.{name}.__all__ has {len(mod.__all__)} entries; "
-            "expected 31 (26 X13var leaves + ArimaModel + ArimaSpec + "
-            "RegimeChange + X13default + X13var)."
+            "expected 48 (M2.1's 31 + M2.2's 17: Span + 8 X13*** dataclasses "
+            "+ 8 spec-builder functions)."
         )
 
 

@@ -84,8 +84,17 @@ Sub-decisions locked in M2.0 follow-up (this session):
 
 M2.1 landed the spec-type surface (session 49): 26 :class:`X13var` leaves,
 :class:`RegimeChange`, :class:`X13default`, :class:`ArimaSpec`, and
-:class:`ArimaModel` are re-exported below. M2.2+ extends the public
-surface with the spec builders and runtime entry points.
+:class:`ArimaModel` are re-exported below.
+
+M2.2 landed the high-traffic spec builders (this session): :class:`Span`,
+the eight container dataclasses (:class:`X13series`, :class:`X13arima`,
+:class:`X13automdl`, :class:`X13transform`, :class:`X13regression`,
+:class:`X13forecast`, :class:`X13seats`, :class:`X13x11`), and their
+eight builder functions (:func:`series`, :func:`arima`, :func:`automdl`,
+:func:`transform`, :func:`regression`, :func:`forecast`, :func:`seats`,
+:func:`x11`). Each builder validates its kwargs and returns a frozen
+dataclass; the ``.spc`` text emission is deferred to M2.4
+(:mod:`tsecon.x13._write`).
 
 ``tsecon.x13`` is now re-exported from the top-level ``tsecon/__init__.py``
 (``import tsecon; tsecon.x13.ao(2020 // 1)`` works). The other private
@@ -99,12 +108,24 @@ from tsecon.x13._spec import (
     ArimaModel,
     ArimaSpec,
     RegimeChange,
+    Span,
+    X13arima,
+    X13automdl,
     X13default,
+    X13forecast,
+    X13regression,
+    X13seats,
+    X13series,
+    X13transform,
     X13var,
+    X13x11,
     ao,
     aos,
+    arima,
+    automdl,
     easter,
     easterstock,
+    forecast,
     labor,
     lom,
     loq,
@@ -113,9 +134,12 @@ from tsecon.x13._spec import (
     lss,
     qd,
     qi,
+    regression,
     rp,
     sceaster,
     seasonal,
+    seats,
+    series,
     sincos,
     so,
     tc,
@@ -127,18 +151,32 @@ from tsecon.x13._spec import (
     tdstock1coef,
     thank,
     tl,
+    transform,
+    x11,
 )
 
 __all__ = [
     "ArimaModel",
     "ArimaSpec",
     "RegimeChange",
+    "Span",
+    "X13arima",
+    "X13automdl",
     "X13default",
+    "X13forecast",
+    "X13regression",
+    "X13seats",
+    "X13series",
+    "X13transform",
     "X13var",
+    "X13x11",
     "ao",
     "aos",
+    "arima",
+    "automdl",
     "easter",
     "easterstock",
+    "forecast",
     "labor",
     "lom",
     "loq",
@@ -147,9 +185,12 @@ __all__ = [
     "lss",
     "qd",
     "qi",
+    "regression",
     "rp",
     "sceaster",
     "seasonal",
+    "seats",
+    "series",
     "sincos",
     "so",
     "tc",
@@ -161,4 +202,6 @@ __all__ = [
     "tdstock1coef",
     "thank",
     "tl",
+    "transform",
+    "x11",
 ]

@@ -121,14 +121,47 @@ forcecal / etc.), and the ``.spc`` serializer in
 the Julia upstream's column-budget logic (132 minus the 8-space block
 indent), preferring ``" + "`` splits on ``print=`` lists when present.
 
-``tsecon.x13`` is now re-exported from the top-level ``tsecon/__init__.py``
-(``import tsecon; tsecon.x13.ao(2020 // 1)`` works). The remaining
-private siblings (``_x13`` / ``_result``) ship empty ``__all__`` until
-their owning sub-milestones (M2.5) land.
+M2.5 lands the result-side surface (this session): the
+:class:`WorkspaceTable` and :class:`X13ResultWorkspace` workspace
+subclasses (lazy materialisation of :class:`X13lazy` proxies on first
+attribute / key access), :class:`X13result`, the :func:`run` entry
+that invokes the binary on a populated spec (or raw spec string), the
+:func:`loadresult` dispatcher, the eight per-format readers
+(:func:`x13read_series`, :func:`x13read_workspace_table`,
+:func:`x13read_key_values`, :func:`x13read_udg`,
+:func:`x13read_estimates`, :func:`x13read_model`,
+:func:`x13read_identify`, :func:`x13read_seatsseries`,
+:func:`x13read_err`), and the :func:`deseasonalize` /
+:func:`deseasonalize_inplace` convenience wrappers + :func:`cleanup`
+sweep. The end-to-end binary-fidelity test (Julia ``d11`` vs Python
+``d11`` to 1e-10) is deferred to M2.6 alongside the wheels-side
+gfortran binary; until then :func:`run` raises a clear error message
+when no binary is reachable via ``setoption("x13path", ...)``.
+
+``tsecon.x13`` is re-exported from the top-level
+``tsecon/__init__.py`` (``import tsecon; tsecon.x13.ao(2020 // 1)``
+works); the M2.5 result surface lands alongside.
 """
 
 from __future__ import annotations
 
+from tsecon.x13._result import (
+    WorkspaceTable,
+    X13lazy,
+    X13result,
+    X13ResultWorkspace,
+    loadresult,
+    run,
+    x13read_err,
+    x13read_estimates,
+    x13read_identify,
+    x13read_key_values,
+    x13read_model,
+    x13read_seatsseries,
+    x13read_series,
+    x13read_udg,
+    x13read_workspace_table,
+)
 from tsecon.x13._spec import (
     ArimaModel,
     ArimaSpec,
@@ -205,12 +238,20 @@ from tsecon.x13._spec import (
     x11regression,
 )
 from tsecon.x13._write import impose_line_length, x13write
+from tsecon.x13._x13 import (
+    cleanup,
+    deseasonalize,
+    deseasonalize_inplace,
+    get_cleanup_folders,
+)
 
 __all__ = [
     "ArimaModel",
     "ArimaSpec",
     "RegimeChange",
     "Span",
+    "WorkspaceTable",
+    "X13ResultWorkspace",
     "X13arima",
     "X13automdl",
     "X13check",
@@ -220,10 +261,12 @@ __all__ = [
     "X13forecast",
     "X13history",
     "X13identify",
+    "X13lazy",
     "X13metadata",
     "X13outlier",
     "X13pickmdl",
     "X13regression",
+    "X13result",
     "X13seats",
     "X13series",
     "X13slidingspans",
@@ -238,15 +281,20 @@ __all__ = [
     "arima",
     "automdl",
     "check",
+    "cleanup",
+    "deseasonalize",
+    "deseasonalize_inplace",
     "easter",
     "easterstock",
     "estimate",
     "force",
     "forecast",
+    "get_cleanup_folders",
     "history",
     "identify",
     "impose_line_length",
     "labor",
+    "loadresult",
     "lom",
     "loq",
     "lpyear",
@@ -260,6 +308,7 @@ __all__ = [
     "qi",
     "regression",
     "rp",
+    "run",
     "sceaster",
     "seasonal",
     "seats",
@@ -281,5 +330,14 @@ __all__ = [
     "validateX13spec",
     "x11",
     "x11regression",
+    "x13read_err",
+    "x13read_estimates",
+    "x13read_identify",
+    "x13read_key_values",
+    "x13read_model",
+    "x13read_seatsseries",
+    "x13read_series",
+    "x13read_udg",
+    "x13read_workspace_table",
     "x13write",
 ]

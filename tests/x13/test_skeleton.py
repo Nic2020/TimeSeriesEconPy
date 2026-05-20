@@ -27,7 +27,7 @@ _ALL_SIBLINGS = _EMPTY_SURFACE_SIBLINGS + _POPULATED_SIBLINGS
 
 
 def test_subpackage_imports() -> None:
-    """``import tsecon.x13`` succeeds and exposes the M2.1 + M2.2 surface."""
+    """``import tsecon.x13`` succeeds and exposes the M2.1+M2.2+M2.3 surface."""
     mod = importlib.import_module("tsecon.x13")
     # M2.1 (31): 26 X13var leaves + 5 supporting types
     # (X13var, X13default, RegimeChange, ArimaSpec, ArimaModel).
@@ -35,14 +35,22 @@ def test_subpackage_imports() -> None:
     # X13automdl, X13transform, X13regression, X13forecast, X13seats,
     # X13x11) + 8 builder functions (series, arima, automdl, transform,
     # regression, forecast, seats, x11).
-    assert len(mod.__all__) == 48
+    # M2.3 (+22): 11 spec-container dataclasses (X13check, X13estimate,
+    # X13force, X13history, X13identify, X13metadata, X13outlier,
+    # X13pickmdl, X13slidingspans, X13spectrum, X13x11regression) +
+    # 11 builder functions (check, estimate, force, history, identify,
+    # metadata, outlier, pickmdl, slidingspans, spectrum, x11regression).
+    assert len(mod.__all__) == 70
     assert "ao" in mod.__all__
     assert "ArimaSpec" in mod.__all__
     assert "RegimeChange" in mod.__all__
     assert "Span" in mod.__all__
     assert "X13series" in mod.__all__
+    assert "X13x11regression" in mod.__all__
     assert "series" in mod.__all__
     assert "x11" in mod.__all__
+    assert "outlier" in mod.__all__
+    assert "x11regression" in mod.__all__
 
 
 @pytest.mark.parametrize("name", _EMPTY_SURFACE_SIBLINGS)
@@ -66,11 +74,11 @@ def test_populated_sibling_imports(name: str) -> None:
         assert mod.__all__ == []
     else:
         # _spec re-exports the X13var family (M2.1, 31) + the spec-container
-        # dataclasses and builder functions (M2.2, +17) = 48.
-        assert len(mod.__all__) == 48, (
+        # dataclasses and builder functions (M2.2, +17; M2.3, +22) = 70.
+        assert len(mod.__all__) == 70, (
             f"tsecon.x13.{name}.__all__ has {len(mod.__all__)} entries; "
-            "expected 48 (M2.1's 31 + M2.2's 17: Span + 8 X13*** dataclasses "
-            "+ 8 spec-builder functions)."
+            "expected 70 (M2.1's 31 + M2.2's 17 + M2.3's 22: 11 rare "
+            "container dataclasses + 11 rare spec-builder functions)."
         )
 
 

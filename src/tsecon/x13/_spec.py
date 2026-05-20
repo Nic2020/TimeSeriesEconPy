@@ -127,27 +127,46 @@ __all__ = [
     "Span",
     "X13arima",
     "X13automdl",
+    "X13check",
     "X13default",
+    "X13estimate",
+    "X13force",
     "X13forecast",
+    "X13history",
+    "X13identify",
+    "X13metadata",
+    "X13outlier",
+    "X13pickmdl",
     "X13regression",
     "X13seats",
     "X13series",
+    "X13slidingspans",
+    "X13spectrum",
     "X13transform",
     "X13var",
     "X13x11",
+    "X13x11regression",
     "ao",
     "aos",
     "arima",
     "automdl",
+    "check",
     "easter",
     "easterstock",
+    "estimate",
+    "force",
     "forecast",
+    "history",
+    "identify",
     "labor",
     "lom",
     "loq",
     "lpyear",
     "ls",
     "lss",
+    "metadata",
+    "outlier",
+    "pickmdl",
     "qd",
     "qi",
     "regression",
@@ -157,7 +176,9 @@ __all__ = [
     "seats",
     "series",
     "sincos",
+    "slidingspans",
     "so",
+    "spectrum",
     "tc",
     "td",
     "td1coef",
@@ -169,6 +190,7 @@ __all__ = [
     "tl",
     "transform",
     "x11",
+    "x11regression",
 ]
 
 
@@ -2598,4 +2620,1371 @@ def x11(
         sigmavec=sigmavec,
         trendic=trendic,
         true7term=true7term,
+    )
+
+
+# ===========================================================================
+# M2.3 — Rare spec builders
+# ===========================================================================
+#
+# Eleven builders that round out X-13 spec parity. Same shape pattern as
+# M2.2: frozen-slotted container dataclass + builder function with kwarg
+# validation. ``.spc`` text emission deferred to M2.4 alongside
+# ``_write.py``. See ``x13spec.jl`` for the upstream signatures.
+#
+# Order matches the alphabetical Julia ordering: check, estimate, force,
+# history, identify, metadata, outlier, pickmdl, slidingspans, spectrum,
+# x11regression.
+
+
+# ---------------------------------------------------------------------------
+# X13check container + check() builder
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True, slots=True)
+class X13check:
+    """The ``check`` spec block — regARIMA residual diagnostics.
+
+    Mirrors ``x13spec.jl:274-282``. Carries ACF / PACF lag limits and
+    significance thresholds used for residual-adequacy reporting.
+    """
+
+    maxlag: int | X13default
+    qtype: str | X13default
+    print: str | list[str] | X13default
+    save: str | list[str] | X13default
+    savelog: str | list[str] | X13default
+    acflimit: float | X13default
+    qlimit: float | X13default
+
+
+_CHECK_PRINT_ALL: Final[list[str]] = [
+    "acf",
+    "acfplot",
+    "pacf",
+    "pacfplot",
+    "acfsquared",
+    "acfsquaredplot",
+    "normalitytest",
+    "durbinwatson",
+    "friedmantest",
+    "histogram",
+]
+_CHECK_SAVE_ALL: Final[list[str]] = ["acf", "pacf", "acfsquared"]
+
+
+def check(
+    *,
+    maxlag: int | X13default = _X13DEFAULT,
+    qtype: str | X13default = _X13DEFAULT,
+    print: str | list[str] | X13default = _X13DEFAULT,
+    save: str | list[str] | X13default = _X13DEFAULT,
+    savelog: str | list[str] | X13default | None = None,
+    acflimit: float | X13default = _X13DEFAULT,
+    qlimit: float | X13default = _X13DEFAULT,
+) -> X13check:
+    """Build the ``check`` spec — residual ACF / Ljung-Box diagnostics.
+
+    Mirrors ``x13spec.jl:1149-1169``. Expands ``print="all"`` /
+    ``save="all"`` to the upstream-defined "everything" lists; otherwise
+    pass-through. No numeric range validation in the upstream — :exc:`ValueError`
+    surfaces from the writer if X-13 rejects the values.
+    """
+    if savelog is None:
+        savelog = "alldiagnostics"
+    print = _expand_all(print, _CHECK_PRINT_ALL)
+    save = _expand_all(save, _CHECK_SAVE_ALL)
+    return X13check(
+        maxlag=maxlag,
+        qtype=qtype,
+        print=print,
+        save=save,
+        savelog=savelog,
+        acflimit=acflimit,
+        qlimit=qlimit,
+    )
+
+
+# ---------------------------------------------------------------------------
+# X13estimate container + estimate() builder
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True, slots=True)
+class X13estimate:
+    """The ``estimate`` spec block — regARIMA estimation controls.
+
+    Mirrors ``x13spec.jl:284-294``. Selects exact-vs-conditional likelihood,
+    iteration limits, and optional preloaded ``.mdl`` file with fix-policy.
+    """
+
+    exact: str | X13default
+    maxiter: int | X13default
+    outofsample: bool | X13default
+    print: str | list[str] | X13default
+    save: str | list[str] | X13default
+    savelog: str | list[str] | X13default
+    tol: float | X13default
+    file: str | X13default
+    fix: str | X13default
+
+
+_ESTIMATE_PRINT_ALL: Final[list[str]] = [
+    "options",
+    "model",
+    "estimates",
+    "averagefcsterr",
+    "lkstats",
+    "iterations",
+    "iterationerrors",
+    "regcmatrix",
+    "armacmatrix",
+    "lformulas",
+    "roots",
+    "regressioneffects",
+    "regressionresiduals",
+    "residuals",
+]
+_ESTIMATE_SAVE_ALL: Final[list[str]] = [
+    "model",
+    "estimates",
+    "lkstats",
+    "iterations",
+    "regcmatrix",
+    "armacmatrix",
+    "roots",
+    "regressioneffects",
+    "regressionresiduals",
+    "residuals",
+]
+
+
+def estimate(
+    *,
+    exact: str | X13default = _X13DEFAULT,
+    maxiter: int | X13default = _X13DEFAULT,
+    outofsample: bool | X13default = _X13DEFAULT,
+    print: str | list[str] | X13default = _X13DEFAULT,
+    save: str | list[str] | X13default = _X13DEFAULT,
+    savelog: str | list[str] | X13default | None = None,
+    tol: float | X13default = _X13DEFAULT,
+    file: str | X13default = _X13DEFAULT,
+    fix: str | X13default = _X13DEFAULT,
+) -> X13estimate:
+    """Build the ``estimate`` spec — regARIMA estimation options.
+
+    Mirrors ``x13spec.jl:1228-1251``. Expands ``print="all"`` /
+    ``save="all"`` to the upstream-defined "everything" lists.
+    """
+    if savelog is None:
+        savelog = "alldiagnostics"
+    print = _expand_all(print, _ESTIMATE_PRINT_ALL)
+    save = _expand_all(save, _ESTIMATE_SAVE_ALL)
+    return X13estimate(
+        exact=exact,
+        maxiter=maxiter,
+        outofsample=outofsample,
+        print=print,
+        save=save,
+        savelog=savelog,
+        tol=tol,
+        file=file,
+        fix=fix,
+    )
+
+
+# ---------------------------------------------------------------------------
+# X13force container + force() builder
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True, slots=True)
+class X13force:
+    """The ``force`` spec block — yearly-total forcing on seasonally adjusted output.
+
+    Mirrors ``x13spec.jl:296-308``. Activates Denton or regression-based
+    benchmarking to make the SA series' yearly totals match the target.
+    """
+
+    lambda_: float | X13default
+    mode: str | X13default
+    print: str | list[str] | X13default
+    save: str | list[str] | X13default
+    rho: float | X13default
+    round: bool | X13default
+    start: str | X13default
+    target: str | X13default
+    type: str | X13default
+    usefcst: bool | X13default
+    indforce: bool | X13default
+
+
+_FORCE_PRINT_ALL: Final[list[str]] = [
+    "seasadjtot",
+    "saround",
+    "revsachanges",
+    "rndsachanges",
+]
+_FORCE_SAVE_ALL: Final[list[str]] = [
+    "seasadjtot",
+    "saround",
+    "revsachanges",
+    "rndsachanges",
+    "revsachangespct",
+    "rndsachangespct",
+]
+
+
+def force(
+    *,
+    lambda_: float | X13default = _X13DEFAULT,
+    mode: str | X13default = _X13DEFAULT,
+    print: str | list[str] | X13default = _X13DEFAULT,
+    save: str | list[str] | X13default = _X13DEFAULT,
+    rho: float | X13default = _X13DEFAULT,
+    round: bool | X13default = _X13DEFAULT,
+    start: str | X13default = _X13DEFAULT,
+    target: str | X13default = _X13DEFAULT,
+    type: str | X13default = _X13DEFAULT,
+    usefcst: bool | X13default = _X13DEFAULT,
+    indforce: bool | X13default = _X13DEFAULT,
+) -> X13force:
+    """Build the ``force`` spec — yearly-total forcing options.
+
+    Mirrors ``x13spec.jl:1343-1372``. The Julia ``lambda`` keyword renames
+    to ``lambda_`` (Python's reserved word); ``round`` and ``type`` keep
+    their X-13 names (not Python reserved words, only built-in shadows).
+
+    Validation:
+
+    * ``rho`` must be in ``[0.0, 1.0]``.
+    """
+    if not isinstance(rho, X13default) and (rho < 0.0 or rho > 1.0):
+        msg = f"rho must be between 0 and 1. Received: {rho}."
+        raise ValueError(msg)
+    print = _expand_all(print, _FORCE_PRINT_ALL)
+    save = _expand_all(save, _FORCE_SAVE_ALL)
+    return X13force(
+        lambda_=lambda_,
+        mode=mode,
+        print=print,
+        save=save,
+        rho=rho,
+        round=round,
+        start=start,
+        target=target,
+        type=type,
+        usefcst=usefcst,
+        indforce=indforce,
+    )
+
+
+# ---------------------------------------------------------------------------
+# X13history container + history() builder
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True, slots=True)
+class X13history:
+    """The ``history`` spec block — revisions / forecast-error history analysis.
+
+    Mirrors ``x13spec.jl:321-340``. Drives the truncated-series re-run
+    pipeline used to characterise revisions and out-of-sample forecast
+    errors at user-specified lags.
+    """
+
+    endtable: MIT | X13default
+    estimates: str | list[str] | X13default
+    fixmdl: bool | X13default
+    fixreg: bool | X13default
+    fstep: int | list[int] | X13default
+    print: str | list[str] | X13default
+    save: str | list[str] | X13default
+    savelog: str | list[str] | X13default
+    sadjlags: int | list[int] | X13default
+    start: MIT | X13default
+    target: str | X13default
+    trendlags: int | list[int] | X13default
+    fixx11reg: bool | X13default
+    outlier: str | X13default
+    outlierwin: int | X13default
+    refresh: bool | X13default
+    transformfcst: bool | X13default
+    x11outlier: bool | X13default
+
+
+_HISTORY_PRINT_ALL: Final[list[str]] = [
+    "header",
+    "outlierhistory",
+    "sarevisions",
+    "sasummary",
+    "chngrevisions",
+    "chngsummary",
+    "indsarevisions",
+    "indsasummary",
+    "trendrevisions",
+    "trendsummary",
+    "trendchngrevisions",
+    "trendchngsummary",
+    "sfrevisions",
+    "sfsummary",
+    "lkhdhistory",
+    "fcsterrors",
+    "armahistory",
+    "tdhistory",
+    "sfilterhistory",
+    "saestimates",
+    "chngestimates",
+    "indsaestimates",
+    "trendestimates",
+    "trendchngestimates",
+    "sfestimates",
+    "fcsthistory",
+]
+_HISTORY_SAVE_ALL: Final[list[str]] = [
+    "outlierhistory",
+    "sarevisions",
+    "chngrevisions",
+    "indsarevisions",
+    "trendrevisions",
+    "trendchngrevisions",
+    "sfrevisions",
+    "lkhdhistory",
+    "fcsterrors",
+    "armahistory",
+    "tdhistory",
+    "sfilterhistory",
+    "saestimates",
+    "chngestimates",
+    "indsaestimates",
+    "trendestimates",
+    "trendchngestimates",
+    "sfestimates",
+    "fcsthistory",
+]
+
+_HISTORY_FSTEP_MAX_LENGTH: Final[int] = 4
+_HISTORY_SADJLAGS_MAX_LENGTH: Final[int] = 5
+
+
+def history(
+    *,
+    endtable: MIT | X13default = _X13DEFAULT,
+    estimates: str | list[str] | X13default = _X13DEFAULT,
+    fixmdl: bool | X13default = _X13DEFAULT,
+    fixreg: bool | X13default = _X13DEFAULT,
+    fstep: int | list[int] | X13default = _X13DEFAULT,
+    print: str | list[str] | X13default = _X13DEFAULT,
+    save: str | list[str] | X13default = _X13DEFAULT,
+    savelog: str | list[str] | X13default | None = None,
+    sadjlags: int | list[int] | X13default = _X13DEFAULT,
+    start: MIT | X13default = _X13DEFAULT,
+    target: str | X13default = _X13DEFAULT,
+    trendlags: int | list[int] | X13default = _X13DEFAULT,
+    fixx11reg: bool | X13default = _X13DEFAULT,
+    outlier: str | X13default = _X13DEFAULT,
+    outlierwin: int | X13default = _X13DEFAULT,
+    refresh: bool | X13default = _X13DEFAULT,
+    transformfcst: bool | X13default = _X13DEFAULT,
+    x11outlier: bool | X13default = _X13DEFAULT,
+) -> X13history:
+    """Build the ``history`` spec — truncated-series revisions analysis.
+
+    Mirrors ``x13spec.jl:1602-1656``.
+
+    Validation:
+
+    * ``fstep`` (when a list) must have length ≤ 4 with every entry ≥ 1.
+      Scalar ``fstep`` must be ≥ 1.
+    * ``sadjlags`` (when a list) must have length ≤ 5 with every entry
+      ≥ 1. Scalar ``sadjlags`` must be ≥ 1.
+    """
+    if savelog is None:
+        savelog = ["alldiagnostics"]
+
+    if isinstance(fstep, list):
+        if len(fstep) > _HISTORY_FSTEP_MAX_LENGTH:
+            msg = f"fstep can contain up to four forecast leads. Received: {fstep}."
+            raise ValueError(msg)
+        if any(v < 1 for v in fstep):
+            msg = f"fstep values cannot be less than one. Received: {fstep}."
+            raise ValueError(msg)
+    elif isinstance(fstep, int) and not isinstance(fstep, bool) and fstep < 1:
+        msg = f"fstep cannot be less than one. Received: {fstep}."
+        raise ValueError(msg)
+
+    if isinstance(sadjlags, list):
+        if len(sadjlags) > _HISTORY_SADJLAGS_MAX_LENGTH:
+            msg = f"sadjlags can contain up to five revision lags. Received: {sadjlags}."
+            raise ValueError(msg)
+        if any(v < 1 for v in sadjlags):
+            msg = f"sadjlags values cannot be less than one. Received: {sadjlags}."
+            raise ValueError(msg)
+    elif isinstance(sadjlags, int) and not isinstance(sadjlags, bool) and sadjlags < 1:
+        msg = f"sadjlags cannot be less than one. Received: {sadjlags}."
+        raise ValueError(msg)
+
+    print = _expand_all(print, _HISTORY_PRINT_ALL)
+    save = _expand_all(save, _HISTORY_SAVE_ALL)
+    return X13history(
+        endtable=endtable,
+        estimates=estimates,
+        fixmdl=fixmdl,
+        fixreg=fixreg,
+        fstep=fstep,
+        print=print,
+        save=save,
+        savelog=savelog,
+        sadjlags=sadjlags,
+        start=start,
+        target=target,
+        trendlags=trendlags,
+        fixx11reg=fixx11reg,
+        outlier=outlier,
+        outlierwin=outlierwin,
+        refresh=refresh,
+        transformfcst=transformfcst,
+        x11outlier=x11outlier,
+    )
+
+
+# ---------------------------------------------------------------------------
+# X13identify container + identify() builder
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True, slots=True)
+class X13identify:
+    """The ``identify`` spec block — ACF / PACF plots for ARIMA identification.
+
+    Mirrors ``x13spec.jl:342-348``. Sample ACFs and PACFs are produced
+    for every combination of nonseasonal-difference orders (``diff``) and
+    seasonal-difference orders (``sdiff``).
+    """
+
+    diff: list[int] | X13default
+    sdiff: list[int] | X13default
+    maxlag: int | X13default
+    print: str | list[str] | X13default
+    save: str | list[str] | X13default
+
+
+_IDENTIFY_PRINT_ALL: Final[list[str]] = [
+    "acf",
+    "acfplot",
+    "pacf",
+    "pacfplot",
+    "regcoefficients",
+]
+_IDENTIFY_SAVE_ALL: Final[list[str]] = ["acf", "pacf"]
+
+
+def identify(
+    *,
+    diff: list[int] | X13default = _X13DEFAULT,
+    sdiff: list[int] | X13default = _X13DEFAULT,
+    maxlag: int | X13default = _X13DEFAULT,
+    print: str | list[str] | X13default = _X13DEFAULT,
+    save: str | list[str] | X13default = _X13DEFAULT,
+) -> X13identify:
+    """Build the ``identify`` spec — ARIMA-identification ACFs/PACFs.
+
+    Mirrors ``x13spec.jl:1686-1706``. No range validation upstream — the
+    binary applies its own bounds.
+    """
+    print = _expand_all(print, _IDENTIFY_PRINT_ALL)
+    save = _expand_all(save, _IDENTIFY_SAVE_ALL)
+    return X13identify(
+        diff=diff,
+        sdiff=sdiff,
+        maxlag=maxlag,
+        print=print,
+        save=save,
+    )
+
+
+# ---------------------------------------------------------------------------
+# X13metadata container + metadata() builder
+# ---------------------------------------------------------------------------
+
+
+_METADATA_MAX_ENTRIES: Final[int] = 20
+_METADATA_MAX_KEY_OR_VALUE_LENGTH: Final[int] = 132
+_METADATA_MAX_TOTAL_LENGTH: Final[int] = 2000
+
+
+@dataclass(frozen=True, slots=True)
+class X13metadata:
+    """The ``metadata`` spec block — diagnostic-summary key/value entries.
+
+    Mirrors ``x13spec.jl:350-352``. Stores a tuple of ``(key, value)``
+    pairs that X-13 emits into the ``.udg`` diagnostic-summary file.
+
+    The Julia upstream's ``Pair{String,String}`` / ``Vector{Pair{...}}``
+    ports as a ``tuple[tuple[str, str], ...]`` (frozen, order-preserving,
+    pickleable) — see :func:`metadata` for the user-facing input shapes.
+    """
+
+    entries: tuple[tuple[str, str], ...]
+
+
+def metadata(
+    entries: tuple[str, str] | list[tuple[str, str]] | tuple[tuple[str, str], ...] | dict[str, str],
+) -> X13metadata:
+    """Build the ``metadata`` spec — diagnostic-summary key/value entries.
+
+    Mirrors ``x13spec.jl:1721-1748``. Accepts a single ``(key, value)``
+    pair, an iterable of pairs, or a ``dict`` (the dict form is the
+    Python-idiomatic shape; iteration order preserved per PEP 468).
+
+    Validation (mirrors upstream):
+
+    * At most 20 entries.
+    * No single key or value exceeds 132 characters.
+    * Concatenated keys and concatenated values each ≤ 2000 characters.
+    """
+    if isinstance(entries, dict):
+        items: tuple[tuple[str, str], ...] = tuple(entries.items())
+    elif (
+        isinstance(entries, tuple)
+        and len(entries) == 2
+        and isinstance(entries[0], str)
+        and isinstance(entries[1], str)
+    ):
+        items = (entries,)
+    else:
+        items = tuple((k, v) for k, v in entries)
+
+    if len(items) > _METADATA_MAX_ENTRIES:
+        msg = (
+            f"A maximum of {_METADATA_MAX_ENTRIES} metadata entries can be "
+            f"specified. Received: {len(items)} entries."
+        )
+        raise ValueError(msg)
+
+    keys = [k for k, _ in items]
+    values = [v for _, v in items]
+    if any(len(k) > _METADATA_MAX_KEY_OR_VALUE_LENGTH for k in keys):
+        msg = (
+            f"Keys in the metadata spec can have a maximum length of "
+            f"{_METADATA_MAX_KEY_OR_VALUE_LENGTH} characters."
+        )
+        raise ValueError(msg)
+    total_keys = sum(len(k) for k in keys)
+    if total_keys > _METADATA_MAX_TOTAL_LENGTH:
+        msg = (
+            f"Keys in the metadata spec can have a maximum combined "
+            f"length of {_METADATA_MAX_TOTAL_LENGTH} characters. "
+            f"Received: {total_keys} characters."
+        )
+        raise ValueError(msg)
+    if any(len(v) > _METADATA_MAX_KEY_OR_VALUE_LENGTH for v in values):
+        msg = (
+            f"Values in the metadata spec can have a maximum length of "
+            f"{_METADATA_MAX_KEY_OR_VALUE_LENGTH} characters."
+        )
+        raise ValueError(msg)
+    total_values = sum(len(v) for v in values)
+    if total_values > _METADATA_MAX_TOTAL_LENGTH:
+        msg = (
+            f"Values in the metadata spec can have a maximum combined "
+            f"length of {_METADATA_MAX_TOTAL_LENGTH} characters. "
+            f"Received: {total_values} characters."
+        )
+        raise ValueError(msg)
+
+    return X13metadata(entries=items)
+
+
+# ---------------------------------------------------------------------------
+# X13outlier container + outlier() builder
+# ---------------------------------------------------------------------------
+
+
+_OUTLIER_LSRUN_MAX: Final[int] = 5
+_OUTLIER_CRITICAL_MAX_LENGTH: Final[int] = 3
+
+
+@dataclass(frozen=True, slots=True)
+class X13outlier:
+    """The ``outlier`` spec block — automatic outlier identification.
+
+    Mirrors ``x13spec.jl:354-365``. Triggers the iterative add-detection
+    loop for additive outliers, level shifts, and temporary changes.
+    """
+
+    critical: float | list[float | None] | list[float] | X13default
+    lsrun: int | X13default
+    method: str | X13default
+    print: str | list[str] | X13default
+    save: str | list[str] | X13default
+    savelog: str | list[str] | X13default
+    span: MITRange | Span | X13default
+    types: str | list[str] | X13default
+    almost: float | X13default
+    tcrate: float | X13default
+
+
+_OUTLIER_PRINT_ALL: Final[list[str]] = [
+    "header",
+    "iterations",
+    "tests",
+    "temporaryls",
+    "finaltests",
+]
+_OUTLIER_SAVE_ALL: Final[list[str]] = ["iterations", "finaltests"]
+
+
+def outlier(
+    *,
+    critical: float | list[float | None] | list[float] | X13default = _X13DEFAULT,
+    lsrun: int | X13default = _X13DEFAULT,
+    method: str | X13default = _X13DEFAULT,
+    print: str | list[str] | X13default = _X13DEFAULT,
+    save: str | list[str] | X13default = _X13DEFAULT,
+    savelog: str | list[str] | X13default | None = None,
+    span: MITRange | Span | X13default = _X13DEFAULT,
+    types: str | list[str] | X13default = _X13DEFAULT,
+    almost: float | X13default = _X13DEFAULT,
+    tcrate: float | X13default = _X13DEFAULT,
+) -> X13outlier:
+    """Build the ``outlier`` spec — automatic outlier detection.
+
+    Mirrors ``x13spec.jl:1833-1881``.
+
+    Validation:
+
+    * ``critical`` (when a list) must have length ≤ 3.
+    * ``lsrun`` must be in ``[0, 5]``.
+    * ``almost`` must be > 0.
+    * ``tcrate`` must be in ``(0.0, 1.0)``.
+    * :class:`Span` ``span`` rejects fuzzy ``e`` (``M11`` / ``Q2``) —
+      mirrored as "endpoints must be MIT or None"; the builder accepts
+      only :class:`MIT` or :data:`None` already, so the upstream check
+      collapses to a no-op here.
+    """
+    if savelog is None:
+        savelog = "identified"
+
+    if isinstance(critical, list) and len(critical) > _OUTLIER_CRITICAL_MAX_LENGTH:
+        msg = (
+            f"critical can contain up to {_OUTLIER_CRITICAL_MAX_LENGTH} "
+            f"values. Received: {critical}."
+        )
+        raise ValueError(msg)
+
+    if not isinstance(lsrun, X13default) and (lsrun < 0 or lsrun > _OUTLIER_LSRUN_MAX):
+        msg = f"lsrun can take values from 0 to {_OUTLIER_LSRUN_MAX}. Received: {lsrun}."
+        raise ValueError(msg)
+
+    if not isinstance(almost, X13default) and almost < 0.0:
+        msg = f"almost must have a value greater than zero. Received: {almost}."
+        raise ValueError(msg)
+
+    if not isinstance(tcrate, X13default) and (tcrate <= 0.0 or tcrate >= 1.0):
+        msg = f"tcrate must be a number greater than zero and less than one. Received: {tcrate}."
+        raise ValueError(msg)
+
+    print = _expand_all(print, _OUTLIER_PRINT_ALL)
+    save = _expand_all(save, _OUTLIER_SAVE_ALL)
+    return X13outlier(
+        critical=critical,
+        lsrun=lsrun,
+        method=method,
+        print=print,
+        save=save,
+        savelog=savelog,
+        span=span,
+        types=types,
+        almost=almost,
+        tcrate=tcrate,
+    )
+
+
+# ---------------------------------------------------------------------------
+# X13pickmdl container + pickmdl() builder
+# ---------------------------------------------------------------------------
+
+
+_PICKMDL_MIN_MODELS: Final[int] = 2
+
+
+@dataclass(frozen=True, slots=True)
+class X13pickmdl:
+    """The ``pickmdl`` spec block — X-11-ARIMA model selection from candidates.
+
+    Mirrors ``x13spec.jl:367-380``. Picks the ARIMA part from either a
+    list of candidate :class:`ArimaModel` instances or a file containing
+    such a list.
+    """
+
+    bcstlim: int | X13default
+    fcstlim: int | X13default
+    models: list[ArimaModel] | X13default
+    identify: str | X13default
+    method: str | X13default
+    mode: str | X13default
+    outofsample: bool | X13default
+    overdiff: float | X13default
+    print: str | list[str] | X13default
+    savelog: str | list[str] | X13default
+    qlim: int | X13default
+    file: str | X13default
+
+
+_PICKMDL_PRINT_ALL: Final[list[str]] = [
+    "pickmdlchoice",
+    "header",
+    "usermodels",
+]
+
+_PICKMDL_PERCENT_MAX: Final[int] = 100
+_PICKMDL_OVERDIFF_MIN: Final[float] = 0.9
+_PICKMDL_OVERDIFF_MAX: Final[float] = 1.0
+
+
+def pickmdl(
+    *models: ArimaModel,
+    bcstlim: int | X13default = _X13DEFAULT,
+    fcstlim: int | X13default = _X13DEFAULT,
+    identify: str | X13default = _X13DEFAULT,
+    method: str | X13default = _X13DEFAULT,
+    mode: str | X13default = _X13DEFAULT,
+    outofsample: bool | X13default = _X13DEFAULT,
+    overdiff: float | X13default = _X13DEFAULT,
+    print: str | list[str] | X13default = _X13DEFAULT,
+    savelog: str | list[str] | X13default | None = None,
+    qlim: int | X13default = _X13DEFAULT,
+    file: str | X13default = _X13DEFAULT,
+) -> X13pickmdl:
+    """Build the ``pickmdl`` spec — automatic ARIMA model selection.
+
+    Mirrors ``x13spec.jl:1972-2030``. The Julia ``pickmdl(models::Vector{ArimaModel})``
+    and ``pickmdl(models::ArimaModel...)`` overloads collapse to a single
+    Python signature with a positional ``*models`` varargs — pass either
+    ``pickmdl(m1, m2)`` or ``pickmdl(*[m1, m2])``.
+
+    The ``identify`` kwarg shadows the :func:`identify` spec builder at
+    module level; this is the X-13 grammar's name (``identify=:first`` /
+    ``:all``) and the per-kwarg ``A002`` ignore preserves the surface.
+
+    Validation:
+
+    * Either ``models`` (≥ 2 candidates) OR ``file=`` must be supplied.
+    * At most one candidate may have ``default=True``.
+    * ``bcstlim`` / ``fcstlim`` / ``qlim`` ∈ ``[0, 100]``.
+    * ``overdiff`` ∈ ``[0.9, 1.0]``.
+    """
+    if savelog is None:
+        savelog = "automodel"
+
+    if not isinstance(bcstlim, X13default) and (bcstlim < 0 or bcstlim > _PICKMDL_PERCENT_MAX):
+        msg = (
+            f"bcstlim must be a value between 0 and {_PICKMDL_PERCENT_MAX} "
+            f"(inclusive). Received: {bcstlim}."
+        )
+        raise ValueError(msg)
+    if not isinstance(fcstlim, X13default) and (fcstlim < 0 or fcstlim > _PICKMDL_PERCENT_MAX):
+        msg = (
+            f"fcstlim must be a value between 0 and {_PICKMDL_PERCENT_MAX} "
+            f"(inclusive). Received: {fcstlim}."
+        )
+        raise ValueError(msg)
+    if not isinstance(qlim, X13default) and (qlim < 0 or qlim > _PICKMDL_PERCENT_MAX):
+        msg = (
+            f"qlim must be a value between 0 and {_PICKMDL_PERCENT_MAX} "
+            f"(inclusive). Received: {qlim}."
+        )
+        raise ValueError(msg)
+
+    if not isinstance(overdiff, X13default):
+        if overdiff > _PICKMDL_OVERDIFF_MAX:
+            msg = f"overdiff must not be greater than 1. Received: {overdiff}."
+            raise ValueError(msg)
+        if overdiff < _PICKMDL_OVERDIFF_MIN:
+            msg = f"overdiff should not be less than {_PICKMDL_OVERDIFF_MIN}. Received: {overdiff}."
+            raise ValueError(msg)
+
+    models_value: list[ArimaModel] | X13default
+    if models:
+        if len(models) < _PICKMDL_MIN_MODELS:
+            msg = (
+                f"pickmdl spec must be provided with at least "
+                f"{_PICKMDL_MIN_MODELS} candidate models. "
+                f"Received: {len(models)}. {list(models)}"
+            )
+            raise ValueError(msg)
+        num_defaults = sum(1 for m in models if m.default)
+        if num_defaults > 1:
+            msg = (
+                f"pickmdl can only have one model specified as a default, "
+                f"but {num_defaults} of the provided models are flagged "
+                f"as defaults."
+            )
+            raise ValueError(msg)
+        models_value = list(models)
+    else:
+        models_value = _X13DEFAULT
+        if isinstance(file, X13default):
+            msg = (
+                "pickmdl spec must either be constructed with one or more "
+                "ArimaModels or with the file keyword argument specified."
+            )
+            raise ValueError(msg)
+
+    print = _expand_all(print, _PICKMDL_PRINT_ALL)
+    return X13pickmdl(
+        bcstlim=bcstlim,
+        fcstlim=fcstlim,
+        models=models_value,
+        identify=identify,
+        method=method,
+        mode=mode,
+        outofsample=outofsample,
+        overdiff=overdiff,
+        print=print,
+        savelog=savelog,
+        qlim=qlim,
+        file=file,
+    )
+
+
+# ---------------------------------------------------------------------------
+# X13slidingspans container + slidingspans() builder
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True, slots=True)
+class X13slidingspans:
+    """The ``slidingspans`` spec block — stability analysis over moving spans.
+
+    Mirrors ``x13spec.jl:432-448``. Compares seasonal-adjustment output
+    across overlapping subspans of the series for revisions stability.
+    """
+
+    cutchng: float | X13default
+    cutseas: float | X13default
+    cuttd: float | X13default
+    fixmdl: bool | str | X13default
+    fixreg: list[str] | X13default
+    length: int | X13default
+    numspans: int | X13default
+    outlier: str | X13default
+    print: str | list[str] | X13default
+    save: str | list[str] | X13default
+    savelog: str | list[str] | X13default
+    start: MIT | X13default
+    additivesa: str | X13default
+    fixx11reg: bool | X13default
+    x11outlier: bool | X13default
+
+
+_SLIDINGSPANS_PRINT_ALL: Final[list[str]] = [
+    "header",
+    "ssftest",
+    "factormeans",
+    "percent",
+    "summary",
+    "yysummary",
+    "indfactormeans",
+    "indpercent",
+    "indsummary",
+    "yypercent",
+    "sfspans",
+    "chngspans",
+    "saspans",
+    "ychngspans",
+    "tdspans",
+    "indyypercent",
+    "indyysummary",
+    "indsfspans",
+    "indchngspans",
+    "indsaspans",
+    "indychngspans",
+]
+_SLIDINGSPANS_SAVE_ALL: Final[list[str]] = [
+    "sfspans",
+    "chngspans",
+    "saspans",
+    "ychngspans",
+    "tdspans",
+    "indsfspans",
+    "indchngspans",
+    "indsaspans",
+    "indychngspans",
+]
+
+
+def slidingspans(
+    *,
+    cutchng: float | X13default = _X13DEFAULT,
+    cutseas: float | X13default = _X13DEFAULT,
+    cuttd: float | X13default = _X13DEFAULT,
+    fixmdl: bool | str | X13default = _X13DEFAULT,
+    fixreg: list[str] | X13default = _X13DEFAULT,
+    length: int | X13default = _X13DEFAULT,
+    numspans: int | X13default = _X13DEFAULT,
+    outlier: str | X13default = _X13DEFAULT,
+    print: str | list[str] | X13default = _X13DEFAULT,
+    save: str | list[str] | X13default = _X13DEFAULT,
+    savelog: str | list[str] | X13default | None = None,
+    start: MIT | X13default = _X13DEFAULT,
+    additivesa: str | X13default = _X13DEFAULT,
+    fixx11reg: bool | X13default = _X13DEFAULT,
+    x11outlier: bool | X13default = _X13DEFAULT,
+) -> X13slidingspans:
+    """Build the ``slidingspans`` spec — stability analysis options.
+
+    Mirrors ``x13spec.jl:2666-2701``. The Julia ``length`` field collides
+    with Python's :func:`len` built-in but is not a Python reserved word,
+    so the kwarg keeps its X-13 name with a per-line ``A002`` ignore.
+
+    Validation:
+
+    * Setting both ``fixmdl=True`` and ``fixreg=[...]`` warns
+      (``fixreg`` is ignored by X-13 in that combination, mirroring the
+      upstream ``@warn``).
+    """
+    if savelog is None:
+        savelog = "percents"
+
+    if not isinstance(fixmdl, X13default) and not isinstance(fixreg, X13default) and fixmdl is True:
+        warnings.warn(
+            "fixreg will be ignored because fixmdl is set to true.",
+            UserWarning,
+            stacklevel=2,
+        )
+
+    print = _expand_all(print, _SLIDINGSPANS_PRINT_ALL)
+    save = _expand_all(save, _SLIDINGSPANS_SAVE_ALL)
+    return X13slidingspans(
+        cutchng=cutchng,
+        cutseas=cutseas,
+        cuttd=cuttd,
+        fixmdl=fixmdl,
+        fixreg=fixreg,
+        length=length,
+        numspans=numspans,
+        outlier=outlier,
+        print=print,
+        save=save,
+        savelog=savelog,
+        start=start,
+        additivesa=additivesa,
+        fixx11reg=fixx11reg,
+        x11outlier=x11outlier,
+    )
+
+
+# ---------------------------------------------------------------------------
+# X13spectrum container + spectrum() builder
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True, slots=True)
+class X13spectrum:
+    """The ``spectrum`` spec block — frequency-domain seasonality diagnostics.
+
+    Mirrors ``x13spec.jl:450-465``. Computes AR-spectrum or periodogram
+    estimates plus the QS statistic for both monthly and quarterly series.
+    """
+
+    logqs: bool | X13default
+    print: str | list[str] | X13default
+    save: str | list[str] | X13default
+    savelog: str | list[str] | X13default
+    qcheck: bool | X13default
+    start: MIT | X13default
+    tukey120: bool | X13default
+    decibel: bool | X13default
+    difference: bool | str | X13default
+    maxar: int | X13default
+    peakwidth: int | X13default
+    series: str | X13default
+    siglevel: int | X13default
+    type: str | X13default
+
+
+_SPECTRUM_PRINT_ALL: Final[list[str]] = [
+    "qcheck",
+    "qs",
+    "specorig",
+    "specsa",
+    "specirr",
+    "specseatssa",
+    "specseatsirr",
+    "specextresiduals",
+    "specresidual",
+    "speccomposite",
+    "specindirr",
+    "specindsa",
+    "tukeypeaks",
+]
+_SPECTRUM_SAVE_ALL: Final[list[str]] = [
+    "specorig",
+    "specsa",
+    "specirr",
+    "specseatssa",
+    "specseatsirr",
+    "specextresiduals",
+    "specresidual",
+    "speccomposite",
+    "specindirr",
+    "specindsa",
+]
+
+
+def spectrum(
+    *,
+    logqs: bool | X13default = _X13DEFAULT,
+    print: str | list[str] | X13default = _X13DEFAULT,
+    save: str | list[str] | X13default = _X13DEFAULT,
+    savelog: str | list[str] | X13default | None = None,
+    qcheck: bool | X13default = _X13DEFAULT,
+    start: MIT | X13default = _X13DEFAULT,
+    tukey120: bool | X13default = _X13DEFAULT,
+    decibel: bool | X13default = _X13DEFAULT,
+    difference: bool | str | X13default = _X13DEFAULT,
+    maxar: int | X13default = _X13DEFAULT,
+    peakwidth: int | X13default = _X13DEFAULT,
+    series: str | X13default = _X13DEFAULT,
+    siglevel: int | X13default = _X13DEFAULT,
+    type: str | X13default = _X13DEFAULT,
+) -> X13spectrum:
+    """Build the ``spectrum`` spec — spectral-diagnostic options.
+
+    Mirrors ``x13spec.jl:2785-2816``. No numeric validation upstream;
+    range checks happen in the X-13 binary.
+
+    The ``series`` kwarg shadows the :func:`series` spec builder at
+    module level; this is the X-13 grammar's name (``series=:original``
+    selects which series feeds the spectrum) and the per-kwarg ``A002``
+    ignore preserves the surface.
+    """
+    if savelog is None:
+        savelog = "alldiagnostics"
+    print = _expand_all(print, _SPECTRUM_PRINT_ALL)
+    save = _expand_all(save, _SPECTRUM_SAVE_ALL)
+    return X13spectrum(
+        logqs=logqs,
+        print=print,
+        save=save,
+        savelog=savelog,
+        qcheck=qcheck,
+        start=start,
+        tukey120=tukey120,
+        decibel=decibel,
+        difference=difference,
+        maxar=maxar,
+        peakwidth=peakwidth,
+        series=series,
+        siglevel=siglevel,
+        type=type,
+    )
+
+
+# ---------------------------------------------------------------------------
+# X13x11regression container + x11regression() builder
+# ---------------------------------------------------------------------------
+
+
+_X11REGRESSION_AICTEST_ALLOWED: Final[frozenset[str]] = frozenset(
+    {"td", "tdstock", "td1coef", "tdstock1coef", "easter", "user"}
+)
+_X11REGRESSION_USERTYPE_ALLOWED: Final[frozenset[str]] = frozenset({"td", "holiday", "user"})
+_X11REGRESSION_TDPRIOR_LENGTH: Final[int] = 7
+
+
+@dataclass(frozen=True, slots=True)
+class X13x11regression:
+    """The ``x11regression`` spec block — calendar / outlier regression on irregulars.
+
+    Mirrors ``x13spec.jl:512-547``. The X-11 sibling of the regARIMA
+    :class:`X13regression` block — applies calendar / trading-day
+    regressions to the X-11 irregular component.
+    """
+
+    aicdiff: float | X13default
+    aictest: str | list[str] | X13default
+    critical: float | X13default
+    data: MVTSeries | X13default
+    file: str | X13default
+    format: str | X13default
+    outliermethod: str | X13default
+    outlierspan: MITRange | Span | X13default
+    print: str | list[str] | X13default
+    save: str | list[str] | X13default
+    savelog: str | list[str] | X13default
+    prior: bool | X13default
+    sigma: float | X13default
+    span: MITRange | Span | X13default
+    start: MIT | X13default
+    tdprior: list[float] | X13default
+    user: str | list[str] | X13default
+    usertype: str | list[str] | X13default
+    variables: _VariablesField
+    almost: float | X13default
+    b: list[float] | X13default
+    fixb: list[bool] | X13default
+    centeruser: str | X13default
+    eastermeans: bool | X13default
+    forcecal: bool | X13default
+    noapply: list[str] | X13default
+    reweight: bool | X13default
+    umdata: MVTSeries | X13default
+    umfile: str | X13default
+    umformat: str | X13default
+    umname: list[str] | str | X13default
+    umprecision: int | X13default
+    umstart: MIT | X13default
+    umtrimzero: bool | str | X13default
+
+
+_X11REGRESSION_PRINT_ALL: Final[list[str]] = [
+    "priortd",
+    "extremeval",
+    "x11reg",
+    "tradingday",
+    "combtradingday",
+    "holiday",
+    "calendar",
+    "combcalendar",
+    "outlierhdr",
+    "xaictest",
+    "extremevalb",
+    "x11regb",
+    "tradingdayb",
+    "combtradingdayb",
+    "holidayb",
+    "calendarb",
+    "combcalendarb",
+    "outlieriter",
+    "outliertests",
+    "xregressionmatrix",
+    "xregressioncmatrix",
+]
+_X11REGRESSION_SAVE_ALL: Final[list[str]] = [
+    "priortd",
+    "extremeval",
+    "tradingday",
+    "combtradingday",
+    "holiday",
+    "calendar",
+    "combcalendar",
+    "extremevalb",
+    "tradingdayb",
+    "combtradingdayb",
+    "holidayb",
+    "calendarb",
+    "combcalendarb",
+    "outlieriter",
+    "xregressionmatrix",
+    "xregressioncmatrix",
+]
+
+_X11REGRESSION_TD_AIC_TYPES: Final[frozenset[str]] = frozenset(
+    {"td", "tdstock", "td1coef", "tdstock1coef"}
+)
+
+
+def _x11regression_variable_type(v: _VariableArg) -> str:
+    """Resolve a regressor argument to its X-13 type-token name."""
+    if isinstance(v, str):
+        return v
+    return v.__class__.__name__
+
+
+def x11regression(  # noqa: PLR0912, PLR0915
+    *,
+    aicdiff: float | X13default = _X13DEFAULT,
+    aictest: str | list[str] | X13default = _X13DEFAULT,
+    critical: float | X13default = _X13DEFAULT,
+    data: MVTSeries | X13default = _X13DEFAULT,
+    file: str | X13default = _X13DEFAULT,
+    format: str | X13default = _X13DEFAULT,
+    outliermethod: str | X13default = _X13DEFAULT,
+    outlierspan: MITRange | Span | X13default = _X13DEFAULT,
+    print: str | list[str] | X13default = _X13DEFAULT,
+    save: str | list[str] | X13default = _X13DEFAULT,
+    savelog: str | list[str] | X13default | None = None,
+    prior: bool | X13default = _X13DEFAULT,
+    sigma: float | X13default = _X13DEFAULT,
+    span: MITRange | Span | X13default = _X13DEFAULT,
+    tdprior: list[float] | X13default = _X13DEFAULT,
+    usertype: str | list[str] | X13default = _X13DEFAULT,
+    variables: _VariablesField = _X13DEFAULT,
+    almost: float | X13default = _X13DEFAULT,
+    b: list[float] | X13default = _X13DEFAULT,
+    fixb: list[bool] | X13default = _X13DEFAULT,
+    centeruser: str | X13default = _X13DEFAULT,
+    eastermeans: bool | X13default = _X13DEFAULT,
+    forcecal: bool | X13default = _X13DEFAULT,
+    noapply: list[str] | X13default = _X13DEFAULT,
+    reweight: bool | X13default = _X13DEFAULT,
+    umdata: MVTSeries | X13default = _X13DEFAULT,
+    umfile: str | X13default = _X13DEFAULT,
+    umformat: str | X13default = _X13DEFAULT,
+    umprecision: int | X13default = _X13DEFAULT,
+    umtrimzero: bool | str | X13default = _X13DEFAULT,
+) -> X13x11regression:
+    """Build the ``x11regression`` spec — calendar / outlier irregular-component regression.
+
+    Mirrors ``x13spec.jl:3420-3559``. The ``start`` / ``user`` / ``umstart`` /
+    ``umname`` fields are derived from ``data`` / ``umdata`` (mirrors the
+    Julia upstream's derivation; no user-facing kwargs accepted).
+
+    Validation:
+
+    * ``aictest`` (when set) restricted to ``{td, tdstock, td1coef,
+      tdstock1coef, easter, user}``. If both a TD ``aictest`` entry and a
+      TD ``variables`` entry are present, the AIC-test set must be a
+      subset of the variables-used set.
+    * ``sigma`` must be > 0.
+    * ``tdprior`` must have length 7 and all entries ≥ 0.
+    * ``usertype`` (when set) restricted to ``{td, holiday, user}``.
+      Vector form's length must match the number of user series.
+    * :class:`Span` ``outlierspan`` rejects fuzzy ``e`` (the builder
+      accepts only :class:`MIT` or :data:`None` already; the upstream
+      check collapses to a no-op).
+    """
+    if savelog is None:
+        savelog = "aictest"
+
+    start: MIT | X13default = _X13DEFAULT
+    user: str | list[str] | X13default = _X13DEFAULT
+    if not isinstance(data, X13default):
+        start = data.range.first()
+        names = list(data.column_names)
+        user = names[0] if len(names) == 1 else names
+
+    umstart: MIT | X13default = _X13DEFAULT
+    umname: list[str] | str | X13default = _X13DEFAULT
+    if not isinstance(umdata, X13default):
+        umstart = umdata.range.first()
+        umnames = list(umdata.column_names)
+        umname = umnames[0] if len(umnames) == 1 else umnames
+
+    if not isinstance(variables, X13default) and not isinstance(aictest, X13default):
+        vars_list: list[_VariableArg] = (
+            list(variables) if isinstance(variables, list) else [variables]
+        )
+        aics_list = [aictest] if isinstance(aictest, str) else list(aictest)
+        types_used = {_x11regression_variable_type(v) for v in vars_list}
+        has_td_in_aics = any(a in _X11REGRESSION_TD_AIC_TYPES for a in aics_list)
+        has_td_in_vars = bool(types_used & _X11REGRESSION_TD_AIC_TYPES)
+        if has_td_in_aics and has_td_in_vars:
+            for aic in aics_list:
+                if aic in _X11REGRESSION_TD_AIC_TYPES and aic not in types_used:
+                    msg = (
+                        f"Trading day regressors specified in the aictest "
+                        f"must correspond with trading day regressors "
+                        f"provided in the variables argument. {aic} was "
+                        f"specified in the aictest argument, but the "
+                        f"variables argument uses "
+                        f"{sorted(types_used & _X11REGRESSION_TD_AIC_TYPES)}."
+                    )
+                    raise ValueError(msg)
+
+    if isinstance(aictest, str):
+        if aictest not in _X11REGRESSION_AICTEST_ALLOWED:
+            msg = (
+                f"aictest can only contain these entries: "
+                f"{sorted(_X11REGRESSION_AICTEST_ALLOWED)}. "
+                f"Received: {aictest}."
+            )
+            raise ValueError(msg)
+    elif isinstance(aictest, list):
+        bad_aic = [a for a in aictest if a not in _X11REGRESSION_AICTEST_ALLOWED]
+        if bad_aic:
+            msg = (
+                f"aictest can only contain these entries: "
+                f"{sorted(_X11REGRESSION_AICTEST_ALLOWED)}. "
+                f"Received: {aictest}."
+            )
+            raise ValueError(msg)
+
+    if not isinstance(sigma, X13default) and sigma <= 0.0:
+        msg = f"sigma must be a number greater than 0. Received: {sigma}."
+        raise ValueError(msg)
+
+    if not isinstance(tdprior, X13default):
+        if len(tdprior) != _X11REGRESSION_TDPRIOR_LENGTH:
+            msg = (
+                f"tdprior must have a length of exactly "
+                f"{_X11REGRESSION_TDPRIOR_LENGTH}. Received: {tdprior}."
+            )
+            raise ValueError(msg)
+        if any(x < 0.0 for x in tdprior):
+            msg = f"tdprior values must all be greater than or equal to 0. Received: {tdprior}."
+            raise ValueError(msg)
+
+    if not isinstance(usertype, X13default):
+        if (
+            isinstance(usertype, list)
+            and isinstance(user, list)
+            and len(usertype) > 1
+            and len(usertype) != len(user)
+        ):
+            msg = (
+                f"The usertype argument must have the same length as "
+                f"the number of user series provided ({len(user)}) when "
+                f"more than a single type is specified. "
+                f"Received: {usertype}"
+            )
+            raise ValueError(msg)
+        if isinstance(usertype, list):
+            bad = [u for u in usertype if u not in _X11REGRESSION_USERTYPE_ALLOWED]
+            if bad:
+                msg = (
+                    f"The usertype argument can only have the following "
+                    f"values: {sorted(_X11REGRESSION_USERTYPE_ALLOWED)}. "
+                    f"\n\nReceived: {usertype}"
+                )
+                raise ValueError(msg)
+        elif isinstance(usertype, str) and usertype not in _X11REGRESSION_USERTYPE_ALLOWED:
+            msg = (
+                f"The usertype argument can only have the following "
+                f"values: {sorted(_X11REGRESSION_USERTYPE_ALLOWED)}. "
+                f"\n\nReceived: {usertype}"
+            )
+            raise ValueError(msg)
+
+    print = _expand_all(print, _X11REGRESSION_PRINT_ALL)
+    save = _expand_all(save, _X11REGRESSION_SAVE_ALL)
+    return X13x11regression(
+        aicdiff=aicdiff,
+        aictest=aictest,
+        critical=critical,
+        data=data,
+        file=file,
+        format=format,
+        outliermethod=outliermethod,
+        outlierspan=outlierspan,
+        print=print,
+        save=save,
+        savelog=savelog,
+        prior=prior,
+        sigma=sigma,
+        span=span,
+        start=start,
+        tdprior=tdprior,
+        user=user,
+        usertype=usertype,
+        variables=variables,
+        almost=almost,
+        b=b,
+        fixb=fixb,
+        centeruser=centeruser,
+        eastermeans=eastermeans,
+        forcecal=forcecal,
+        noapply=noapply,
+        reweight=reweight,
+        umdata=umdata,
+        umfile=umfile,
+        umformat=umformat,
+        umname=umname,
+        umprecision=umprecision,
+        umstart=umstart,
+        umtrimzero=umtrimzero,
     )

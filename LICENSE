@@ -19,3 +19,36 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+---
+
+## Third-party components
+
+### X-13ARIMA-SEATS (vendored binary, M2.6 onward)
+
+The published wheels bundle the X-13ARIMA-SEATS seasonal-adjustment
+binary (``x13as``) produced by the United States Census Bureau. The
+Census Bureau's distribution disclaimer applies to that binary:
+
+> X-13ARIMA-SEATS Disclaimer of Warranty and Public Domain Notice
+>
+> This Software was created by U.S. Government employees and therefore is
+> not subject to copyright in the United States (17 U.S.C. §105). The
+> United States/Commerce hereby grant to User a royalty-free,
+> nonexclusive license to use, copy, and create derivative works of the
+> Software outside of the United States.
+>
+> THE U.S. GOVERNMENT MAKES NO WARRANTIES, EXPRESS OR IMPLIED, INCLUDING
+> WITHOUT LIMITATION ANY WARRANTY OF MERCHANTABILITY, FITNESS FOR A
+> PARTICULAR PURPOSE, OR NONINFRINGEMENT, AND USE OF THE SOFTWARE IS AT
+> THE USER'S RISK.
+>
+> See: https://www.census.gov/data/software/x13as/disclaimer.html
+
+The full disclaimer is reproduced in
+``src/tsecon/x13/X13AS_LICENSE.txt`` (shipped inside the wheel).
+
+The Python wrapper code under ``src/tsecon/x13/`` is original work
+licensed under the MIT License above (it mirrors the public API of
+``TimeSeriesEcon.jl/src/x13/``, which the Bank of Canada publishes
+under the MIT License).

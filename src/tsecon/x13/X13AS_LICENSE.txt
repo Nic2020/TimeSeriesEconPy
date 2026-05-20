@@ -1,0 +1,50 @@
+X-13ARIMA-SEATS Disclaimer of Warranty and Public Domain Notice
+================================================================
+
+(Reproduced from https://www.census.gov/data/software/x13as/disclaimer.html;
+applies to the ``x13as`` binary vendored in TimeSeriesEconPy wheels from
+M2.6 onward. The Python wrapper code under ``src/tsecon/x13/`` is
+separately licensed under the MIT License — see the project ``LICENSE``
+file.)
+
+X-13ARIMA-SEATS Disclaimer of Warranty and Public Domain Notice
+
+This Software was created by U.S. Government employees and therefore is
+not subject to copyright in the United States (17 U.S.C. §105). The
+United States/Commerce hereby grant to User a royalty-free,
+nonexclusive license to use, copy, and create derivative works of the
+Software outside of the United States.
+
+THE U.S. GOVERNMENT MAKES NO WARRANTIES, EXPRESS OR IMPLIED, INCLUDING
+WITHOUT LIMITATION ANY WARRANTY OF MERCHANTABILITY, FITNESS FOR A
+PARTICULAR PURPOSE, OR NONINFRINGEMENT, AND USE OF THE SOFTWARE IS AT
+THE USER'S RISK. By using the Software, User agrees that the U.S.
+Government will not be liable for any damages, including direct, special,
+incidental, or consequential damages, arising from User's use of the
+Software, even if the U.S. Government has been advised of the possibility
+of such damages.
+
+The Software has not been fully tested for use in a production
+environment. By using the Software, User assumes any risk of and
+agrees that the U.S. Government will not be liable for, any decisions
+made by User based on User's use of the Software, even if the U.S.
+Government has been advised of the possibility of such damages.
+
+The U.S. Government does not endorse or warrant any service that may
+be provided by User in connection with the use of the Software. By
+using the Software, User agrees to indemnify the U.S. Government for
+any damages arising from User's use of the Software in connection with
+any service provided by User.
+
+The Software was produced and is being distributed by the U.S.
+Department of Commerce. Use of the Software in any product or service
+to be sold by User shall not constitute or imply endorsement or
+recommendation of any such product or service by the U.S. Government
+or the U.S. Department of Commerce.
+
+Version pinned by this wheel
+----------------------------
+
+X-13ARIMA-SEATS v1.1 build 62 (released 2025-07-10).
+
+Source: https://www2.census.gov/software/x-13arima-seats/x13as/

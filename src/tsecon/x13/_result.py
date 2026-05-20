@@ -773,8 +773,8 @@ def x13read_series(file: str | os.PathLike[str], freq: Frequency) -> TSeries | M
     * :class:`MVTSeries` when there are 2+ data columns,
     * :class:`TSeries` when there is exactly 1 data column,
     * empty :class:`TSeries` over the inferred range when the header
-      row has no data columns past the date column (mirrors the Julia
-      ``length(headers) == 0`` branch).
+        row has no data columns past the date column (mirrors the Julia
+        ``length(headers) == 0`` branch).
     """
     text = Path(file).read_text(encoding="utf-8", errors="replace")
     lines = text.split("\n")

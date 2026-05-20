@@ -73,3 +73,10 @@ Thumbs.db
 .env
 .env.local
 *.local
+
+# Locally-fetched X-13ARIMA-SEATS binary (M2.6: vendored into wheels by CI;
+# locally populated via `python scripts/fetch_x13as_local.py`). The shipping
+# binary is materialised into the wheel by wheels.yml; this directory exists
+# so `_resolve_binary` in src/tsecon/x13/_result.py can find it for local
+# development + testing without committing a per-platform executable.
+src/tsecon/x13/_binary/

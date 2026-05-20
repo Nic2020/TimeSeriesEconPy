@@ -1144,6 +1144,57 @@ def _run_workspace_to_mvts_copyto_5cols(state: dict[str, Any]) -> MVTSeries:
 
 
 # ---------------------------------------------------------------------------
+# X-13ARIMA-SEATS deseasonalisation (M2.6).
+#
+# The first benchmark row where the wrapper is *not* the dominant cost —
+# X-13 invokes the bundled Fortran binary, which dwarfs Python-side spec
+# construction + result parsing. The point of this scenario is **not** to
+# rank the wrapper against alternatives; it is to confirm Python and
+# Julia wrappers spend the same per-call time on top of the same binary,
+# i.e. that neither wrapper imposes a measurable extra cost.
+#
+# Two-flavor (Python + Julia; no Cython): both wrappers shell out to the
+# same x13as.exe in identical CWDs; the .spc-write + subprocess-spawn +
+# output-parse pipeline is what each row measures. The matching Julia
+# row lives in benchmarks/compare/julia/scenarios.jl as
+# `deseasonalize_quarterly_50y`.
+#
+# Conditional registration: registered only when `_resolve_binary()` is
+# not None. The setup builds a 200-quarter macro series (50 years
+# quarterly = 200 points; the realistic span for X-11 to estimate
+# seasonal factors).
+# ---------------------------------------------------------------------------
+
+
+def _setup_deseasonalize_quarterly_50y() -> dict[str, Any]:
+    n = 200  # 50 years × 4 quarters.
+    start = qq(2000, 1)
+    end = start + (n - 1)
+    rng = MITRange(start, end)
+    i = np.arange(n, dtype=np.float64)
+    # Realistic macro-style series: log-linear trend + sinusoidal seasonal +
+    # mild Gaussian noise (rng seeded for reproducibility).
+    trend = 100.0 + 0.5 * i + 0.001 * i * i
+    seasonal = 5.0 * np.sin(2 * np.pi * i / 4.0)
+    rng_seed = np.random.default_rng(seed=20260520)
+    noise = rng_seed.standard_normal(n) * 0.5
+    return {"ts": TSeries(rng, trend + seasonal + noise)}
+
+
+def _run_deseasonalize_quarterly_50y(state: dict[str, Any]) -> Any:
+    from tsecon.x13 import deseasonalize  # noqa: PLC0415 - optional surface
+
+    return deseasonalize(state["ts"])
+
+
+def _x13_binary_available() -> bool:
+    """True iff a usable x13as binary is reachable on this machine."""
+    from tsecon.x13._result import _resolve_binary  # noqa: PLC0415
+
+    return _resolve_binary() is not None
+
+
+# ---------------------------------------------------------------------------
 # Registry
 # ---------------------------------------------------------------------------
 
@@ -1418,5 +1469,14 @@ if _MATH_CYTHON_AVAILABLE:
     DESCRIPTION["undiff_quarterly_cython"] = (
         "cumsum_anchored_cython 101 anchored at 0 — Cython kernel"
     )
+
+# X-13 deseasonalisation depends on the vendored x13as binary; register the
+# scenario only when one is reachable so that wheel-build matrices without
+# the binary (or local checkouts that have not run scripts/fetch_x13as_local.py)
+# do not produce a misleading n/a row. The Julia side mirrors this gate.
+if _x13_binary_available():
+    SETUP["deseasonalize_quarterly_50y"] = _setup_deseasonalize_quarterly_50y
+    RUN["deseasonalize_quarterly_50y"] = _run_deseasonalize_quarterly_50y
+    DESCRIPTION["deseasonalize_quarterly_50y"] = "deseasonalize(t) — 200Q via x13as binary (M2.6)"
 
 assert SETUP.keys() == RUN.keys() == DESCRIPTION.keys(), "scenario registries must agree"

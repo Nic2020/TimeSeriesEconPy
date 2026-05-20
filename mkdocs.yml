@@ -93,6 +93,7 @@ nav:
       - Recursive (rec, rec_linear): reference/recursive.md
       - "Linear algebra (@ matrix multiply)": reference/linalg.md
       - "Misc helpers (overlay, compare, reindex)": reference/various.md
+      - "X-13ARIMA-SEATS (x13)": reference/x13.md
       - Options: reference/options.md
       - Plotting: reference/plotting.md
       - "Interop (pandas, polars)": reference/interop.md

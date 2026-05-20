@@ -85,9 +85,18 @@ Issues = "https://github.com/Nic2020/TimeSeriesEconPy/issues"
 packages = ["src/tsecon"]
 # The compiled extensions land next to their .pyx sources in src/tsecon/.
 # hatch_build.py builds them in-place during the wheel build step.
+# The X-13ARIMA-SEATS binary (vendored from M2.6 onward) lives at
+# src/tsecon/x13/_binary/{x13as, x13as.exe} after wheels.yml's
+# CIBW_BEFORE_BUILD hook places it; the entry is gitignored from the
+# working tree but force-included as a wheel artifact so it ships in the
+# published wheel. Locally, scripts/fetch_x13as_local.py populates the
+# same location.
 artifacts = [
     "src/tsecon/*.so",
     "src/tsecon/*.pyd",
+    "src/tsecon/x13/_binary/x13as",
+    "src/tsecon/x13/_binary/x13as.exe",
+    "src/tsecon/x13/X13AS_LICENSE.txt",
 ]
 
 [tool.hatch.build.targets.wheel.hooks.custom]

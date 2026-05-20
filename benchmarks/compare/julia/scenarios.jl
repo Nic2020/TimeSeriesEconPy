@@ -588,6 +588,45 @@ end
 workspace_to_mvts_copyto_5cols_run(state) = copyto!(state.dst, state.w)
 
 # ---------------------------------------------------------------------------
+# X-13ARIMA-SEATS deseasonalisation (M2.6).
+#
+# Mirrors the Python `deseasonalize_quarterly_50y` scenario. Both sides
+# shell out to the same x13as binary; the bench captures wrapper +
+# binary cost together. The point is to show that the per-call cost is
+# essentially equal across wrappers — i.e. neither imposes a measurable
+# layering tax.
+#
+# The Julia side forces `getoption(:x13path)` to the same vendored
+# binary the Python tests use (under `src/tsecon/x13/_binary/`) when
+# `__init__` time discovers it; otherwise the scenario is omitted from
+# `SCENARIOS` so the harness produces a clean `n/a` instead of a stale
+# X13as_jll-bundled-b60 timing that would not match the Python
+# vendored-b62 result.
+# ---------------------------------------------------------------------------
+
+const REPO_ROOT = normpath(joinpath(@__DIR__, "..", "..", ".."))
+const X13_BINARY_LOCAL = Sys.iswindows() ?
+    joinpath(REPO_ROOT, "src", "tsecon", "x13", "_binary", "x13as.exe") :
+    joinpath(REPO_ROOT, "src", "tsecon", "x13", "_binary", "x13as")
+const X13_BINARY_AVAILABLE = isfile(X13_BINARY_LOCAL)
+
+if X13_BINARY_AVAILABLE
+    TimeSeriesEcon.setoption(:x13path, X13_BINARY_LOCAL)
+end
+
+function deseasonalize_quarterly_50y_setup()
+    n = 200  # 50 years × 4 quarters.
+    i = collect(0:n-1)
+    trend = 100.0 .+ 0.5 .* i .+ 0.001 .* i .* i
+    seasonal = 5.0 .* sin.(2 * pi .* i ./ 4.0)
+    rng_seed = MersenneTwister(20260520)
+    noise = 0.5 .* randn(rng_seed, n)
+    return (ts = TSeries(qq(2000, 1), trend .+ seasonal .+ noise),)
+end
+
+deseasonalize_quarterly_50y_run(state) = TimeSeriesEcon.X13.deseasonalize(state.ts)
+
+# ---------------------------------------------------------------------------
 # Registry
 # ---------------------------------------------------------------------------
 
@@ -678,5 +717,13 @@ const SCENARIOS = Dict{String, Tuple{Function, Function}}(
     # linalg (M1.6.3g — mirrors Python G12 closure)
     "linalg_matrix_tseries_100"       => (linalg_matrix_tseries_100_setup,       linalg_matrix_tseries_100_run),
 )
+
+# X-13 deseasonalisation depends on the vendored binary; registered only
+# when it is reachable. The Python side mirrors this conditional gate
+# inside `scenarios.py`.
+if X13_BINARY_AVAILABLE
+    SCENARIOS["deseasonalize_quarterly_50y"] =
+        (deseasonalize_quarterly_50y_setup, deseasonalize_quarterly_50y_run)
+end
 
 end  # module Scenarios

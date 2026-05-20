@@ -2,11 +2,21 @@ name: wheels
 
 # Build + smoke-test platform wheels via cibuildwheel.
 #
-# The wheels contain compiled Cython extensions for the four M1.5 kernels
-# (rec_linear / lookup / stats_scalar / fconvert_lower_aggregate).
-# Smoke test verifies the kernels are active in the installed wheel (not
-# only on a `pip install -e .` source tree) and re-runs the four kernel
-# test files against the wheel-installed package.
+# The wheels ship two compiled artifact families:
+#
+# * The four M1.5 Cython kernels (rec_linear / lookup / stats_scalar /
+#   fconvert_lower_aggregate). Built by hatch_build.py during the
+#   cibuildwheel-internal `pip wheel` step.
+# * The X-13ARIMA-SEATS binary (M2.6 onward) vendored at
+#   src/tsecon/x13/_binary/{x13as, x13as.exe}. Built from Census Bureau
+#   Fortran source by the per-platform "Build x13as" step BEFORE
+#   cibuildwheel runs, so the binary is on disk when hatch's
+#   wheel-artifacts glob picks it up. Version pinned in
+#   src/tsecon/_mirror.py X13AS_VERSION; SHA-256 verified before unpack.
+#
+# Smoke test runs the four Cython-kernel test files against the
+# wheel-installed package + invokes a minimal `tsecon.x13.run` to
+# confirm the bundled X-13 binary is executable in the test venv.
 
 on:
   pull_request:
@@ -34,6 +44,76 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # --------------------------------------------------------------
+      # X-13ARIMA-SEATS binary build (M2.6).
+      #
+      # Linux runs the build inside the manylinux2014 container via
+      # CIBW_BEFORE_ALL_LINUX (centos7 + gcc-gfortran via yum) — the binary
+      # then links against the manylinux glibc floor (2.17), matching what
+      # `pip install TimeSeriesEconPy` users on common distros need.
+      #
+      # macOS and Windows run the build on the GHA host runner directly
+      # (cibuildwheel does not container-isolate non-Linux builds) — the
+      # host gets gfortran from `fortran-lang/setup-fortran@v1` and we
+      # run the same `make -f makefile.gf` recipe inline below.
+      # --------------------------------------------------------------
+
+      - name: Read X-13ARIMA-SEATS version from _mirror.py
+        id: x13_meta
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Extract the URL + SHA constants without importing tsecon (Cython
+          # extensions aren't built yet at this step).
+          python - <<'PY' >>"$GITHUB_OUTPUT"
+          import pathlib, re
+          src = pathlib.Path("src/tsecon/_mirror.py").read_text()
+          for name in ("X13AS_VERSION", "X13AS_SOURCE_URL", "X13AS_SOURCE_SHA256"):
+              m = re.search(rf'{name}.*?= *\(?\s*"([^"]+)"', src, re.S)
+              if not m:
+                  raise SystemExit(f"could not find {name} in _mirror.py")
+              print(f"{name.lower()}={m.group(1)}")
+          PY
+
+      - name: Set up Fortran toolchain (macOS / Windows host)
+        if: runner.os != 'Linux'
+        uses: fortran-lang/setup-fortran@v1
+        with:
+          compiler: gcc
+
+      - name: Build x13as on host (macOS / Windows)
+        if: runner.os != 'Linux'
+        shell: bash
+        env:
+          X13AS_SOURCE_URL: ${{ steps.x13_meta.outputs.x13as_source_url }}
+          X13AS_SOURCE_SHA256: ${{ steps.x13_meta.outputs.x13as_source_sha256 }}
+          X13AS_VERSION: ${{ steps.x13_meta.outputs.x13as_version }}
+        run: |
+          set -euo pipefail
+          mkdir -p src/tsecon/x13/_binary
+          workdir="$(mktemp -d)"
+          cd "$workdir"
+          curl -sL -o x13as_src.tar.gz "$X13AS_SOURCE_URL"
+          # Cross-platform SHA-256 check: shasum on macOS, sha256sum on Linux/MSYS.
+          actual="$( (sha256sum x13as_src.tar.gz 2>/dev/null || shasum -a 256 x13as_src.tar.gz) | awk '{print $1}')"
+          if [ "$actual" != "$X13AS_SOURCE_SHA256" ]; then
+            echo "SHA-256 mismatch: expected $X13AS_SOURCE_SHA256 got $actual" >&2
+            exit 1
+          fi
+          tar xzf x13as_src.tar.gz
+          # Tarball top-level dir keeps the leading "v" (e.g. v1-1-b62).
+          src_dir="x13as_asciisrc-${X13AS_VERSION}"
+          cd "$src_dir"
+          make -f makefile.gf
+          dest="${GITHUB_WORKSPACE}/src/tsecon/x13/_binary"
+          if [ "${RUNNER_OS}" = "Windows" ]; then
+            cp x13as_ascii.exe "$dest/x13as.exe"
+          else
+            cp x13as_ascii "$dest/x13as"
+            chmod +x "$dest/x13as"
+          fi
+          ls -la "$dest"
+
       - name: Build wheels
         uses: pypa/cibuildwheel@v3.4.1
         env:
@@ -49,6 +129,23 @@ jobs:
           CIBW_ARCHS_WINDOWS: AMD64
           CIBW_ARCHS_MACOS: arm64
           CIBW_BUILD_VERBOSITY: 1
+          # Linux build runs inside the manylinux2014 container; gfortran is
+          # installed via yum + the same make recipe runs there. The binary
+          # ends up at the mounted src/tsecon/x13/_binary path the host
+          # sees, so the rest of the wheel-build pipeline is platform-uniform.
+          CIBW_BEFORE_ALL_LINUX: |
+            yum install -y gcc-gfortran make tar gzip
+            mkdir -p /tmp/x13_build && cd /tmp/x13_build
+            curl -sL -o x13as_src.tar.gz "${{ steps.x13_meta.outputs.x13as_source_url }}"
+            echo "${{ steps.x13_meta.outputs.x13as_source_sha256 }}  x13as_src.tar.gz" | sha256sum -c -
+            tar xzf x13as_src.tar.gz
+            # Tarball top-level dir keeps the leading "v" (e.g. v1-1-b62).
+            cd x13as_asciisrc-${{ steps.x13_meta.outputs.x13as_version }}
+            make -f makefile.gf
+            mkdir -p {project}/src/tsecon/x13/_binary
+            cp x13as_ascii {project}/src/tsecon/x13/_binary/x13as
+            chmod +x {project}/src/tsecon/x13/_binary/x13as
+            ls -la {project}/src/tsecon/x13/_binary
           # Test dependencies installed into the cibuildwheel test venv. numpy is
           # already a runtime dep of the wheel itself, so it's resolved automatically.
           # pytest-benchmark is required because pyproject's `addopts` includes
@@ -56,16 +153,20 @@ jobs:
           # line usage error") when the plugin isn't installed.
           CIBW_TEST_REQUIRES: "pytest>=8.0 hypothesis>=6.100 pytest-benchmark>=4.0"
           # Smoke test = (1) confirm the four Cython kernels are active in the
-          # installed wheel, (2) run the kernel-specific test files end-to-end.
+          # installed wheel, (2) confirm the X-13 binary is reachable and
+          # produces a deseasonalised series for a minimal quarterly input,
+          # (3) run the kernel-specific test files end-to-end.
           # `--benchmark-skip` honours pyproject's addopts default but is set
           # explicitly here so the test command is self-contained.
           CIBW_TEST_COMMAND: >
             python -c "import tsecon; assert tsecon.rec_linear_is_cython(), 'rec_linear kernel missing'; assert tsecon.lookup_is_cython(), 'lookup kernel missing'; assert tsecon.stats_is_cython(), 'stats kernel missing'; assert tsecon.fconvert_is_cython(), 'fconvert kernel missing'" &&
+            python -c "from tsecon.x13._result import _resolve_binary; assert _resolve_binary() is not None, 'x13as binary missing from installed wheel'; print('x13as binary at', _resolve_binary())" &&
             pytest -x --benchmark-skip
             {project}/tests/test_recursive.py
             {project}/tests/test_indexing.py
             {project}/tests/test_stats_kernels.py
             {project}/tests/test_fconvert_kernels.py
+            {project}/tests/x13/test_run.py
 
       - name: Upload wheels
         uses: actions/upload-artifact@v4

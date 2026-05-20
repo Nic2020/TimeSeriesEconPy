@@ -2356,7 +2356,10 @@ block on this page. -->
 <a id="__codelineno-0-68" name="__codelineno-0-68" href="#__codelineno-0-68"></a>    <span class="n">data</span> <span class="o">=</span> <span class="n">base64</span><span class="o">.</span><span class="n">b64encode</span><span class="p">(</span><span class="n">buf</span><span class="o">.</span><span class="n">getvalue</span><span class="p">())</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s2">&quot;ascii&quot;</span><span class="p">)</span>
 <a id="__codelineno-0-69" name="__codelineno-0-69" href="#__codelineno-0-69"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;&lt;img src=&quot;data:image/png;base64,</span><span class="si">{</span><span class="n">data</span><span class="si">}</span><span class="s1">&quot; alt=&quot;</span><span class="si">{</span><span class="n">alt</span><span class="si">}</span><span class="s1">&quot; /&gt;&#39;</span><span class="p">)</span>
 </code></pre></div>
-<div class="result"></div>
+<div class="result">
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>
+</code></pre></div>
+</div>
 <h2 id="1-frequency-and-time">1. Frequency and Time<a class="headerlink" href="#1-frequency-and-time" title="Permanent link">&para;</a></h2>
 <p>In a time series the values are evenly spaced in time and each value is
 labelled with the moment in which it occurred. TimeSeriesEconPy provides
@@ -2388,10 +2391,11 @@ can pick a variant explicitly:</p>
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="nb">print</span><span class="p">(</span><span class="n">Quarterly</span><span class="p">(</span><span class="n">end_month</span><span class="o">=</span><span class="mi">2</span><span class="p">))</span>   <span class="c1"># broadcaster&#39;s calendar</span>
 </code></pre></div>
 <div class="result">
-<p>Yearly()
-Yearly(end_month=3)
-Quarterly()
-Quarterly(end_month=2)</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>Yearly()
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>Yearly(end_month=3)
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>Quarterly()
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>Quarterly(end_month=2)
+</code></pre></div>
 </div>
 <p><code>Weekly</code> similarly has an implicit default end-day of Sunday:
 <code>Weekly()</code> is <code>Weekly(end_day=7)</code>.</p>
@@ -2402,8 +2406,9 @@ measure the distance between two <code>MIT</code>s of the same frequency.</p>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nb">print</span><span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="n">mm</span><span class="p">(</span><span class="mi">2021</span><span class="p">,</span> <span class="mi">5</span><span class="p">)</span> <span class="o">-</span> <span class="n">mm</span><span class="p">(</span><span class="mi">2020</span><span class="p">,</span> <span class="mi">3</span><span class="p">)))</span>
 </code></pre></div>
 <div class="result">
-<p><class 'tsecon.mit.MIT'>
-<class 'tsecon.mit.Duration'></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>&lt;class &#39;tsecon.mit.MIT&#39;&gt;
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>&lt;class &#39;tsecon.mit.Duration&#39;&gt;
+</code></pre></div>
 </div>
 <h4 id="creating-mit-instances">Creating MIT instances<a class="headerlink" href="#creating-mit-instances" title="Permanent link">&para;</a></h4>
 <p>Pythonic equivalents of Julia's <code>2020Q1</code> / <code>2020M3</code> / <code>2020Y</code> literal
@@ -2415,10 +2420,11 @@ are <code>(year, period)</code> (or just <code>(year,)</code> for <code>yy</code
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="nb">print</span><span class="p">(</span><span class="n">mm</span><span class="p">(</span><span class="mi">2022</span><span class="p">,</span> <span class="mi">5</span><span class="p">))</span>
 </code></pre></div>
 <div class="result">
-<p>2022Q1
-2020Q3
-2020Y
-2022M5</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>2022Q1
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>2020Q3
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>2020Y
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>2022M5
+</code></pre></div>
 </div>
 <p>For half-yearly the same pattern works through the lower-level
 <code>MIT.from_yp</code> factory because there's no dedicated <code>hh()</code> shorthand:</p>
@@ -2426,8 +2432,9 @@ are <code>(year, period)</code> (or just <code>(year,)</code> for <code>yy</code
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nb">print</span><span class="p">(</span><span class="n">MIT</span><span class="o">.</span><span class="n">from_yp</span><span class="p">(</span><span class="n">HalfYearly</span><span class="p">(),</span> <span class="mi">2022</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span>
 </code></pre></div>
 <div class="result">
-<p>2022H1
-2022H2</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>2022H1
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>2022H2
+</code></pre></div>
 </div>
 <p>For variant end-months, instantiate the frequency first and use
 <code>MIT.from_yp</code>:</p>
@@ -2435,8 +2442,9 @@ are <code>(year, period)</code> (or just <code>(year,)</code> for <code>yy</code
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nb">print</span><span class="p">(</span><span class="n">MIT</span><span class="o">.</span><span class="n">from_yp</span><span class="p">(</span><span class="n">Yearly</span><span class="p">(</span><span class="n">end_month</span><span class="o">=</span><span class="mi">11</span><span class="p">),</span> <span class="mi">2020</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
 </code></pre></div>
 <div class="result">
-<p>2022Q1{2}
-2020Y{11}</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>2022Q1{2}
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>2020Y{11}
+</code></pre></div>
 </div>
 <p>For the calendar-date frequencies (<code>Daily</code>, <code>BDaily</code>, <code>Weekly</code>), a
 date object or ISO string is required:</p>
@@ -2445,9 +2453,10 @@ date object or ISO string is required:</p>
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="nb">print</span><span class="p">(</span><span class="n">daily</span><span class="p">(</span><span class="s2">&quot;2022-01-03&quot;</span><span class="p">))</span>
 </code></pre></div>
 <div class="result">
-<p>2022-01-09
-2022-01-03
-2022-01-03</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>2022-01-09
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>2022-01-03
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>2022-01-03
+</code></pre></div>
 </div>
 <p><code>bdaily(...)</code> from a date that lands on a weekend raises by default
 (matching Julia's <code>:strict</code> bias). Pass <code>bias=</code> to opt in to a
@@ -2457,9 +2466,10 @@ specific rounding rule:</p>
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="nb">print</span><span class="p">(</span><span class="n">bdaily</span><span class="p">(</span><span class="s2">&quot;2022-01-01&quot;</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="s2">&quot;nearest&quot;</span><span class="p">))</span>    <span class="c1"># 2021-12-31</span>
 </code></pre></div>
 <div class="result">
-<p>2021-12-31
-2022-01-03
-2021-12-31</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>2021-12-31
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>2022-01-03
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>2021-12-31
+</code></pre></div>
 </div>
 <p>The bias for <em>all</em> implicit weekend-to-business-day rounding can be
 flipped globally via <a href="#17-options">§17 Options</a>.</p>
@@ -2472,7 +2482,8 @@ operation has no economic meaning.</p>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nb">print</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
 </code></pre></div>
 <div class="result">
-<p>5</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>5
+</code></pre></div>
 </div>
 <p>A plain <code>int</code> on either side of <code>+</code> / <code>-</code> is automatically treated as a
 <code>Duration</code> in the <code>MIT</code>'s own frequency. This is the same Julia
@@ -2481,8 +2492,9 @@ shorthand <code>2000Q1 + 6</code>:</p>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nb">print</span><span class="p">(</span><span class="n">qq</span><span class="p">(</span><span class="mi">2000</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="o">+</span> <span class="mi">6</span><span class="p">)</span>                          <span class="c1"># same thing, idiomatic</span>
 </code></pre></div>
 <div class="result">
-<p>2001Q3
-2001Q3</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>2001Q3
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>2001Q3
+</code></pre></div>
 </div>
 <p>Mixing frequencies raises:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">try</span><span class="p">:</span>
@@ -2491,7 +2503,8 @@ shorthand <code>2000Q1 + 6</code>:</p>
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;TypeError:&quot;</span><span class="p">,</span> <span class="n">exc</span><span class="p">)</span>
 </code></pre></div>
 <div class="result">
-<p>TypeError: Mixing frequencies not allowed: Quarterly and Monthly.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>TypeError: Mixing frequencies not allowed: Quarterly and Monthly.
+</code></pre></div>
 </div>
 <p>Multiplication of an <code>MIT</code> by an integer is not allowed:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">try</span><span class="p">:</span>
@@ -2500,7 +2513,8 @@ shorthand <code>2000Q1 + 6</code>:</p>
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;TypeError:&quot;</span><span class="p">,</span> <span class="n">exc</span><span class="p">)</span>
 </code></pre></div>
 <div class="result">
-<p>TypeError: unsupported operand type(s) for *: 'MIT' and 'int'</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>TypeError: unsupported operand type(s) for *: &#39;MIT&#39; and &#39;int&#39;
+</code></pre></div>
 </div>
 <h3 id="other-operations">Other operations<a class="headerlink" href="#other-operations" title="Permanent link">&para;</a></h3>
 <p><code>frequency_of(...)</code> returns the frequency of its argument; <code>ppy(...)</code>
@@ -2516,12 +2530,13 @@ gives the number of periods per year; <code>year(...)</code> / <code>period(...)
 <a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;mit2yp:&quot;</span><span class="p">,</span> <span class="n">mit2yp</span><span class="p">(</span><span class="n">t</span><span class="p">))</span>
 </code></pre></div>
 <div class="result">
-<p>Yearly()
-Quarterly()
-ppy: 4
-year: 2020
-period: 3
-mit2yp: (2020, 3)</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>Yearly()
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>Quarterly()
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>ppy: 4
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>year: 2020
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>period: 3
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>mit2yp: (2020, 3)
+</code></pre></div>
 </div>
 <p>Note that <code>ppy</code> accepts a <code>Frequency</code> (not an <code>MIT</code>) — pass
 <code>t.frequency</code> rather than <code>t</code>. As in Julia, the returned value is the
@@ -2552,11 +2567,12 @@ operations work: <code>len</code>, iteration, indexing, slicing, <code>reversed<
 <a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;rng[3:5]:&quot;</span><span class="p">,</span> <span class="n">rng</span><span class="p">[</span><span class="mi">3</span><span class="p">:</span><span class="mi">5</span><span class="p">])</span>
 </code></pre></div>
 <div class="result">
-<p>2000M1:2001M9
-len: 21
-first: 2000M1
-last: 2001M9
-rng[3:5]: 2000M4:2000M5</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>2000M1:2001M9
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>len: 21
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>first: 2000M1
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>last: 2001M9
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>rng[3:5]: 2000M4:2000M5
+</code></pre></div>
 </div>
 <p>Julia's broadcast addition <code>rng .+ 6</code> (shift the whole range by 6
 periods) does not have a <code>+</code> operator overload here — express the
@@ -2564,7 +2580,8 @@ shift directly on the endpoints:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nb">print</span><span class="p">(</span><span class="n">MITRange</span><span class="p">(</span><span class="n">rng</span><span class="o">.</span><span class="n">start</span> <span class="o">+</span> <span class="mi">6</span><span class="p">,</span> <span class="n">rng</span><span class="o">.</span><span class="n">stop</span> <span class="o">+</span> <span class="mi">6</span><span class="p">))</span>
 </code></pre></div>
 <div class="result">
-<p>2000M7:2002M3</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>2000M7:2002M3
+</code></pre></div>
 </div>
 <p>For step ranges, pass <code>step=</code>. The step is a nonzero integer in the
 range's own frequency.</p>
@@ -2572,7 +2589,8 @@ range's own frequency.</p>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nb">print</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">rng2</span><span class="p">))</span>
 </code></pre></div>
 <div class="result">
-<p>[2000M1, 2000M3, 2000M5, 2000M7]</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>[2000M1, 2000M3, 2000M5, 2000M7]
+</code></pre></div>
 </div>
 <p>A <strong>negative <code>step</code></strong> walks the range backward, mirroring Julia's
 <code>10U:-1:1U</code> (<code>StepRange{MIT}</code> form). This is the natural way to write a
@@ -2584,14 +2602,16 @@ separate "is this iteration reversed?" flag.</p>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nb">print</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">back_rng</span><span class="p">)[:</span><span class="mi">4</span><span class="p">],</span> <span class="s2">&quot;...&quot;</span><span class="p">)</span>
 </code></pre></div>
 <div class="result">
-<p>[2021Q4, 2021Q3, 2021Q2, 2021Q1] ...</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>[2021Q4, 2021Q3, 2021Q2, 2021Q1] ...
+</code></pre></div>
 </div>
 <p>For one-shot iteration in reverse without changing the range's identity,
 wrap with <code>reversed</code>:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nb">print</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="nb">reversed</span><span class="p">(</span><span class="n">MITRange</span><span class="p">(</span><span class="n">mm</span><span class="p">(</span><span class="mi">2020</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="n">mm</span><span class="p">(</span><span class="mi">2020</span><span class="p">,</span> <span class="mi">4</span><span class="p">)))))</span>
 </code></pre></div>
 <div class="result">
-<p>[2020M4, 2020M3, 2020M2, 2020M1]</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>[2020M4, 2020M3, 2020M2, 2020M1]
+</code></pre></div>
 </div>
 <p>Calendar-date ranges work the same way; for <code>BDaily</code>, opt-in <code>bias=</code>
 on each endpoint to round into the range when a weekend is supplied:</p>
@@ -2600,8 +2620,9 @@ on each endpoint to round into the range when a weekend is supplied:</p>
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>               <span class="n">bdaily</span><span class="p">(</span><span class="s2">&quot;2022-01-31&quot;</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="s2">&quot;previous&quot;</span><span class="p">)))</span>
 </code></pre></div>
 <div class="result">
-<p>2022-01-01:2022-01-31
-2022-01-03:2022-01-31</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>2022-01-01:2022-01-31
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>2022-01-03:2022-01-31
+</code></pre></div>
 </div>
 <div class="admonition info">
 <p class="admonition-title">Julia ↔ Python</p>
@@ -2624,12 +2645,13 @@ honest (see the <a href="../../design/tseries_protocols/">TSeries protocols desi
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="nb">print</span><span class="p">(</span><span class="n">ts</span><span class="p">)</span>
 </code></pre></div>
 <div class="result">
-<p>5-element TSeries{Quarterly} with range 2020Q1:2021Q1:
-  2020Q1 : 0.46887739754960267
-  2020Q2 : 0.17611433527713583
-  2020Q3 : 0.9376633341318071
-  2020Q4 : 0.4905703497648043
-  2021Q1 : 0.4323397902492737</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>5-element TSeries{Quarterly} with range 2020Q1:2021Q1:
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>  2020Q1 : 0.46887739754960267
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>  2020Q2 : 0.17611433527713583
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>  2020Q3 : 0.9376633341318071
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>  2020Q4 : 0.4905703497648043
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>  2021Q1 : 0.4323397902492737
+</code></pre></div>
 </div>
 <div class="admonition warning">
 <p class="admonition-title">Important caveat — buffer aliasing on construction</p>
@@ -2662,69 +2684,70 @@ scalar or an initialiser function to fill it:</p>
 <a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="nb">print</span><span class="p">(</span><span class="n">TSeries</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">rng</span><span class="p">))</span>           <span class="c1"># likewise for `np.ones`</span>
 </code></pre></div>
 <div class="result">
-<p>8-element TSeries{Quarterly} with range 2020Q1:2021Q4:
-  2020Q1 : nan
-  2020Q2 : nan
-  2020Q3 : nan
-  2020Q4 : nan
-  2021Q1 : nan
-  2021Q2 : nan
-  2021Q3 : nan
-  2021Q4 : nan
-8-element TSeries{Quarterly} with range 2020Q1:2021Q4:
-  2020Q1 : 3.141592653589793
-  2020Q2 : 3.141592653589793
-  2020Q3 : 3.141592653589793
-  2020Q4 : 3.141592653589793
-  2021Q1 : 3.141592653589793
-  2021Q2 : 3.141592653589793
-  2021Q3 : 3.141592653589793
-  2021Q4 : 3.141592653589793
-8-element TSeries{Quarterly} with range 2020Q1:2021Q4:
-  2020Q1 : 0.0
-  2020Q2 : 0.0
-  2020Q3 : 0.0
-  2020Q4 : 0.0
-  2021Q1 : 0.0
-  2021Q2 : 0.0
-  2021Q3 : 0.0
-  2021Q4 : 0.0
-8-element TSeries{Quarterly} with range 2020Q1:2021Q4:
-  2020Q1 : 1.0
-  2020Q2 : 1.0
-  2020Q3 : 1.0
-  2020Q4 : 1.0
-  2021Q1 : 1.0
-  2021Q2 : 1.0
-  2021Q3 : 1.0
-  2021Q4 : 1.0
-8-element TSeries{Quarterly} with range 2020Q1:2021Q4:
-  2020Q1 : 0.09406169932734132
-  2020Q2 : 0.5361386083925023
-  2020Q3 : 0.9545476244897134
-  2020Q4 : 0.805132501920268
-  2021Q1 : 0.6221884827608385
-  2021Q2 : 0.8733375920081144
-  2021Q3 : 0.5961344024247559
-  2021Q4 : 0.47968491554896875
-8-element TSeries{Quarterly} with range 2020Q1:2021Q4:
-  2020Q1 : 0.0
-  2020Q2 : 0.0
-  2020Q3 : 0.0
-  2020Q4 : 0.0
-  2021Q1 : 0.0
-  2021Q2 : 0.0
-  2021Q3 : 0.0
-  2021Q4 : 0.0
-8-element TSeries{Quarterly} with range 2020Q1:2021Q4:
-  2020Q1 : 1.0
-  2020Q2 : 1.0
-  2020Q3 : 1.0
-  2020Q4 : 1.0
-  2021Q1 : 1.0
-  2021Q2 : 1.0
-  2021Q3 : 1.0
-  2021Q4 : 1.0</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>8-element TSeries{Quarterly} with range 2020Q1:2021Q4:
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>  2020Q1 : nan
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>  2020Q2 : nan
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>  2020Q3 : nan
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>  2020Q4 : nan
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>  2021Q1 : nan
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>  2021Q2 : nan
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>  2021Q3 : nan
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>  2021Q4 : nan
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>8-element TSeries{Quarterly} with range 2020Q1:2021Q4:
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>  2020Q1 : 3.141592653589793
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>  2020Q2 : 3.141592653589793
+<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>  2020Q3 : 3.141592653589793
+<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>  2020Q4 : 3.141592653589793
+<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>  2021Q1 : 3.141592653589793
+<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>  2021Q2 : 3.141592653589793
+<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a>  2021Q3 : 3.141592653589793
+<a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a>  2021Q4 : 3.141592653589793
+<a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a>8-element TSeries{Quarterly} with range 2020Q1:2021Q4:
+<a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a>  2020Q1 : 0.0
+<a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a>  2020Q2 : 0.0
+<a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a>  2020Q3 : 0.0
+<a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a>  2020Q4 : 0.0
+<a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a>  2021Q1 : 0.0
+<a id="__codelineno-1-25" name="__codelineno-1-25" href="#__codelineno-1-25"></a>  2021Q2 : 0.0
+<a id="__codelineno-1-26" name="__codelineno-1-26" href="#__codelineno-1-26"></a>  2021Q3 : 0.0
+<a id="__codelineno-1-27" name="__codelineno-1-27" href="#__codelineno-1-27"></a>  2021Q4 : 0.0
+<a id="__codelineno-1-28" name="__codelineno-1-28" href="#__codelineno-1-28"></a>8-element TSeries{Quarterly} with range 2020Q1:2021Q4:
+<a id="__codelineno-1-29" name="__codelineno-1-29" href="#__codelineno-1-29"></a>  2020Q1 : 1.0
+<a id="__codelineno-1-30" name="__codelineno-1-30" href="#__codelineno-1-30"></a>  2020Q2 : 1.0
+<a id="__codelineno-1-31" name="__codelineno-1-31" href="#__codelineno-1-31"></a>  2020Q3 : 1.0
+<a id="__codelineno-1-32" name="__codelineno-1-32" href="#__codelineno-1-32"></a>  2020Q4 : 1.0
+<a id="__codelineno-1-33" name="__codelineno-1-33" href="#__codelineno-1-33"></a>  2021Q1 : 1.0
+<a id="__codelineno-1-34" name="__codelineno-1-34" href="#__codelineno-1-34"></a>  2021Q2 : 1.0
+<a id="__codelineno-1-35" name="__codelineno-1-35" href="#__codelineno-1-35"></a>  2021Q3 : 1.0
+<a id="__codelineno-1-36" name="__codelineno-1-36" href="#__codelineno-1-36"></a>  2021Q4 : 1.0
+<a id="__codelineno-1-37" name="__codelineno-1-37" href="#__codelineno-1-37"></a>8-element TSeries{Quarterly} with range 2020Q1:2021Q4:
+<a id="__codelineno-1-38" name="__codelineno-1-38" href="#__codelineno-1-38"></a>  2020Q1 : 0.09406169932734132
+<a id="__codelineno-1-39" name="__codelineno-1-39" href="#__codelineno-1-39"></a>  2020Q2 : 0.5361386083925023
+<a id="__codelineno-1-40" name="__codelineno-1-40" href="#__codelineno-1-40"></a>  2020Q3 : 0.9545476244897134
+<a id="__codelineno-1-41" name="__codelineno-1-41" href="#__codelineno-1-41"></a>  2020Q4 : 0.805132501920268
+<a id="__codelineno-1-42" name="__codelineno-1-42" href="#__codelineno-1-42"></a>  2021Q1 : 0.6221884827608385
+<a id="__codelineno-1-43" name="__codelineno-1-43" href="#__codelineno-1-43"></a>  2021Q2 : 0.8733375920081144
+<a id="__codelineno-1-44" name="__codelineno-1-44" href="#__codelineno-1-44"></a>  2021Q3 : 0.5961344024247559
+<a id="__codelineno-1-45" name="__codelineno-1-45" href="#__codelineno-1-45"></a>  2021Q4 : 0.47968491554896875
+<a id="__codelineno-1-46" name="__codelineno-1-46" href="#__codelineno-1-46"></a>8-element TSeries{Quarterly} with range 2020Q1:2021Q4:
+<a id="__codelineno-1-47" name="__codelineno-1-47" href="#__codelineno-1-47"></a>  2020Q1 : 0.0
+<a id="__codelineno-1-48" name="__codelineno-1-48" href="#__codelineno-1-48"></a>  2020Q2 : 0.0
+<a id="__codelineno-1-49" name="__codelineno-1-49" href="#__codelineno-1-49"></a>  2020Q3 : 0.0
+<a id="__codelineno-1-50" name="__codelineno-1-50" href="#__codelineno-1-50"></a>  2020Q4 : 0.0
+<a id="__codelineno-1-51" name="__codelineno-1-51" href="#__codelineno-1-51"></a>  2021Q1 : 0.0
+<a id="__codelineno-1-52" name="__codelineno-1-52" href="#__codelineno-1-52"></a>  2021Q2 : 0.0
+<a id="__codelineno-1-53" name="__codelineno-1-53" href="#__codelineno-1-53"></a>  2021Q3 : 0.0
+<a id="__codelineno-1-54" name="__codelineno-1-54" href="#__codelineno-1-54"></a>  2021Q4 : 0.0
+<a id="__codelineno-1-55" name="__codelineno-1-55" href="#__codelineno-1-55"></a>8-element TSeries{Quarterly} with range 2020Q1:2021Q4:
+<a id="__codelineno-1-56" name="__codelineno-1-56" href="#__codelineno-1-56"></a>  2020Q1 : 1.0
+<a id="__codelineno-1-57" name="__codelineno-1-57" href="#__codelineno-1-57"></a>  2020Q2 : 1.0
+<a id="__codelineno-1-58" name="__codelineno-1-58" href="#__codelineno-1-58"></a>  2020Q3 : 1.0
+<a id="__codelineno-1-59" name="__codelineno-1-59" href="#__codelineno-1-59"></a>  2020Q4 : 1.0
+<a id="__codelineno-1-60" name="__codelineno-1-60" href="#__codelineno-1-60"></a>  2021Q1 : 1.0
+<a id="__codelineno-1-61" name="__codelineno-1-61" href="#__codelineno-1-61"></a>  2021Q2 : 1.0
+<a id="__codelineno-1-62" name="__codelineno-1-62" href="#__codelineno-1-62"></a>  2021Q3 : 1.0
+<a id="__codelineno-1-63" name="__codelineno-1-63" href="#__codelineno-1-63"></a>  2021Q4 : 1.0
+</code></pre></div>
 </div>
 <div class="admonition info">
 <p class="admonition-title">Element-type caveat</p>
@@ -2744,24 +2767,25 @@ specified range), <code>copy</code> returns an exact value-for-value duplicate:<
 <a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;copy:&quot;</span><span class="p">,</span> <span class="n">c</span><span class="p">)</span>
 </code></pre></div>
 <div class="result">
-<p>similar: 8-element TSeries{Quarterly} with range 2020Q1:2021Q4:
-  2020Q1 : nan
-  2020Q2 : nan
-  2020Q3 : nan
-  2020Q4 : nan
-  2021Q1 : nan
-  2021Q2 : nan
-  2021Q3 : nan
-  2021Q4 : nan
-copy: 8-element TSeries{Quarterly} with range 2020Q1:2021Q4:
-  2020Q1 : 2.7
-  2020Q2 : 2.7
-  2020Q3 : 2.7
-  2020Q4 : 2.7
-  2021Q1 : 2.7
-  2021Q2 : 2.7
-  2021Q3 : 2.7
-  2021Q4 : 2.7</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>similar: 8-element TSeries{Quarterly} with range 2020Q1:2021Q4:
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>  2020Q1 : nan
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>  2020Q2 : nan
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>  2020Q3 : nan
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>  2020Q4 : nan
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>  2021Q1 : nan
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>  2021Q2 : nan
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>  2021Q3 : nan
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>  2021Q4 : nan
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>copy: 8-element TSeries{Quarterly} with range 2020Q1:2021Q4:
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>  2020Q1 : 2.7
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>  2020Q2 : 2.7
+<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>  2020Q3 : 2.7
+<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>  2020Q4 : 2.7
+<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>  2021Q1 : 2.7
+<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>  2021Q2 : 2.7
+<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a>  2021Q3 : 2.7
+<a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a>  2021Q4 : 2.7
+</code></pre></div>
 </div>
 <div class="admonition info">
 <p class="admonition-title">Julia ↔ Python</p>
@@ -2790,19 +2814,20 @@ semantics on the underlying buffer.</p>
 <a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;t[2:4]:&quot;</span><span class="p">,</span> <span class="n">t</span><span class="p">[</span><span class="mi">2</span><span class="p">:</span><span class="mi">4</span><span class="p">])</span>   <span class="c1"># ndarray slice (loses date labels)</span>
 </code></pre></div>
 <div class="result">
-<p>t: 5-element TSeries{Quarterly} with range 2000Q1:2001Q1:
-  2000Q1 : 0.7311551900667536
-  2000Q2 : 0.9921813660891006
-  2000Q3 : 0.3050277090556356
-  2000Q4 : 0.870607853238372
-  2001Q1 : 0.6928811509356263
-t[qq(2000,1)]: 0.7311551900667536
-t[qq(2000,2):qq(2000,4)]: 3-element TSeries{Quarterly} with range 2000Q2:2000Q4:
-  2000Q2 : 0.9921813660891006
-  2000Q3 : 0.3050277090556356
-  2000Q4 : 0.870607853238372
-t[1]: 0.9921813660891006
-t[2:4]: [0.30502771 0.87060785]</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>t: 5-element TSeries{Quarterly} with range 2000Q1:2001Q1:
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>  2000Q1 : 0.7311551900667536
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>  2000Q2 : 0.9921813660891006
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>  2000Q3 : 0.3050277090556356
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>  2000Q4 : 0.870607853238372
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>  2001Q1 : 0.6928811509356263
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>t[qq(2000,1)]: 0.7311551900667536
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>t[qq(2000,2):qq(2000,4)]: 3-element TSeries{Quarterly} with range 2000Q2:2000Q4:
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>  2000Q2 : 0.9921813660891006
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>  2000Q3 : 0.3050277090556356
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>  2000Q4 : 0.870607853238372
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>t[1]: 0.9921813660891006
+<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>t[2:4]: [0.30502771 0.87060785]
+</code></pre></div>
 </div>
 <p>Out-of-range reads raise:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">try</span><span class="p">:</span>
@@ -2816,8 +2841,9 @@ t[2:4]: [0.30502771 0.87060785]</p>
 <a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;IndexError:&quot;</span><span class="p">,</span> <span class="n">exc</span><span class="p">)</span>
 </code></pre></div>
 <div class="result">
-<p>IndexError: MIT 1999Q1 is outside the stored range 2000Q1:2001Q1.
-IndexError: MITRange 2001Q1:2001Q3 is not contained in stored range 2000Q1:2001Q1.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>IndexError: MIT 1999Q1 is outside the stored range 2000Q1:2001Q1.
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>IndexError: MITRange 2001Q1:2001Q3 is not contained in stored range 2000Q1:2001Q1.
+</code></pre></div>
 </div>
 <p>Python has no <code>begin</code> / <code>end</code> keyword inside <code>[]</code>, so the "last <em>n</em> by
 date" idiom uses the <code>lastdate</code> attribute explicitly:</p>
@@ -2825,14 +2851,15 @@ date" idiom uses the <code>lastdate</code> attribute explicitly:</p>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nb">print</span><span class="p">(</span><span class="n">t</span><span class="p">[</span><span class="n">MITRange</span><span class="p">(</span><span class="n">t</span><span class="o">.</span><span class="n">firstdate</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">t</span><span class="o">.</span><span class="n">lastdate</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)])</span>  <span class="c1"># drop first and last</span>
 </code></pre></div>
 <div class="result">
-<p>3-element TSeries{Quarterly} with range 2000Q3:2001Q1:
-  2000Q3 : 0.3050277090556356
-  2000Q4 : 0.870607853238372
-  2001Q1 : 0.6928811509356263
-3-element TSeries{Quarterly} with range 2000Q2:2000Q4:
-  2000Q2 : 0.9921813660891006
-  2000Q3 : 0.3050277090556356
-  2000Q4 : 0.870607853238372</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>3-element TSeries{Quarterly} with range 2000Q3:2001Q1:
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>  2000Q3 : 0.3050277090556356
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>  2000Q4 : 0.870607853238372
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>  2001Q1 : 0.6928811509356263
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>3-element TSeries{Quarterly} with range 2000Q2:2000Q4:
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>  2000Q2 : 0.9921813660891006
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>  2000Q3 : 0.3050277090556356
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>  2000Q4 : 0.870607853238372
+</code></pre></div>
 </div>
 <h3 id="writing">Writing<a class="headerlink" href="#writing" title="Permanent link">&para;</a></h3>
 <p>Indexed assignment mutates a single position. Range assignment writes
@@ -2848,24 +2875,25 @@ scalar broadcast.</p>
 <a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="nb">print</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>
 </code></pre></div>
 <div class="result">
-<p>5-element TSeries{Quarterly} with range 2000Q1:2001Q1:
-  2000Q1 : 0.7311551900667536
-  2000Q2 : 5.0
-  2000Q3 : 0.3050277090556356
-  2000Q4 : 0.870607853238372
-  2001Q1 : 0.6928811509356263
-5-element TSeries{Quarterly} with range 2000Q1:2001Q1:
-  2000Q1 : 1.0
-  2000Q2 : 2.0
-  2000Q3 : 3.0
-  2000Q4 : 0.870607853238372
-  2001Q1 : 0.6928811509356263
-5-element TSeries{Quarterly} with range 2000Q1:2001Q1:
-  2000Q1 : 1.0
-  2000Q2 : 2.0
-  2000Q3 : 42.0
-  2000Q4 : 42.0
-  2001Q1 : 42.0</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>5-element TSeries{Quarterly} with range 2000Q1:2001Q1:
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>  2000Q1 : 0.7311551900667536
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>  2000Q2 : 5.0
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>  2000Q3 : 0.3050277090556356
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>  2000Q4 : 0.870607853238372
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>  2001Q1 : 0.6928811509356263
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>5-element TSeries{Quarterly} with range 2000Q1:2001Q1:
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>  2000Q1 : 1.0
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>  2000Q2 : 2.0
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>  2000Q3 : 3.0
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>  2000Q4 : 0.870607853238372
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>  2001Q1 : 0.6928811509356263
+<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>5-element TSeries{Quarterly} with range 2000Q1:2001Q1:
+<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>  2000Q1 : 1.0
+<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>  2000Q2 : 2.0
+<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>  2000Q3 : 42.0
+<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a>  2000Q4 : 42.0
+<a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a>  2001Q1 : 42.0
+</code></pre></div>
 </div>
 <p>Python has no Julia-style <code>.=</code> vs <code>=</code> distinction. A scalar on the
 right-hand side is broadcast to the slice. To reset the entire
@@ -2874,12 +2902,13 @@ right-hand side is broadcast to the slice. To reset the entire
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nb">print</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>
 </code></pre></div>
 <div class="result">
-<p>5-element TSeries{Quarterly} with range 2000Q1:2001Q1:
-  2000Q1 : 3.141592653589793
-  2000Q2 : 3.141592653589793
-  2000Q3 : 3.141592653589793
-  2000Q4 : 3.141592653589793
-  2001Q1 : 3.141592653589793</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>5-element TSeries{Quarterly} with range 2000Q1:2001Q1:
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>  2000Q1 : 3.141592653589793
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>  2000Q2 : 3.141592653589793
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>  2000Q3 : 3.141592653589793
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>  2000Q4 : 3.141592653589793
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>  2001Q1 : 3.141592653589793
+</code></pre></div>
 </div>
 <p>A bare <code>t = math.pi</code> would <em>rebind</em> the variable to the float
 <code>math.pi</code>, leaving the original <code>TSeries</code> untouched — same as Julia.</p>
@@ -2890,16 +2919,17 @@ assignment range is NaN-filled.</p>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nb">print</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>
 </code></pre></div>
 <div class="result">
-<p>9-element TSeries{Quarterly} with range 1999Q1:2001Q1:
-  1999Q1 : -3.7
-  1999Q2 : -3.7
-  1999Q3 : nan
-  1999Q4 : nan
-  2000Q1 : 3.141592653589793
-  2000Q2 : 3.141592653589793
-  2000Q3 : 3.141592653589793
-  2000Q4 : 3.141592653589793
-  2001Q1 : 3.141592653589793</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>9-element TSeries{Quarterly} with range 1999Q1:2001Q1:
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>  1999Q1 : -3.7
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>  1999Q2 : -3.7
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>  1999Q3 : nan
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>  1999Q4 : nan
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>  2000Q1 : 3.141592653589793
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>  2000Q2 : 3.141592653589793
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>  2000Q3 : 3.141592653589793
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>  2000Q4 : 3.141592653589793
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>  2001Q1 : 3.141592653589793
+</code></pre></div>
 </div>
 <p>Resize works only for <code>MIT</code>-keyed assignment. An out-of-bounds
 <strong>integer</strong> index still raises, matching the underlying <code>ndarray</code>:</p>
@@ -2909,7 +2939,8 @@ assignment range is NaN-filled.</p>
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;IndexError:&quot;</span><span class="p">,</span> <span class="n">exc</span><span class="p">)</span>
 </code></pre></div>
 <div class="result">
-<p>IndexError: index 15 is out of bounds for axis 0 with size 9</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>IndexError: index 15 is out of bounds for axis 0 with size 9
+</code></pre></div>
 </div>
 <p>Assigning a <code>TSeries</code> to a range copies the right-hand side's values
 <em>restricted</em> to the assignment range:</p>
@@ -2918,16 +2949,17 @@ assignment range is NaN-filled.</p>
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="nb">print</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>
 </code></pre></div>
 <div class="result">
-<p>9-element TSeries{Quarterly} with range 1999Q1:2001Q1:
-  1999Q1 : -3.7
-  1999Q2 : -3.7
-  1999Q3 : 100.0
-  1999Q4 : 100.0
-  2000Q1 : 100.0
-  2000Q2 : 100.0
-  2000Q3 : 3.141592653589793
-  2000Q4 : 3.141592653589793
-  2001Q1 : 3.141592653589793</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>9-element TSeries{Quarterly} with range 1999Q1:2001Q1:
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>  1999Q1 : -3.7
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>  1999Q2 : -3.7
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>  1999Q3 : 100.0
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>  1999Q4 : 100.0
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>  2000Q1 : 100.0
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>  2000Q2 : 100.0
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>  2000Q3 : 3.141592653589793
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>  2000Q4 : 3.141592653589793
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>  2001Q1 : 3.141592653589793
+</code></pre></div>
 </div>
 <div class="admonition info">
 <p class="admonition-title">Julia ↔ Python</p>
@@ -2958,32 +2990,33 @@ missing). Multiplying or dividing by a scalar preserves the range.</p>
 <a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;y / 2:&quot;</span><span class="p">,</span> <span class="n">y</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span>
 </code></pre></div>
 <div class="result">
-<p>x: 4-element TSeries{Quarterly} with range 2020Q1:2020Q4:
-  2020Q1 : 0.19272292821385284
-  2020Q2 : 0.6776458827034494
-  2020Q3 : 0.5973620306088683
-  2020Q4 : 0.03762740042438173
-y: 4-element TSeries{Quarterly} with range 2020Q3:2021Q2:
-  2020Q3 : 0.2902088850280118
-  2020Q4 : 0.9286285011406357
-  2021Q1 : 0.2856957258344023
-  2021Q2 : 0.30521792408319504
-x + y: 2-element TSeries{Quarterly} with range 2020Q3:2020Q4:
-  2020Q3 : 0.8875709156368801
-  2020Q4 : 0.9662559015650174
-x - y: 2-element TSeries{Quarterly} with range 2020Q3:2020Q4:
-  2020Q3 : 0.3071531455808565
-  2020Q4 : -0.8910011007162539
-2 * y: 4-element TSeries{Quarterly} with range 2020Q3:2021Q2:
-  2020Q3 : 0.5804177700560236
-  2020Q4 : 1.8572570022812713
-  2021Q1 : 0.5713914516688046
-  2021Q2 : 0.6104358481663901
-y / 2: 4-element TSeries{Quarterly} with range 2020Q3:2021Q2:
-  2020Q3 : 0.1451044425140059
-  2020Q4 : 0.46431425057031783
-  2021Q1 : 0.14284786291720114
-  2021Q2 : 0.15260896204159752</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>x: 4-element TSeries{Quarterly} with range 2020Q1:2020Q4:
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>  2020Q1 : 0.19272292821385284
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>  2020Q2 : 0.6776458827034494
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>  2020Q3 : 0.5973620306088683
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>  2020Q4 : 0.03762740042438173
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>y: 4-element TSeries{Quarterly} with range 2020Q3:2021Q2:
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>  2020Q3 : 0.2902088850280118
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>  2020Q4 : 0.9286285011406357
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>  2021Q1 : 0.2856957258344023
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>  2021Q2 : 0.30521792408319504
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>x + y: 2-element TSeries{Quarterly} with range 2020Q3:2020Q4:
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>  2020Q3 : 0.8875709156368801
+<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>  2020Q4 : 0.9662559015650174
+<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>x - y: 2-element TSeries{Quarterly} with range 2020Q3:2020Q4:
+<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>  2020Q3 : 0.3071531455808565
+<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>  2020Q4 : -0.8910011007162539
+<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a>2 * y: 4-element TSeries{Quarterly} with range 2020Q3:2021Q2:
+<a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a>  2020Q3 : 0.5804177700560236
+<a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a>  2020Q4 : 1.8572570022812713
+<a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a>  2021Q1 : 0.5713914516688046
+<a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a>  2021Q2 : 0.6104358481663901
+<a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a>y / 2: 4-element TSeries{Quarterly} with range 2020Q3:2021Q2:
+<a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a>  2020Q3 : 0.1451044425140059
+<a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a>  2020Q4 : 0.46431425057031783
+<a id="__codelineno-1-25" name="__codelineno-1-25" href="#__codelineno-1-25"></a>  2021Q1 : 0.14284786291720114
+<a id="__codelineno-1-26" name="__codelineno-1-26" href="#__codelineno-1-26"></a>  2021Q2 : 0.15260896204159752
+</code></pre></div>
 </div>
 <p>NumPy ufuncs flow through transparently. <code>1 + x</code> broadcasts the scalar
 across <code>x</code>'s range; <code>2 / y</code> broadcasts the reciprocal; <code>y ** 3</code>
@@ -2995,29 +3028,30 @@ cubes elementwise.</p>
 <a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;y ** 3:&quot;</span><span class="p">,</span> <span class="n">y</span> <span class="o">**</span> <span class="mi">3</span><span class="p">)</span>
 </code></pre></div>
 <div class="result">
-<p>np.log(x): 4-element TSeries{Quarterly} with range 2020Q1:2020Q4:
-  2020Q1 : -1.6465017266551432
-  2020Q2 : -0.38913042438384515
-  2020Q3 : -0.5152319329554124
-  2020Q4 : -3.2800227592934807
-1 + x: 4-element TSeries{Quarterly} with range 2020Q1:2020Q4:
-  2020Q1 : 1.1927229282138527
-  2020Q2 : 1.6776458827034495
-  2020Q3 : 1.5973620306088683
-  2020Q4 : 1.0376274004243817
-x + y (vectorised): 2-element TSeries{Quarterly} with range 2020Q3:2020Q4:
-  2020Q3 : 0.8875709156368801
-  2020Q4 : 0.9662559015650174
-2 / y: 4-element TSeries{Quarterly} with range 2020Q3:2021Q2:
-  2020Q3 : 6.8915877603366775
-  2020Q4 : 2.153713780638218
-  2021Q1 : 7.000454746597292
-  2021Q2 : 6.5526951145072605
-y ** 3: 4-element TSeries{Quarterly} with range 2020Q3:2021Q2:
-  2020Q3 : 0.02444173966235243
-  2020Q4 : 0.8008036173452537
-  2021Q1 : 0.02331907017889658
-  2021Q2 : 0.02843348562804609</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>np.log(x): 4-element TSeries{Quarterly} with range 2020Q1:2020Q4:
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>  2020Q1 : -1.6465017266551432
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>  2020Q2 : -0.38913042438384515
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>  2020Q3 : -0.5152319329554124
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>  2020Q4 : -3.2800227592934807
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>1 + x: 4-element TSeries{Quarterly} with range 2020Q1:2020Q4:
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>  2020Q1 : 1.1927229282138527
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>  2020Q2 : 1.6776458827034495
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>  2020Q3 : 1.5973620306088683
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>  2020Q4 : 1.0376274004243817
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>x + y (vectorised): 2-element TSeries{Quarterly} with range 2020Q3:2020Q4:
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>  2020Q3 : 0.8875709156368801
+<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>  2020Q4 : 0.9662559015650174
+<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>2 / y: 4-element TSeries{Quarterly} with range 2020Q3:2021Q2:
+<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>  2020Q3 : 6.8915877603366775
+<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>  2020Q4 : 2.153713780638218
+<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a>  2021Q1 : 7.000454746597292
+<a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a>  2021Q2 : 6.5526951145072605
+<a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a>y ** 3: 4-element TSeries{Quarterly} with range 2020Q3:2021Q2:
+<a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a>  2020Q3 : 0.02444173966235243
+<a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a>  2020Q4 : 0.8008036173452537
+<a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a>  2021Q1 : 0.02331907017889658
+<a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a>  2021Q2 : 0.02843348562804609
+</code></pre></div>
 </div>
 <p>In-place assignment over the intersection follows the same rule.
 Slicing the left-hand side with the wider range resizes the target:</p>
@@ -3031,18 +3065,19 @@ Slicing the left-hand side with the wider range resizes the target:</p>
 <a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;z (resized):&quot;</span><span class="p">,</span> <span class="n">z</span><span class="p">)</span>
 </code></pre></div>
 <div class="result">
-<p>z: 4-element TSeries{Quarterly} with range 2020Q1:2020Q4:
-  2020Q1 : 0.19272292821385284
-  2020Q2 : 0.6776458827034494
-  2020Q3 : 1.2902088850280118
-  2020Q4 : 1.9286285011406357
-z (resized): 6-element TSeries{Quarterly} with range 2020Q1:2021Q2:
-  2020Q1 : 0.19272292821385284
-  2020Q2 : 0.6776458827034494
-  2020Q3 : 3.2902088850280116
-  2020Q4 : 3.9286285011406354
-  2021Q1 : 3.2856957258344024
-  2021Q2 : 3.305217924083195</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>z: 4-element TSeries{Quarterly} with range 2020Q1:2020Q4:
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>  2020Q1 : 0.19272292821385284
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>  2020Q2 : 0.6776458827034494
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>  2020Q3 : 1.2902088850280118
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>  2020Q4 : 1.9286285011406357
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>z (resized): 6-element TSeries{Quarterly} with range 2020Q1:2021Q2:
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>  2020Q1 : 0.19272292821385284
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>  2020Q2 : 0.6776458827034494
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>  2020Q3 : 3.2902088850280116
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>  2020Q4 : 3.9286285011406354
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>  2021Q1 : 3.2856957258344024
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>  2021Q2 : 3.305217924083195
+</code></pre></div>
 </div>
 <p>Julia's <code>z .= 1 .+ y</code> implicitly aligns the assignment to the
 intersection of <code>z</code> and <code>y</code>; in Python the alignment is explicit (the
@@ -3055,11 +3090,12 @@ order; the result preserves the <code>TSeries</code>'s range:</p>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nb">print</span><span class="p">(</span><span class="n">x</span> <span class="o">+</span> <span class="n">v</span><span class="p">)</span>
 </code></pre></div>
 <div class="result">
-<p>4-element TSeries{Quarterly} with range 2020Q1:2020Q4:
-  2020Q1 : 3.1927229282138527
-  2020Q2 : 3.6776458827034495
-  2020Q3 : 3.5973620306088683
-  2020Q4 : 3.0376274004243817</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>4-element TSeries{Quarterly} with range 2020Q1:2020Q4:
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>  2020Q1 : 3.1927229282138527
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>  2020Q2 : 3.6776458827034495
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>  2020Q3 : 3.5973620306088683
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>  2020Q4 : 3.0376274004243817
+</code></pre></div>
 </div>
 <div class="admonition info">
 <p class="admonition-title">Julia ↔ Python</p>
@@ -3084,27 +3120,28 @@ variant that mutates in place rather than allocating.</p>
 <a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;shift(x, -1) == lag(x):&quot;</span><span class="p">,</span> <span class="n">shift</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">equals</span><span class="p">(</span><span class="n">lag</span><span class="p">(</span><span class="n">x</span><span class="p">)))</span>
 </code></pre></div>
 <div class="result">
-<p>x:         4-element TSeries{Quarterly} with range 2020Q1:2020Q4:
-  2020Q1 : 0.19272292821385284
-  2020Q2 : 0.6776458827034494
-  2020Q3 : 0.5973620306088683
-  2020Q4 : 0.03762740042438173
-lag(x):    4-element TSeries{Quarterly} with range 2020Q2:2021Q1:
-  2020Q2 : 0.19272292821385284
-  2020Q3 : 0.6776458827034494
-  2020Q4 : 0.5973620306088683
-  2021Q1 : 0.03762740042438173
-lead(x):   4-element TSeries{Quarterly} with range 2019Q4:2020Q3:
-  2019Q4 : 0.19272292821385284
-  2020Q1 : 0.6776458827034494
-  2020Q2 : 0.5973620306088683
-  2020Q3 : 0.03762740042438173
-lag(x, 3): 4-element TSeries{Quarterly} with range 2020Q4:2021Q3:
-  2020Q4 : 0.19272292821385284
-  2021Q1 : 0.6776458827034494
-  2021Q2 : 0.5973620306088683
-  2021Q3 : 0.03762740042438173
-shift(x, -1) == lag(x): True</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>x:         4-element TSeries{Quarterly} with range 2020Q1:2020Q4:
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>  2020Q1 : 0.19272292821385284
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>  2020Q2 : 0.6776458827034494
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>  2020Q3 : 0.5973620306088683
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>  2020Q4 : 0.03762740042438173
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>lag(x):    4-element TSeries{Quarterly} with range 2020Q2:2021Q1:
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>  2020Q2 : 0.19272292821385284
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>  2020Q3 : 0.6776458827034494
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>  2020Q4 : 0.5973620306088683
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>  2021Q1 : 0.03762740042438173
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>lead(x):   4-element TSeries{Quarterly} with range 2019Q4:2020Q3:
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>  2019Q4 : 0.19272292821385284
+<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>  2020Q1 : 0.6776458827034494
+<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>  2020Q2 : 0.5973620306088683
+<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>  2020Q3 : 0.03762740042438173
+<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>lag(x, 3): 4-element TSeries{Quarterly} with range 2020Q4:2021Q3:
+<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a>  2020Q4 : 0.19272292821385284
+<a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a>  2021Q1 : 0.6776458827034494
+<a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a>  2021Q2 : 0.5973620306088683
+<a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a>  2021Q3 : 0.03762740042438173
+<a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a>shift(x, -1) == lag(x): True
+</code></pre></div>
 </div>
 <div class="admonition info">
 <p class="admonition-title">Julia ↔ Python</p>
@@ -3122,10 +3159,11 @@ takes a lead-difference; either way the result has the same range as
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nb">print</span><span class="p">(</span><span class="n">dx</span><span class="p">)</span>
 </code></pre></div>
 <div class="result">
-<p>3-element TSeries{Quarterly} with range 2020Q2:2020Q4:
-  2020Q2 : 0.48492295448959655
-  2020Q3 : -0.08028385209458111
-  2020Q4 : -0.5597346301844865</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>3-element TSeries{Quarterly} with range 2020Q2:2020Q4:
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>  2020Q2 : 0.48492295448959655
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>  2020Q3 : -0.08028385209458111
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>  2020Q4 : -0.5597346301844865
+</code></pre></div>
 </div>
 <p><code>undiff(dx)</code> is the inverse. In its plain form it's
 <code>np.cumsum</code>-on-the-values lifted onto the same range — which means the
@@ -3133,11 +3171,12 @@ takes a lead-difference; either way the result has the same range as
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nb">print</span><span class="p">(</span><span class="n">undiff</span><span class="p">(</span><span class="n">dx</span><span class="p">))</span>
 </code></pre></div>
 <div class="result">
-<p>4-element TSeries{Quarterly} with range 2020Q1:2020Q4:
-  2020Q1 : 0.0
-  2020Q2 : 0.48492295448959655
-  2020Q3 : 0.40463910239501544
-  2020Q4 : -0.1550955277894711</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>4-element TSeries{Quarterly} with range 2020Q1:2020Q4:
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>  2020Q1 : 0.0
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>  2020Q2 : 0.48492295448959655
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>  2020Q3 : 0.40463910239501544
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>  2020Q4 : -0.1550955277894711
+</code></pre></div>
 </div>
 <p>To recover the original series exactly, anchor the inverse to a known
 value at a known date via <code>undiff(dx, anchor=(date, value))</code>:</p>
@@ -3145,7 +3184,8 @@ value at a known date via <code>undiff(dx, anchor=(date, value))</code>:</p>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;x ≈ x2:&quot;</span><span class="p">,</span> <span class="n">x</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">x2</span><span class="p">))</span>
 </code></pre></div>
 <div class="result">
-<p>x ≈ x2: True</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>x ≈ x2: True
+</code></pre></div>
 </div>
 <p>The same idiom works for any <code>(MIT, value)</code> pair, not just
 <code>x.firstdate</code>. Pass a <code>TSeries</code> as the anchor instead of a tuple to
@@ -3173,31 +3213,32 @@ the input dtype (matches Julia's <code>zeros(out_len)</code>).</p>
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;moving(tt, 6):&quot;</span><span class="p">,</span> <span class="n">moving</span><span class="p">(</span><span class="n">tt</span><span class="p">,</span> <span class="mi">6</span><span class="p">))</span>     <span class="c1"># backwards-looking 6-window</span>
 </code></pre></div>
 <div class="result">
-<p>10-element TSeries{Quarterly} with range 2020Q1:2022Q2:
-  2020Q1 : 1.0
-  2020Q2 : 2.0
-  2020Q3 : 3.0
-  2020Q4 : 4.0
-  2021Q1 : 5.0
-  2021Q2 : 6.0
-  2021Q3 : 7.0
-  2021Q4 : 8.0
-  2022Q1 : 9.0
-  2022Q2 : 10.0
-moving(tt, -4): 7-element TSeries{Quarterly} with range 2020Q1:2021Q3:
-  2020Q1 : 2.5
-  2020Q2 : 3.5
-  2020Q3 : 4.5
-  2020Q4 : 5.5
-  2021Q1 : 6.5
-  2021Q2 : 7.5
-  2021Q3 : 8.5
-moving(tt, 6): 5-element TSeries{Quarterly} with range 2021Q2:2022Q2:
-  2021Q2 : 3.5
-  2021Q3 : 4.5
-  2021Q4 : 5.5
-  2022Q1 : 6.5
-  2022Q2 : 7.5</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>10-element TSeries{Quarterly} with range 2020Q1:2022Q2:
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>  2020Q1 : 1.0
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>  2020Q2 : 2.0
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>  2020Q3 : 3.0
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>  2020Q4 : 4.0
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>  2021Q1 : 5.0
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>  2021Q2 : 6.0
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>  2021Q3 : 7.0
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>  2021Q4 : 8.0
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>  2022Q1 : 9.0
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>  2022Q2 : 10.0
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>moving(tt, -4): 7-element TSeries{Quarterly} with range 2020Q1:2021Q3:
+<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>  2020Q1 : 2.5
+<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>  2020Q2 : 3.5
+<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>  2020Q3 : 4.5
+<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>  2020Q4 : 5.5
+<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a>  2021Q1 : 6.5
+<a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a>  2021Q2 : 7.5
+<a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a>  2021Q3 : 8.5
+<a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a>moving(tt, 6): 5-element TSeries{Quarterly} with range 2021Q2:2022Q2:
+<a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a>  2021Q2 : 3.5
+<a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a>  2021Q3 : 4.5
+<a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a>  2021Q4 : 5.5
+<a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a>  2022Q1 : 6.5
+<a id="__codelineno-1-25" name="__codelineno-1-25" href="#__codelineno-1-25"></a>  2022Q2 : 7.5
+</code></pre></div>
 </div>
 <div class="admonition info">
 <p class="admonition-title">Julia ↔ Python</p>
@@ -3226,16 +3267,17 @@ write before the next step's <code>fn</code> runs.</p>
 <a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="nb">print</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
 </code></pre></div>
 <div class="result">
-<p>9-element TSeries{Quarterly} with range 2020Q1:2022Q1:
-  2020Q1 : 1.1
-  2020Q2 : 1.06
-  2020Q3 : 1.036
-  2020Q4 : 1.0216
-  2021Q1 : 1.01296
-  2021Q2 : 1.007776
-  2021Q3 : 1.0046656
-  2021Q4 : 1.00279936
-  2022Q1 : 1.001679616</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>9-element TSeries{Quarterly} with range 2020Q1:2022Q1:
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>  2020Q1 : 1.1
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>  2020Q2 : 1.06
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>  2020Q3 : 1.036
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>  2020Q4 : 1.0216
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>  2021Q1 : 1.01296
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>  2021Q2 : 1.007776
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>  2021Q3 : 1.0046656
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>  2021Q4 : 1.00279936
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>  2022Q1 : 1.001679616
+</code></pre></div>
 </div>
 <p>This line-by-line mirrors Julia's
 <code>@rec rangeof(a, drop=1) a[t] = (1-ρ)*a_ss + ρ*a[t-1]</code>. The
@@ -3270,18 +3312,19 @@ AR(1) recurrence rewritten in closed form:</p>
 <a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;rec_linear is using Cython:&quot;</span><span class="p">,</span> <span class="n">tsecon</span><span class="o">.</span><span class="n">rec_linear_is_cython</span><span class="p">())</span>
 </code></pre></div>
 <div class="result">
-<p>9-element TSeries{Quarterly} with range 2020Q1:2022Q1:
-  2020Q1 : 1.1
-  2020Q2 : 1.06
-  2020Q3 : 1.036
-  2020Q4 : 1.0216
-  2021Q1 : 1.01296
-  2021Q2 : 1.007776
-  2021Q3 : 1.0046656
-  2021Q4 : 1.00279936
-  2022Q1 : 1.001679616
-rec vs rec_linear match: True
-rec_linear is using Cython: True</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>9-element TSeries{Quarterly} with range 2020Q1:2022Q1:
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>  2020Q1 : 1.1
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>  2020Q2 : 1.06
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>  2020Q3 : 1.036
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>  2020Q4 : 1.0216
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>  2021Q1 : 1.01296
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>  2021Q2 : 1.007776
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>  2021Q3 : 1.0046656
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>  2021Q4 : 1.00279936
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>  2022Q1 : 1.001679616
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>rec vs rec_linear match: True
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>rec_linear is using Cython: True
+</code></pre></div>
 </div>
 <p>The <code>drop=n</code> kwarg is symmetric — positive <code>n</code> skips at the start,
 negative <code>n</code> skips at the end. The three forms most often seen in
@@ -3291,9 +3334,10 @@ recurrence code:</p>
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;rangeof(a, drop=-1):&quot;</span><span class="p">,</span> <span class="n">rangeof</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">drop</span><span class="o">=-</span><span class="mi">1</span><span class="p">))</span>  <span class="c1"># skip last</span>
 </code></pre></div>
 <div class="result">
-<p>rangeof(a):          2020Q1:2022Q1
-rangeof(a, drop=1):  2020Q2:2022Q1
-rangeof(a, drop=-1): 2020Q1:2021Q4</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>rangeof(a):          2020Q1:2022Q1
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>rangeof(a, drop=1):  2020Q2:2022Q1
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>rangeof(a, drop=-1): 2020Q1:2021Q4
+</code></pre></div>
 </div>
 <p><code>rangeof</code> also dispatches on <code>MVTSeries</code> (same return shape), <code>MIT</code>
 (returns a one-element range), <code>MITRange</code> (identity + <code>drop=</code>), and
@@ -3316,19 +3360,20 @@ new entry point is needed because <code>rec</code> iterates <code>for t in rng</
 <a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="nb">print</span><span class="p">(</span><span class="n">back</span><span class="p">)</span>
 </code></pre></div>
 <div class="result">
-<p>12-element TSeries{Quarterly} with range 2020Q1:2022Q4:
-  2020Q1 : 0.4499999999999996
-  2020Q2 : 0.4999999999999996
-  2020Q3 : 0.5499999999999996
-  2020Q4 : 0.5999999999999996
-  2021Q1 : 0.6499999999999997
-  2021Q2 : 0.6999999999999997
-  2021Q3 : 0.7499999999999998
-  2021Q4 : 0.7999999999999998
-  2022Q1 : 0.8499999999999999
-  2022Q2 : 0.8999999999999999
-  2022Q3 : 0.95
-  2022Q4 : 1.0</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>12-element TSeries{Quarterly} with range 2020Q1:2022Q4:
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>  2020Q1 : 0.4499999999999996
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>  2020Q2 : 0.4999999999999996
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>  2020Q3 : 0.5499999999999996
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>  2020Q4 : 0.5999999999999996
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>  2021Q1 : 0.6499999999999997
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>  2021Q2 : 0.6999999999999997
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>  2021Q3 : 0.7499999999999998
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>  2021Q4 : 0.7999999999999998
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>  2022Q1 : 0.8499999999999999
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>  2022Q2 : 0.8999999999999999
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>  2022Q3 : 0.95
+<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>  2022Q4 : 1.0
+</code></pre></div>
 </div>
 <p>The same idiom works for <code>rec_linear</code> with negative lags: a reversed
 range plus same-sign lags reads "already-written" future positions and
@@ -3363,14 +3408,15 @@ strings in Python).</p>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nb">print</span><span class="p">(</span><span class="n">mv</span><span class="p">)</span>
 </code></pre></div>
 <div class="result">
-<p>6×2 MVTSeries{Quarterly} with range 2020Q1:2021Q2 and variables (a,b):
-              a        b
-2020Q1 : 0.6193    0.418
-2020Q2 : 0.9767   0.3406
-2020Q3 : 0.9777   0.7075
-2020Q4 : 0.4923  0.02521
-2021Q1 : 0.7208   0.1814
-2021Q2 : 0.5572   0.9048</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>6×2 MVTSeries{Quarterly} with range 2020Q1:2021Q2 and variables (a,b):
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>              a        b
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>2020Q1 : 0.6193    0.418
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>2020Q2 : 0.9767   0.3406
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>2020Q3 : 0.9777   0.7075
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>2020Q4 : 0.4923  0.02521
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>2021Q1 : 0.7208   0.1814
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>2021Q2 : 0.5572   0.9048
+</code></pre></div>
 </div>
 <p>Range form: pass an <code>MITRange</code> and either a value initialiser (scalar,
 <code>numpy</code> callable like <code>np.zeros</code>, or a 2-D ndarray) plus a name tuple:</p>
@@ -3378,15 +3424,16 @@ strings in Python).</p>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>                <span class="p">(</span><span class="s2">&quot;one&quot;</span><span class="p">,</span> <span class="s2">&quot;too&quot;</span><span class="p">,</span> <span class="s2">&quot;tree&quot;</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">))</span>
 </code></pre></div>
 <div class="result">
-<p>7×3 MVTSeries{Quarterly} with range 2020Q1:2021Q3 and variables (one,too,…):
-         one  too  tree
-2020Q1 :   0    0     0
-2020Q2 :   0    0     0
-2020Q3 :   0    0     0
-2020Q4 :   0    0     0
-2021Q1 :   0    0     0
-2021Q2 :   0    0     0
-2021Q3 :   0    0     0</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>7×3 MVTSeries{Quarterly} with range 2020Q1:2021Q3 and variables (one,too,…):
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>         one  too  tree
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>2020Q1 :   0    0     0
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>2020Q2 :   0    0     0
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>2020Q3 :   0    0     0
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>2020Q4 :   0    0     0
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>2021Q1 :   0    0     0
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>2021Q2 :   0    0     0
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>2021Q3 :   0    0     0
+</code></pre></div>
 </div>
 <p>Keyword form: each kwarg supplies one column. Values can be
 <code>TSeries</code>, 1-D arrays, or scalars (broadcast). When <code>firstdate_or_range</code>
@@ -3400,13 +3447,14 @@ is omitted, the range is taken as <code>rangeof_span</code> of the kwarg series.
 <a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="nb">print</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
 </code></pre></div>
 <div class="result">
-<p>5×3 MVTSeries{Quarterly} with range 2020Q1:2021Q1 and variables (hex,why,…):
-         hex  why  zed
-2020Q1 :   5    0    3
-2020Q2 :   6    0    3
-2020Q3 :   7    0    3
-2020Q4 :   8    0    3
-2021Q1 :   9    0    3</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>5×3 MVTSeries{Quarterly} with range 2020Q1:2021Q1 and variables (hex,why,…):
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>         hex  why  zed
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>2020Q1 :   5    0    3
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>2020Q2 :   6    0    3
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>2020Q3 :   7    0    3
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>2020Q4 :   8    0    3
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>2021Q1 :   9    0    3
+</code></pre></div>
 </div>
 <p><code>copy=True</code> forces a fresh allocation in the array form; the kwarg
 form always allocates fresh storage (per-column data is <em>copied</em> into
@@ -3434,32 +3482,33 @@ they do on <code>TSeries</code>.</p>
 <a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;data.zed (attribute access):&quot;</span><span class="p">,</span> <span class="n">data</span><span class="o">.</span><span class="n">zed</span><span class="p">)</span>
 </code></pre></div>
 <div class="result">
-<p>data[qq(2020, 2), 'hex']: 6.0
-data[qq(2020, 2)]:        [6. 0. 3.]
-data[qq(2020, 2):qq(2020, 2)]:
-1×3 MVTSeries{Quarterly} with range 2020Q2:2020Q2 and variables (hex,why,…):
-         hex  why  zed
-2020Q2 :   6    0    3
-data['zed']: 5-element TSeries{Quarterly} with range 2020Q1:2021Q1:
-  2020Q1 : 3.0
-  2020Q2 : 3.0
-  2020Q3 : 3.0
-  2020Q4 : 3.0
-  2021Q1 : 3.0
-data[('zed',)]:
-5×1 MVTSeries{Quarterly} with range 2020Q1:2021Q1 and variables (zed):
-         zed
-2020Q1 :   3
-2020Q2 :   3
-2020Q3 :   3
-2020Q4 :   3
-2021Q1 :   3
-data.zed (attribute access): 5-element TSeries{Quarterly} with range 2020Q1:2021Q1:
-  2020Q1 : 3.0
-  2020Q2 : 3.0
-  2020Q3 : 3.0
-  2020Q4 : 3.0
-  2021Q1 : 3.0</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>data[qq(2020, 2), &#39;hex&#39;]: 6.0
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>data[qq(2020, 2)]:        [6. 0. 3.]
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>data[qq(2020, 2):qq(2020, 2)]:
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>1×3 MVTSeries{Quarterly} with range 2020Q2:2020Q2 and variables (hex,why,…):
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>         hex  why  zed
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>2020Q2 :   6    0    3
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>data[&#39;zed&#39;]: 5-element TSeries{Quarterly} with range 2020Q1:2021Q1:
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>  2020Q1 : 3.0
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>  2020Q2 : 3.0
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>  2020Q3 : 3.0
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>  2020Q4 : 3.0
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>  2021Q1 : 3.0
+<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>data[(&#39;zed&#39;,)]:
+<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>5×1 MVTSeries{Quarterly} with range 2020Q1:2021Q1 and variables (zed):
+<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>         zed
+<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>2020Q1 :   3
+<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a>2020Q2 :   3
+<a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a>2020Q3 :   3
+<a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a>2020Q4 :   3
+<a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a>2021Q1 :   3
+<a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a>data.zed (attribute access): 5-element TSeries{Quarterly} with range 2020Q1:2021Q1:
+<a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a>  2020Q1 : 3.0
+<a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a>  2020Q2 : 3.0
+<a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a>  2020Q3 : 3.0
+<a id="__codelineno-1-25" name="__codelineno-1-25" href="#__codelineno-1-25"></a>  2020Q4 : 3.0
+<a id="__codelineno-1-26" name="__codelineno-1-26" href="#__codelineno-1-26"></a>  2021Q1 : 3.0
+</code></pre></div>
 </div>
 <h3 id="iterating-columns">Iterating columns<a class="headerlink" href="#iterating-columns" title="Permanent link">&para;</a></h3>
 <p>To loop over <code>(name, TSeries)</code> pairs, use the <code>.columns</code> accessor —
@@ -3469,9 +3518,10 @@ underlying 2-D buffer (no copy):</p>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Average of </span><span class="si">{</span><span class="n">name</span><span class="si">!r}</span><span class="s2"> is </span><span class="si">{</span><span class="n">mean</span><span class="p">(</span><span class="n">series</span><span class="p">)</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
 </code></pre></div>
 <div class="result">
-<p>Average of 'hex' is 7.0000.
-Average of 'why' is 0.0000.
-Average of 'zed' is 3.0000.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>Average of &#39;hex&#39; is 7.0000.
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>Average of &#39;why&#39; is 0.0000.
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>Average of &#39;zed&#39; is 3.0000.
+</code></pre></div>
 </div>
 <p>The <code>for name in data</code> form iterates <em>rows</em> (NumPy semantics on a 2-D
 array). For column iteration always go through <code>.columns</code>.</p>
@@ -3486,15 +3536,16 @@ all accept it:</p>
 <a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="nb">print</span><span class="p">(</span><span class="n">mean</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">))</span>
 </code></pre></div>
 <div class="result">
-<p>1×3 MVTSeries{Quarterly} with range 2020Q1:2020Q1 and variables (hex,why,…):
-         hex  why  zed
-2020Q1 :   7    0    3
-5-element TSeries{Quarterly} with range 2020Q1:2021Q1:
-  2020Q1 : 2.6666666666666665
-  2020Q2 : 3.0
-  2020Q3 : 3.3333333333333335
-  2020Q4 : 3.6666666666666665
-  2021Q1 : 4.0</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>1×3 MVTSeries{Quarterly} with range 2020Q1:2020Q1 and variables (hex,why,…):
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>         hex  why  zed
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>2020Q1 :   7    0    3
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>5-element TSeries{Quarterly} with range 2020Q1:2021Q1:
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>  2020Q1 : 2.6666666666666665
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>  2020Q2 : 3.0
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>  2020Q3 : 3.3333333333333335
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>  2020Q4 : 3.6666666666666665
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>  2021Q1 : 4.0
+</code></pre></div>
 </div>
 <div class="admonition info">
 <p class="admonition-title">Julia ↔ Python</p>
@@ -3612,19 +3663,21 @@ it's an order-preserving <code>dict[str, Any]</code> with attribute access; most
 <a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="nb">print</span><span class="p">(</span><span class="n">w</span><span class="p">)</span>
 </code></pre></div>
 <div class="result">
-<p>Workspace with 3 variables
-    rng ⇒ 2020Q1:2022Q1
-  start ⇒ 2020Q1
-      a ⇒ 9-element TSeries{Quarterly}</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>Workspace with 3 variables
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>    rng ⇒ 2020Q1:2022Q1
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>  start ⇒ 2020Q1
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>      a ⇒ 9-element TSeries{Quarterly}
+</code></pre></div>
 </div>
 <p>Use <code>del</code> to drop a member:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">del</span> <span class="n">w</span><span class="o">.</span><span class="n">start</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nb">print</span><span class="p">(</span><span class="n">w</span><span class="p">)</span>
 </code></pre></div>
 <div class="result">
-<p>Workspace with 2 variables
-  rng ⇒ 2020Q1:2022Q1
-    a ⇒ 9-element TSeries{Quarterly}</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>Workspace with 2 variables
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>  rng ⇒ 2020Q1:2022Q1
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>    a ⇒ 9-element TSeries{Quarterly}
+</code></pre></div>
 </div>
 <p>The kwargs constructor mirrors Julia's name-value-pair list — useful
 when the workspace is being built up from a known schema:</p>
@@ -3635,10 +3688,11 @@ when the workspace is being built up from a known schema:</p>
 <a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="p">))</span>
 </code></pre></div>
 <div class="result">
-<p>Workspace with 3 variables
-    rng ⇒ 2020Q1:2021Q4
-  alpha ⇒ 0.1
-      v ⇒ 6-element TSeries{Quarterly}</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>Workspace with 3 variables
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>    rng ⇒ 2020Q1:2021Q4
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>  alpha ⇒ 0.1
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>      v ⇒ 6-element TSeries{Quarterly}
+</code></pre></div>
 </div>
 <p>A <code>dict</code> (or any mapping) can be passed positionally too:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">datalist</span> <span class="o">=</span> <span class="p">{</span>
@@ -3649,10 +3703,11 @@ when the workspace is being built up from a known schema:</p>
 <a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="nb">print</span><span class="p">(</span><span class="n">Workspace</span><span class="p">(</span><span class="n">datalist</span><span class="p">))</span>
 </code></pre></div>
 <div class="result">
-<p>Workspace with 3 variables
-    rng ⇒ 2020Q1:2021Q4
-  alpha ⇒ 0.1
-      v ⇒ 6-element TSeries{Quarterly}</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>Workspace with 3 variables
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>    rng ⇒ 2020Q1:2021Q4
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>  alpha ⇒ 0.1
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>      v ⇒ 6-element TSeries{Quarterly}
+</code></pre></div>
 </div>
 <p>To turn an <code>MVTSeries</code> into a <code>Workspace</code>, pass its columns dict
 through the same constructor. The TSeries values are aliased into the
@@ -3664,34 +3719,36 @@ detached.</p>
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="nb">print</span><span class="p">(</span><span class="n">w_a</span><span class="p">)</span>
 </code></pre></div>
 <div class="result">
-<p>Workspace with 3 variables
-  x ⇒ 16-element TSeries{Quarterly}
-  y ⇒ 16-element TSeries{Quarterly}
-  z ⇒ 16-element TSeries{Quarterly}</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>Workspace with 3 variables
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>  x ⇒ 16-element TSeries{Quarterly}
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>  y ⇒ 16-element TSeries{Quarterly}
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>  z ⇒ 16-element TSeries{Quarterly}
+</code></pre></div>
 </div>
 <p>To go the other direction (Workspace → MVTSeries), construct an
 <code>MVTSeries</code> from <code>w_a.rangeof()</code> and the dict of TSeries:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nb">print</span><span class="p">(</span><span class="n">MVTSeries</span><span class="p">(</span><span class="n">w_a</span><span class="o">.</span><span class="n">rangeof</span><span class="p">(),</span> <span class="o">**</span><span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">w_a</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">TSeries</span><span class="p">)}))</span>
 </code></pre></div>
 <div class="result">
-<p>16×3 MVTSeries{Quarterly} with range 2020Q1:2023Q4 and variables (x,y,z):
-           x        y        z
-2020Q1 : 0.5        0   0.9293
-2020Q2 : 0.5  0.06667   0.9211
-2020Q3 : 0.5   0.1333   0.5381
-2020Q4 : 0.5      0.2   0.3504
-2021Q1 : 0.5   0.2667   0.1494
-2021Q2 : 0.5   0.3333   0.8368
-2021Q3 : 0.5      0.4   0.3498
-2021Q4 : 0.5   0.4667   0.1092
-2022Q1 : 0.5   0.5333   0.4418
-2022Q2 : 0.5      0.6  0.09418
-2022Q3 : 0.5   0.6667  0.04086
-2022Q4 : 0.5   0.7333   0.8006
-2023Q1 : 0.5      0.8   0.6273
-2023Q2 : 0.5   0.8667   0.5995
-2023Q3 : 0.5   0.9333   0.3575
-2023Q4 : 0.5        1   0.1845</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>16×3 MVTSeries{Quarterly} with range 2020Q1:2023Q4 and variables (x,y,z):
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>           x        y        z
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>2020Q1 : 0.5        0   0.9293
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>2020Q2 : 0.5  0.06667   0.9211
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>2020Q3 : 0.5   0.1333   0.5381
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>2020Q4 : 0.5      0.2   0.3504
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>2021Q1 : 0.5   0.2667   0.1494
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>2021Q2 : 0.5   0.3333   0.8368
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>2021Q3 : 0.5      0.4   0.3498
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>2021Q4 : 0.5   0.4667   0.1092
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>2022Q1 : 0.5   0.5333   0.4418
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>2022Q2 : 0.5      0.6  0.09418
+<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>2022Q3 : 0.5   0.6667  0.04086
+<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>2022Q4 : 0.5   0.7333   0.8006
+<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>2023Q1 : 0.5      0.8   0.6273
+<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>2023Q2 : 0.5   0.8667   0.5995
+<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a>2023Q3 : 0.5   0.9333   0.3575
+<a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a>2023Q4 : 0.5        1   0.1845
+</code></pre></div>
 </div>
 <p><code>Workspace.rangeof()</code> returns the <em>intersection</em> of the ranges of all
 TSeries members; <code>Workspace.rangeof_span()</code> returns the <em>union</em>.
@@ -3752,24 +3809,26 @@ input covers them.)</p>
 <a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="nb">print</span><span class="p">(</span><span class="n">overlay</span><span class="p">(</span><span class="n">x1</span><span class="p">,</span> <span class="n">x2</span><span class="p">,</span> <span class="n">x3</span><span class="p">))</span>
 </code></pre></div>
 <div class="result">
-<p>7-element TSeries{Quarterly} with range 2019Q3:2021Q1:
-  2019Q3 : 2.0
-  2019Q4 : nan
-  2020Q1 : 1.0
-  2020Q2 : 2.0
-  2020Q3 : 3.0
-  2020Q4 : 1.0
-  2021Q1 : 3.0</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>7-element TSeries{Quarterly} with range 2019Q3:2021Q1:
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>  2019Q3 : 2.0
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>  2019Q4 : nan
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>  2020Q1 : 1.0
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>  2020Q2 : 2.0
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>  2020Q3 : 3.0
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>  2020Q4 : 1.0
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>  2021Q1 : 3.0
+</code></pre></div>
 </div>
 <p>To force a specific output range, pass <code>rng=</code>:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nb">print</span><span class="p">(</span><span class="n">overlay</span><span class="p">(</span><span class="n">x1</span><span class="p">,</span> <span class="n">x2</span><span class="p">,</span> <span class="n">x3</span><span class="p">,</span> <span class="n">rng</span><span class="o">=</span><span class="n">MITRange</span><span class="p">(</span><span class="n">qq</span><span class="p">(</span><span class="mi">2020</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="n">qq</span><span class="p">(</span><span class="mi">2020</span><span class="p">,</span> <span class="mi">4</span><span class="p">))))</span>
 </code></pre></div>
 <div class="result">
-<p>4-element TSeries{Quarterly} with range 2020Q1:2020Q4:
-  2020Q1 : 1.0
-  2020Q2 : 2.0
-  2020Q3 : 3.0
-  2020Q4 : 1.0</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>4-element TSeries{Quarterly} with range 2020Q1:2020Q4:
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>  2020Q1 : 1.0
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>  2020Q2 : 2.0
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>  2020Q3 : 3.0
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>  2020Q4 : 1.0
+</code></pre></div>
 </div>
 <p>When the inputs are <code>Workspace</code> / <code>MVTSeries</code>, the result is a new
 <code>Workspace</code> and each named member is overlaid recursively. Variables
@@ -3781,11 +3840,12 @@ in only one input are taken from there.</p>
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="nb">print</span><span class="p">(</span><span class="n">overlay</span><span class="p">(</span><span class="n">w1</span><span class="p">,</span> <span class="n">w2</span><span class="p">,</span> <span class="n">w3</span><span class="p">))</span>
 </code></pre></div>
 <div class="result">
-<p>Workspace with 4 variables
-  x ⇒ 5-element TSeries{Quarterly}
-  a ⇒ 1
-  b ⇒ 2-element TSeries{Quarterly}
-  c ⇒ 3</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>Workspace with 4 variables
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>  x ⇒ 5-element TSeries{Quarterly}
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>  a ⇒ 1
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>  b ⇒ 2-element TSeries{Quarterly}
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>  c ⇒ 3
+</code></pre></div>
 </div>
 <p>In the example above, <code>x</code> is a <code>TSeries</code> in all three inputs so it's
 overlaid; <code>a</code> is a scalar taken from <code>w1</code> (the leftmost input that
@@ -3821,11 +3881,12 @@ diff without parsing stdout.</p>
 <a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="nb">print</span><span class="p">(</span><span class="n">compare</span><span class="p">(</span><span class="n">v1</span><span class="p">,</span> <span class="n">v2</span><span class="p">))</span>
 </code></pre></div>
 <div class="result">
-<p><em>.y: different
-</em>.z.a: different
-<em>.z: different
-</em>.b: missing in left
-_: different</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>_.y: different
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>_.z.a: different
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>_.z: different
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>_.b: missing in left
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>_: different
+</code></pre></div>
 </div>
 <p>The numeric kwargs forward to <a href="https://numpy.org/doc/stable/reference/generated/numpy.allclose.html"><code>numpy.allclose</code></a> /
 <a href="https://numpy.org/doc/stable/reference/generated/numpy.isclose.html"><code>numpy.isclose</code></a>.
@@ -3833,10 +3894,11 @@ Bumping <code>atol</code> lets the small <code>y[2020Q3]</code> perturbation pas
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nb">print</span><span class="p">(</span><span class="n">compare</span><span class="p">(</span><span class="n">v1</span><span class="p">,</span> <span class="n">v2</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="mf">1e-5</span><span class="p">))</span>
 </code></pre></div>
 <div class="result">
-<p><em>.z.a: different
-</em>.z: different
-<em>.b: missing in left
-</em>: different</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>_.z.a: different
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>_.z: different
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>_.b: missing in left
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>_: different
+</code></pre></div>
 </div>
 <p><code>NaN</code>-vs-<code>NaN</code> is <em>not</em> equal by default; pass <code>nans=True</code> to match
 Julia's <code>isapprox(...; nans=true)</code>:</p>
@@ -3846,20 +3908,22 @@ Julia's <code>isapprox(...; nans=true)</code>:</p>
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;nans=True:&quot;</span><span class="p">,</span> <span class="nb">bool</span><span class="p">(</span><span class="n">compare</span><span class="p">(</span><span class="n">n1</span><span class="p">,</span> <span class="n">n2</span><span class="p">,</span> <span class="n">nans</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">quiet</span><span class="o">=</span><span class="kc">True</span><span class="p">)))</span>
 </code></pre></div>
 <div class="result">
-<p>default: False
-nans=True: True</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>default: False
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>nans=True: True
+</code></pre></div>
 </div>
 <p><code>ignoremissing=True</code> skips keys present in only one side; <code>showequal=True</code>
 reports same-valued leaves too. They compose naturally:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nb">print</span><span class="p">(</span><span class="n">compare</span><span class="p">(</span><span class="n">v1</span><span class="p">,</span> <span class="n">v2</span><span class="p">,</span> <span class="n">showequal</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">ignoremissing</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="mf">0.01</span><span class="p">))</span>
 </code></pre></div>
 <div class="result">
-<p><em>.x: same
-</em>.y: same
-<em>.z.a: same
-</em>.z.b: same
-<em>.z: same
-</em>: same</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>_.x: same
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>_.y: same
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>_.z.a: same
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>_.z.b: same
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>_.z: same
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>_: same
+</code></pre></div>
 </div>
 <p>To suppress the printed diff (e.g. inside a test runner), pass
 <code>quiet=True</code> — the structured <code>CompareResult.differences</code> is populated
@@ -3870,10 +3934,11 @@ either way:</p>
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot; &quot;</span><span class="p">,</span> <span class="n">d</span><span class="o">.</span><span class="n">path</span><span class="p">,</span> <span class="s2">&quot;→&quot;</span><span class="p">,</span> <span class="n">d</span><span class="o">.</span><span class="n">message</span><span class="p">)</span>
 </code></pre></div>
 <div class="result">
-<p>equal: False
-  ('<em>', 'y') → different
-  ('</em>', 'z', 'a') → different
-  ('_', 'z') → different</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>equal: False
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>  (&#39;_&#39;, &#39;y&#39;) → different
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>  (&#39;_&#39;, &#39;z&#39;, &#39;a&#39;) → different
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>  (&#39;_&#39;, &#39;z&#39;) → different
+</code></pre></div>
 </div>
 <div class="admonition info">
 <p class="admonition-title">Julia ↔ Python</p>
@@ -3902,12 +3967,13 @@ re-running the recursion.</p>
 <a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;TSeries   :&quot;</span><span class="p">,</span> <span class="n">reindex</span><span class="p">(</span><span class="n">ts</span><span class="p">,</span> <span class="p">(</span><span class="n">mu</span><span class="p">,</span> <span class="n">nu</span><span class="p">)))</span>                                   <span class="c1"># firstdate 5U</span>
 </code></pre></div>
 <div class="result">
-<p>MIT       : 12U
-MITRange  : 5U:12U
-TSeries   : 3-element TSeries{Unit} with range 5U:7U:
-  5U : 1.0
-  6U : 2.0
-  7U : 3.0</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>MIT       : 12U
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>MITRange  : 5U:12U
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>TSeries   : 3-element TSeries{Unit} with range 5U:7U:
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>  5U : 1.0
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>  6U : 2.0
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>  7U : 3.0
+</code></pre></div>
 </div>
 <p>For <code>Workspace</code>, only members matching <code>old.frequency</code> are reindexed;
 others (different-frequency series, scalars, strings) pass through
@@ -3920,10 +3986,11 @@ untouched, and nested workspaces recurse.</p>
 <a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="nb">print</span><span class="p">(</span><span class="n">reindex</span><span class="p">(</span><span class="n">w</span><span class="p">,</span> <span class="p">(</span><span class="n">qq</span><span class="p">(</span><span class="mi">2021</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="n">MIT</span><span class="p">(</span><span class="n">Unit</span><span class="p">(),</span> <span class="mi">1</span><span class="p">))))</span>
 </code></pre></div>
 <div class="result">
-<p>Workspace with 3 variables
-         a ⇒ 2-element TSeries{Unit}
-         b ⇒ 2-element TSeries{Unit}
-  constant ⇒ 42</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>Workspace with 3 variables
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>         a ⇒ 2-element TSeries{Unit}
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>         b ⇒ 2-element TSeries{Unit}
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>  constant ⇒ 42
+</code></pre></div>
 </div>
 <p>The <code>copy=</code> kwarg follows the wrap-vs-copy contract from
 <a href="../../design/decisions/#locked-decisions">decision 16</a>: by default the
@@ -3971,10 +4038,11 @@ upstream's default coverage.</p>
 <a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="n">clear_holidays_map</span><span class="p">()</span>
 </code></pre></div>
 <div class="result">
-<p>first 6 supported countries: ('ABW', 'AD', 'AE', 'AF', 'AFG', 'AG')
-CA subdivisions (first 6): ('AB', 'BC', 'MB', 'NB', 'NL', 'NS')
-map spans 1970-01-01 to 2049-12-31, dtype=bool
-Family Day (2024-02-19) is a holiday in ON: True</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>first 6 supported countries: (&#39;ABW&#39;, &#39;AD&#39;, &#39;AE&#39;, &#39;AF&#39;, &#39;AFG&#39;, &#39;AG&#39;)
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>CA subdivisions (first 6): (&#39;AB&#39;, &#39;BC&#39;, &#39;MB&#39;, &#39;NB&#39;, &#39;NL&#39;, &#39;NS&#39;)
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>map spans 1970-01-01 to 2049-12-31, dtype=bool
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>Family Day (2024-02-19) is a holiday in ON: True
+</code></pre></div>
 </div>
 <p>The country / subdivision codes follow <code>python-holidays</code>'s
 conventions (ISO 3166 alpha-2 / 3166-2). A small number of Julia's
@@ -3991,7 +4059,8 @@ firm-specific working-day calendar):</p>
 <a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">clear_holidays_map</span><span class="p">()</span>
 </code></pre></div>
 <div class="result">
-<p>map length: 260</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>map length: 260
+</code></pre></div>
 </div>
 <h3 id="skip_all_nans-semantics"><code>skip_all_nans</code> semantics<a class="headerlink" href="#skip_all_nans-semantics" title="Permanent link">&para;</a></h3>
 <p>A taste of the <code>skip_all_nans</code> knob in action — non-NaN handling is
@@ -4005,28 +4074,30 @@ unchanged from upstream:</p>
 <a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="nb">print</span><span class="p">(</span><span class="n">pct</span><span class="p">(</span><span class="n">ts</span><span class="p">,</span> <span class="n">skip_all_nans</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
 </code></pre></div>
 <div class="result">
-<p>pct(ts):
-9-element TSeries{BDaily} with range 2022-01-04:2022-01-14:
-  2022-01-04 : 100.0
-  2022-01-05 : 50.0
-  2022-01-06 : 33.33333333333333
-  2022-01-07 : nan
-  2022-01-10 : nan
-  2022-01-11 : 16.666666666666664
-  2022-01-12 : 14.285714285714285
-  2022-01-13 : 12.5
-  2022-01-14 : 11.11111111111111</p>
-<p>pct(ts, skip_all_nans=True):
-9-element TSeries{BDaily} with range 2022-01-04:2022-01-14:
-  2022-01-04 : 100.0
-  2022-01-05 : 50.0
-  2022-01-06 : 33.33333333333333
-  2022-01-07 : nan
-  2022-01-10 : 50.0
-  2022-01-11 : 16.666666666666664
-  2022-01-12 : 14.285714285714285
-  2022-01-13 : 12.5
-  2022-01-14 : 11.11111111111111</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>pct(ts):
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>9-element TSeries{BDaily} with range 2022-01-04:2022-01-14:
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>  2022-01-04 : 100.0
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>  2022-01-05 : 50.0
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>  2022-01-06 : 33.33333333333333
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>  2022-01-07 : nan
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>  2022-01-10 : nan
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>  2022-01-11 : 16.666666666666664
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>  2022-01-12 : 14.285714285714285
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>  2022-01-13 : 12.5
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>  2022-01-14 : 11.11111111111111
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>
+<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>pct(ts, skip_all_nans=True):
+<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>9-element TSeries{BDaily} with range 2022-01-04:2022-01-14:
+<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>  2022-01-04 : 100.0
+<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>  2022-01-05 : 50.0
+<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a>  2022-01-06 : 33.33333333333333
+<a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a>  2022-01-07 : nan
+<a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a>  2022-01-10 : 50.0
+<a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a>  2022-01-11 : 16.666666666666664
+<a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a>  2022-01-12 : 14.285714285714285
+<a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a>  2022-01-13 : 12.5
+<a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a>  2022-01-14 : 11.11111111111111
+</code></pre></div>
 </div>
 <p>When <code>skip_all_nans=True</code>, <code>pct</code> (and <code>diff</code> / <code>shift</code>) replace NaN
 inputs with the nearest non-NaN value <em>in the shift direction</em> before
@@ -4052,7 +4123,8 @@ and <code>x13path</code> (the last is M2 plumbing; ignore for now).</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;default bias:&quot;</span><span class="p">,</span> <span class="n">tsecon</span><span class="o">.</span><span class="n">getoption</span><span class="p">(</span><span class="s2">&quot;bdaily_creation_bias&quot;</span><span class="p">))</span>
 </code></pre></div>
 <div class="result">
-<p>default bias: strict</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>default bias: strict
+</code></pre></div>
 </div>
 <p>Setting <code>bdaily_creation_bias</code> changes the default <code>bias=</code> for every
 <code>bdaily(...)</code> constructor call that omits it. The default is
@@ -4065,8 +4137,9 @@ other valid values are <code>"previous"</code>, <code>"next"</code>, <code>"near
 <a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">tsecon</span><span class="o">.</span><span class="n">setoption</span><span class="p">(</span><span class="s2">&quot;bdaily_creation_bias&quot;</span><span class="p">,</span> <span class="s2">&quot;strict&quot;</span><span class="p">)</span>  <span class="c1"># restore</span>
 </code></pre></div>
 <div class="result">
-<p>2022-01-03
-2022-01-03</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>2022-01-03
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>2022-01-03
+</code></pre></div>
 </div>
 <p>For test-friendly scoped overrides, use the <code>option_scope(**kwargs)</code>
 context manager — it restores the prior values on exit:</p>
@@ -4077,8 +4150,9 @@ context manager — it restores the prior values on exit:</p>
 <a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;after the scope:&quot;</span><span class="p">,</span> <span class="n">tsecon</span><span class="o">.</span><span class="n">getoption</span><span class="p">(</span><span class="s2">&quot;bdaily_creation_bias&quot;</span><span class="p">))</span>
 </code></pre></div>
 <div class="result">
-<p>inside the scope: 2021-12-31
-after the scope: strict</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>inside the scope: 2021-12-31
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>after the scope: strict
+</code></pre></div>
 </div>
 <p>The <code>bdaily_holidays_map</code> option holds a <code>TSeries[BDaily, bool]</code> (or
 <code>None</code>); <code>True</code> means business day, <code>False</code> means holiday.
@@ -4096,8 +4170,9 @@ example:</p>
 <a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;after clear:&quot;</span><span class="p">,</span> <span class="n">get_holidays_map</span><span class="p">())</span>
 </code></pre></div>
 <div class="result">
-<p>map length: 260
-after clear: None</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>map length: 260
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>after clear: None
+</code></pre></div>
 </div>
 <div class="admonition info">
 <p class="admonition-title">Julia ↔ Python</p>

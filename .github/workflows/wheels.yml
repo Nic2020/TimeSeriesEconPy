@@ -63,16 +63,23 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          # Extract the URL + SHA constants without importing tsecon (Cython
-          # extensions aren't built yet at this step).
+          # Load _mirror.py as a standalone module (it has zero non-stdlib
+          # deps beyond `typing.Final`) and read the constants properly.
+          # Going via importlib avoids importing the full `tsecon` package
+          # (Cython extensions aren't built yet at this step) AND avoids
+          # the regex-vs-Python-implicit-string-concat fragility a prior
+          # version of this step hit on `X13AS_SOURCE_URL`, which is
+          # split across two adjacent "..." literals.
           python - <<'PY' >>"$GITHUB_OUTPUT"
-          import pathlib, re
-          src = pathlib.Path("src/tsecon/_mirror.py").read_text()
+          import importlib.util, pathlib
+          path = pathlib.Path("src/tsecon/_mirror.py").resolve()
+          spec = importlib.util.spec_from_file_location("_mirror_meta", path)
+          assert spec is not None and spec.loader is not None
+          mod = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(mod)
           for name in ("X13AS_VERSION", "X13AS_SOURCE_URL", "X13AS_SOURCE_SHA256"):
-              m = re.search(rf'{name}.*?= *\(?\s*"([^"]+)"', src, re.S)
-              if not m:
-                  raise SystemExit(f"could not find {name} in _mirror.py")
-              print(f"{name.lower()}={m.group(1)}")
+              value = getattr(mod, name)
+              print(f"{name.lower()}={value}")
           PY
 
       - name: Set up Fortran toolchain (macOS / Windows host)

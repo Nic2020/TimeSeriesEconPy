@@ -23,7 +23,7 @@ with the wheel.
 
 ## First TSeries
 
-```python exec="true" source="material-block" session="index"
+```python exec="true" source="material-block" session="index" result="text"
 import numpy as np
 
 import tsecon

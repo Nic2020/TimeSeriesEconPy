@@ -42,6 +42,7 @@ delegates to it.
 
 from __future__ import annotations
 
+import html
 import warnings
 from collections.abc import Callable, ItemsView, Iterable, Iterator, KeysView, Mapping, ValuesView
 from contextlib import contextmanager
@@ -456,6 +457,9 @@ class Workspace:
     def __str__(self) -> str:
         return _format_workspace(self)
 
+    def _repr_html_(self) -> str:
+        return _repr_html_workspace(self)
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -512,6 +516,34 @@ def _format_value(v: object) -> str:
     if isinstance(v, (int, float, bool, complex)):
         return str(v)
     return type(v).__name__
+
+
+def _repr_html_workspace(w: Workspace) -> str:
+    """HTML rendering of a Workspace for Jupyter / VS Code / notebook hosts.
+
+    Mirrors :func:`_format_workspace`'s ``key ⇒ value`` layout as a
+    two-column ``<table>``. No row truncation — Workspaces are typically
+    small (member counts in the dozens, not thousands). Plain ``<table>``
+    element, no CSS classes — host environments (MS Fabric, Databricks,
+    Jupyter) supply their own table styling.
+    """
+    n = len(w)
+    if n == 0:
+        return "<table>\n<thead><tr><th>Empty Workspace</th></tr></thead>\n</table>"
+    header = f"Workspace with {n} variable" + ("" if n == 1 else "s")
+    rows = [
+        f"<tr><th>{html.escape(k)}</th><td>{html.escape(_format_value(v))}</td></tr>"
+        for k, v in w._c.items()
+    ]
+    body = "\n".join(rows)
+    return (
+        "<table>\n"
+        f'<thead><tr><th colspan="2">{html.escape(header)}</th></tr></thead>\n'
+        "<tbody>\n"
+        f"{body}\n"
+        "</tbody>\n"
+        "</table>"
+    )
 
 
 # ---------------------------------------------------------------------------

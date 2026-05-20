@@ -40,7 +40,7 @@ backend, and a tiny helper that emits a captured matplotlib figure as a
 base64-PNG `<img>` tag. Shared via session="tut1" with every executable
 block on this page. -->
 
-```python exec="true" source="material-block" session="tut1"
+```python exec="true" source="material-block" session="tut1" result="text"
 import base64
 import io
 import math
@@ -144,7 +144,7 @@ end-months — 12 (December), 6 (June), and 3 (March) respectively.
 Most uses of `Yearly()` implicitly mean `Yearly(end_month=12)`. You
 can pick a variant explicitly:
 
-```python exec="true" source="material-block" session="tut1"
+```python exec="true" source="material-block" session="tut1" result="text"
 print(Yearly())                 # default end_month = 12
 print(Yearly(end_month=3))      # fiscal year ending in March
 print(Quarterly())              # default end_month = 3
@@ -159,7 +159,7 @@ print(Quarterly(end_month=2))   # broadcaster's calendar
 `MIT` values label particular moments in time, `Duration` values
 measure the distance between two `MIT`s of the same frequency.
 
-```python exec="true" source="material-block" session="tut1"
+```python exec="true" source="material-block" session="tut1" result="text"
 print(type(qq(2020, 1)))
 print(type(mm(2021, 5) - mm(2020, 3)))
 ```
@@ -170,7 +170,7 @@ Pythonic equivalents of Julia's `2020Q1` / `2020M3` / `2020Y` literal
 suffixes are the constructor functions `qq` / `mm` / `yy`. The arguments
 are `(year, period)` (or just `(year,)` for `yy`).
 
-```python exec="true" source="material-block" session="tut1"
+```python exec="true" source="material-block" session="tut1" result="text"
 print(qq(2022, 1))
 print(qq(2020, 3))
 print(yy(2020))
@@ -180,7 +180,7 @@ print(mm(2022, 5))
 For half-yearly the same pattern works through the lower-level
 `MIT.from_yp` factory because there's no dedicated `hh()` shorthand:
 
-```python exec="true" source="material-block" session="tut1"
+```python exec="true" source="material-block" session="tut1" result="text"
 print(MIT.from_yp(HalfYearly(), 2022, 1))
 print(MIT.from_yp(HalfYearly(), 2022, 2))
 ```
@@ -188,7 +188,7 @@ print(MIT.from_yp(HalfYearly(), 2022, 2))
 For variant end-months, instantiate the frequency first and use
 `MIT.from_yp`:
 
-```python exec="true" source="material-block" session="tut1"
+```python exec="true" source="material-block" session="tut1" result="text"
 print(MIT.from_yp(Quarterly(end_month=2), 2022, 1))
 print(MIT.from_yp(Yearly(end_month=11), 2020, 1))
 ```
@@ -196,7 +196,7 @@ print(MIT.from_yp(Yearly(end_month=11), 2020, 1))
 For the calendar-date frequencies (`Daily`, `BDaily`, `Weekly`), a
 date object or ISO string is required:
 
-```python exec="true" source="material-block" session="tut1"
+```python exec="true" source="material-block" session="tut1" result="text"
 print(weekly("2022-01-03"))
 print(bdaily("2022-01-03"))
 print(daily("2022-01-03"))
@@ -206,7 +206,7 @@ print(daily("2022-01-03"))
 (matching Julia's `:strict` bias). Pass `bias=` to opt in to a
 specific rounding rule:
 
-```python exec="true" source="material-block" session="tut1"
+```python exec="true" source="material-block" session="tut1" result="text"
 print(bdaily("2022-01-01", bias="previous"))   # 2021-12-31
 print(bdaily("2022-01-01", bias="next"))       # 2022-01-03
 print(bdaily("2022-01-01", bias="nearest"))    # 2021-12-31
@@ -222,7 +222,7 @@ a `Duration` to an `MIT` to get another `MIT`, add and subtract two
 `Duration`s freely, but adding two `MIT`s is a type error — the
 operation has no economic meaning.
 
-```python exec="true" source="material-block" session="tut1"
+```python exec="true" source="material-block" session="tut1" result="text"
 a = qq(2001, 2) - qq(2000, 1)   # Duration of Quarterly
 print(a)
 ```
@@ -231,14 +231,14 @@ A plain `int` on either side of `+` / `-` is automatically treated as a
 `Duration` in the `MIT`'s own frequency. This is the same Julia
 shorthand `2000Q1 + 6`:
 
-```python exec="true" source="material-block" session="tut1"
+```python exec="true" source="material-block" session="tut1" result="text"
 print(qq(2000, 1) + Duration(Quarterly(), 6))   # explicit
 print(qq(2000, 1) + 6)                          # same thing, idiomatic
 ```
 
 Mixing frequencies raises:
 
-```python exec="true" source="material-block" session="tut1"
+```python exec="true" source="material-block" session="tut1" result="text"
 try:
     qq(2000, 1) + Duration(Monthly(), 6)
 except TypeError as exc:
@@ -247,7 +247,7 @@ except TypeError as exc:
 
 Multiplication of an `MIT` by an integer is not allowed:
 
-```python exec="true" source="material-block" session="tut1"
+```python exec="true" source="material-block" session="tut1" result="text"
 try:
     qq(2000, 1) * 5
 except TypeError as exc:
@@ -260,7 +260,7 @@ except TypeError as exc:
 gives the number of periods per year; `year(...)` / `period(...)` /
 `mit2yp(...)` extract calendar coordinates.
 
-```python exec="true" source="material-block" session="tut1"
+```python exec="true" source="material-block" session="tut1" result="text"
 print(frequency_of(yy(2000)))
 print(frequency_of(qq(2020, 1) - qq(2019, 3)))
 
@@ -294,7 +294,7 @@ unit-step range, with a `step=` keyword for non-unit strides. Both
 bounds are inclusive (same as Julia). All standard collection
 operations work: `len`, iteration, indexing, slicing, `reversed`.
 
-```python exec="true" source="material-block" session="tut1"
+```python exec="true" source="material-block" session="tut1" result="text"
 rng = MITRange(mm(2000, 1), mm(2001, 9))
 print(rng)
 print("len:", len(rng))
@@ -307,14 +307,14 @@ Julia's broadcast addition `rng .+ 6` (shift the whole range by 6
 periods) does not have a `+` operator overload here — express the
 shift directly on the endpoints:
 
-```python exec="true" source="material-block" session="tut1"
+```python exec="true" source="material-block" session="tut1" result="text"
 print(MITRange(rng.start + 6, rng.stop + 6))
 ```
 
 For step ranges, pass `step=`. The step is a nonzero integer in the
 range's own frequency.
 
-```python exec="true" source="material-block" session="tut1"
+```python exec="true" source="material-block" session="tut1" result="text"
 rng2 = MITRange(mm(2000, 1), mm(2000, 8), step=2)
 print(list(rng2))
 ```
@@ -326,7 +326,7 @@ also how reversed iteration order survives into downstream consumers
 like [`rec`](#9-recursive-assignments) and indexing without needing a
 separate "is this iteration reversed?" flag.
 
-```python exec="true" source="material-block" session="tut1"
+```python exec="true" source="material-block" session="tut1" result="text"
 back_rng = MITRange(qq(2021, 4), qq(2020, 1), step=-1)
 print(list(back_rng)[:4], "...")
 ```
@@ -334,14 +334,14 @@ print(list(back_rng)[:4], "...")
 For one-shot iteration in reverse without changing the range's identity,
 wrap with `reversed`:
 
-```python exec="true" source="material-block" session="tut1"
+```python exec="true" source="material-block" session="tut1" result="text"
 print(list(reversed(MITRange(mm(2020, 1), mm(2020, 4)))))
 ```
 
 Calendar-date ranges work the same way; for `BDaily`, opt-in `bias=`
 on each endpoint to round into the range when a weekend is supplied:
 
-```python exec="true" source="material-block" session="tut1"
+```python exec="true" source="material-block" session="tut1" result="text"
 print(MITRange(daily("2022-01-01"), daily("2022-01-31")))
 print(MITRange(bdaily("2022-01-01", bias="next"),
                bdaily("2022-01-31", bias="previous")))
@@ -365,7 +365,7 @@ honest (see the [TSeries protocols design note](../design/tseries_protocols.md))
 
 The basic constructor takes a starting `MIT` and a 1-D array of values:
 
-```python exec="true" source="material-block" session="tut1"
+```python exec="true" source="material-block" session="tut1" result="text"
 vals = rng_np.random(5)
 ts = TSeries(qq(2020, 1), vals)
 print(ts)
@@ -396,7 +396,7 @@ You can also construct a `TSeries` from a range alone. Without a value
 argument the storage is NaN-filled (Julia's is uninitialised); pass a
 scalar or an initialiser function to fill it:
 
-```python exec="true" source="material-block" session="tut1"
+```python exec="true" source="material-block" session="tut1" result="text"
 rng = MITRange(qq(2020, 1), qq(2021, 4))
 print(TSeries(rng))                # NaN-filled
 print(TSeries(rng, math.pi))       # scalar fill
@@ -418,7 +418,7 @@ print(TSeries.ones(rng))           # likewise for `np.ones`
 returns a NaN-filled `TSeries` with the same range / dtype (or a
 specified range), `copy` returns an exact value-for-value duplicate:
 
-```python exec="true" source="material-block" session="tut1"
+```python exec="true" source="material-block" session="tut1" result="text"
 t = TSeries(rng, 2.7)
 s = t.similar()
 c = t.copy()
@@ -446,7 +446,7 @@ Indexing by `MIT` returns a scalar; indexing by `MITRange` returns a
 new `TSeries`; indexing by integer or slice falls through to NumPy
 semantics on the underlying buffer.
 
-```python exec="true" source="material-block" session="tut1"
+```python exec="true" source="material-block" session="tut1" result="text"
 rng = MITRange(qq(2000, 1), qq(2001, 1))
 t = TSeries(rng, rng_np.random(len(rng)))
 print("t:", t)
@@ -458,7 +458,7 @@ print("t[2:4]:", t[2:4])   # ndarray slice (loses date labels)
 
 Out-of-range reads raise:
 
-```python exec="true" source="material-block" session="tut1"
+```python exec="true" source="material-block" session="tut1" result="text"
 try:
     t[qq(1999, 1)]
 except IndexError as exc:
@@ -473,7 +473,7 @@ except IndexError as exc:
 Python has no `begin` / `end` keyword inside `[]`, so the "last *n* by
 date" idiom uses the `lastdate` attribute explicitly:
 
-```python exec="true" source="material-block" session="tut1"
+```python exec="true" source="material-block" session="tut1" result="text"
 print(t[MITRange(t.lastdate - 2, t.lastdate)])     # last 3
 print(t[MITRange(t.firstdate + 1, t.lastdate - 1)])  # drop first and last
 ```
@@ -484,7 +484,7 @@ Indexed assignment mutates a single position. Range assignment writes
 multiple positions; the right-hand side must size-match, *or* be a
 scalar broadcast.
 
-```python exec="true" source="material-block" session="tut1"
+```python exec="true" source="material-block" session="tut1" result="text"
 t[qq(2000, 2)] = 5
 print(t)
 
@@ -499,7 +499,7 @@ Python has no Julia-style `.=` vs `=` distinction. A scalar on the
 right-hand side is broadcast to the slice. To reset the entire
 `TSeries` to a constant, slice with `[:]`:
 
-```python exec="true" source="material-block" session="tut1"
+```python exec="true" source="material-block" session="tut1" result="text"
 t[:] = math.pi
 print(t)
 ```
@@ -511,7 +511,7 @@ Unlike NumPy `ndarray`s, `TSeries` resize on assignment outside the
 stored range. Any gap that's neither in the old range nor the
 assignment range is NaN-filled.
 
-```python exec="true" source="material-block" session="tut1"
+```python exec="true" source="material-block" session="tut1" result="text"
 t[MITRange(qq(1999, 1), qq(1999, 2))] = -3.7
 print(t)
 ```
@@ -519,7 +519,7 @@ print(t)
 Resize works only for `MIT`-keyed assignment. An out-of-bounds
 **integer** index still raises, matching the underlying `ndarray`:
 
-```python exec="true" source="material-block" session="tut1"
+```python exec="true" source="material-block" session="tut1" result="text"
 try:
     t[15] = 3.5
 except IndexError as exc:
@@ -529,7 +529,7 @@ except IndexError as exc:
 Assigning a `TSeries` to a range copies the right-hand side's values
 *restricted* to the assignment range:
 
-```python exec="true" source="material-block" session="tut1"
+```python exec="true" source="material-block" session="tut1" result="text"
 q = TSeries(t.range, 100.0)
 t[MITRange(qq(1999, 3), qq(2000, 2))] = q[MITRange(qq(1999, 3), qq(2000, 2))]
 print(t)
@@ -556,7 +556,7 @@ When two `TSeries` are added or subtracted, the result spans the
 *intersection* of their ranges (anything outside is treated as
 missing). Multiplying or dividing by a scalar preserves the range.
 
-```python exec="true" source="material-block" session="tut1"
+```python exec="true" source="material-block" session="tut1" result="text"
 x = TSeries(MITRange(qq(2020, 1), qq(2020, 4)), rng_np.random(4))
 y = TSeries(MITRange(qq(2020, 3), qq(2021, 2)), rng_np.random(4))
 print("x:", x)
@@ -571,7 +571,7 @@ NumPy ufuncs flow through transparently. `1 + x` broadcasts the scalar
 across `x`'s range; `2 / y` broadcasts the reciprocal; `y ** 3`
 cubes elementwise.
 
-```python exec="true" source="material-block" session="tut1"
+```python exec="true" source="material-block" session="tut1" result="text"
 print("np.log(x):", np.log(x))
 print("1 + x:", 1 + x)
 print("x + y (vectorised):", x + y)
@@ -582,7 +582,7 @@ print("y ** 3:", y ** 3)
 In-place assignment over the intersection follows the same rule.
 Slicing the left-hand side with the wider range resizes the target:
 
-```python exec="true" source="material-block" session="tut1"
+```python exec="true" source="material-block" session="tut1" result="text"
 z = x.copy()
 common = MITRange(max(z.firstdate, y.firstdate),
                   min(z.lastdate, y.lastdate))
@@ -602,7 +602,7 @@ range, with any pre-existing gap NaN-filled.
 Mixing a `TSeries` and a same-length NumPy array works in either
 order; the result preserves the `TSeries`'s range:
 
-```python exec="true" source="material-block" session="tut1"
+```python exec="true" source="material-block" session="tut1" result="text"
 v = 3 * np.ones(x.shape)
 print(x + v)
 ```
@@ -624,7 +624,7 @@ data). `shift(x, k)` is the underlying primitive: positive `k` is a
 lead, negative `k` is a lag (matches Julia). Each has an `_inplace`
 variant that mutates in place rather than allocating.
 
-```python exec="true" source="material-block" session="tut1"
+```python exec="true" source="material-block" session="tut1" result="text"
 print("x:        ", x)
 print("lag(x):   ", lag(x))
 print("lead(x):  ", lead(x))
@@ -645,7 +645,7 @@ print("shift(x, -1) == lag(x):", shift(x, -1).equals(lag(x)))
 takes a lead-difference; either way the result has the same range as
 `x` with the first `|k|` entries NaN-filled.
 
-```python exec="true" source="material-block" session="tut1"
+```python exec="true" source="material-block" session="tut1" result="text"
 dx = diff(x)
 print(dx)
 ```
@@ -654,14 +654,14 @@ print(dx)
 `np.cumsum`-on-the-values lifted onto the same range — which means the
 **first value of x is lost** because `diff` couldn't observe it.
 
-```python exec="true" source="material-block" session="tut1"
+```python exec="true" source="material-block" session="tut1" result="text"
 print(undiff(dx))
 ```
 
 To recover the original series exactly, anchor the inverse to a known
 value at a known date via `undiff(dx, anchor=(date, value))`:
 
-```python exec="true" source="material-block" session="tut1"
+```python exec="true" source="material-block" session="tut1" result="text"
 x2 = undiff(dx, anchor=(x.firstdate, float(x[x.firstdate])))
 print("x ≈ x2:", x.allclose(x2))
 ```
@@ -688,7 +688,7 @@ window always includes the current value. `moving_sum` and
 `moving_average`. The accumulator is always `float64` regardless of
 the input dtype (matches Julia's `zeros(out_len)`).
 
-```python exec="true" source="material-block" session="tut1"
+```python exec="true" source="material-block" session="tut1" result="text"
 tt = TSeries(qq(2020, 1), np.arange(1.0, 11.0))
 print(tt)
 print("moving(tt, -4):", moving(tt, -4))   # forwards-looking 4-window
@@ -714,7 +714,7 @@ so the equivalent is a higher-order function: `rec(rng, target, fn)`
 calls `target[t] = fn(t)` once per step, in order, committing each
 write before the next step's `fn` runs.
 
-```python exec="true" source="material-block" session="tut1"
+```python exec="true" source="material-block" session="tut1" result="text"
 a_ss = 1.0
 rho = 0.6
 a = TSeries(MITRange(qq(2020, 1), qq(2022, 1)), a_ss)
@@ -744,7 +744,7 @@ the same recurrence (see the
 [Cython strategy design note](../design/cython_strategy.md)). Same
 AR(1) recurrence rewritten in closed form:
 
-```python exec="true" source="material-block" session="tut1"
+```python exec="true" source="material-block" session="tut1" result="text"
 b = TSeries(MITRange(qq(2020, 1), qq(2022, 1)), a_ss)
 b[b.firstdate] += 0.1
 
@@ -766,7 +766,7 @@ The `drop=n` kwarg is symmetric — positive `n` skips at the start,
 negative `n` skips at the end. The three forms most often seen in
 recurrence code:
 
-```python exec="true" source="material-block" session="tut1"
+```python exec="true" source="material-block" session="tut1" result="text"
 print("rangeof(a):         ", rangeof(a))           # full range
 print("rangeof(a, drop=1): ", rangeof(a, drop=1))   # skip first
 print("rangeof(a, drop=-1):", rangeof(a, drop=-1))  # skip last
@@ -786,7 +786,7 @@ Python port works by feeding `rec` a reversed `MITRange` (`step=-1`); no
 new entry point is needed because `rec` iterates `for t in rng` and
 `MITRange` carries the direction:
 
-```python exec="true" source="material-block" session="tut1"
+```python exec="true" source="material-block" session="tut1" result="text"
 # Backcast: anchor `a_ss` at the end, walk backward applying
 # s[t] = s[t+1] - g for a constant drift g.
 g = 0.05
@@ -831,7 +831,7 @@ strings in Python).
 
 Positional form: starting `MIT`, column names, 2-D matrix of values.
 
-```python exec="true" source="material-block" session="tut1"
+```python exec="true" source="material-block" session="tut1" result="text"
 mv = MVTSeries(qq(2020, 1), ("a", "b"), rng_np.random((6, 2)))
 print(mv)
 ```
@@ -839,7 +839,7 @@ print(mv)
 Range form: pass an `MITRange` and either a value initialiser (scalar,
 `numpy` callable like `np.zeros`, or a 2-D ndarray) plus a name tuple:
 
-```python exec="true" source="material-block" session="tut1"
+```python exec="true" source="material-block" session="tut1" result="text"
 print(MVTSeries(MITRange(qq(2020, 1), qq(2021, 3)),
                 ("one", "too", "tree"), np.zeros))
 ```
@@ -848,7 +848,7 @@ Keyword form: each kwarg supplies one column. Values can be
 `TSeries`, 1-D arrays, or scalars (broadcast). When `firstdate_or_range`
 is omitted, the range is taken as `rangeof_span` of the kwarg series.
 
-```python exec="true" source="material-block" session="tut1"
+```python exec="true" source="material-block" session="tut1" result="text"
 data = MVTSeries(
     MITRange(qq(2020, 1), qq(2021, 1)),
     hex=TSeries(qq(2019, 1), np.arange(1.0, 21.0)),
@@ -875,7 +875,7 @@ they do on `TSeries`.
   `mv.name` attribute shortcut.
 * **Tuple of column names** returns an `MVTSeries` with those columns.
 
-```python exec="true" source="material-block" session="tut1"
+```python exec="true" source="material-block" session="tut1" result="text"
 print("data[qq(2020, 2), 'hex']:", data[qq(2020, 2), "hex"])
 print("data[qq(2020, 2)]:       ", data[qq(2020, 2)])           # ndarray row
 print("data[qq(2020, 2):qq(2020, 2)]:")
@@ -893,7 +893,7 @@ To loop over `(name, TSeries)` pairs, use the `.columns` accessor —
 it returns a `dict[str, TSeries]` whose values are *views* on the
 underlying 2-D buffer (no copy):
 
-```python exec="true" source="material-block" session="tut1"
+```python exec="true" source="material-block" session="tut1" result="text"
 for name, series in data.columns.items():
     print(f"Average of {name!r} is {mean(series):.4f}.")
 ```
@@ -906,7 +906,7 @@ than printing inside a loop), reach for the `axis=` kwarg on the
 statistics reductions — `mean` / `std` / `var` / `median` / `quantile`
 all accept it:
 
-```python exec="true" source="material-block" session="tut1"
+```python exec="true" source="material-block" session="tut1" result="text"
 # Per-column means → single-row MVTSeries with the same column names.
 print(mean(data, axis=0))
 
@@ -1018,7 +1018,7 @@ scalars, time series of any frequency, nested workspaces. Internally
 it's an order-preserving `dict[str, Any]` with attribute access; most
 `dict` operations work directly.
 
-```python exec="true" source="material-block" session="tut1"
+```python exec="true" source="material-block" session="tut1" result="text"
 w = Workspace()
 w.rng = a.range                       # the AR(1) impulse-response from §9
 w.start = w.rng.start
@@ -1028,7 +1028,7 @@ print(w)
 
 Use `del` to drop a member:
 
-```python exec="true" source="material-block" session="tut1"
+```python exec="true" source="material-block" session="tut1" result="text"
 del w.start
 print(w)
 ```
@@ -1036,7 +1036,7 @@ print(w)
 The kwargs constructor mirrors Julia's name-value-pair list — useful
 when the workspace is being built up from a known schema:
 
-```python exec="true" source="material-block" session="tut1"
+```python exec="true" source="material-block" session="tut1" result="text"
 print(Workspace(
     rng=MITRange(qq(2020, 1), qq(2021, 4)),
     alpha=0.1,
@@ -1046,7 +1046,7 @@ print(Workspace(
 
 A `dict` (or any mapping) can be passed positionally too:
 
-```python exec="true" source="material-block" session="tut1"
+```python exec="true" source="material-block" session="tut1" result="text"
 datalist = {
     "rng": MITRange(qq(2020, 1), qq(2021, 4)),
     "alpha": 0.1,
@@ -1060,7 +1060,7 @@ through the same constructor. The TSeries values are aliased into the
 new workspace by default — pass `copy.deepcopy` if you want them
 detached.
 
-```python exec="true" source="material-block" session="tut1"
+```python exec="true" source="material-block" session="tut1" result="text"
 import copy
 w_a = Workspace(db_a.columns)                # aliased columns (fast)
 w_a_owned = Workspace(copy.deepcopy(dict(db_a.columns)))  # owned copies
@@ -1070,7 +1070,7 @@ print(w_a)
 To go the other direction (Workspace → MVTSeries), construct an
 `MVTSeries` from `w_a.rangeof()` and the dict of TSeries:
 
-```python exec="true" source="material-block" session="tut1"
+```python exec="true" source="material-block" session="tut1" result="text"
 print(MVTSeries(w_a.rangeof(), **{k: v for k, v in w_a.items() if isinstance(v, TSeries)}))
 ```
 
@@ -1129,7 +1129,7 @@ holds the *first non-NaN* value found left-to-right. (Out-of-range
 positions count as missing too — they fall through to whichever later
 input covers them.)
 
-```python exec="true" source="material-block" session="tut1"
+```python exec="true" source="material-block" session="tut1" result="text"
 x1 = TSeries(MITRange(qq(2020, 1), qq(2020, 4)), 1.0)
 x1[MITRange(qq(2020, 2), qq(2020, 3))] = np.nan
 x2 = TSeries(MITRange(qq(2019, 3), qq(2020, 2)), 2.0)
@@ -1140,7 +1140,7 @@ print(overlay(x1, x2, x3))
 
 To force a specific output range, pass `rng=`:
 
-```python exec="true" source="material-block" session="tut1"
+```python exec="true" source="material-block" session="tut1" result="text"
 print(overlay(x1, x2, x3, rng=MITRange(qq(2020, 1), qq(2020, 4))))
 ```
 
@@ -1149,7 +1149,7 @@ When the inputs are `Workspace` / `MVTSeries`, the result is a new
 present in multiple inputs are themselves overlaid; variables present
 in only one input are taken from there.
 
-```python exec="true" source="material-block" session="tut1"
+```python exec="true" source="material-block" session="tut1" result="text"
 w1 = Workspace(x=x1, a=1)
 w2 = MVTSeries(qq(2020, 1), ["x", "b"], np.array([[2.0, 99.0], [2.0, 99.0]]))
 w3 = Workspace(x=x3, a=3, b=3, c=3)
@@ -1178,7 +1178,7 @@ the inputs compared as equal; programmatically, `result.differences`
 exposes one entry per differing leaf so callers can introspect the
 diff without parsing stdout.
 
-```python exec="true" source="material-block" session="tut1"
+```python exec="true" source="material-block" session="tut1" result="text"
 import copy
 
 v1 = Workspace(
@@ -1197,14 +1197,14 @@ The numeric kwargs forward to [`numpy.allclose`](https://numpy.org/doc/stable/re
 [`numpy.isclose`](https://numpy.org/doc/stable/reference/generated/numpy.isclose.html).
 Bumping `atol` lets the small `y[2020Q3]` perturbation pass:
 
-```python exec="true" source="material-block" session="tut1"
+```python exec="true" source="material-block" session="tut1" result="text"
 print(compare(v1, v2, atol=1e-5))
 ```
 
 `NaN`-vs-`NaN` is *not* equal by default; pass `nans=True` to match
 Julia's `isapprox(...; nans=true)`:
 
-```python exec="true" source="material-block" session="tut1"
+```python exec="true" source="material-block" session="tut1" result="text"
 n1 = Workspace(t=TSeries(qq(2020, 1), [1.0, float("nan")]))
 n2 = copy.deepcopy(n1)
 print("default:", bool(compare(n1, n2, quiet=True)))
@@ -1214,7 +1214,7 @@ print("nans=True:", bool(compare(n1, n2, nans=True, quiet=True)))
 `ignoremissing=True` skips keys present in only one side; `showequal=True`
 reports same-valued leaves too. They compose naturally:
 
-```python exec="true" source="material-block" session="tut1"
+```python exec="true" source="material-block" session="tut1" result="text"
 print(compare(v1, v2, showequal=True, ignoremissing=True, atol=0.01))
 ```
 
@@ -1222,7 +1222,7 @@ To suppress the printed diff (e.g. inside a test runner), pass
 `quiet=True` — the structured `CompareResult.differences` is populated
 either way:
 
-```python exec="true" source="material-block" session="tut1"
+```python exec="true" source="material-block" session="tut1" result="text"
 result = compare(v1, v2, quiet=True)
 print("equal:", result.equal)
 for d in result.differences[:3]:
@@ -1249,7 +1249,7 @@ over `MIT`, `MITRange`, `TSeries`, `MVTSeries`, and `Workspace`. Common
 use: re-anchor a model output to a different start date without
 re-running the recursion.
 
-```python exec="true" source="material-block" session="tut1"
+```python exec="true" source="material-block" session="tut1" result="text"
 mu = qq(2020, 1)
 nu = MIT(Unit(), 1)
 print("MIT       :", reindex(qq(2022, 4), (mu, nu)))                      # 12U
@@ -1262,7 +1262,7 @@ For `Workspace`, only members matching `old.frequency` are reindexed;
 others (different-frequency series, scalars, strings) pass through
 untouched, and nested workspaces recurse.
 
-```python exec="true" source="material-block" session="tut1"
+```python exec="true" source="material-block" session="tut1" result="text"
 w = Workspace(
     a=TSeries(qq(2020, 1), [1.0, 2.0]),
     b=TSeries(qq(2021, 1), [10.0, 20.0]),
@@ -1302,7 +1302,7 @@ the optional extra first with
 `bdaily("1970-01-01")` to `bdaily("2049-12-31")`, matching the Julia
 upstream's default coverage.
 
-```python exec="true" source="material-block" session="tut1"
+```python exec="true" source="material-block" session="tut1" result="text"
 from tsecon import (
     bdaily,
     clear_holidays_map,
@@ -1333,7 +1333,7 @@ CSV-derived names (e.g. subdivisions spelled with spaces) differ;
 you need a calendar that doesn't match a country code (e.g. a
 firm-specific working-day calendar):
 
-```python exec="true" source="material-block" session="tut1"
+```python exec="true" source="material-block" session="tut1" result="text"
 cal = TSeries.trues(MITRange(bdaily("2022-01-03"), bdaily("2022-12-30")))
 cal[bdaily("2022-01-03")] = False   # mark New Year's observed
 set_holidays_map(cal)
@@ -1346,7 +1346,7 @@ clear_holidays_map()
 A taste of the `skip_all_nans` knob in action — non-NaN handling is
 unchanged from upstream:
 
-```python exec="true" source="material-block" session="tut1"
+```python exec="true" source="material-block" session="tut1" result="text"
 ts = TSeries(bdaily("2022-01-03"), np.arange(1.0, 11.0))
 ts[bdaily("2022-01-07")] = np.nan
 print("pct(ts):")
@@ -1379,7 +1379,7 @@ A small process-global dictionary holds the package's settings.
 Three options exist today: `bdaily_creation_bias`, `bdaily_holidays_map`,
 and `x13path` (the last is M2 plumbing; ignore for now).
 
-```python exec="true" source="material-block" session="tut1"
+```python exec="true" source="material-block" session="tut1" result="text"
 print("default bias:", tsecon.getoption("bdaily_creation_bias"))
 ```
 
@@ -1388,7 +1388,7 @@ Setting `bdaily_creation_bias` changes the default `bias=` for every
 `"strict"`, which raises when the input date lands on a weekend; the
 other valid values are `"previous"`, `"next"`, `"nearest"`.
 
-```python exec="true" source="material-block" session="tut1"
+```python exec="true" source="material-block" session="tut1" result="text"
 print(bdaily("2022-01-01", bias="next"))   # explicit per-call → 2022-01-03
 
 tsecon.setoption("bdaily_creation_bias", "next")
@@ -1399,7 +1399,7 @@ tsecon.setoption("bdaily_creation_bias", "strict")  # restore
 For test-friendly scoped overrides, use the `option_scope(**kwargs)`
 context manager — it restores the prior values on exit:
 
-```python exec="true" source="material-block" session="tut1"
+```python exec="true" source="material-block" session="tut1" result="text"
 from tsecon import option_scope
 
 with option_scope(bdaily_creation_bias="previous"):
@@ -1414,7 +1414,7 @@ country / subdivision code (`set_holidays_map("CA", "ON")`); see
 [§16](#16-bdaily-holidays) for the country-code form. Hand-built
 example:
 
-```python exec="true" source="material-block" session="tut1"
+```python exec="true" source="material-block" session="tut1" result="text"
 from tsecon import clear_holidays_map, get_holidays_map, set_holidays_map
 
 cal = TSeries.trues(MITRange(bdaily("2022-01-03"), bdaily("2022-12-30")))

@@ -31,6 +31,7 @@ function / ``prefix`` / ``suffix`` / ``replace`` keyword forms).
 
 from __future__ import annotations
 
+import html
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from copy import deepcopy
 from typing import Any, ClassVar, Final, Union
@@ -1268,6 +1269,9 @@ class MVTSeries:
     def __str__(self) -> str:
         return _format_mvtseries(self)
 
+    def _repr_html_(self) -> str:
+        return _repr_html_mvtseries(self)
+
 
 # ---------------------------------------------------------------------------
 # Module-level helpers
@@ -1859,6 +1863,70 @@ def _format_cell(v: Any) -> str:
             return "Inf" if v > 0 else "-Inf"
         return format(float(v), ".4g")
     return str(v)
+
+
+def _repr_html_mvtseries(m: MVTSeries) -> str:
+    """HTML rendering of an MVTSeries for Jupyter / VS Code / notebook hosts.
+
+    Mirrors the row-truncation rule of :func:`_format_mvtseries`
+    (``nrows > _DEFAULT_DISPLAY_HEIGHT - 6`` → keep ``top_n`` and ``bot_n``
+    rows around a ``⋮`` divider). Column-name truncation reuses
+    :data:`_NAME_TRUNCATE_AT`. Horizontal (column) truncation is
+    intentionally dropped — notebook hosts handle horizontal overflow
+    via scroll boxes, where the text repr targets a fixed terminal width.
+    Plain ``<table>`` element, no CSS classes — host environments
+    (MS Fabric, Databricks, Jupyter) supply their own table styling.
+    """
+    nrows, ncols = m.shape
+    dtype_part = "" if m._values.dtype == np.float64 else f",{m._values.dtype}"
+    type_str = f"MVTSeries{{{prettyprint_frequency(m.frequency)}{dtype_part}}}"
+    names_all = list(m._columns.keys())
+    vars_str = _summary_vars(names_all)
+    head_line = f"{nrows}×{ncols} {type_str} with range {m.range} and {vars_str}"
+    total_cols = max(ncols + 1, 1)
+    if nrows == 0 or ncols == 0:
+        return (
+            "<table>\n"
+            f'<thead><tr><th colspan="{total_cols}">{html.escape(head_line)}</th></tr></thead>\n'
+            "</table>"
+        )
+    disp_names = [
+        (n if len(n) < _NAME_TRUNCATE_AT else n[:_NAME_TRUNCATE_AT] + "…") for n in names_all
+    ]
+    dheight = _DEFAULT_DISPLAY_HEIGHT
+    use_vdots = nrows > dheight - 6
+    if not use_vdots:
+        top_rows = list(range(nrows))
+        bot_rows: list[int] = []
+    else:
+        top_n = max(0, (dheight - 6) // 2)
+        bot_n = max(0, (dheight - 6) - top_n)
+        top_rows = list(range(top_n))
+        bot_rows = list(range(nrows - bot_n, nrows))
+
+    def _row_html(i: int) -> str:
+        mit_cell = html.escape(str(m._firstdate + i))
+        cells = "".join(
+            f"<td>{html.escape(_format_cell(m._values[i, j]))}</td>" for j in range(ncols)
+        )
+        return f"<tr><th>{mit_cell}</th>{cells}</tr>"
+
+    col_headers = "".join(f"<th>{html.escape(name)}</th>" for name in disp_names)
+    parts: list[str] = [
+        "<table>",
+        f'<thead><tr><th colspan="{total_cols}">{html.escape(head_line)}</th></tr>',
+        f"<tr><th></th>{col_headers}</tr></thead>",
+        "<tbody>",
+    ]
+    for i in top_rows:
+        parts.append(_row_html(i))
+    if use_vdots:
+        parts.append(f'<tr><td colspan="{total_cols}">⋮</td></tr>')
+    for i in bot_rows:
+        parts.append(_row_html(i))
+    parts.append("</tbody>")
+    parts.append("</table>")
+    return "\n".join(parts)
 
 
 def sep_total(col_widths: list[int], sep: str) -> int:

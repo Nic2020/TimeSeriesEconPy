@@ -11,7 +11,7 @@ rebuild it. Plain Python scalars (`int`, `float`, `str`, `bool`, `None`) and
 homogeneous lists pass through unwrapped — no `_type` overhead when it isn't
 needed.
 
-```python exec="true" source="material-block" session="design-ser"
+```python exec="true" source="material-block" session="design-ser" result="text"
 import json
 
 from tsecon import qq, TSeries

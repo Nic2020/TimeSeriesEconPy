@@ -34,6 +34,7 @@ elementwise (NumPy semantics), so ``TSeries`` is intentionally unhashable.
 
 from __future__ import annotations
 
+import html
 from collections.abc import Callable, Iterator, Sequence
 from typing import Any, ClassVar, Final, Union
 
@@ -815,6 +816,9 @@ class TSeries:
     def __str__(self) -> str:
         return _format_tseries(self)
 
+    def _repr_html_(self) -> str:
+        return _repr_html_tseries(self)
+
 
 # ---------------------------------------------------------------------------
 # Module-level helpers
@@ -923,6 +927,56 @@ def _format_tseries(t: TSeries) -> str:
         for i in range(n):
             rows.append(f"{mit_strs[i].rjust(pad)} : {t._values[i]}")
     return header + ":\n" + "\n".join(rows)
+
+
+# Truncation threshold shared between text and HTML reprs — long series
+# render as head-8 / ⋮ / tail-8 once the row count exceeds this.
+_TSERIES_HTML_TRUNCATE_AT: Final[int] = 20
+_TSERIES_HTML_HEAD_ROWS: Final[int] = 8
+_TSERIES_HTML_TAIL_ROWS: Final[int] = 8
+
+
+def _repr_html_tseries(t: TSeries) -> str:
+    """HTML rendering of a TSeries for Jupyter / VS Code / notebook hosts.
+
+    Mirrors the row-truncation rules of :func:`_format_tseries` so the HTML
+    view stays in lock-step with the text repr: long series render as
+    ``head_8`` / ``⋮`` / ``tail_8`` once ``n > _TSERIES_HTML_TRUNCATE_AT``.
+    Plain ``<table>`` element, no CSS classes — host environments
+    (MS Fabric, Databricks, Jupyter) supply their own table styling.
+    """
+    typestr = f"TSeries{{{prettyprint_frequency(t.frequency)}"
+    if t._values.dtype != np.float64:
+        typestr += f",{t._values.dtype}"
+    typestr += "}"
+    n = len(t._values)
+    if n == 0:
+        header = f"Empty {typestr} starting {t._firstdate}"
+        return f"<table>\n<thead><tr><th>{html.escape(header)}</th></tr></thead>\n</table>"
+    header = f"{n}-element {typestr} with range {t.range}"
+    if n > _TSERIES_HTML_TRUNCATE_AT:
+        head_idx = list(range(_TSERIES_HTML_HEAD_ROWS))
+        tail_idx = list(range(n - _TSERIES_HTML_TAIL_ROWS, n))
+        visible: list[int | None] = [*head_idx, None, *tail_idx]
+    else:
+        visible = list(range(n))
+    body_lines: list[str] = []
+    for idx in visible:
+        if idx is None:
+            body_lines.append('<tr><td colspan="2">⋮</td></tr>')
+        else:
+            mit_cell = html.escape(str(t._firstdate + idx))
+            val_cell = html.escape(str(t._values[idx]))
+            body_lines.append(f"<tr><th>{mit_cell}</th><td>{val_cell}</td></tr>")
+    body = "\n".join(body_lines)
+    return (
+        "<table>\n"
+        f'<thead><tr><th colspan="2">{html.escape(header)}</th></tr></thead>\n'
+        "<tbody>\n"
+        f"{body}\n"
+        "</tbody>\n"
+        "</table>"
+    )
 
 
 # Keep import alive (used in type annotations) — avoids ruff F401 for Unit.

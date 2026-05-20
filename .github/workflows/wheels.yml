@@ -95,6 +95,18 @@ jobs:
           X13AS_SOURCE_URL: ${{ steps.x13_meta.outputs.x13as_source_url }}
           X13AS_SOURCE_SHA256: ${{ steps.x13_meta.outputs.x13as_source_sha256 }}
           X13AS_VERSION: ${{ steps.x13_meta.outputs.x13as_version }}
+          # macos-latest = macOS 15+ (Sequoia). Homebrew's gfortran 15.x
+          # defaults to embedding the host OS version as the binary's
+          # minimum-target load command, which mismatches the wheel tag
+          # (macosx_11_0_arm64 = min-target 11.0). delocate-wheel rejects
+          # that mismatch ("Library dependencies do not satisfy target
+          # MacOS version 11.0"). Pinning MACOSX_DEPLOYMENT_TARGET=11.0
+          # is the canonical fix: gfortran reads this env var and emits
+          # the matching min-target in the produced binary. Cibuildwheel
+          # uses the same value internally for the wheel-build step, so
+          # this aligns the host pre-build with the cibuildwheel build.
+          # Harmless on Windows (Apple-only env var).
+          MACOSX_DEPLOYMENT_TARGET: "11.0"
         run: |
           set -euo pipefail
           mkdir -p src/tsecon/x13/_binary
@@ -132,7 +144,7 @@ jobs:
           # binary. Yggdrasil applies a similar `-static`-strip in its
           # X/X13as/build_tarballs.jl recipe for the same reason.
           if [ "${RUNNER_OS}" = "macOS" ]; then
-            sed -i.bak 's/-static /-static-libgfortran -static-libgcc /' makefile.gf
+            sed -i.bak 's/-static /-static-libgfortran -static-libgcc -static-libquadmath /' makefile.gf
           fi
           make -f makefile.gf FFLAGS='-O2 -fallow-argument-mismatch'
           dest="${GITHUB_WORKSPACE}/src/tsecon/x13/_binary"
@@ -183,7 +195,7 @@ jobs:
             # against the manylinux baseline glibc (2.17) is the correct
             # manylinux-shaped choice anyway. Same sed pattern as the macOS
             # host build above.
-            sed -i.bak 's/-static /-static-libgfortran -static-libgcc /' makefile.gf
+            sed -i.bak 's/-static /-static-libgfortran -static-libgcc -static-libquadmath /' makefile.gf
             make -f makefile.gf FFLAGS='-O2 -fallow-argument-mismatch'
             mkdir -p {project}/src/tsecon/x13/_binary
             cp x13as_ascii {project}/src/tsecon/x13/_binary/x13as

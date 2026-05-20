@@ -119,6 +119,21 @@ jobs:
           # and what R's bundled gfortran wrapper allows by default) was
           # lenient on. setup-fortran@v1 installs gfortran 13.x which is
           # strict by default; the flag restores the legacy behaviour.
+          #
+          # `-static` is hard-coded in makefile.gf's link recipe (line 293)
+          # and works on MinGW + Windows but breaks on macOS (no static
+          # libc on Darwin — ld returns 1 with no further detail) and on
+          # manylinux2014 (yum's gcc-toolset doesn't ship libc.a / libm.a,
+          # in line with manylinux's dynamic-link policy). The targeted
+          # replacement `-static-libgfortran -static-libgcc` bakes the
+          # Fortran + GCC runtimes into the binary (so the user does not
+          # need libgfortran installed) while leaving libc dynamic — the
+          # canonical manylinux-friendly shape for a non-Python-extension
+          # binary. Yggdrasil applies a similar `-static`-strip in its
+          # X/X13as/build_tarballs.jl recipe for the same reason.
+          if [ "${RUNNER_OS}" = "macOS" ]; then
+            sed -i.bak 's/-static /-static-libgfortran -static-libgcc /' makefile.gf
+          fi
           make -f makefile.gf FFLAGS='-O2 -fallow-argument-mismatch'
           dest="${GITHUB_WORKSPACE}/src/tsecon/x13/_binary"
           if [ "${RUNNER_OS}" = "Windows" ]; then
@@ -160,6 +175,15 @@ jobs:
             # the manylinux2014 container ships gfortran 10+ via yum's
             # gcc-gfortran, which has the same strict-by-default behaviour
             # as setup-fortran@v1.
+            #
+            # Strip `-static` from makefile.gf — manylinux2014's
+            # intentional dynamic-link policy does not ship static libc.a /
+            # libm.a, so the makefile's hard-coded `gfortran -static ...`
+            # link line fails with "cannot find -lm / -lc". Dynamic linking
+            # against the manylinux baseline glibc (2.17) is the correct
+            # manylinux-shaped choice anyway. Same sed pattern as the macOS
+            # host build above.
+            sed -i.bak 's/-static /-static-libgfortran -static-libgcc /' makefile.gf
             make -f makefile.gf FFLAGS='-O2 -fallow-argument-mismatch'
             mkdir -p {project}/src/tsecon/x13/_binary
             cp x13as_ascii {project}/src/tsecon/x13/_binary/x13as

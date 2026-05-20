@@ -109,10 +109,22 @@ containers + builders with per-builder validation. Closes the full
 19-builder X-13 surface; the remaining M2 work is the writer (M2.4),
 result-side workspace (M2.5), and wheels distribution (M2.6).
 
+M2.4 lands the :class:`X13spec` aggregator (mutable + slots, mirroring
+Julia's ``mutable struct``), :func:`newspec` factory, the
+:func:`validateX13spec` cross-spec invariant check (~50 branches:
+ARIMA-source mutual exclusion, regression-variable type compatibility,
+data-range containment, slidingspans bounds, soft warnings for HP
+filter sample-size / modelspan-vs-span / spectrum.qcheck /
+forcecal / etc.), and the ``.spc`` serializer in
+:mod:`tsecon.x13._write` (top-level :func:`x13write` +
+:func:`impose_line_length` line-wrap helper). The serializer mirrors
+the Julia upstream's column-budget logic (132 minus the 8-space block
+indent), preferring ``" + "`` splits on ``print=`` lists when present.
+
 ``tsecon.x13`` is now re-exported from the top-level ``tsecon/__init__.py``
-(``import tsecon; tsecon.x13.ao(2020 // 1)`` works). The other private
-siblings (``_x13`` / ``_write`` / ``_result``) ship empty ``__all__`` until
-their owning sub-milestone lands.
+(``import tsecon; tsecon.x13.ao(2020 // 1)`` works). The remaining
+private siblings (``_x13`` / ``_result``) ship empty ``__all__`` until
+their owning sub-milestones (M2.5) land.
 """
 
 from __future__ import annotations
@@ -138,6 +150,7 @@ from tsecon.x13._spec import (
     X13seats,
     X13series,
     X13slidingspans,
+    X13spec,
     X13spectrum,
     X13transform,
     X13var,
@@ -162,6 +175,7 @@ from tsecon.x13._spec import (
     ls,
     lss,
     metadata,
+    newspec,
     outlier,
     pickmdl,
     qd,
@@ -186,9 +200,11 @@ from tsecon.x13._spec import (
     thank,
     tl,
     transform,
+    validateX13spec,
     x11,
     x11regression,
 )
+from tsecon.x13._write import impose_line_length, x13write
 
 __all__ = [
     "ArimaModel",
@@ -211,6 +227,7 @@ __all__ = [
     "X13seats",
     "X13series",
     "X13slidingspans",
+    "X13spec",
     "X13spectrum",
     "X13transform",
     "X13var",
@@ -228,6 +245,7 @@ __all__ = [
     "forecast",
     "history",
     "identify",
+    "impose_line_length",
     "labor",
     "lom",
     "loq",
@@ -235,6 +253,7 @@ __all__ = [
     "ls",
     "lss",
     "metadata",
+    "newspec",
     "outlier",
     "pickmdl",
     "qd",
@@ -259,6 +278,8 @@ __all__ = [
     "thank",
     "tl",
     "transform",
+    "validateX13spec",
     "x11",
     "x11regression",
+    "x13write",
 ]

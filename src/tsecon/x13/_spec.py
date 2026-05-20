@@ -113,7 +113,7 @@ from typing import ClassVar, Final
 
 import numpy as np
 
-from tsecon.frequencies import Monthly, Yearly, ppy
+from tsecon.frequencies import Monthly, Yearly, is_monthly, is_quarterly, ppy
 from tsecon.mit import MIT, mit2yp
 from tsecon.mitrange import MITRange
 from tsecon.mvtseries import MVTSeries
@@ -141,6 +141,7 @@ __all__ = [
     "X13seats",
     "X13series",
     "X13slidingspans",
+    "X13spec",
     "X13spectrum",
     "X13transform",
     "X13var",
@@ -165,6 +166,7 @@ __all__ = [
     "ls",
     "lss",
     "metadata",
+    "newspec",
     "outlier",
     "pickmdl",
     "qd",
@@ -189,6 +191,7 @@ __all__ = [
     "thank",
     "tl",
     "transform",
+    "validateX13spec",
     "x11",
     "x11regression",
 ]
@@ -3988,3 +3991,1082 @@ def x11regression(  # noqa: PLR0912, PLR0915
         umstart=umstart,
         umtrimzero=umtrimzero,
     )
+
+
+# Alias to ``series()`` — bypasses the keyword-name shadowing inside
+# :func:`newspec`, whose ``series=`` argument would otherwise mask the
+# module-level builder.
+_build_series_block = series
+
+
+# ---------------------------------------------------------------------------
+# X13spec aggregator + newspec() factory (M2.4)
+# ---------------------------------------------------------------------------
+
+
+_X13SPEC_SUBSPEC_FIELDS: Final[tuple[str, ...]] = (
+    # Order matches the Julia ``mutable struct`` declaration at
+    # ``x13spec.jl:552-575``. ``series`` is written first by the
+    # ``.spc`` serializer; the remaining fields are emitted in this
+    # declared order (``folder`` and ``string`` are non-spec metadata
+    # and skipped during serialization).
+    "arima",
+    "estimate",
+    "transform",
+    "regression",
+    "automdl",
+    "x11",
+    "x11regression",
+    "check",
+    "forecast",
+    "force",
+    "pickmdl",
+    "history",
+    "metadata",
+    "identify",
+    "outlier",
+    "seats",
+    "slidingspans",
+    "spectrum",
+)
+
+
+@dataclass(slots=True)
+class X13spec:
+    """The X-13 spec aggregator — one ``series`` plus up to 18 sub-specs.
+
+    Mirrors ``x13spec.jl:552-575`` (``mutable struct X13spec{F<:Frequency}``).
+    The Julia type-parameter ``F`` is dropped — the contained
+    :class:`X13series` already carries its :class:`~tsecon.frequencies.Frequency`
+    via its ``data`` field.
+
+    Construct via :func:`newspec` (passing either a :class:`~tsecon.tseries.TSeries`
+    or an already-built :class:`X13series`); the bang-suffixed Julia
+    setters (``arima!`` / ``outlier!`` / …) port as plain attribute
+    assignment because this dataclass is intentionally **mutable** and
+    **slotted** — the surface mirrors Julia's ``spec.outlier = outlier(...)``
+    ergonomics. Re-assignment is the only mutation the M2 surface
+    supports; the contained sub-spec dataclasses themselves remain
+    frozen.
+
+    The ``folder`` and ``string`` fields are populated by the M2.5 binary
+    runner: ``folder`` holds the temp dir the run created, ``string``
+    holds the rendered ``.spc`` text (mirrors Julia's ``spec.string``
+    side-effect inside ``x13write``).
+    """
+
+    series: X13series | X13default
+    arima: X13arima | X13default
+    estimate: X13estimate | X13default
+    transform: X13transform | X13default
+    regression: X13regression | X13default
+    automdl: X13automdl | X13default
+    x11: X13x11 | X13default
+    x11regression: X13x11regression | X13default
+    check: X13check | X13default
+    forecast: X13forecast | X13default
+    force: X13force | X13default
+    pickmdl: X13pickmdl | X13default
+    history: X13history | X13default
+    metadata: X13metadata | X13default
+    identify: X13identify | X13default
+    outlier: X13outlier | X13default
+    seats: X13seats | X13default
+    slidingspans: X13slidingspans | X13default
+    spectrum: X13spectrum | X13default
+    folder: str | X13default
+    string: str | X13default
+
+
+def newspec(
+    series: X13series | TSeries | X13default = _X13DEFAULT,
+    *,
+    arima: X13arima | X13default = _X13DEFAULT,
+    estimate: X13estimate | X13default = _X13DEFAULT,
+    transform: X13transform | X13default = _X13DEFAULT,
+    regression: X13regression | X13default = _X13DEFAULT,
+    automdl: X13automdl | X13default = _X13DEFAULT,
+    x11: X13x11 | X13default = _X13DEFAULT,
+    x11regression: X13x11regression | X13default = _X13DEFAULT,
+    check: X13check | X13default = _X13DEFAULT,
+    forecast: X13forecast | X13default = _X13DEFAULT,
+    force: X13force | X13default = _X13DEFAULT,
+    pickmdl: X13pickmdl | X13default = _X13DEFAULT,
+    history: X13history | X13default = _X13DEFAULT,
+    metadata: X13metadata | X13default = _X13DEFAULT,
+    identify: X13identify | X13default = _X13DEFAULT,
+    outlier: X13outlier | X13default = _X13DEFAULT,
+    seats: X13seats | X13default = _X13DEFAULT,
+    slidingspans: X13slidingspans | X13default = _X13DEFAULT,
+    spectrum: X13spectrum | X13default = _X13DEFAULT,
+    folder: str | X13default = _X13DEFAULT,
+) -> X13spec:
+    """Build a new :class:`X13spec` aggregator.
+
+    Mirrors ``x13spec.jl:578-629``. The Julia overloads
+    ``newspec(::X13series)``, ``newspec(::Type{<:Frequency})``, and
+    ``newspec(::TSeries)`` collapse to a single Python signature: pass
+    either an :class:`X13series` (the usual shape) or a
+    :class:`~tsecon.tseries.TSeries` (the convenience shape — internally
+    wrapped via :func:`series`). The Julia ``newspec(::Type{<:Frequency})``
+    overload, which builds a spec without ``series`` for the rare
+    ``composite``-only flow, is **intentionally not ported** — the
+    ``composite`` spec is not supported (see ``x13spec.jl:563``).
+
+    The ``string`` field is always initialised to :data:`_X13DEFAULT` —
+    it is populated only by :func:`tsecon.x13._write.x13write` as a
+    side-effect of serialization (mirrors the Julia upstream's
+    ``spec.string = ...`` mutation at ``x13write.jl:72``).
+    """
+    if isinstance(series, TSeries):
+        series = _build_series_block(series)
+    return X13spec(
+        series=series,
+        arima=arima,
+        estimate=estimate,
+        transform=transform,
+        regression=regression,
+        automdl=automdl,
+        x11=x11,
+        x11regression=x11regression,
+        check=check,
+        forecast=forecast,
+        force=force,
+        pickmdl=pickmdl,
+        history=history,
+        metadata=metadata,
+        identify=identify,
+        outlier=outlier,
+        seats=seats,
+        slidingspans=slidingspans,
+        spectrum=spectrum,
+        folder=folder,
+        string=_X13DEFAULT,
+    )
+
+
+# ---------------------------------------------------------------------------
+# validateX13spec — cross-spec invariants (M2.4)
+# ---------------------------------------------------------------------------
+
+
+_VAR_TYPES_MAP: Final[dict[type[X13var], str]] = {
+    ao: "ao",
+    aos: "aos",
+    ls: "ls",
+    lss: "lss",
+    tc: "tc",
+    so: "so",
+    rp: "rp",
+    qd: "qd",
+    qi: "qi",
+    tl: "tl",
+    tdstock: "tdstock",
+    tdstock1coef: "tdstock1coef",
+    easter: "easter",
+    labor: "labor",
+    thank: "thank",
+    sceaster: "sceaster",
+    easterstock: "easterstock",
+    sincos: "sincos",
+    td: "td",
+    tdnolpyear: "tdnolpyear",
+    td1coef: "td1coef",
+    td1nolpyear: "td1nolpyear",
+    lpyear: "lpyear",
+    lom: "lom",
+    loq: "loq",
+    seasonal: "seasonal",
+}
+
+
+def _resolve_var_token(v: str | X13var) -> str:
+    """Resolve a regressor argument to its X-13 type-token name."""
+    if isinstance(v, str):
+        return v
+    return _VAR_TYPES_MAP[type(v)]
+
+
+def _collect_regvar_types(vars_list: list[str | X13var]) -> set[str]:
+    """Collect the X-13 type tokens used in a regression-variables list.
+
+    Mirrors ``x13spec.jl:4085-4095`` (``collect_regvar_types``).
+    """
+    return {_resolve_var_token(v) for v in vars_list}
+
+
+def _effective_span(s: X13series) -> MITRange:
+    """Compute the effective range of the series after applying ``span`` / ``modelspan``.
+
+    Mirrors ``x13spec.jl:4097-4131`` (``effective_span``). The Julia
+    upstream also resolves fuzzy ``modelspan.e`` values (``M11`` / ``Q2``);
+    the Python builder restricts :class:`Span` endpoints to :class:`MIT` |
+    :data:`None` (the fuzzy-endpoint surface is deferred), so this helper
+    only needs to handle the :class:`MIT`-or-:data:`None` cases.
+    """
+    base = s.data.range
+    if isinstance(s.span, MITRange):
+        return s.span
+    if isinstance(s.span, Span):
+        first_ = s.span.b if s.span.b is not None else base.first()
+        last_ = s.span.e if s.span.e is not None else base.last()
+        return MITRange(first_, last_)
+    if isinstance(s.modelspan, MITRange):
+        return s.modelspan
+    if isinstance(s.modelspan, Span):
+        first_ = s.modelspan.b if s.modelspan.b is not None else base.first()
+        last_ = s.modelspan.e if s.modelspan.e is not None else base.last()
+        return MITRange(first_, last_)
+    return base
+
+
+def _mit_range_contains_range(outer: MITRange, inner: MITRange) -> bool:
+    """Return ``True`` iff every MIT in ``inner`` is contained in ``outer``."""
+    if inner.is_empty():
+        return True
+    return inner.first() in outer and inner.last() in outer
+
+
+def _vars_as_list(variables: _VariablesField) -> list[str | X13var]:
+    """Normalise a ``variables=`` argument to a flat list."""
+    if isinstance(variables, X13default):
+        return []
+    if isinstance(variables, list):
+        return list(variables)
+    return [variables]
+
+
+def validateX13spec(spec: X13spec) -> None:  # noqa: N802, PLR0912, PLR0915
+    """Cross-spec invariant check — runs before the binary sees the spec.
+
+    Mirrors ``x13spec.jl:3563-4055`` (``validateX13spec``). Branches that
+    Julia handles with ``ArgumentError`` raise :exc:`ValueError`; branches
+    that Julia logs via ``@warn`` emit :class:`UserWarning` through
+    :func:`warnings.warn` (the project's ``error::UserWarning`` filter at
+    `pyproject.toml` turns silent misuse into a test-failure, mirroring
+    the Julia upstream's `@test_warn` discipline).
+
+    Coverage spans:
+
+    * ARIMA-source mutual exclusion: ``arima`` ⊥ ``automdl`` ⊥ ``pickmdl``.
+    * ``estimate.file`` overrides: blocks ``arima.{model,ar,ma}`` and
+      ``regression.{variables,user,b}``.
+    * Forecast / history overlap: ``history.fstep ≤ forecast.maxlead``.
+    * Regression variable type compatibility (~16 raise sites): the
+      trading-day / leap-year / length-of-period / stock-vs-flow
+      compatibility matrix per ``x13spec.jl:3621-3777``.
+    * AIC-test type compatibility (~12 raise sites): parallel to the
+      variables matrix but for the ``aictest=`` argument.
+    * Outlier-range containment: ``ao`` / ``ls`` / ``so`` / ``tc`` / range
+      variants must lie within the series range.
+    * Regression / x11regression data-range containment (with forecast
+      backcast/maxlead expansion).
+    * Slidingspans length bounds (quarterly: 12 ≤ length ≤ 76; monthly:
+      36 ≤ length ≤ 228).
+    * Seats HP-filter sample-size warning.
+    * Modelspan-vs-span backcast warning.
+    * Transform/x11 mode compatibility (``adjust`` vs ``x11.mode``).
+    * X11regression-vs-forcecal warning.
+    """
+    if not isinstance(spec.series, X13series):
+        msg = (
+            "X13spec.series must be set to an X13series instance before "
+            "validateX13spec is called. Build the spec via "
+            "tsecon.x13.newspec(series_or_tseries, ...)."
+        )
+        raise ValueError(msg)
+    s = spec.series
+
+    # --- arima ⊥ automdl, arima ⊥ pickmdl, automdl ⊥ pickmdl --------------
+    if not isinstance(spec.arima, X13default):
+        if not isinstance(spec.automdl, X13default):
+            msg = (
+                "The arima spec cannot be used in the same spec file "
+                "as the pickmdl or automdl specs."
+            )
+            raise ValueError(msg)
+        if not isinstance(spec.pickmdl, X13default):
+            msg = (
+                "The arima spec cannot be used in the same spec file "
+                "as the pickmdl or automdl specs."
+            )
+            raise ValueError(msg)
+        # estimate.file ⊥ arima.{model,ar,ma}
+        if (
+            not isinstance(spec.estimate, X13default)
+            and not isinstance(spec.estimate.file, X13default)
+            and (
+                not isinstance(spec.arima.ar, X13default)
+                or not isinstance(spec.arima.ma, X13default)
+                or not isinstance(spec.arima.model, X13default)
+            )
+        ):
+            msg = (
+                "The model, ma, and ar arguments of the arima spec cannot "
+                "be used when the file argument is specified in the "
+                "estimate spec."
+            )
+            raise ValueError(msg)
+
+    if not isinstance(spec.automdl, X13default):
+        if not isinstance(spec.pickmdl, X13default):
+            msg = (
+                "The automdl spec cannot be used in the same spec file "
+                "as the pickmdl or arima specs."
+            )
+            raise ValueError(msg)
+        if not isinstance(spec.estimate, X13default) and not isinstance(
+            spec.estimate.file, X13default
+        ):
+            msg = (
+                "The automdl spec cannot be used in the same spec file "
+                "as an estimate spec employing the file argument."
+            )
+            raise ValueError(msg)
+
+    # --- estimate.file ⊥ regression.{variables, user, b} ------------------
+    if (
+        not isinstance(spec.estimate, X13default)
+        and not isinstance(spec.estimate.file, X13default)
+        and not isinstance(spec.regression, X13default)
+        and (
+            not isinstance(spec.regression.variables, X13default)
+            or not isinstance(spec.regression.user, X13default)
+            or not isinstance(spec.regression.b, X13default)
+        )
+    ):
+        msg = (
+            "The variables, user, and b arguments of the regression spec "
+            "cannot be used when the estimate spec contains the file argument."
+        )
+        raise ValueError(msg)
+
+    # --- history.fstep vs forecast.maxlead --------------------------------
+    if (
+        not isinstance(spec.forecast, X13default)
+        and not isinstance(spec.forecast.maxlead, X13default)
+        and not isinstance(spec.history, X13default)
+        and not isinstance(spec.history.fstep, X13default)
+    ):
+        maxlead = spec.forecast.maxlead
+        fstep = spec.history.fstep
+        if isinstance(fstep, list) and any(f > maxlead for f in fstep):
+            msg = (
+                f"The values of fstep in the history spec cannot be "
+                f"greater than the maxlead specified in the forecast "
+                f"spec ({maxlead}). Received: {fstep}."
+            )
+            raise ValueError(msg)
+        if not isinstance(fstep, list) and fstep > maxlead:
+            msg = (
+                f"The values of fstep in the history spec cannot be "
+                f"greater than the maxlead specified in the forecast "
+                f"spec ({maxlead}). Received: {fstep}."
+            )
+            raise ValueError(msg)
+
+    # --- history.outlier without an outlier spec --------------------------
+    if (
+        not isinstance(spec.history, X13default)
+        and not isinstance(spec.history.outlier, X13default)
+        and isinstance(spec.outlier, X13default)
+    ):
+        warnings.warn(
+            "The outlier argument of the history spec has no effect "
+            "when no outlier spec is specified.",
+            UserWarning,
+            stacklevel=2,
+        )
+
+    # --- regression-variable type compatibility ---------------------------
+    if not isinstance(spec.regression, X13default) and not isinstance(
+        spec.regression.variables, X13default
+    ):
+        vars_list = _vars_as_list(spec.regression.variables)
+        if (
+            not isinstance(spec.transform, X13default)
+            and not isinstance(spec.transform.adjust, X13default)
+            and spec.transform.adjust == "lom"
+        ):
+            for v in vars_list:
+                tok = _resolve_var_token(v)
+                if tok in ("td", "lom"):
+                    msg = (
+                        "When adjust='lom' is specified in the transform "
+                        "spec, the inclusion of either td or lom variables "
+                        "in the variables list of the regression spec "
+                        "leads to conflicts."
+                    )
+                    raise ValueError(msg)
+
+        types_used = _collect_regvar_types(vars_list)
+        series_range = s.data.range
+        span_range = _effective_span(s)
+        for v in vars_list:
+            tok = _resolve_var_token(v)
+            # type-vs-series-type guard
+            if not isinstance(s.type, X13default):
+                if s.type != "flow":
+                    if tok in (
+                        "td",
+                        "tdnolpyear",
+                        "td1coef",
+                        "td1nolpyear",
+                        "lpyear",
+                        "easter",
+                        "labor",
+                        "thank",
+                        "sceaster",
+                    ):
+                        msg = (
+                            f"{tok} regressors can only be used with "
+                            f"flow-type data. The provided series has the "
+                            f"type: {s.type}."
+                        )
+                        raise ValueError(msg)
+                elif s.type != "stock" and tok in ("tdstock", "td1stock", "easterstock"):
+                    msg = (
+                        f"{tok} regressors can only be used with "
+                        f"stock-type data. The provided series has the "
+                        f"type: {s.type}."
+                    )
+                    raise ValueError(msg)
+
+            # td / tdnolpyear / td1coef / td1nolpyear / lpyear / lom / loq
+            if tok == "td":
+                if not is_monthly(s.data.frequency) and not is_quarterly(s.data.frequency):
+                    msg = "td regressors can only be used with Monthly or Quarterly data."
+                    raise ValueError(msg)
+                if types_used & {
+                    "tdnolpyear",
+                    "td1coef",
+                    "td1nolpyear",
+                    "lpyear",
+                    "lom",
+                    "loq",
+                    "tdstock",
+                    "tdstock1coef",
+                }:
+                    msg = (
+                        "td cannot be used with tdnolpyear, td1coef, "
+                        "td1nolpyear, lpyear, lom, loq, tdstock, or "
+                        "tdstock1coef regressors."
+                    )
+                    raise ValueError(msg)
+                if not isinstance(spec.transform, X13default) and not isinstance(
+                    spec.transform.adjust, X13default
+                ):
+                    msg = (
+                        "The adjust argument of the transform spec cannot "
+                        "be used when td or td1coef is specified in the "
+                        "regression spec."
+                    )
+                    raise ValueError(msg)
+            elif tok == "tdnolpyear":
+                if not is_monthly(s.data.frequency) and not is_quarterly(s.data.frequency):
+                    msg = "tdnolpyear regressors can only be used with Monthly or Quarterly data."
+                    raise ValueError(msg)
+                if types_used & {"td", "td1coef", "td1nolpyear", "tdstock", "tdstock1coef"}:
+                    msg = (
+                        "tdnolpyear cannot be used with td, td1coef, "
+                        "td1nolpyear, tdstock, or tdstock1coef regressors."
+                    )
+                    raise ValueError(msg)
+            elif tok == "td1coef":
+                if not is_monthly(s.data.frequency) and not is_quarterly(s.data.frequency):
+                    msg = "td1coef regressors can only be used with Monthly or Quarterly data."
+                    raise ValueError(msg)
+                if types_used & {
+                    "td",
+                    "tdnolpyear",
+                    "td1nolpyear",
+                    "lpyear",
+                    "lom",
+                    "loq",
+                    "tdstock",
+                    "tdstock1coef",
+                }:
+                    msg = (
+                        "td1coef cannot be used with td, tdnolpyear, "
+                        "td1nolpyear, lpyear, lom, loq, tdstock, or "
+                        "tdstock1coef regressors."
+                    )
+                    raise ValueError(msg)
+                if not isinstance(spec.transform, X13default) and not isinstance(
+                    spec.transform.adjust, X13default
+                ):
+                    msg = (
+                        "The adjust argument of the transform spec cannot "
+                        "be used when td or td1coef is specified in the "
+                        "regression spec."
+                    )
+                    raise ValueError(msg)
+            elif tok == "td1nolpyear":
+                if not is_monthly(s.data.frequency) and not is_quarterly(s.data.frequency):
+                    msg = "td1nolpyear regressors can only be used with Monthly or Quarterly data."
+                    raise ValueError(msg)
+                if types_used & {"td", "tdnolpyear", "td1coef", "tdstock", "tdstock1coef"}:
+                    msg = (
+                        "td1nolpyear cannot be used with td, tdnolpyear, "
+                        "td1coef, tdstock, or tdstock1coef regressors."
+                    )
+                    raise ValueError(msg)
+            elif tok == "lpyear":
+                if not is_monthly(s.data.frequency) and not is_quarterly(s.data.frequency):
+                    msg = "lpyear regressors can only be used with Monthly or Quarterly data."
+                    raise ValueError(msg)
+                if types_used & {"td", "td1coef", "tdstock", "tdstock1coef"}:
+                    msg = (
+                        "lpyear cannot be used with td, td1coef, tdstock, "
+                        "or tdstock1coef regressors."
+                    )
+                    raise ValueError(msg)
+            elif tok == "lom":
+                if not is_monthly(s.data.frequency) and not is_quarterly(s.data.frequency):
+                    msg = "lom regressors can only be used with Monthly or Quarterly data."
+                    raise ValueError(msg)
+                if types_used & {"td", "td1coef", "tdstock", "tdstock1coef"}:
+                    msg = (
+                        "lom cannot be used with td, td1coef, tdstock, or tdstock1coef regressors."
+                    )
+                    raise ValueError(msg)
+            elif tok == "loq":
+                if not is_monthly(s.data.frequency) and not is_quarterly(s.data.frequency):
+                    msg = "loq regressors can only be used with Monthly or Quarterly data."
+                    raise ValueError(msg)
+                if types_used & {"td", "td1coef", "tdstock", "tdstock1coef"}:
+                    msg = (
+                        "loq cannot be used with td, td1coef, tdstock, or tdstock1coef regressors."
+                    )
+                    raise ValueError(msg)
+            elif tok == "tdstock":
+                if not is_monthly(s.data.frequency):
+                    msg = "tdstock regressors can only be used with Monthly data."
+                    raise ValueError(msg)
+                if types_used & {
+                    "tdstock1coef",
+                    "td",
+                    "tdnolpyear",
+                    "td1coef",
+                    "td1nolpyear",
+                    "lom",
+                    "loq",
+                }:
+                    msg = (
+                        "tdstock cannot be used with tdstock1coef, td, "
+                        "tdnolpyear, td1coef, td1nolpyear, lom or loq "
+                        "regressors."
+                    )
+                    raise ValueError(msg)
+            elif tok == "tdstock1coef":
+                if not is_monthly(s.data.frequency):
+                    msg = "tdstock1coef regressors can only be used with Monthly data."
+                    raise ValueError(msg)
+                if types_used & {
+                    "tdstock",
+                    "td",
+                    "tdnolpyear",
+                    "td1coef",
+                    "td1nolpyear",
+                    "lom",
+                    "loq",
+                }:
+                    msg = (
+                        "tdstock1coef cannot be used with tdstock, td, "
+                        "tdnolpyear, td1coef, td1nolpyear, lom or loq "
+                        "regressors."
+                    )
+                    raise ValueError(msg)
+            elif tok == "labor":
+                if not is_monthly(s.data.frequency):
+                    msg = "labor regressors can only be used with Monthly data."
+                    raise ValueError(msg)
+            elif tok == "sceaster":
+                if not is_monthly(s.data.frequency) and not is_quarterly(s.data.frequency):
+                    msg = "sceaster regressors can only be used with Monthly data."
+                    raise ValueError(msg)
+
+            # range / point containment for the outlier subset
+            if isinstance(v, ao) and v.mit not in series_range:
+                msg = (
+                    f"ao regressors must have a date within the series range "
+                    f"({series_range!r}). Received: ao({v.mit!r})"
+                )
+                raise ValueError(msg)
+            if isinstance(v, tc) and v.mit not in series_range:
+                msg = (
+                    f"tc regressors must have a date within the series range "
+                    f"({series_range!r}). Received: tc({v.mit!r})"
+                )
+                raise ValueError(msg)
+            if isinstance(v, ls):
+                if v.mit not in series_range:
+                    msg = (
+                        f"ls regressors must have a date within the series "
+                        f"range ({series_range!r}). Received: ls({v.mit!r})"
+                    )
+                    raise ValueError(msg)
+                if v.mit == span_range.first():
+                    msg = (
+                        f"ls regressors cannot be at the start of the series "
+                        f"range or the span range ({span_range!r}). Received: "
+                        f"ls({v.mit!r})"
+                    )
+                    raise ValueError(msg)
+            if isinstance(v, so):
+                if v.mit not in series_range:
+                    msg = (
+                        f"so regressors must have a date within the series "
+                        f"range ({series_range!r}). Received: so({v.mit!r})"
+                    )
+                    raise ValueError(msg)
+                if v.mit == span_range.first():
+                    msg = (
+                        f"so regressors cannot be at the start of the series "
+                        f"range or the span range ({span_range!r}). Received: "
+                        f"so({v.mit!r})"
+                    )
+                    raise ValueError(msg)
+            for cls, name in (
+                (aos, "aos"),
+                (lss, "lss"),
+                (rp, "rp"),
+                (qd, "qd"),
+                (qi, "qi"),
+                (tl, "tl"),
+            ):
+                if isinstance(v, cls) and (
+                    v.mit1 not in series_range or v.mit2 not in series_range
+                ):
+                    msg = (
+                        f"{name} regressors must have a date within the "
+                        f"series range ({series_range!r}). Received: "
+                        f"{name}({v.mit1!r},{v.mit2!r})"
+                    )
+                    raise ValueError(msg)
+
+        # AIC-test compatibility (parallel to the variables matrix above)
+        if not isinstance(spec.regression.aictest, X13default):
+            aictests = (
+                [spec.regression.aictest]
+                if isinstance(spec.regression.aictest, str)
+                else list(spec.regression.aictest)
+            )
+            for aic in aictests:
+                if not isinstance(s.type, X13default):
+                    if s.type != "flow":
+                        if aic in (
+                            "tdnolpyear",
+                            "td1coef",
+                            "td1nolpyear",
+                            "lpyear",
+                            "easter",
+                            "labor",
+                            "thank",
+                            "sceaster",
+                        ):
+                            msg = (
+                                f"aictest: {aic} regressors can only be "
+                                f"tested for with flow-type data. The "
+                                f"provided series has the type: {s.type}."
+                            )
+                            raise ValueError(msg)
+                    elif s.type != "stock" and aic in ("tdstock", "td1stock", "easterstock"):
+                        msg = (
+                            f"aictest: {aic} regressors can only be "
+                            f"tested for with stock-type data. The "
+                            f"provided series has the type: {s.type}."
+                        )
+                        raise ValueError(msg)
+
+                if aic == "td":
+                    if not is_monthly(s.data.frequency) and not is_quarterly(s.data.frequency):
+                        msg = (
+                            "aictest: td regressors can only be used with "
+                            "Monthly or Quarterly data."
+                        )
+                        raise ValueError(msg)
+                    if types_used & {"lpyear", "lom", "loq"}:
+                        msg = "aictest: td cannot be used with lpyear, lom, loq, regressors."
+                        raise ValueError(msg)
+                elif aic == "tdnolpyear":
+                    if not is_monthly(s.data.frequency) and not is_quarterly(s.data.frequency):
+                        msg = (
+                            "aictest: tdnolpyear regressors can only be "
+                            "used with Monthly or Quarterly data."
+                        )
+                        raise ValueError(msg)
+                    if types_used & {"td", "td1coef", "td1nolpyear", "tdstock", "tdstock1coef"}:
+                        msg = (
+                            "aictest: tdnolpyear cannot be used with td, "
+                            "td1coef, td1nolpyear, tdstock, or tdstock1coef "
+                            "regressors."
+                        )
+                        raise ValueError(msg)
+                elif aic == "td1coef":
+                    if not is_monthly(s.data.frequency) and not is_quarterly(s.data.frequency):
+                        msg = (
+                            "aictest: td1coef regressors can only be used "
+                            "with Monthly or Quarterly data."
+                        )
+                        raise ValueError(msg)
+                    if types_used & {
+                        "td",
+                        "tdnolpyear",
+                        "td1nolpyear",
+                        "lpyear",
+                        "lom",
+                        "loq",
+                        "tdstock",
+                        "tdstock1coef",
+                    }:
+                        msg = (
+                            "aictest: td1coef cannot be used with td, "
+                            "tdnolpyear, td1nolpyear, lpyear, lom, loq, "
+                            "tdstock, or tdstock1coef regressors."
+                        )
+                        raise ValueError(msg)
+                elif aic == "td1nolpyear":
+                    if not is_monthly(s.data.frequency) and not is_quarterly(s.data.frequency):
+                        msg = (
+                            "aictest: td1nolpyear regressors can only be "
+                            "used with Monthly or Quarterly data."
+                        )
+                        raise ValueError(msg)
+                    if types_used & {"td", "tdnolpyear", "td1coef", "tdstock", "tdstock1coef"}:
+                        msg = (
+                            "aictest: td1nolpyear cannot be used with td, "
+                            "tdnolpyear, td1coef, tdstock, or tdstock1coef "
+                            "regressors."
+                        )
+                        raise ValueError(msg)
+                elif aic == "lpyear":
+                    if not is_monthly(s.data.frequency) and not is_quarterly(s.data.frequency):
+                        msg = (
+                            "aictest: lpyear regressors can only be used "
+                            "with Monthly or Quarterly data."
+                        )
+                        raise ValueError(msg)
+                    if types_used & {"td", "td1coef", "tdstock", "tdstock1coef"}:
+                        msg = (
+                            "aictest: lpyear cannot be used with td, "
+                            "td1coef, tdstock, or tdstock1coef regressors."
+                        )
+                        raise ValueError(msg)
+                elif aic == "lom":
+                    if not is_monthly(s.data.frequency):
+                        msg = "aictest: lom regressors can only tested for with Monthly data."
+                        raise ValueError(msg)
+                    if types_used & {"td", "td1coef", "tdstock", "tdstock1coef"}:
+                        msg = (
+                            "aictest: lom cannot be used with td, td1coef, "
+                            "tdstock, or tdstock1coef regressors."
+                        )
+                        raise ValueError(msg)
+                elif aic == "loq":
+                    if not is_quarterly(s.data.frequency):
+                        msg = "aictest: loq regressors can only be tested for with Quarterly data."
+                        raise ValueError(msg)
+                    if types_used & {"td", "td1coef", "tdstock", "tdstock1coef"}:
+                        msg = (
+                            "aictest: loq cannot be used with td, td1coef, "
+                            "tdstock, or tdstock1coef regressors."
+                        )
+                        raise ValueError(msg)
+                elif aic == "tdstock":
+                    if not is_monthly(s.data.frequency):
+                        msg = "aictest: tdstock regressors can only be used with Monthly data."
+                        raise ValueError(msg)
+                    if types_used & {
+                        "tdstock1coef",
+                        "td",
+                        "tdnolpyear",
+                        "td1coef",
+                        "td1nolpyear",
+                        "lom",
+                        "loq",
+                    }:
+                        msg = (
+                            "aictest: tdstock cannot be used with "
+                            "tdstock1coef, td, tdnolpyear, td1coef, "
+                            "td1nolpyear, lom or loq regressors."
+                        )
+                        raise ValueError(msg)
+                elif aic == "tdstock1coef":
+                    if not is_monthly(s.data.frequency):
+                        msg = "aictest: tdstock1coef regressors can only be used with Monthly data."
+                        raise ValueError(msg)
+                    if types_used & {
+                        "tdstock",
+                        "td",
+                        "tdnolpyear",
+                        "td1coef",
+                        "td1nolpyear",
+                        "lom",
+                        "loq",
+                    }:
+                        msg = (
+                            "aictest: tdstock1coef cannot be used with "
+                            "tdstock, td, tdnolpyear, td1coef, "
+                            "td1nolpyear, lom or loq regressors."
+                        )
+                        raise ValueError(msg)
+                elif aic == "labor":
+                    if not is_monthly(s.data.frequency):
+                        msg = "aictest: labor regressors can only be used with Monthly data."
+                        raise ValueError(msg)
+                elif aic == "sceaster":
+                    if not is_monthly(s.data.frequency) and not is_quarterly(s.data.frequency):
+                        msg = "aictest: sceaster regressors can only be used with Monthly data."
+                        raise ValueError(msg)
+
+    # --- regression.data range containment --------------------------------
+    if not isinstance(spec.regression, X13default) and not isinstance(
+        spec.regression.data, X13default
+    ):
+        data_range = spec.regression.data.range
+        required_range = _effective_span(s)
+        if not isinstance(spec.forecast, X13default):
+            first_ = required_range.first()
+            last_ = required_range.last()
+            if not isinstance(spec.forecast.maxback, X13default):
+                first_ = MIT(first_.frequency, first_.value - spec.forecast.maxback)
+            if not isinstance(spec.forecast.maxlead, X13default):
+                last_ = MIT(last_.frequency, last_.value + spec.forecast.maxlead)
+            required_range = MITRange(first_, last_)
+        if not _mit_range_contains_range(data_range, required_range):
+            msg = (
+                f"The data provided in the regression spec must cover the "
+                f"range of the supplied data (or the span specified by the "
+                f"span argument of the series spec), as well as any "
+                f"forecasts and backcasts requested by the forecast spec. "
+                f"The required range is {required_range!r}, but the "
+                f"provided range was only {data_range!r}."
+            )
+            raise ValueError(msg)
+
+    # --- seats hpcycle small-sample warning -------------------------------
+    if (
+        not isinstance(spec.seats, X13default)
+        and not isinstance(spec.seats.hpcycle, X13default)
+        and isinstance(spec.seats.hplan, X13default)
+        and spec.seats.hpcycle is True
+    ):
+        n = len(s.data)
+        if is_monthly(s.data.frequency) and n < 120:
+            warnings.warn(
+                f"Hodrick-Prescott filters will not be used as the "
+                f"default hplan requires at least 120 monthly "
+                f"observations. The provided series has {n} observations.",
+                UserWarning,
+                stacklevel=2,
+            )
+        elif is_quarterly(s.data.frequency) and n < 48:
+            warnings.warn(
+                f"Hodrick-Prescott filters will not be used as the "
+                f"default hplan requires at least 48 quarterly "
+                f"observations. The provided series has {n} observations.",
+                UserWarning,
+                stacklevel=2,
+            )
+
+    # --- modelspan / span backcast warning --------------------------------
+    if (
+        not isinstance(s.modelspan, X13default)
+        and not isinstance(spec.forecast, X13default)
+        and not isinstance(spec.forecast.maxback, X13default)
+        and not isinstance(s.span, X13default)
+    ):
+        # The outer guard ruled out X13default for both; narrow accordingly.
+        # Span is the only remaining shape after the X13default outer guard
+        # when the value is not an MITRange.
+        modelspan_first: MIT | None = (
+            s.modelspan.first() if isinstance(s.modelspan, MITRange) else s.modelspan.b
+        )
+        span_first: MIT | None = s.span.first() if isinstance(s.span, MITRange) else s.span.b
+        if modelspan_first is not None and span_first is not None and modelspan_first != span_first:
+            warnings.warn(
+                f"Backcasts will not be generated as the start of the "
+                f"modelspan specified ({s.modelspan!r}) does not coincide "
+                f"with the start of the series span specified ({s.span!r}).",
+                UserWarning,
+                stacklevel=2,
+            )
+
+    # --- slidingspans length bounds + outlier-without-spec warn -----------
+    if not isinstance(spec.slidingspans, X13default):
+        ss = spec.slidingspans
+        if not isinstance(ss.length, X13default):
+            if is_quarterly(s.data.frequency):
+                if ss.length < 12:
+                    msg = (
+                        f"The length argument of the slidingspans spec "
+                        f"must cover at least 3 years. Current length is "
+                        f"≈{ss.length / 4} years."
+                    )
+                    raise ValueError(msg)
+                if ss.length > 4 * 19:
+                    msg = (
+                        f"The length argument of the slidingspans spec "
+                        f"can cover at most 19 years. Current length is "
+                        f"≈{ss.length / 4} years."
+                    )
+                    raise ValueError(msg)
+            if is_monthly(s.data.frequency):
+                if ss.length < 36:
+                    msg = (
+                        f"The length argument of the slidingspans spec "
+                        f"must cover at least 3 years. Current length is "
+                        f"≈{ss.length / 12} years."
+                    )
+                    raise ValueError(msg)
+                if ss.length > 12 * 19:
+                    msg = (
+                        f"The length argument of the slidingspans spec "
+                        f"can cover at most 19 years. Current length is "
+                        f"≈{ss.length / 12} years."
+                    )
+                    raise ValueError(msg)
+        if not isinstance(ss.outlier, X13default) and isinstance(spec.outlier, X13default):
+            warnings.warn(
+                "The outlier argument of the slidingspans spec will be "
+                "ignored as there is no outlier spec specified.",
+                UserWarning,
+                stacklevel=2,
+            )
+
+    # --- spectrum.qcheck on non-monthly warn ------------------------------
+    if (
+        not isinstance(spec.spectrum, X13default)
+        and not isinstance(spec.spectrum.qcheck, X13default)
+        and spec.spectrum.qcheck is True
+        and not is_monthly(s.data.frequency)
+    ):
+        warnings.warn(
+            "The qcheck argument of the spectrum spec only produces output for a monthly TSeries.",
+            UserWarning,
+            stacklevel=2,
+        )
+
+    # --- transform.adjust ⊥ x11.mode ∈ {add, pseudoadd} -------------------
+    if not isinstance(spec.transform, X13default):
+        if (
+            not isinstance(spec.transform.adjust, X13default)
+            and not isinstance(spec.x11, X13default)
+            and not isinstance(spec.x11.mode, X13default)
+            and spec.x11.mode in ("add", "pseudoadd")
+        ):
+            msg = (
+                "The adjust argument of the transform spec cannot be "
+                "used when the mode argument of the x11 spec is 'add' "
+                "or 'pseudoadd'."
+            )
+            raise ValueError(msg)
+        if (
+            not isinstance(spec.x11, X13default)
+            and isinstance(spec.x11.mode, X13default)
+            and isinstance(spec.transform.power, X13default)
+            and isinstance(spec.transform.func, X13default)
+        ):
+            msg = (
+                "The default value for the mode argument of the x11 "
+                "spec (multiplicative) conflicts with the default for "
+                "the function and power arguments of the transform "
+                "spec (no transformation)."
+            )
+            raise ValueError(msg)
+
+    # --- x11regression: data / umdata / outlierspan / span containment ----
+    if not isinstance(spec.x11regression, X13default):
+        x11r = spec.x11regression
+        if not isinstance(x11r.data, X13default):
+            data_range = x11r.data.range
+            required_range = _effective_span(s)
+            if not isinstance(spec.forecast, X13default):
+                first_ = required_range.first()
+                last_ = required_range.last()
+                if not isinstance(spec.forecast.maxback, X13default):
+                    first_ = MIT(first_.frequency, first_.value - spec.forecast.maxback)
+                if not isinstance(spec.forecast.maxlead, X13default):
+                    last_ = MIT(last_.frequency, last_.value + spec.forecast.maxlead)
+                required_range = MITRange(first_, last_)
+            if not _mit_range_contains_range(data_range, required_range):
+                msg = (
+                    f"The data provided in the x11regression spec must "
+                    f"cover the range of the supplied data (or the span "
+                    f"specified by the span argument of the series spec), "
+                    f"as well as any forecasts and backcasts requested by "
+                    f"the forecast spec. The required range is "
+                    f"{required_range!r}, but the provided range was only "
+                    f"{data_range!r}."
+                )
+                raise ValueError(msg)
+        if not isinstance(x11r.umdata, X13default):
+            data_range = x11r.umdata.range
+            required_range = _effective_span(s)
+            if not isinstance(spec.forecast, X13default):
+                first_ = required_range.first()
+                last_ = required_range.last()
+                if not isinstance(spec.forecast.maxback, X13default):
+                    first_ = MIT(first_.frequency, first_.value - spec.forecast.maxback)
+                if not isinstance(spec.forecast.maxlead, X13default):
+                    last_ = MIT(last_.frequency, last_.value + spec.forecast.maxlead)
+                required_range = MITRange(first_, last_)
+            if not _mit_range_contains_range(data_range, required_range):
+                msg = (
+                    f"The umdata provided in the x11regression spec must "
+                    f"cover the range of the supplied data (or the span "
+                    f"specified by the span argument of the series spec), "
+                    f"as well as any forecasts and backcasts requested by "
+                    f"the forecast spec. The required range is "
+                    f"{required_range!r}, but the provided range was only "
+                    f"{data_range!r}."
+                )
+                raise ValueError(msg)
+        if (
+            not isinstance(x11r.outlierspan, X13default)
+            and isinstance(x11r.outlierspan, MITRange)
+            and not _mit_range_contains_range(s.data.range, x11r.outlierspan)
+        ):
+            msg = (
+                f"The outlierspan argument of the x11regression spec "
+                f"must lie within the range of the provided data "
+                f"({s.data.range!r}). Received: {x11r.outlierspan!r}."
+            )
+            raise ValueError(msg)
+        if not isinstance(x11r.span, X13default):
+            required_range = _effective_span(s)
+            reg_range = required_range
+            if isinstance(x11r.span, MITRange):
+                reg_range = x11r.span
+            elif isinstance(x11r.span, Span):
+                if x11r.span.b is not None:
+                    reg_range = MITRange(x11r.span.b, required_range.last())
+                if x11r.span.e is not None:
+                    reg_range = MITRange(reg_range.first(), x11r.span.e)
+            if not _mit_range_contains_range(required_range, reg_range):
+                msg = (
+                    f"The span argument of the x11regression spec must "
+                    f"lie within the range of the provided data "
+                    f"({required_range!r}). Received: {reg_range!r}."
+                )
+                raise ValueError(msg)
+        if not isinstance(x11r.variables, X13default):
+            vars_list = _vars_as_list(x11r.variables)
+            x11r_types_used = _collect_regvar_types(vars_list)
+            if not isinstance(x11r.usertype, X13default):
+                if isinstance(x11r.usertype, str):
+                    x11r_types_used.add(x11r.usertype)
+                else:
+                    x11r_types_used.update(x11r.usertype)
+            if not isinstance(x11r.forcecal, X13default):
+                td_types = {"td", "td1coef", "tdstock", "tdstock1coef"}
+                holiday_types = {"easter", "labor", "thank", "sceaster"}
+                if not (x11r_types_used & td_types and x11r_types_used & holiday_types):
+                    warnings.warn(
+                        "The forcecal argument of the x11regression will "
+                        "not have any effect as the variables argument "
+                        "does not contain both td and holiday regressors.",
+                        UserWarning,
+                        stacklevel=2,
+                    )

@@ -40,7 +40,7 @@ backend, and a tiny helper that emits a captured matplotlib figure as a
 base64-PNG `<img>` tag. Shared via session="tut1" with every executable
 block on this page. -->
 
-```python exec="true" source="material-block" session="tut1" result="text"
+```python exec="true" source="material-block" session="tut1"
 import base64
 import io
 import math

@@ -127,7 +127,7 @@ from tsecon.recursive import rec, rec_linear, rec_linear_is_cython
 from tsecon.tseries import TSeries, typenan
 from tsecon.workspace import Workspace, copyto
 
-__version__ = "0.0.1.dev0"
+__version__ = "0.0.1.dev1"
 
 __all__ = [
     "MIRRORS_JULIA_SHA",

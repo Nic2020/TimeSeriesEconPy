@@ -39,7 +39,16 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        # NOTE: pinned to `windows-2022` (not `windows-latest`) because as of
+        # 2026-06-14 GitHub rolled `windows-latest` from `windows-2022` to
+        # `windows-2025` (ImageOS=`win25-vs2026`), and `fortran-lang/setup-fortran@v1`'s
+        # internal `LATEST_gcc_<runner_os>` lookup table does not yet know that
+        # ImageOS label — it errors out before installing gfortran:
+        #   Error: No latest version defined for gcc on win25-vs2026
+        # The same workflow on the same SHA went 9/9 green on 2026-05-20.
+        # Revisit when setup-fortran lands the win25-vs2026 entry (or when
+        # GitHub deprecates windows-2022 — typically ~12 months out).
+        os: [ubuntu-latest, windows-2022, macos-latest]
         python: [cp311, cp312, cp313]
     steps:
       - uses: actions/checkout@v4

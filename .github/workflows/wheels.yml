@@ -179,7 +179,7 @@ jobs:
           ls -la "$dest"
 
       - name: Build wheels
-        uses: pypa/cibuildwheel@v3.4.1
+        uses: pypa/cibuildwheel@v4.1.0
         env:
           # One CPython per matrix cell; the `*` covers manylinux/musllinux/win/macos arch suffixes.
           CIBW_BUILD: "${{ matrix.python }}-*"

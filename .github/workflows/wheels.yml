@@ -51,7 +51,7 @@ jobs:
         os: [ubuntu-latest, windows-2022, macos-latest]
         python: [cp311, cp312, cp313]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # --------------------------------------------------------------
       # X-13ARIMA-SEATS binary build (M2.6).

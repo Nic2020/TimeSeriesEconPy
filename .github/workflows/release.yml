@@ -43,7 +43,7 @@ jobs:
     name: verify tag matches pyproject version
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Check tag == pyproject version
         # The tag is `vX.Y.Z`; pyproject.toml `[project] version` is `X.Y.Z`.
         # Mismatch usually means "forgot to bump pyproject before tagging" —
@@ -73,7 +73,7 @@ jobs:
     needs: [verify-tag]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Install uv
         uses: astral-sh/setup-uv@v4
         with:

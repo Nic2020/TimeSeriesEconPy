@@ -136,6 +136,18 @@ def build(archive: Path, output: Path) -> None:
             str(output / "bin/libdaec.dll"),
             extra_postargs=[f"/DEF:{definition}", f"/IMPLIB:{output / 'lib/daec.lib'}"],
         )
+    dependency_report = subprocess.check_output(
+        [
+            str(Path(compiler.cc).with_name("dumpbin.exe")),
+            "/dependents",
+            str(output / "bin/libdaec.dll"),
+        ],
+        text=True,
+    )
+    print(dependency_report)
+    dependencies = re.findall(r"^\s+([\w.-]+\.dll)\s*$", dependency_report, re.M | re.I)
+    if not dependencies:
+        raise RuntimeError("Could not inspect the native DLL dependencies.")
     metadata = {
         "source_commit": SOURCE_COMMIT,
         "source_url": SOURCE_URL,
@@ -159,6 +171,7 @@ def build(archive: Path, output: Path) -> None:
         "macros": macros,
         "patch": patch,
         "exports": exports,
+        "dependencies": dependencies,
         "outputs": {
             path: file_hash(output / path)
             for path in ("include/daec.h", "bin/libdaec.dll", "lib/daec.lib")

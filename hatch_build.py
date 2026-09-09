@@ -5,9 +5,9 @@ Discovers every ``.pyx`` file under ``src/tsecon/`` at wheel-build time,
 runs :func:`Cython.Build.cythonize` to emit C sources, then drives
 ``setuptools.command.build_ext`` to compile them into platform-native
 extension modules (``.so`` on Linux/macOS, ``.pyd`` on Windows). The
-compiled artifacts land next to their ``.pyx`` siblings, so the wheel
-includes them via the ``[tool.hatch.build.targets.wheel].artifacts`` glob
-in ``pyproject.toml``.
+compiled artifacts land next to their ``.pyx`` siblings. The hook includes
+the exact files returned by this interpreter's build, avoiding stale artifacts
+from another Python ABI in the same checkout.
 
 The hook is a no-op when the build target is not the wheel (e.g. the
 sdist build, which ships ``.pyx`` sources and lets the consumer's wheel
@@ -57,7 +57,7 @@ def _discover_pyx_modules() -> list[tuple[str, Path]]:
 
 
 def build_extensions_inplace() -> list[Path]:
-    """Compile every ``.pyx`` under ``src/tsecon`` into a sibling extension.
+    """Compile selected ``.pyx`` files under ``src/tsecon`` into sibling extensions.
 
     Returns the list of produced extension paths (``.so`` / ``.pyd``).
     Lazy-imports Cython + NumPy + setuptools so this module can be loaded
@@ -140,15 +140,11 @@ def build_extensions_inplace() -> list[Path]:
     cmd.ensure_finalized()
     cmd.run()
 
-    return [
-        Path(ROOT / "src" / (mod.replace(".", "/"))).with_suffix("").parent
-        / f"{mod.rsplit('.', 1)[-1]}*"
-        for mod, _ in pairs
-    ]
+    return [Path(cmd.get_ext_fullpath(module)) for module, _ in pairs]
 
 
 class CythonBuildHook(_Hook):  # type: ignore[misc,valid-type]
-    """Hatchling build hook that compiles Cython kernels in-place."""
+    """Hatchling build hook that compiles Cython extensions in-place."""
 
     PLUGIN_NAME = "custom"
 
@@ -156,11 +152,15 @@ class CythonBuildHook(_Hook):  # type: ignore[misc,valid-type]
         """Run before each build target — compile Cython kernels for wheels."""
         if self.target_name != "wheel":
             return
-        build_extensions_inplace()
+        extensions = build_extensions_inplace()
+        # Include only this interpreter's build products. Broad globs pick up
+        # stale .pyd/.so files when multiple Python versions share a checkout.
+        build_data.setdefault("artifacts", []).extend(
+            path.relative_to(ROOT).as_posix() for path in extensions
+        )
         if os.environ.get("TSECON_DATAECON_ROOT"):
             build_data.setdefault("artifacts", []).extend(
                 [
-                    "src/tsecon/dataecon/*.pyd",
                     "src/tsecon/dataecon/_binary/libdaec.dll",
                 ]
             )

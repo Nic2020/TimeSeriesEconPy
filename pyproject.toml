@@ -92,8 +92,6 @@ packages = ["src/tsecon"]
 # published wheel. Locally, scripts/fetch_x13as_local.py populates the
 # same location.
 artifacts = [
-    "src/tsecon/*.so",
-    "src/tsecon/*.pyd",
     "src/tsecon/x13/_binary/x13as",
     "src/tsecon/x13/_binary/x13as.exe",
     "src/tsecon/x13/X13AS_LICENSE.txt",
@@ -113,6 +111,8 @@ include = [
     "/hatch_build.py",
     "/scripts/prepare_dataecon_windows.py",
     "/scripts/build_dataecon_windows.py",
+    "/scripts/check_dataecon_wheel.py",
+    "/scripts/setup_dataecon_julia.jl",
 ]
 
 # ---------------------------------------------------------------------------

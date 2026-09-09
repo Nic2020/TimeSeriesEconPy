@@ -5,8 +5,10 @@ the DataEcon 0.4.0 C library. This is a limited integration: scalars, other
 frequencies/dtypes, empty series, catalogs, workspaces and general attributes
 are not supported yet. Existing JSON I/O is unchanged.
 
-Native DataEcon support currently requires a configured local Windows x86-64
-build. Ordinary CI wheels do not enable it yet. The integration uses a thin
+Native DataEcon support is enabled in the Windows x86-64 wheel workflow for
+CPython 3.11–3.13 and in configured local builds. Linux/macOS wheels still omit
+this native component. Workflow configuration is separate from a published release.
+The integration uses a thin
 Cython extension; CFFI and Julia are not runtime dependencies. Only the native
 parts are compiled: the Python file API and conversion code remain Python.
 
@@ -134,8 +136,41 @@ Install the resulting `.whl` in a fresh environment and test outside the checkou
 For a wheel containing this native support, users need neither a compiler nor a
 separate DataEcon/Julia installation. A **wheel** is the installable built package;
 GitHub Actions runs build/test jobs, and publishing is a separate operation.
-Windows source builds are verified locally. Linux/macOS native source builds and
-DataEcon-enabled CI wheels remain future work.
+Windows source builds are verified locally and wired into wheel CI. Linux/macOS
+native source builds remain future work.
 
 The bundled native library uses the BSD-3-Clause DataEcon license and public-domain
 SQLite; notices ship beside the adapter. Cython code uses the package's MIT license.
+
+## Windows wheel CI checks
+
+Each Windows wheel job builds the pinned native source with MSVC and includes
+the DLL, build manifest and notices. `scripts/check_dataecon_wheel.py` runs after
+installation: it rejects imports from the source checkout, verifies the pinned
+manifest and DLL hash, checks the DLL's actual loaded location, reads the Julia
+fixture and writes a result for separate Julia verification. The build log and
+manifest record the native runtime dependency names.
+
+The workflow sets `TSECON_REQUIRE_DATAECON=1`, so an absent extension is a pytest
+configuration error rather than an optional skip. The ordinary core-only test
+jobs leave this setting unset. Non-Windows wheel checks verify native artifacts
+are absent while core imports still work.
+
+After the installed tests pass, the Windows job checks its output with Julia
+1.12.5 and the pinned TimeSeriesEcon.jl checkout. Julia and DataEcon_jll are CI
+verification dependencies, not dependencies of the Python wheel. The Julia setup
+helper pins DataEcon_jll to 0.4.0+0; the interchange script verifies the reference
+checkout identity and 16 value/type/metadata assertions before wheel upload.
+
+For a local installed-wheel check, use a fresh output directory and the installed
+environment's Python from outside the source package:
+
+```powershell
+$env:TSECON_REQUIRE_DATAECON = '1'
+python scripts/check_dataecon_wheel.py --fixture tests/dataecon/fixtures/julia_monthly.daec --output-dir build/interchange-output
+```
+
+Use an absolute path to the script/fixture when running outside the checkout.
+The output is named for the CPython version tag (for example `cp311.daec`), and an existing
+output is not overwritten. CI builds and artifact checks do not publish to PyPI;
+publication remains a separate release workflow.

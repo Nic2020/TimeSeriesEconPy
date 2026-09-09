@@ -2,10 +2,9 @@ name: wheels
 
 # Build + smoke-test platform wheels via cibuildwheel.
 #
-# The wheels ship two compiled artifact families:
+# Wheels ship numerical kernels and X-13; Windows also ships DataEcon:
 #
-# * The four M1.5 Cython kernels (rec_linear / lookup / stats_scalar /
-#   fconvert_lower_aggregate). Built by hatch_build.py during the
+# * The Cython numerical kernels. Built by hatch_build.py during the
 #   cibuildwheel-internal `pip wheel` step.
 # * The X-13ARIMA-SEATS binary (M2.6 onward) vendored at
 #   src/tsecon/x13/_binary/{x13as, x13as.exe}. Built from Census Bureau
@@ -13,6 +12,8 @@ name: wheels
 #   cibuildwheel runs, so the binary is on disk when hatch's
 #   wheel-artifacts glob picks it up. Version pinned in
 #   src/tsecon/_mirror.py X13AS_VERSION; SHA-256 verified before unpack.
+# * Windows DataEcon 0.4.0, built from checksum-verified C/SQLite source
+#   with MSVC, plus the thin Cython adapter and source-build manifest.
 #
 # Smoke test runs the four Cython-kernel test files against the
 # wheel-installed package + invokes a minimal `tsecon.x13.run` to
@@ -52,6 +53,30 @@ jobs:
         python: [cp311, cp312, cp313]
     steps:
       - uses: actions/checkout@v4
+
+      - name: Set up native-build Python (Windows)
+        if: runner.os == 'Windows'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          architecture: x64
+
+      - name: Build pinned DataEcon source (Windows)
+        if: runner.os == 'Windows'
+        id: dataecon
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          python -m pip install 'setuptools==84.0.0'
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $sourceUrl = python -c "from scripts.build_dataecon_windows import SOURCE_URL; print(SOURCE_URL)"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          New-Item -ItemType Directory -Force downloads | Out-Null
+          Invoke-WebRequest -Uri $sourceUrl -OutFile downloads/dataecon-source.zip
+          $nativeRoot = Join-Path $env:GITHUB_WORKSPACE 'build/dataecon-native'
+          python scripts/build_dataecon_windows.py downloads/dataecon-source.zip --output $nativeRoot
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          "root=$($nativeRoot.Replace('\','/'))" >> $env:GITHUB_OUTPUT
 
       # --------------------------------------------------------------
       # X-13ARIMA-SEATS binary build (M2.6).
@@ -193,6 +218,11 @@ jobs:
           CIBW_ARCHS_WINDOWS: AMD64
           CIBW_ARCHS_MACOS: arm64
           CIBW_BUILD_VERBOSITY: 1
+          # Bash assignment syntax is required by cibuildwheel even on Windows.
+          # This setting applies to both the build and installed-wheel test phases.
+          CIBW_ENVIRONMENT_WINDOWS: >-
+            TSECON_DATAECON_ROOT="${{ steps.dataecon.outputs.root }}"
+            TSECON_REQUIRE_DATAECON=1
           # Linux build runs inside the manylinux2014 container; gfortran is
           # installed via yum + the same make recipe runs there. The binary
           # ends up at the mounted src/tsecon/x13/_binary path the host
@@ -228,7 +258,11 @@ jobs:
           # pytest-benchmark is required because pyproject's `addopts` includes
           # `--benchmark-skip`, which pytest rejects with exit code 4 ("command
           # line usage error") when the plugin isn't installed.
-          CIBW_TEST_REQUIRES: "pytest>=8.0 hypothesis>=6.100 pytest-benchmark>=4.0"
+          # cibuildwheel 3.4.1 uses shell=True on Windows; bare >= requirement
+          # arguments can be parsed as output redirections by cmd.exe. Reading
+          # constraints from a file preserves them and avoids stray output files.
+          CIBW_BEFORE_TEST: >-
+            python -m pip install -r "{project}/tests/wheel-requirements.txt"
           # Smoke test = (1) confirm the four Cython kernels are active in the
           # installed wheel, (2) confirm the X-13 binary is reachable and
           # produces a deseasonalised series for a minimal quarterly input,
@@ -238,12 +272,44 @@ jobs:
           CIBW_TEST_COMMAND: >
             python -c "import tsecon; assert tsecon.rec_linear_is_cython(), 'rec_linear kernel missing'; assert tsecon.lookup_is_cython(), 'lookup kernel missing'; assert tsecon.stats_is_cython(), 'stats kernel missing'; assert tsecon.fconvert_is_cython(), 'fconvert kernel missing'" &&
             python -c "from tsecon.x13._result import _resolve_binary; assert _resolve_binary() is not None, 'x13as binary missing from installed wheel'; print('x13as binary at', _resolve_binary())" &&
+            python "{project}/scripts/check_dataecon_wheel.py"
+            --fixture "{project}/tests/dataecon/fixtures/julia_monthly.daec"
+            --output-dir "{project}/build/dataecon-interchange" &&
             pytest -x --benchmark-skip
             {project}/tests/test_recursive.py
             {project}/tests/test_indexing.py
             {project}/tests/test_stats_kernels.py
             {project}/tests/test_fconvert_kernels.py
             {project}/tests/x13/test_run.py
+            {project}/tests/dataecon
+
+      - name: Check out pinned Julia reference (Windows)
+        if: runner.os == 'Windows'
+        uses: actions/checkout@v4
+        with:
+          repository: bankofcanada/TimeSeriesEcon.jl
+          ref: fc0a0d01aed4903ea6c64b12d78d0bdf68468df6
+          path: build/julia-reference
+
+      - name: Set up Julia interchange verifier (Windows)
+        if: runner.os == 'Windows'
+        uses: julia-actions/setup-julia@v2
+        with:
+          version: '1.12.5'
+
+      - name: Verify installed-wheel output in Julia (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $reference = (Resolve-Path build/julia-reference).Path
+          julia --startup-file=no --project=build/julia-interop scripts/setup_dataecon_julia.jl $reference
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $output = @(Get-ChildItem build/dataecon-interchange/*.daec)
+          if ($output.Count -ne 1) { throw 'Expected one installed-wheel interchange output.' }
+          $outputFile = $output[0].FullName
+          julia --startup-file=no --project=build/julia-interop tests/dataecon/fixtures/interchange.jl verify $outputFile $reference
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Upload wheels
         uses: actions/upload-artifact@v4

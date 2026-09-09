@@ -1011,10 +1011,21 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#windows-wheel-ci-checks" class="md-nav__link">
+  <a href="#linux-and-macos-source-builds" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Windows wheel CI checks
+        Linux and macOS source builds
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#wheel-ci-checks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Wheel CI checks
       
     </span>
   </a>
@@ -1412,10 +1423,21 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#windows-wheel-ci-checks" class="md-nav__link">
+  <a href="#linux-and-macos-source-builds" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Windows wheel CI checks
+        Linux and macOS source builds
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#wheel-ci-checks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Wheel CI checks
       
     </span>
   </a>
@@ -1447,9 +1469,10 @@
 the DataEcon 0.4.0 C library. This is a limited integration: scalars, other
 frequencies/dtypes, empty series, catalogs, workspaces and general attributes
 are not supported yet. Existing JSON I/O is unchanged.</p>
-<p>Native DataEcon support is enabled in the Windows x86-64 wheel workflow for
-CPython 3.11–3.13 and in configured local builds. Linux/macOS wheels still omit
-this native component. Workflow configuration is separate from a published release.
+<p>Native DataEcon support is configured in the wheel workflow for CPython 3.11–3.13:
+Windows x86-64, Linux x86-64 and macOS arm64. Windows builds have passed CI;
+the Linux/macOS additions await their first platform verification. Workflow
+configuration is separate from a published release.
 The integration uses a thin
 Cython extension; CFFI and Julia are not runtime dependencies. Only the native
 parts are compiled: the Python file API and conversion code remain Python.</p>
@@ -1556,11 +1579,37 @@ the external native inputs/build tools are still required to enable the feature.
 For a wheel containing this native support, users need neither a compiler nor a
 separate DataEcon/Julia installation. A <strong>wheel</strong> is the installable built package;
 GitHub Actions runs build/test jobs, and publishing is a separate operation.
-Windows source builds are verified locally and wired into wheel CI. Linux/macOS
-native source builds remain future work.</p>
+Windows source builds are verified locally and in wheel CI. The Linux/macOS
+source-build configuration below still requires platform CI verification.</p>
 <p>The bundled native library uses the BSD-3-Clause DataEcon license and public-domain
 SQLite; notices ship beside the adapter. Cython code uses the package's MIT license.</p>
-<h2 id="windows-wheel-ci-checks">Windows wheel CI checks<a class="headerlink" href="#windows-wheel-ci-checks" title="Permanent link">&para;</a></h2>
+<h2 id="linux-and-macos-source-builds">Linux and macOS source builds<a class="headerlink" href="#linux-and-macos-source-builds" title="Permanent link">&para;</a></h2>
+<p><code>scripts/build_dataecon_unix.py</code> uses the same verified source ZIP/header and
+guarded constant-expression patch. It compiles all 13 DataEcon sources and bundled
+SQLite into a position-independent <strong>static archive</strong>, <code>lib/libdaec.a</code>. The linker
+incorporates that code into the Cython extension; no separate DataEcon shared
+library or runtime search path is needed. Native symbols have hidden visibility
+to isolate this SQLite copy from other extensions in the process. Windows retains
+its verified DLL/import-library route; both routes use the same Cython binding.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># macOS arm64 only: export MACOSX_DEPLOYMENT_TARGET=11.0</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>python<span class="w"> </span>scripts/build_dataecon_unix.py<span class="w"> </span>downloads/dataecon-source.zip<span class="w"> </span>--output<span class="w"> </span>build/dataecon-native
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="nb">export</span><span class="w"> </span><span class="nv">TSECON_DATAECON_ROOT</span><span class="o">=</span><span class="s2">&quot;</span><span class="nv">$PWD</span><span class="s2">/build/dataecon-native&quot;</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>python<span class="w"> </span>-m<span class="w"> </span>build<span class="w"> </span>--wheel
+</code></pre></div>
+<p>The native helper needs a C compiler and <code>ar</code>. Its manifest records the compiler,
+flags, source/header hashes, portability patch and static archive hash. The build
+hook checks the header/archive against that manifest before linking. The archive
+hash identifies a build input, not the final extension: wheel repair can modify
+the extension. The archive itself does not ship in the wheel; the manifest and
+license notices do. Updating native code requires rebuilding the extension.</p>
+<p>Linux CI builds inside the explicitly selected manylinux_2_28 x86-64 container
+(glibc 2.28 floor), then uses cibuildwheel's auditwheel repair. A local Linux wheel
+build alone does not establish manylinux compatibility. macOS uses the explicit
+<code>macos-15</code> Apple Silicon runner, targets macOS 11.0, and retains delocate repair
+and deployment-target validation. Intel macOS and universal2 are outside this
+matrix. See <a href="https://cibuildwheel.pypa.io/en/v3.4.1/options/">cibuildwheel options</a>
+and <a href="https://github.com/pypa/manylinux">manylinux platforms</a>.</p>
+<h2 id="wheel-ci-checks">Wheel CI checks<a class="headerlink" href="#wheel-ci-checks" title="Permanent link">&para;</a></h2>
 <p>Each Windows wheel job builds the pinned native source with MSVC and includes
 the DLL, build manifest and notices. <code>scripts/check_dataecon_wheel.py</code> runs after
 installation: it rejects imports from the source checkout, verifies the pinned
@@ -1569,17 +1618,20 @@ fixture and writes a result for separate Julia verification. The build log and
 manifest record the native runtime dependency names.</p>
 <p>The workflow sets <code>TSECON_REQUIRE_DATAECON=1</code>, so an absent extension is a pytest
 configuration error rather than an optional skip. The ordinary core-only test
-jobs leave this setting unset. Non-Windows wheel checks verify native artifacts
-are absent while core imports still work.</p>
-<p>After the installed tests pass, the Windows job checks its output with Julia
+jobs leave this setting unset. The checker can also verify a core-only wheel when
+the setting is unset. Linux/macOS installed checks inspect the repaired extension
+with <code>readelf</code>/<code>otool</code> and <code>nm</code>: external DataEcon/SQLite dependencies or exposed
+native symbols fail the job. Existing ABI-layout, owning-buffer, lifecycle and
+error tests run against each installed native wheel.</p>
+<p>After the installed tests pass, each platform job checks its output with Julia
 1.12.5 and the pinned TimeSeriesEcon.jl checkout. Julia and DataEcon_jll are CI
 verification dependencies, not dependencies of the Python wheel. The Julia setup
 helper pins DataEcon_jll to 0.4.0+0; the interchange script verifies the reference
 checkout identity and 16 value/type/metadata assertions before wheel upload.</p>
 <p>For a local installed-wheel check, use a fresh output directory and the installed
 environment's Python from outside the source package:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nv">$env:TSECON_REQUIRE_DATAECON</span> <span class="p">=</span> <span class="s1">&#39;1&#39;</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">python</span> <span class="n">scripts</span><span class="p">/</span><span class="n">check_dataecon_wheel</span><span class="p">.</span><span class="n">py</span> <span class="p">-</span><span class="n">-fixture</span> <span class="n">tests</span><span class="p">/</span><span class="n">dataecon</span><span class="p">/</span><span class="n">fixtures</span><span class="p">/</span><span class="n">julia_monthly</span><span class="p">.</span><span class="n">daec</span> <span class="p">-</span><span class="n">-output-dir</span> <span class="n">build</span><span class="p">/</span><span class="n">interchange-output</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nv">$env:TSECON_REQUIRE_DATAECON</span> <span class="p">=</span> <span class="s1">&#39;1&#39;</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="n">python</span> <span class="n">scripts</span><span class="p">/</span><span class="n">check_dataecon_wheel</span><span class="p">.</span><span class="n">py</span> <span class="p">-</span><span class="n">-fixture</span> <span class="n">tests</span><span class="p">/</span><span class="n">dataecon</span><span class="p">/</span><span class="n">fixtures</span><span class="p">/</span><span class="n">julia_monthly</span><span class="p">.</span><span class="n">daec</span> <span class="p">-</span><span class="n">-output-dir</span> <span class="n">build</span><span class="p">/</span><span class="n">interchange-output</span>
 </code></pre></div>
 <p>Use an absolute path to the script/fixture when running outside the checkout.
 The output is named for the CPython version tag (for example <code>cp311.daec</code>), and an existing

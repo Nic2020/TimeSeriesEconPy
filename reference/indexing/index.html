@@ -703,6 +703,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#column-ownership" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Column ownership
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#numpy-array-operations" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1378,6 +1389,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#column-ownership" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Column ownership
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#numpy-array-operations" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1482,6 +1504,18 @@ selections that ignored the step. Code relying on those incorrect results should
 use the actual selected dates; strided table results now have no misleading
 contiguous date labels. Range assignment validates shape and casting before
 changing the destination.</p>
+<h2 id="column-ownership">Column ownership<a class="headerlink" href="#column-ownership" title="Permanent link">&para;</a></h2>
+<p>A column obtained with <code>table["a"]</code> or <code>table.a</code> is a live view. Writes to existing
+dates update the table, and retained columns follow a parent shift or rename.
+The column keeps its parent alive.</p>
+<p>Resizing, shifting or extending a column independently raises <code>ValueError</code> before
+changing it. Recurrences that would extend a column reject before writing any
+observations. Use <code>column.copy()</code> when an independent, growable series is needed.
+An unchanged-range resize is a no-op. Raw NumPy buffer reshaping remains outside
+the container ownership contract.</p>
+<p>Loading a pickled table now rebuilds its live columns, including for previously
+saved tables. Pickling a column alone saves an independent series without its
+parent. Table copies also have their own matrix and column bindings.</p>
 <h2 id="numpy-array-operations">NumPy array operations<a class="headerlink" href="#numpy-array-operations" title="Permanent link">&para;</a></h2>
 <p>Direct calls such as <code>np.mean(series)</code> and <code>np.copy(series)</code> retain their raw
 NumPy results. Registered operations such as <code>np.concatenate([series, series])</code>

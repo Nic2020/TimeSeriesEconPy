@@ -117,6 +117,7 @@ def _build_column_views(
     firstdate: MIT,
     names: list[str],
     matrix: np.ndarray,
+    parent: MVTSeries,
 ) -> dict[str, TSeries]:
     """Build the column-name → TSeries-view dict for the given matrix.
 
@@ -128,6 +129,7 @@ def _build_column_views(
         # TSeries(firstdate, ndarray, copy=False) wraps the column view;
         # writes through the TSeries propagate back to ``matrix``.
         cols[nm] = TSeries(firstdate, matrix[:, i])
+        cols[nm]._parent = parent
     return cols
 
 
@@ -269,7 +271,7 @@ class MVTSeries:
                     raise ValueError(msg)
             self._firstdate = rng.start
             self._values = arr
-            self._columns = _build_column_views(rng.start, names_list, arr)
+            self._columns = _build_column_views(rng.start, names_list, arr, self)
             return
 
         # -- MIT form (firstdate only; nrows inferred from values or 0)
@@ -291,7 +293,7 @@ class MVTSeries:
                     raise ValueError(msg)
             self._firstdate = fd
             self._values = arr
-            self._columns = _build_column_views(fd, names_list, arr)
+            self._columns = _build_column_views(fd, names_list, arr, self)
             return
 
         msg = (  # type: ignore[unreachable]
@@ -362,7 +364,7 @@ class MVTSeries:
         arr = np.full((nrows, ncols), typenan(et), dtype=et)
         self._firstdate = rng.start
         self._values = arr
-        self._columns = _build_column_views(rng.start, names_list, arr)
+        self._columns = _build_column_views(rng.start, names_list, arr, self)
 
         # Now copy each kwarg's data into its column.
         for j, (name, val) in enumerate(columns.items()):
@@ -519,6 +521,22 @@ class MVTSeries:
         return bool(self._values.shape[0] == 0 or self._values.shape[1] == 0)
 
     # -- copy / similar ----------------------------------------------------
+
+    def __getstate__(self) -> tuple[None, dict[str, Any]]:
+        """Save the owned matrix and names, rather than cached column arrays."""
+        return None, {
+            "_firstdate": self._firstdate,
+            "_values": self._values,
+            "_column_names": self.column_names,
+        }
+
+    def __setstate__(self, state: tuple[None, dict[str, Any]]) -> None:
+        """Rebuild live columns, including for the original cached-column state."""
+        data = state[1]
+        self._firstdate = data["_firstdate"]
+        self._values = data["_values"]
+        names = list(data["_column_names"] if "_column_names" in data else data["_columns"])
+        self._columns = _build_column_views(self._firstdate, names, self._values, self)
 
     def copy(self, *, deep: bool = False) -> MVTSeries:
         """Return an independent copy with its own matrix buffer.

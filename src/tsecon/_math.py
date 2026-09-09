@@ -192,6 +192,8 @@ def shift_inplace(
                 holidays_map=holidays_map,
             )
         return t
+    if int(k) != 0:
+        t._require_owning()
     t._firstdate = MIT(t.frequency, t.firstdate.value - int(k))
     if _has_bdaily_kwargs(skip_all_nans, skip_holidays, holidays_map):
         if not np.issubdtype(t.values.dtype, np.floating):

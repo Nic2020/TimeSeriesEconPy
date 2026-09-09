@@ -68,19 +68,7 @@ def test_saved_object(filename: str) -> None:
         np.testing.assert_array_equal(obj.values, expected)
 
 
-@pytest.mark.parametrize(
-    "suffix",
-    [
-        "json",
-        pytest.param(
-            "pickle",
-            marks=pytest.mark.xfail(
-                strict=True,
-                reason="Unpickling currently detaches cached columns from the parent matrix",
-            ),
-        ),
-    ],
-)
+@pytest.mark.parametrize("suffix", ["json", "pickle"])
 def test_saved_table_columns_write_through(suffix: str) -> None:
     data = (FIXTURES / f"table.{suffix}").read_bytes()
     obj = pickle.loads(data) if suffix == "pickle" else loads(data.decode("utf-8"))

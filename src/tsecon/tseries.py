@@ -142,7 +142,8 @@ class TSeries:
     :meth:`fill` for keyword-named convenience constructors.
     """
 
-    __slots__ = ("_firstdate", "_values")
+    __slots__ = ("_firstdate", "_parent", "_values")
+    _parent: object | None
 
     # Bump priority above ndarray so that ``5 + ts`` dispatches through
     # ``TSeries.__array_ufunc__`` rather than the bare ndarray's __radd__.
@@ -196,6 +197,7 @@ class TSeries:
         >>> TSeries(rng, np.ones).values
         array([1., 1., 1., 1.])
         """
+        self._parent = None
         if isinstance(firstdate_or_range, MITRange):
             rng = firstdate_or_range
             length = len(rng)
@@ -419,6 +421,29 @@ class TSeries:
 
     # -- resize ------------------------------------------------------------
 
+    def _require_owning(self) -> None:
+        if getattr(self, "_parent", None) is not None:
+            raise ValueError("Cannot resize or relabel a table column; copy it first.")
+
+    def _check_can_cover(self, rng: MITRange) -> None:
+        """Reject column extension before an operation starts writing values."""
+        if (
+            self._parent is not None
+            and rng
+            and (rng.start not in self.range or rng.last() not in self.range)
+        ):
+            self._require_owning()
+
+    def __getstate__(self) -> tuple[None, dict[str, Any]]:
+        """Serialize a column as an independent series, without its parent."""
+        return None, {"_firstdate": self._firstdate, "_values": self._values}
+
+    def __setstate__(self, state: tuple[None, dict[str, Any]]) -> None:
+        """Accept the original slot state as well as newly saved series."""
+        self._firstdate = state[1]["_firstdate"]
+        self._values = state[1]["_values"]
+        self._parent = None
+
     def resize(self, rng: MITRange) -> TSeries:
         """Extend or shrink storage so the new range equals ``rng``.
 
@@ -429,6 +454,9 @@ class TSeries:
         if rng.step != 1:
             msg = "resize requires a unit-step MITRange."
             raise ValueError(msg)
+        if rng.start == self._firstdate and len(rng) == len(self._values):
+            return self
+        self._require_owning()
         new_len = len(rng)
         nan_val = typenan(self._values.dtype)
         if rng.start == self._firstdate:
@@ -459,6 +487,7 @@ class TSeries:
         """Extend storage in place so the range covers union(self.range, rng)."""
         if self._firstdate.frequency != rng.frequency:
             raise _mixed_freq_error(self, rng)
+        self._check_can_cover(rng)
         span = rangeof_span(self.range, rng)
         if span != self.range:
             self.resize(span)

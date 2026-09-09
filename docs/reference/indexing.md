@@ -29,6 +29,22 @@ use the actual selected dates; strided table results now have no misleading
 contiguous date labels. Range assignment validates shape and casting before
 changing the destination.
 
+## Column ownership
+
+A column obtained with `table["a"]` or `table.a` is a live view. Writes to existing
+dates update the table, and retained columns follow a parent shift or rename.
+The column keeps its parent alive.
+
+Resizing, shifting or extending a column independently raises `ValueError` before
+changing it. Recurrences that would extend a column reject before writing any
+observations. Use `column.copy()` when an independent, growable series is needed.
+An unchanged-range resize is a no-op. Raw NumPy buffer reshaping remains outside
+the container ownership contract.
+
+Loading a pickled table now rebuilds its live columns, including for previously
+saved tables. Pickling a column alone saves an independent series without its
+parent. Table copies also have their own matrix and column bindings.
+
 ## NumPy array operations
 
 Direct calls such as `np.mean(series)` and `np.copy(series)` retain their raw

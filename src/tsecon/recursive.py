@@ -135,6 +135,7 @@ def rec(
             f"target frequency {type(target.frequency).__name__}."
         )
         raise TypeError(msg)
+    target._check_can_cover(rng)
     for t in rng:
         target[t] = fn(t)
 
@@ -381,18 +382,17 @@ def rec_linear(
             raise ValueError(msg)
 
     # Ensure target covers rng (auto-extend mirrors `rec`'s setitem behaviour).
+    target._check_can_cover(rng)
     target._ensure_covers(rng)
     values = target._values
     offset = rng_first.value - target.firstdate.value
     count = len(rng)
 
-    # `target.dtype == np.float64` was validated above; `target._ensure_covers`
-    # has just produced a 1-D contiguous buffer; coeffs/lags were created via
-    # `np.asarray(..., dtype=...)` with explicit dtypes. The fast-path
-    # contract from `_is_kernel_eligible` is satisfied unconditionally here,
-    # so the dispatcher's only decision is Cython vs NumPy reference.
+    # Column views and explicitly wrapped arrays may be strided. The reference
+    # kernel writes through those views; the compiled memoryviews need contiguous
+    # inputs. Dtypes were validated above, but asarray need not copy a stride.
     _dispatch_kernel(
-        _CYTHON_AVAILABLE,
+        _CYTHON_AVAILABLE and all(a.flags.c_contiguous for a in (values, coeffs_arr, lags_arr)),
         rec_linear_cython,
         rec_linear_numpy,
         values,

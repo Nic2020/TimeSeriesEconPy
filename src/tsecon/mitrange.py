@@ -161,8 +161,10 @@ class MITRange:
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, MITRange):
             return NotImplemented
-        if self.is_empty() and other.is_empty():
-            return self.frequency == other.frequency
+        self_empty = self.is_empty()
+        other_empty = other.is_empty()
+        if self_empty or other_empty:
+            return self_empty and other_empty and self.frequency == other.frequency
         return self.start == other.start and self.last() == other.last() and self.step == other.step
 
     def __hash__(self) -> int:

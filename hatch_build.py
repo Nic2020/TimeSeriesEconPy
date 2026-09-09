@@ -23,6 +23,8 @@ This rebuilds in place, matching what ``pip install -e .`` would produce.
 
 from __future__ import annotations
 
+import hashlib
+import json
 import os
 import shutil
 import stat
@@ -56,6 +58,69 @@ def _discover_pyx_modules() -> list[tuple[str, Path]]:
     return pairs
 
 
+def _configure_static_dataecon(extension: Any, native_root: Path) -> None:
+    """Link a verified private archive and retain its input provenance."""
+    archive = native_root / "lib/libdaec.a"
+    for path in (
+        native_root / "include/daec.h",
+        archive,
+        native_root / "build-info.json",
+    ):
+        if not path.is_file():
+            raise FileNotFoundError(f"Missing DataEcon build input: {path}")
+    manifest = json.loads((native_root / "build-info.json").read_text(encoding="utf-8"))
+    if manifest.get("linkage") != "static-hidden" or manifest["platform"] != sys.platform:
+        raise ValueError("DataEcon archive linkage/platform does not match this build.")
+    for relative in ("include/daec.h", "lib/libdaec.a"):
+        if (
+            hashlib.sha256((native_root / relative).read_bytes()).hexdigest()
+            != manifest["outputs"][relative]
+        ):
+            raise ValueError(f"DataEcon build input differs from manifest: {relative}")
+    extension.include_dirs.append(str(native_root / "include"))
+    extension.extra_objects.append(str(archive))
+    extension.depends.extend([str(archive), str(native_root / "include/daec.h")])
+    extension.extra_compile_args.append("-fvisibility=hidden")
+    if sys.platform == "linux":
+        extension.libraries.extend(["pthread", "dl", "m"])
+        extension.extra_link_args.append("-Wl,--exclude-libs,ALL")
+    binary_dir = SRC_PKG / "dataecon" / "_binary"
+    binary_dir.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(native_root / "build-info.json", binary_dir / "build-info.json")
+
+
+def _configure_dataecon(extension: Any) -> None:
+    """Attach the platform native input and its packaged provenance."""
+    native_root = Path(os.environ["TSECON_DATAECON_ROOT"]).resolve()
+    if sys.platform in ("linux", "darwin"):
+        _configure_static_dataecon(extension, native_root)
+        return
+    if sys.platform != "win32":
+        raise RuntimeError("Unsupported DataEcon build platform.")
+    for relative in ("include/daec.h", "lib/daec.lib", "bin/libdaec.dll"):
+        if not (native_root / relative).is_file():
+            raise FileNotFoundError(f"Missing DataEcon build input: {native_root / relative}")
+    extension.include_dirs.append(str(native_root / "include"))
+    extension.library_dirs.append(str(native_root / "lib"))
+    extension.libraries.append("daec")
+    extension.depends.extend(
+        [str(native_root / "include/daec.h"), str(native_root / "lib/daec.lib")]
+    )
+    binary_dir = SRC_PKG / "dataecon" / "_binary"
+    binary_dir.mkdir(parents=True, exist_ok=True)
+    native_dll = native_root / "bin/libdaec.dll"
+    bundled_dll = binary_dir / "libdaec.dll"
+    # Julia artifacts can be read-only. Avoid replacing an identical DLL
+    # on rebuild, and do not propagate source file permissions.
+    if not bundled_dll.exists() or bundled_dll.read_bytes() != native_dll.read_bytes():
+        if bundled_dll.exists():
+            bundled_dll.chmod(bundled_dll.stat().st_mode | stat.S_IWRITE)
+        shutil.copyfile(native_dll, bundled_dll)
+    build_info = native_root / "build-info.json"
+    if build_info.is_file():
+        shutil.copyfile(build_info, binary_dir / "build-info.json")
+
+
 def build_extensions_inplace() -> list[Path]:
     """Compile selected ``.pyx`` files under ``src/tsecon`` into sibling extensions.
 
@@ -84,33 +149,7 @@ def build_extensions_inplace() -> list[Path]:
             define_macros=[("NPY_NO_DEPRECATED_API", "NPY_1_7_API_VERSION")],
         )
         if module == "tsecon.dataecon._native":
-            if sys.platform != "win32":
-                raise RuntimeError("Configured DataEcon builds currently support Windows only.")
-            native_root = Path(os.environ["TSECON_DATAECON_ROOT"]).resolve()
-            for relative in ("include/daec.h", "lib/daec.lib", "bin/libdaec.dll"):
-                if not (native_root / relative).is_file():
-                    raise FileNotFoundError(
-                        f"Missing DataEcon build input: {native_root / relative}"
-                    )
-            extension.include_dirs.append(str(native_root / "include"))
-            extension.library_dirs.append(str(native_root / "lib"))
-            extension.libraries.append("daec")
-            extension.depends.extend(
-                [str(native_root / "include/daec.h"), str(native_root / "lib/daec.lib")]
-            )
-            binary_dir = SRC_PKG / "dataecon" / "_binary"
-            binary_dir.mkdir(parents=True, exist_ok=True)
-            native_dll = native_root / "bin/libdaec.dll"
-            bundled_dll = binary_dir / "libdaec.dll"
-            # Julia artifacts can be read-only. Avoid replacing an identical DLL
-            # on rebuild, and do not propagate source file permissions.
-            if not bundled_dll.exists() or bundled_dll.read_bytes() != native_dll.read_bytes():
-                if bundled_dll.exists():
-                    bundled_dll.chmod(bundled_dll.stat().st_mode | stat.S_IWRITE)
-                shutil.copyfile(native_dll, bundled_dll)
-            build_info = native_root / "build-info.json"
-            if build_info.is_file():
-                shutil.copyfile(build_info, binary_dir / "build-info.json")
+            _configure_dataecon(extension)
         extensions.append(extension)
 
     ext_modules = cythonize(
@@ -140,7 +179,8 @@ def build_extensions_inplace() -> list[Path]:
     cmd.ensure_finalized()
     cmd.run()
 
-    return [Path(cmd.get_ext_fullpath(module)) for module, _ in pairs]
+    # Normalize Windows short-name temp paths used by builds from an sdist.
+    return [Path(cmd.get_ext_fullpath(module)).resolve() for module, _ in pairs]
 
 
 class CythonBuildHook(_Hook):  # type: ignore[misc,valid-type]
@@ -159,11 +199,10 @@ class CythonBuildHook(_Hook):  # type: ignore[misc,valid-type]
             path.relative_to(ROOT).as_posix() for path in extensions
         )
         if os.environ.get("TSECON_DATAECON_ROOT"):
-            build_data.setdefault("artifacts", []).extend(
-                [
-                    "src/tsecon/dataecon/_binary/libdaec.dll",
-                ]
-            )
+            if sys.platform == "win32":
+                build_data.setdefault("artifacts", []).append(
+                    "src/tsecon/dataecon/_binary/libdaec.dll"
+                )
             if (Path(os.environ["TSECON_DATAECON_ROOT"]) / "build-info.json").is_file():
                 build_data["artifacts"].append("src/tsecon/dataecon/_binary/build-info.json")
         # Force a platform-specific wheel tag (not py3-none-any) since the

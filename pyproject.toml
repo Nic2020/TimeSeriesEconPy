@@ -111,6 +111,7 @@ include = [
     "/hatch_build.py",
     "/scripts/prepare_dataecon_windows.py",
     "/scripts/build_dataecon_windows.py",
+    "/scripts/build_dataecon_unix.py",
     "/scripts/check_dataecon_wheel.py",
     "/scripts/setup_dataecon_julia.jl",
 ]

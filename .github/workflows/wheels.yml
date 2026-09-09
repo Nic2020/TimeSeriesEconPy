@@ -2,7 +2,7 @@ name: wheels
 
 # Build + smoke-test platform wheels via cibuildwheel.
 #
-# Wheels ship numerical kernels and X-13; Windows also ships DataEcon:
+# Wheels ship numerical kernels, X-13 and DataEcon:
 #
 # * The Cython numerical kernels. Built by hatch_build.py during the
 #   cibuildwheel-internal `pip wheel` step.
@@ -49,10 +49,35 @@ jobs:
         # The same workflow on the same SHA went 9/9 green on 2026-05-20.
         # Revisit when setup-fortran lands the win25-vs2026 entry (or when
         # GitHub deprecates windows-2022 — typically ~12 months out).
-        os: [ubuntu-latest, windows-2022, macos-latest]
+        os: [ubuntu-latest, windows-2022, macos-15]
         python: [cp311, cp312, cp313]
     steps:
       - uses: actions/checkout@v4
+
+      - name: Set up native-build Python (Linux / macOS)
+        if: runner.os != 'Windows'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Download pinned DataEcon source (Linux / macOS)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p downloads
+          source_url=$(python -c 'from scripts.build_dataecon_windows import SOURCE_URL; print(SOURCE_URL)')
+          curl --fail --location "$source_url" --output downloads/dataecon-source.zip
+
+      - name: Build pinned DataEcon source (macOS arm64)
+        if: runner.os == 'macOS'
+        shell: bash
+        env:
+          MACOSX_DEPLOYMENT_TARGET: '11.0'
+          CC: clang
+        run: |
+          set -euo pipefail
+          python scripts/build_dataecon_unix.py downloads/dataecon-source.zip --output build/dataecon-native
 
       - name: Set up native-build Python (Windows)
         if: runner.os == 'Windows'
@@ -81,9 +106,9 @@ jobs:
       # --------------------------------------------------------------
       # X-13ARIMA-SEATS binary build (M2.6).
       #
-      # Linux runs the build inside the manylinux2014 container via
-      # CIBW_BEFORE_ALL_LINUX (centos7 + gcc-gfortran via yum) — the binary
-      # then links against the manylinux glibc floor (2.17), matching what
+      # Linux runs the build inside the manylinux_2_28 container via
+      # CIBW_BEFORE_ALL_LINUX (AlmaLinux 8 + gcc-gfortran via yum) — the binary
+      # then links against the manylinux glibc floor (2.28), matching what
       # `pip install TimeSeriesEconPy` users on common distros need.
       #
       # macOS and Windows run the build on the GHA host runner directly
@@ -169,7 +194,7 @@ jobs:
           # `-static` is hard-coded in makefile.gf's link recipe (line 293)
           # and works on MinGW + Windows but breaks on macOS (no static
           # libc on Darwin — ld returns 1 with no further detail) and on
-          # manylinux2014 (yum's gcc-toolset doesn't ship libc.a / libm.a,
+          # manylinux_2_28 (yum's gcc-toolset doesn't ship libc.a / libm.a,
           # in line with manylinux's dynamic-link policy). The targeted
           # replacement `-static-libgfortran -static-libgcc` bakes the
           # Fortran + GCC runtimes into the binary (so the user does not
@@ -212,22 +237,31 @@ jobs:
           # PyPy is auto-skipped because CIBW_BUILD restricts to cp*.
           CIBW_SKIP: "*-musllinux_* *_i686 *_ppc64le *_s390x *_armv7l"
           # Stick to the architectures the project's classifiers + dev hardware cover.
-          # macOS arm64 only (macos-latest = macos-14 = Apple Silicon); x86_64 macOS
+          # macOS arm64 only on the explicit macos-15 runner; x86_64 macOS
           # would require a separate runner and is not in the standard matrix.
           CIBW_ARCHS_LINUX: x86_64
           CIBW_ARCHS_WINDOWS: AMD64
           CIBW_ARCHS_MACOS: arm64
+          CIBW_MANYLINUX_X86_64_IMAGE: manylinux_2_28
+          MACOSX_DEPLOYMENT_TARGET: '11.0'
           CIBW_BUILD_VERBOSITY: 1
           # Bash assignment syntax is required by cibuildwheel even on Windows.
           # This setting applies to both the build and installed-wheel test phases.
           CIBW_ENVIRONMENT_WINDOWS: >-
             TSECON_DATAECON_ROOT="${{ steps.dataecon.outputs.root }}"
             TSECON_REQUIRE_DATAECON=1
-          # Linux build runs inside the manylinux2014 container; gfortran is
+          CIBW_ENVIRONMENT_LINUX: >-
+            TSECON_DATAECON_ROOT=/tmp/dataecon-native TSECON_REQUIRE_DATAECON=1
+          CIBW_ENVIRONMENT_MACOS: >-
+            TSECON_DATAECON_ROOT="${{ github.workspace }}/build/dataecon-native"
+            TSECON_REQUIRE_DATAECON=1 MACOSX_DEPLOYMENT_TARGET=11.0
+          # Linux build runs inside the manylinux_2_28 container; gfortran is
           # installed via yum + the same make recipe runs there. The binary
           # ends up at the mounted src/tsecon/x13/_binary path the host
           # sees, so the rest of the wheel-build pipeline is platform-uniform.
           CIBW_BEFORE_ALL_LINUX: |
+            set -eu
+            /opt/python/cp311-cp311/bin/python {project}/scripts/build_dataecon_unix.py {project}/downloads/dataecon-source.zip --output /tmp/dataecon-native
             yum install -y gcc-gfortran make tar gzip
             mkdir -p /tmp/x13_build && cd /tmp/x13_build
             curl -sL -o x13as_src.tar.gz "${{ steps.x13_meta.outputs.x13as_source_url }}"
@@ -236,15 +270,15 @@ jobs:
             # Tarball top-level dir keeps the leading "v" (e.g. v1-1-b62).
             cd x13as_asciisrc-${{ steps.x13_meta.outputs.x13as_version }}
             # See the host step's comment on -fallow-argument-mismatch —
-            # the manylinux2014 container ships gfortran 10+ via yum's
+            # the manylinux_2_28 container ships gfortran 10+ via yum's
             # gcc-gfortran, which has the same strict-by-default behaviour
             # as setup-fortran@v1.
             #
-            # Strip `-static` from makefile.gf — manylinux2014's
+            # Strip `-static` from makefile.gf — manylinux_2_28's
             # intentional dynamic-link policy does not ship static libc.a /
             # libm.a, so the makefile's hard-coded `gfortran -static ...`
             # link line fails with "cannot find -lm / -lc". Dynamic linking
-            # against the manylinux baseline glibc (2.17) is the correct
+            # against the manylinux baseline glibc (2.28) is the correct
             # manylinux-shaped choice anyway. Same sed pattern as the macOS
             # host build above.
             sed -i.bak 's/-static /-static-libgfortran -static-libgcc -static-libquadmath /' makefile.gf
@@ -283,16 +317,14 @@ jobs:
             {project}/tests/x13/test_run.py
             {project}/tests/dataecon
 
-      - name: Check out pinned Julia reference (Windows)
-        if: runner.os == 'Windows'
+      - name: Check out pinned Julia reference
         uses: actions/checkout@v4
         with:
           repository: bankofcanada/TimeSeriesEcon.jl
           ref: fc0a0d01aed4903ea6c64b12d78d0bdf68468df6
           path: build/julia-reference
 
-      - name: Set up Julia interchange verifier (Windows)
-        if: runner.os == 'Windows'
+      - name: Set up Julia interchange verifier
         uses: julia-actions/setup-julia@v2
         with:
           version: '1.12.5'
@@ -310,6 +342,18 @@ jobs:
           $outputFile = $output[0].FullName
           julia --startup-file=no --project=build/julia-interop tests/dataecon/fixtures/interchange.jl verify $outputFile $reference
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Verify installed-wheel output in Julia (Linux / macOS)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          set -euo pipefail
+          reference="$GITHUB_WORKSPACE/build/julia-reference"
+          julia --startup-file=no --project=build/julia-interop scripts/setup_dataecon_julia.jl "$reference"
+          outputs=(build/dataecon-interchange/*.daec)
+          test "${#outputs[@]}" -eq 1
+          test -f "${outputs[0]}"
+          julia --startup-file=no --project=build/julia-interop tests/dataecon/fixtures/interchange.jl verify "${outputs[0]}" "$reference"
 
       - name: Upload wheels
         uses: actions/upload-artifact@v4

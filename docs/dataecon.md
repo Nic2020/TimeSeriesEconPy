@@ -5,9 +5,10 @@ the DataEcon 0.4.0 C library. This is a limited integration: scalars, other
 frequencies/dtypes, empty series, catalogs, workspaces and general attributes
 are not supported yet. Existing JSON I/O is unchanged.
 
-Native DataEcon support is enabled in the Windows x86-64 wheel workflow for
-CPython 3.11–3.13 and in configured local builds. Linux/macOS wheels still omit
-this native component. Workflow configuration is separate from a published release.
+Native DataEcon support is configured in the wheel workflow for CPython 3.11–3.13:
+Windows x86-64, Linux x86-64 and macOS arm64. Windows builds have passed CI;
+the Linux/macOS additions await their first platform verification. Workflow
+configuration is separate from a published release.
 The integration uses a thin
 Cython extension; CFFI and Julia are not runtime dependencies. Only the native
 parts are compiled: the Python file API and conversion code remain Python.
@@ -136,13 +137,45 @@ Install the resulting `.whl` in a fresh environment and test outside the checkou
 For a wheel containing this native support, users need neither a compiler nor a
 separate DataEcon/Julia installation. A **wheel** is the installable built package;
 GitHub Actions runs build/test jobs, and publishing is a separate operation.
-Windows source builds are verified locally and wired into wheel CI. Linux/macOS
-native source builds remain future work.
+Windows source builds are verified locally and in wheel CI. The Linux/macOS
+source-build configuration below still requires platform CI verification.
 
 The bundled native library uses the BSD-3-Clause DataEcon license and public-domain
 SQLite; notices ship beside the adapter. Cython code uses the package's MIT license.
 
-## Windows wheel CI checks
+## Linux and macOS source builds
+
+`scripts/build_dataecon_unix.py` uses the same verified source ZIP/header and
+guarded constant-expression patch. It compiles all 13 DataEcon sources and bundled
+SQLite into a position-independent **static archive**, `lib/libdaec.a`. The linker
+incorporates that code into the Cython extension; no separate DataEcon shared
+library or runtime search path is needed. Native symbols have hidden visibility
+to isolate this SQLite copy from other extensions in the process. Windows retains
+its verified DLL/import-library route; both routes use the same Cython binding.
+
+```sh
+# macOS arm64 only: export MACOSX_DEPLOYMENT_TARGET=11.0
+python scripts/build_dataecon_unix.py downloads/dataecon-source.zip --output build/dataecon-native
+export TSECON_DATAECON_ROOT="$PWD/build/dataecon-native"
+python -m build --wheel
+```
+
+The native helper needs a C compiler and `ar`. Its manifest records the compiler,
+flags, source/header hashes, portability patch and static archive hash. The build
+hook checks the header/archive against that manifest before linking. The archive
+hash identifies a build input, not the final extension: wheel repair can modify
+the extension. The archive itself does not ship in the wheel; the manifest and
+license notices do. Updating native code requires rebuilding the extension.
+
+Linux CI builds inside the explicitly selected manylinux_2_28 x86-64 container
+(glibc 2.28 floor), then uses cibuildwheel's auditwheel repair. A local Linux wheel
+build alone does not establish manylinux compatibility. macOS uses the explicit
+`macos-15` Apple Silicon runner, targets macOS 11.0, and retains delocate repair
+and deployment-target validation. Intel macOS and universal2 are outside this
+matrix. See [cibuildwheel options](https://cibuildwheel.pypa.io/en/v3.4.1/options/)
+and [manylinux platforms](https://github.com/pypa/manylinux).
+
+## Wheel CI checks
 
 Each Windows wheel job builds the pinned native source with MSVC and includes
 the DLL, build manifest and notices. `scripts/check_dataecon_wheel.py` runs after
@@ -153,10 +186,13 @@ manifest record the native runtime dependency names.
 
 The workflow sets `TSECON_REQUIRE_DATAECON=1`, so an absent extension is a pytest
 configuration error rather than an optional skip. The ordinary core-only test
-jobs leave this setting unset. Non-Windows wheel checks verify native artifacts
-are absent while core imports still work.
+jobs leave this setting unset. The checker can also verify a core-only wheel when
+the setting is unset. Linux/macOS installed checks inspect the repaired extension
+with `readelf`/`otool` and `nm`: external DataEcon/SQLite dependencies or exposed
+native symbols fail the job. Existing ABI-layout, owning-buffer, lifecycle and
+error tests run against each installed native wheel.
 
-After the installed tests pass, the Windows job checks its output with Julia
+After the installed tests pass, each platform job checks its output with Julia
 1.12.5 and the pinned TimeSeriesEcon.jl checkout. Julia and DataEcon_jll are CI
 verification dependencies, not dependencies of the Python wheel. The Julia setup
 helper pins DataEcon_jll to 0.4.0+0; the interchange script verifies the reference

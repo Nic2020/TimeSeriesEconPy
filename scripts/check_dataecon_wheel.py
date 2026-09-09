@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: MIT
-"""Require installed-wheel DataEcon provenance and interchange on Windows.
+"""Require installed-wheel DataEcon provenance and interchange.
 
-On other platforms, verify that core-only wheels omit the native extension.
+When native support is not required, verify core-only wheels omit the extension.
 Run after the wheel has been installed, from outside its source package.
 """
 
@@ -13,6 +13,8 @@ import hashlib
 import importlib.util
 import json
 import os
+import re
+import subprocess
 import sys
 import sysconfig
 from pathlib import Path
@@ -35,15 +37,42 @@ def validate_provenance(package: Path) -> dict:
         or manifest["dataecon_version"] != "0.4.0"
     ):
         raise ValueError("Unexpected DataEcon source/header provenance in the installed wheel.")
-    dll = package / "_binary/libdaec.dll"
-    if hashlib.sha256(dll.read_bytes()).hexdigest() != manifest["outputs"]["bin/libdaec.dll"]:
-        raise ValueError("Installed DataEcon DLL does not match its build manifest.")
+    if manifest.get("linkage") == "static-hidden":
+        if (
+            manifest["platform"] not in ("linux", "darwin")
+            or not manifest["compiler"]
+            or not re.fullmatch(r"[0-9a-f]{64}", manifest["outputs"]["lib/libdaec.a"])
+        ):
+            raise ValueError("Missing static native build provenance.")
+    else:
+        dll = package / "_binary/libdaec.dll"
+        if hashlib.sha256(dll.read_bytes()).hexdigest() != manifest["outputs"]["bin/libdaec.dll"]:
+            raise ValueError("Installed DataEcon DLL does not match its build manifest.")
+        if not manifest["dependencies"] or not manifest["windows_sdk_versions"]:
+            raise ValueError("Native dependency or SDK provenance is missing.")
     for notice in ("DATAECON_LICENSE.txt", "SQLITE_NOTICE.txt"):
         if not (package / notice).read_text(encoding="utf-8").strip():
             raise ValueError(f"Missing DataEcon wheel notice: {notice}")
-    if not manifest["dependencies"] or not manifest["windows_sdk_versions"]:
-        raise ValueError("Native dependency or SDK provenance is missing.")
     return manifest
+
+
+def audit_static_extension(extension: Path) -> str:
+    """Inspect the installed (repaired) extension's dependencies and public symbols."""
+    if sys.platform == "linux":
+        dependencies = subprocess.check_output(["readelf", "-d", str(extension)], text=True)
+        symbols = subprocess.check_output(["nm", "-D", "--defined-only", str(extension)], text=True)
+    else:
+        dependencies = subprocess.check_output(["otool", "-L", str(extension)], text=True)
+        symbols = subprocess.check_output(["nm", "-gU", str(extension)], text=True)
+    if re.search(r"lib(?:daec|sqlite)", dependencies, re.I):
+        raise ValueError(
+            "Static DataEcon extension depends on an external DataEcon/SQLite library."
+        )
+    if re.search(r"\b_?(?:de_\w+|sqlite3\w*|_open)\s*$", symbols, re.M):
+        raise ValueError("Private DataEcon/SQLite symbols escaped into the public symbol table.")
+    if "PyInit__native" not in symbols:
+        raise ValueError("DataEcon Python entry point is missing.")
+    return dependencies
 
 
 def loaded_dll_path() -> Path:
@@ -63,6 +92,15 @@ def loaded_dll_path() -> Path:
     return Path(buffer.value).resolve()
 
 
+def check_extension_abis(package: Path) -> None:
+    """Reject stale interpreter-specific extension files."""
+    suffix = sysconfig.get_config_var("EXT_SUFFIX")
+    pattern = "*.pyd" if sys.platform == "win32" else "*.so"
+    stale = [path.name for path in package.parent.rglob(pattern) if not path.name.endswith(suffix)]
+    if stale:
+        raise ValueError(f"Wheel contains extensions for another Python ABI: {stale}")
+
+
 def check(fixture: Path, output_dir: Path) -> None:
     """Check installed provenance and generate an output for separate Julia verification."""
     package = Path(de.__file__).resolve().parent
@@ -73,22 +111,25 @@ def check(fixture: Path, output_dir: Path) -> None:
     if "tsecon.dataecon._native" in sys.modules:
         raise RuntimeError("Core/package import unexpectedly loaded DataEcon eagerly.")
     native = importlib.util.find_spec("tsecon.dataecon._native")
-    if sys.platform != "win32":
+    if os.environ.get("TSECON_REQUIRE_DATAECON") != "1":
         if native is not None or (package / "_binary").exists():
             raise RuntimeError("This platform should still have a core-only DataEcon installation.")
         print("Core-only wheel: import succeeds and DataEcon native artifacts are absent.")
         return
-    if os.environ.get("TSECON_REQUIRE_DATAECON") != "1" or native is None:
-        raise RuntimeError("Windows wheel must enable and include DataEcon native support.")
+    if native is None:
+        raise RuntimeError("Wheel must enable and include DataEcon native support.")
     manifest = validate_provenance(package)
-    suffix = sysconfig.get_config_var("EXT_SUFFIX")
-    stale = [path.name for path in package.parent.rglob("*.pyd") if not path.name.endswith(suffix)]
-    if stale:
-        raise ValueError(f"Wheel contains extensions for another Python ABI: {stale}")
+    if sys.platform != "win32" and (
+        manifest.get("linkage") != "static-hidden" or manifest["platform"] != sys.platform
+    ):
+        raise ValueError("Unexpected native linkage/platform.")
+    check_extension_abis(package)
     with de.open_dataecon(fixture) as db:
         series = db.read_series("sample")
-    if loaded_dll_path() != (package / "_binary/libdaec.dll").resolve():
+    if sys.platform == "win32" and loaded_dll_path() != (package / "_binary/libdaec.dll").resolve():
         raise RuntimeError("DataEcon loaded a DLL outside the installed wheel.")
+    if sys.platform != "win32":
+        print(audit_static_extension(Path(native.origin)))
     if series.firstdate != mm(2024, 1) or series.lastdate != mm(2024, 4):
         raise ValueError("Julia fixture date metadata changed.")
     if not series.values.flags.owndata:
@@ -104,7 +145,8 @@ def check(fixture: Path, output_dir: Path) -> None:
         np.testing.assert_array_equal(db.read_series("sample").values, series.values)
     print(f"DataEcon installed-wheel check passed for Python {sys.version.split()[0]}.")
     print(f"Package: {Path(tsecon.__file__).parent}")
-    print(f"Native dependencies: {', '.join(manifest['dependencies'])}")
+    if sys.platform == "win32":
+        print(f"Native dependencies: {', '.join(manifest['dependencies'])}")
     print(f"Julia verification input: {output}")
 
 

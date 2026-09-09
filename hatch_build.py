@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import os
 import shutil
+import stat
 import sys
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -94,6 +95,9 @@ def build_extensions_inplace() -> list[Path]:
             extension.include_dirs.append(str(native_root / "include"))
             extension.library_dirs.append(str(native_root / "lib"))
             extension.libraries.append("daec")
+            extension.depends.extend(
+                [str(native_root / "include/daec.h"), str(native_root / "lib/daec.lib")]
+            )
             binary_dir = SRC_PKG / "dataecon" / "_binary"
             binary_dir.mkdir(parents=True, exist_ok=True)
             native_dll = native_root / "bin/libdaec.dll"
@@ -101,7 +105,12 @@ def build_extensions_inplace() -> list[Path]:
             # Julia artifacts can be read-only. Avoid replacing an identical DLL
             # on rebuild, and do not propagate source file permissions.
             if not bundled_dll.exists() or bundled_dll.read_bytes() != native_dll.read_bytes():
+                if bundled_dll.exists():
+                    bundled_dll.chmod(bundled_dll.stat().st_mode | stat.S_IWRITE)
                 shutil.copyfile(native_dll, bundled_dll)
+            build_info = native_root / "build-info.json"
+            if build_info.is_file():
+                shutil.copyfile(build_info, binary_dir / "build-info.json")
         extensions.append(extension)
 
     ext_modules = cythonize(
@@ -155,6 +164,8 @@ class CythonBuildHook(_Hook):  # type: ignore[misc,valid-type]
                     "src/tsecon/dataecon/_binary/libdaec.dll",
                 ]
             )
+            if (Path(os.environ["TSECON_DATAECON_ROOT"]) / "build-info.json").is_file():
+                build_data["artifacts"].append("src/tsecon/dataecon/_binary/build-info.json")
         # Force a platform-specific wheel tag (not py3-none-any) since the
         # wheel now contains compiled extensions.
         build_data["infer_tag"] = True

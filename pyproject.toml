@@ -112,6 +112,7 @@ include = [
     "/pyproject.toml",
     "/hatch_build.py",
     "/scripts/prepare_dataecon_windows.py",
+    "/scripts/build_dataecon_windows.py",
 ]
 
 # ---------------------------------------------------------------------------

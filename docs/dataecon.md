@@ -66,8 +66,49 @@ as a separate process.
 
 ## Local Windows build
 
-Use CPython x86-64 and MSVC Build Tools. Install the project's build requirements
-(Cython, NumPy, setuptools, hatchling; `build` for the command below). Obtain the
+Use CPython x86-64 and Visual Studio 2022 MSVC Build Tools with a Windows SDK.
+Install the project's build requirements (Cython, NumPy, setuptools, hatchling;
+`build` for the wheel command). The preferred route builds DataEcon and its bundled
+SQLite directly from pinned source using MSVC, matching the Cython toolchain.
+
+Download the [pinned source ZIP](https://codeload.github.com/bankofcanada/DataEcon/zip/1a108688a044380f808bebf64079e32dbb9cd1a4)
+to `downloads/dataecon-source.zip`. Its SHA-256 is
+`d2b48df3a47d173c43354fe033438253bb46d878ae6c3824c6224fbd4e6a2d71`.
+The helper verifies this hash before extracting or compiling. Use a new output
+directory for each build; an existing one is never overwritten.
+
+```powershell
+python scripts/build_dataecon_windows.py downloads/dataecon-source.zip --output build/dataecon-source
+$env:TSECON_DATAECON_ROOT = (Resolve-Path build/dataecon-source).Path
+python -m build --wheel --no-isolation
+```
+
+The helper compiles the 13 DataEcon C files and bundled SQLite 3.50.2 amalgamation,
+links `bin/libdaec.dll`, and generates `lib/daec.lib`. This **import library** is
+the linker's description of the DLL's exported functions. It exports the 41 public
+functions declared in `daec.h`, copies that header and notices, and writes
+`build-info.json` with source/output hashes, compiler/SDK details and build flags.
+That manifest is included with the DLL in the configured wheel.
+
+One guarded portability adjustment is applied only to the extracted source:
+`static const uint32_t EPOCH_s = 82;` becomes `#define EPOCH_s UINT32_C(82)`.
+MSVC requires a constant expression in the dependent file-scope initializers;
+the unsigned value, formulas and public ABI are unchanged. The compiler uses
+C11 mode and its standard `/MD` shared C runtime. The native DLL therefore uses
+the Microsoft C runtime, as does the Cython extension; dependency auditing and
+installed-wheel checks remain required for each supported platform target.
+
+The build steps are repeatable from pinned inputs and record the selected toolchain.
+This is not yet a bit-for-bit reproducible build: linker timestamps are not
+normalized, and repeated builds can have different binary hashes even with the
+same compiler/SDK. Each manifest identifies its actual output binaries.
+Upstream narrowing-conversion warnings are left visible; the adapter's existing
+date/payload guards and limited supported scope still apply. No native source
+algorithm, file-format, type support or Windows path policy is expanded here.
+
+### Alternative: verified upstream binary
+
+For comparison or a local fallback, obtain the
 **DataEcon_jll 0.4.0+0 Windows x86-64 artifact** from its
 [release](https://github.com/JuliaBinaryWrappers/DataEcon_jll.jl/releases/tag/DataEcon-v0.4.0%2B0).
 The archive `DataEcon.v0.4.0.x86_64-w64-mingw32.tar.gz` has SHA-256
@@ -86,14 +127,15 @@ The preparation script checks the header and DLL hashes and generates an MSVC
 The build hook compiles the extension against the actual header and bundles the
 DLL in the wheel. It does not download anything during build or runtime. The
 default build without `TSECON_DATAECON_ROOT` omits DataEcon native support.
-Source distributions include this preparation script and the adapter sources;
+Source distributions include both native build helpers and the adapter sources;
 the external native inputs/build tools are still required to enable the feature.
 
 Install the resulting `.whl` in a fresh environment and test outside the checkout.
 For a wheel containing this native support, users need neither a compiler nor a
 separate DataEcon/Julia installation. A **wheel** is the installable built package;
 GitHub Actions runs build/test jobs, and publishing is a separate operation.
-All-platform native source builds and bundled CI wheels remain future work.
+Windows source builds are verified locally. Linux/macOS native source builds and
+DataEcon-enabled CI wheels remain future work.
 
 The bundled native library uses the BSD-3-Clause DataEcon license and public-domain
 SQLite; notices ship beside the adapter. Cython code uses the package's MIT license.

@@ -1,0 +1,81 @@
+{
+  "source_commit": "11a3de43dcc883f8e3cb4d913e2c83a5f62b7e58",
+  "python": "3.11.15",
+  "numpy": "2.4.4",
+  "package": "0.0.1.dev3",
+  "pickle_protocol": 4,
+  "files": {
+    "date.pickle": {
+      "sha256": "9eca0e29dde40ad36f244ed81088265560e33d0254402751fe22d15f38f93a1d",
+      "size": 88
+    },
+    "date.json": {
+      "sha256": "2c9ed78116e661fbba140985fd3410d0f3b0a250bb36dbd6d0b63aa26666adbf",
+      "size": 78
+    },
+    "duration.pickle": {
+      "sha256": "61d2977423dcd3ccf713a4247033e2641ad64b907f694cb1f6ce455cd673ac2c",
+      "size": 92
+    },
+    "duration.json": {
+      "sha256": "0847a5d82504dc741644017a3d44da1e27c1426d95daee8147ae3fdacc71d38d",
+      "size": 80
+    },
+    "range.pickle": {
+      "sha256": "1741f874b76487b4679deb942eda54eea256f9916abb31ef9d8533237917de29",
+      "size": 144
+    },
+    "range.json": {
+      "sha256": "2bf8693274b9b774a1a82a5928e33dd44a6964eb6ed205cd771704977959576c",
+      "size": 209
+    },
+    "float_series.pickle": {
+      "sha256": "5fea43f673651ce00f7f80e70500c2a5b92de4fe9c37e6251cb5ebedbb42e885",
+      "size": 311
+    },
+    "float_series.json": {
+      "sha256": "b0faefe18719cd37867479f1b0b211e36f3a09927dbbb0121685ac1ff2953019",
+      "size": 161
+    },
+    "int_series.pickle": {
+      "sha256": "1d923c3e41b031bff371a0ffdd1c5d52ddc722f437d2442f046fc48ed1afce7d",
+      "size": 299
+    },
+    "int_series.json": {
+      "sha256": "aa51803340a7f273fb1eb38604e02a1e8070288426800e7cb215d77d7afc2d8b",
+      "size": 162
+    },
+    "bool_series.pickle": {
+      "sha256": "2767dddeb11786615ec679bfecab357c6711293d7172fd8819987987a24f689e",
+      "size": 290
+    },
+    "bool_series.json": {
+      "sha256": "b9b6eb4af0d98f82cbbed19c83b4a67dee0efc846396a1d1d4e9d30187a38f2d",
+      "size": 161
+    },
+    "empty_series.pickle": {
+      "sha256": "c14108af6a29721ef0e0548e97888c245892c4d837e2c7d73d833f9562d0afab",
+      "size": 287
+    },
+    "empty_series.json": {
+      "sha256": "7cceb3e04520ac9ff88237add4fba39976bf2a51b258214a436395ff7308f3ee",
+      "size": 147
+    },
+    "table.pickle": {
+      "sha256": "9ef778b07f51a54e57b87e0e535eb79e7b4e6057bd58ae02b18e330645688307",
+      "size": 537
+    },
+    "table.json": {
+      "sha256": "766b55480e53a9707dea91fbbd16d8f3729ba29ebdbceb277c7d9e7d6dea333e",
+      "size": 204
+    },
+    "workspace.pickle": {
+      "sha256": "1946cba5a85bfe87274bd30d43067cacf1e1df2c941f31560f9e17f053931b4e",
+      "size": 408
+    },
+    "workspace.json": {
+      "sha256": "108e86548200a354351501255477a4490eb0e64be943853bb1b4af8f86766de1",
+      "size": 271
+    }
+  }
+}

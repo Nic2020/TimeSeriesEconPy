@@ -1,0 +1,1 @@
+{"_type": "TSeries", "firstdate": {"_type": "MIT", "freq": {"name": "Quarterly", "end_month": 2}, "value": 8080}, "dtype": "int32", "values": [1, -2147483648, 3]}

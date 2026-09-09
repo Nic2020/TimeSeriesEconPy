@@ -1,0 +1,1 @@
+{"_type": "MITRange", "start": {"_type": "MIT", "freq": {"name": "Quarterly", "end_month": 2}, "value": 8080}, "stop": {"_type": "MIT", "freq": {"name": "Quarterly", "end_month": 2}, "value": 8084}, "step": 2}

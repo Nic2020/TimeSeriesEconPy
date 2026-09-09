@@ -1,0 +1,1 @@
+{"_type": "Workspace", "items": [["note", "baseline"], ["nested", {"_type": "Workspace", "items": [["series", {"_type": "TSeries", "firstdate": {"_type": "MIT", "freq": {"name": "Quarterly", "end_month": 2}, "value": 8080}, "dtype": "float64", "values": [7.0, 8.0]}]]}]]}

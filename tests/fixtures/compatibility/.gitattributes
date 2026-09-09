@@ -1,0 +1,3 @@
+# Preserve the bytes identified by manifest.json on every platform.
+*.json text eol=lf
+*.pickle binary

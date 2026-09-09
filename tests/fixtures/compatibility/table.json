@@ -1,0 +1,1 @@
+{"_type": "MVTSeries", "firstdate": {"_type": "MIT", "freq": {"name": "Quarterly", "end_month": 2}, "value": 8080}, "dtype": "float64", "names": ["a", "b"], "values": [[1.0, 4.0], [2.0, 5.0], [3.0, 6.0]]}

@@ -41,6 +41,7 @@ from typing import Any, ClassVar, Final, Union
 import numpy as np
 import numpy.typing as npt
 
+from tsecon._selection import date_slice
 from tsecon.frequencies import Frequency, Unit, prettyprint_frequency
 from tsecon.linalg import _matmul_strip
 from tsecon.mit import MIT, Duration
@@ -473,16 +474,10 @@ class TSeries:
             return self._values[i]
         if isinstance(key, MITRange):
             self._check_freq(key.frequency, op="indexing")
-            i0 = self._mit_to_index(key.start)
-            i1 = self._mit_to_index(key.last())
-            if i0 < 0 or i1 >= len(self._values):
-                msg = f"MITRange {key!s} is not contained in stored range {self.range!s}."
-                raise IndexError(msg)
+            slot = date_slice(self._firstdate, len(self._values), key)
             if key.step == 1:
-                # ts[range] returns a TSeries with its own buffer (per decision 16
-                # scope note): pass copy=True so the slice view doesn't escape.
-                return TSeries(key.start, self._values[i0 : i1 + 1], copy=True)
-            return self._values[i0 : i1 + 1 : key.step].copy()
+                return TSeries(key.start, self._values[slot], copy=True)
+            return self._values[slot].copy()
         if isinstance(key, slice):
             if isinstance(key.start, MIT) or isinstance(key.stop, MIT):
                 if key.step is not None and not isinstance(key.step, int):
@@ -532,17 +527,18 @@ class TSeries:
             return
         if isinstance(key, MITRange):
             self._check_freq(key.frequency, op="setting")
-            self._ensure_covers(key)
-            i0 = self._mit_to_index(key.start)
-            i1 = self._mit_to_index(key.last())
-            slot = slice(i0, i1 + 1, key.step if key.step != 1 else None)
             if isinstance(value, TSeries):
                 self._check_freq(value.frequency, op="setting")
-                # Align the source by MIT.
-                aligned = value[key]
-                self._values[slot] = aligned.values if isinstance(aligned, TSeries) else aligned
+                value = np.asarray(value[key])
+            # Validate shape and casting before extending or changing storage.
+            prepared = np.empty(len(key), dtype=self._values.dtype)
+            prepared[:] = value
+            if not key:
                 return
-            self._values[slot] = value
+            first, last = key.start, key.last()
+            self._ensure_covers(MITRange(min(first, last), max(first, last)))
+            slot = date_slice(self._firstdate, len(self._values), key)
+            self._values[slot] = prepared
             return
         if isinstance(key, slice):
             if isinstance(key.start, MIT) or isinstance(key.stop, MIT):

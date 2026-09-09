@@ -5,6 +5,10 @@ the source commit and Python/NumPy versions in `manifest.json`. They contain
 synthetic values only. Tests load the committed bytes; they must not regenerate
 them with the implementation being tested. SHA-256 hashes identify the originals.
 
+The commit hook added a final newline to the JSON files. The manifest hashes and
+sizes describe those committed bytes; `original_sha256_without_final_newline`
+retains the initial capture hash. No JSON payload or pickle bytes were regenerated.
+
 The objects cover a February fiscal-quarter anchor, a duration, a strided date
 range, floating/integer/Boolean/empty series, a two-column table and a nested
 workspace. Tests check metadata and values independently, including table column

@@ -39,6 +39,7 @@ from typing import Any, ClassVar, Final, Union
 import numpy as np
 import numpy.typing as npt
 
+from tsecon._selection import date_slice
 from tsecon.frequencies import Frequency, prettyprint_frequency
 from tsecon.linalg import _matmul_strip
 from tsecon.mit import MIT
@@ -634,12 +635,10 @@ class MVTSeries:
         # MITRange → MVTSeries (rows, same columns).
         if isinstance(key, MITRange):
             self._check_freq_for(key.frequency, op="indexing")
-            i0 = self._row_index(key.start)
-            i1 = self._row_index(key.last())
-            if i0 < 0 or i1 >= self._values.shape[0]:
-                msg = f"MITRange {key!s} is not contained in stored range {self.range!s}."
-                raise IndexError(msg)
-            sub = self._values[i0 : i1 + 1, :].copy()
+            slot = date_slice(self._firstdate, self._values.shape[0], key)
+            sub = self._values[slot, :].copy()
+            if key.step != 1:
+                return sub
             return MVTSeries(key.start, list(self._columns.keys()), sub)
 
         # Tuple/list of column names → subset MVTSeries (copy).
@@ -719,26 +718,19 @@ class MVTSeries:
         # MITRange + str → TSeries (column over range).
         if isinstance(r, MITRange) and isinstance(c, str):
             self._check_freq_for(r.frequency, op="indexing")
-            i0 = self._row_index(r.start)
-            i1 = self._row_index(r.last())
-            if i0 < 0 or i1 >= self._values.shape[0]:
-                msg = f"MITRange {r!s} is not contained in stored range {self.range!s}."
-                raise IndexError(msg)
+            slot = date_slice(self._firstdate, self._values.shape[0], r)
             j = self._col_index(c)
-            return TSeries(r.start, self._values[i0 : i1 + 1, j], copy=True)
+            sub = self._values[slot, j].copy()
+            return TSeries(r.start, sub) if r.step == 1 else sub
 
         # MITRange + collection → MVTSeries.
         if isinstance(r, MITRange) and isinstance(c, (list, tuple)):
             self._check_freq_for(r.frequency, op="indexing")
-            i0 = self._row_index(r.start)
-            i1 = self._row_index(r.last())
-            if i0 < 0 or i1 >= self._values.shape[0]:
-                msg = f"MITRange {r!s} is not contained in stored range {self.range!s}."
-                raise IndexError(msg)
+            slot = date_slice(self._firstdate, self._values.shape[0], r)
             block_inds = np.asarray([self._col_index(str(n)) for n in c], dtype=np.intp)
             names = [str(n) for n in c]
-            sub = self._values[i0 : i1 + 1][:, block_inds].copy()
-            return MVTSeries(r.start, names, sub)
+            sub = self._values[slot][:, block_inds].copy()
+            return MVTSeries(r.start, names, sub) if r.step == 1 else sub
 
         # MIT-slice form: ``mvts[a:b, c]``.
         if isinstance(r, slice) and (isinstance(r.start, MIT) or isinstance(r.stop, MIT)):
@@ -797,12 +789,8 @@ class MVTSeries:
             return
         if isinstance(key, MITRange):
             self._check_freq_for(key.frequency, op="setting")
-            i0 = self._row_index(key.start)
-            i1 = self._row_index(key.last())
-            if i0 < 0 or i1 >= self._values.shape[0]:
-                msg = f"MITRange {key!s} is not contained in stored range {self.range!s}."
-                raise IndexError(msg)
-            self._assign_row_block(i0, i1, slice(None), value, src_range=key)
+            slot = date_slice(self._firstdate, self._values.shape[0], key)
+            self._assign_date_block(slot, key, value)
             return
         if isinstance(key, (list, tuple)) and self._is_name_collection(tuple(key)):
             names = [str(n) for n in key]
@@ -886,41 +874,33 @@ class MVTSeries:
         # MITRange + str → assign a TSeries-aligned column slice.
         if isinstance(r, MITRange) and isinstance(c, str):
             self._check_freq_for(r.frequency, op="setting")
-            i0 = self._row_index(r.start)
-            i1 = self._row_index(r.last())
-            if i0 < 0 or i1 >= self._values.shape[0]:
-                msg = f"MITRange {r!s} is not contained in stored range {self.range!s}."
-                raise IndexError(msg)
+            slot = date_slice(self._firstdate, self._values.shape[0], r)
             j = self._col_index(c)
             if isinstance(value, TSeries):
                 self._check_freq_for(value.frequency, op="setting")
-                self._values[i0 : i1 + 1, j] = value[r].values
-                return
-            self._values[i0 : i1 + 1, j] = np.asarray(value)
+                value = np.asarray(value[r])
+            prepared = np.empty(len(r), dtype=self._values.dtype)
+            prepared[:] = value
+            self._values[slot, j] = prepared
             return
 
         # MITRange + collection.
         if isinstance(r, MITRange) and isinstance(c, (list, tuple)):
             self._check_freq_for(r.frequency, op="setting")
-            i0 = self._row_index(r.start)
-            i1 = self._row_index(r.last())
-            if i0 < 0 or i1 >= self._values.shape[0]:
-                msg = f"MITRange {r!s} is not contained in stored range {self.range!s}."
-                raise IndexError(msg)
+            slot = date_slice(self._firstdate, self._values.shape[0], r)
             names = [str(n) for n in c]
             block_col_inds = np.asarray([self._col_index(n) for n in names], dtype=np.intp)
-            row_idx = np.arange(i0, i1 + 1, dtype=np.intp)
+            row_idx = np.arange(*slot.indices(self._values.shape[0]), dtype=np.intp)
             if isinstance(value, MVTSeries):
                 self._check_freq_for(value.frequency, op="setting")
-                arr = np.column_stack(
-                    [value[name][r].values for name in names if name in value._columns]
-                )
-                self._values[np.ix_(row_idx, block_col_inds)] = arr
-                return
+                arr = np.column_stack([np.asarray(value[name][r]) for name in names])
+                value = arr
             arr2 = np.asarray(value)
             if arr2.ndim == 1:
                 arr2 = arr2.reshape(-1, 1)
-            self._values[np.ix_(row_idx, block_col_inds)] = arr2
+            prepared_block = np.empty((len(r), len(names)), dtype=self._values.dtype)
+            prepared_block[:] = arr2
+            self._values[np.ix_(row_idx, block_col_inds)] = prepared_block
             return
 
         # MIT-slice → range.
@@ -981,32 +961,26 @@ class MVTSeries:
             raise ValueError(msg)
         self._values[:, col_idx] = arr
 
-    def _assign_row_block(
-        self,
-        i0: int,
-        i1: int,
-        col_sel: Any,
-        value: Any,
-        *,
-        src_range: MITRange | None = None,
-    ) -> None:
+    def _assign_date_block(self, slot: slice, dates: MITRange, value: Any) -> None:
         if isinstance(value, MVTSeries):
             self._check_freq_for(value.frequency, op="setting")
-            # Only common columns are written (mirrors Julia
-            # ``setindex!(x::MVTSeries, val::MVTSeries, rng)``).
-            for name, src_col in value._columns.items():
-                if name in self._columns:
-                    j = self._col_index(name)
-                    rng = src_range if src_range is not None else value.range
-                    self._values[i0 : i1 + 1, j] = src_col[rng].values
+            # Preserve the existing common-column assignment policy. Prepare all
+            # columns before writing so a rejected source cannot partially update.
+            names = [name for name in value._columns if name in self._columns]
+            prepared = []
+            for name in names:
+                column = np.empty(len(dates), dtype=self._values.dtype)
+                column[:] = np.asarray(value[name][dates])
+                prepared.append(column)
+            for name, column in zip(names, prepared, strict=True):
+                self._values[slot, self._col_index(name)] = column
             return
         if isinstance(value, TSeries):
             self._check_freq_for(value.frequency, op="setting")
-            rng = src_range if src_range is not None else value.range
-            aligned = value[rng].values
-            self._values[i0 : i1 + 1, col_sel] = aligned
-            return
-        self._values[i0 : i1 + 1, col_sel] = value
+            value = np.asarray(value[dates])
+        block = np.empty((len(dates), self._values.shape[1]), dtype=self._values.dtype)
+        block[:] = value
+        self._values[slot, :] = block
 
     def _assign_col_block(
         self,

@@ -1,0 +1,8 @@
+The DataEcon 0.4.0 native library includes SQLite 3.50.2.
+SQLite's bundled source disclaims copyright and is in the public domain.
+
+Source provenance:
+https://github.com/bankofcanada/DataEcon/tree/1a108688a044380f808bebf64079e32dbb9cd1a4/src/sqlite3
+https://sqlite.org/2025/sqlite-amalgamation-3500200.zip
+
+DataEcon itself is BSD-3-Clause; see DATAECON_LICENSE.txt.

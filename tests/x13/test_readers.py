@@ -3,11 +3,9 @@
 
 Each parser is exercised against hand-authored fixtures that mirror the
 shape X-13ARIMA-SEATS v1.1 b60 emits (cross-checked against the Julia
-upstream's example files at ``TimeSeriesEcon.jl/src/x13/``). The
-end-to-end binary-vs-Julia ``d11`` 1e-10 numerical-fidelity test
-(planned in MASTER_PLAN M2.5) is deferred to M2.6 alongside the
-wheels-side gfortran binary — until then the binary is not reachable
-from the test environment.
+upstream's example files at ``TimeSeriesEcon.jl/src/x13/``). End-to-end
+binary execution and Julia numerical comparisons are covered separately
+in ``test_run.py`` and ``test_fidelity.py``.
 """
 
 from __future__ import annotations

@@ -98,6 +98,7 @@ nav:
       - Plotting: reference/plotting.md
       - "Interop (pandas, polars)": reference/interop.md
       - "JSON I/O": reference/io.md
+      - "DataEcon (limited native support)": dataecon.md
       - "Mirror metadata": reference/mirror.md
   - Design notes:
       - Overview: design/decisions.md

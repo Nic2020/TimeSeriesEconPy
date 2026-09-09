@@ -80,3 +80,4 @@ Thumbs.db
 # so `_resolve_binary` in src/tsecon/x13/_result.py can find it for local
 # development + testing without committing a per-platform executable.
 src/tsecon/x13/_binary/
+src/tsecon/dataecon/_binary/

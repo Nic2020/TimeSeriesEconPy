@@ -29,6 +29,29 @@ use the actual selected dates; strided table results now have no misleading
 contiguous date labels. Range assignment validates shape and casting before
 changing the destination.
 
+## NumPy array operations
+
+Direct calls such as `np.mean(series)` and `np.copy(series)` retain their raw
+NumPy results. Registered operations such as `np.concatenate([series, series])`
+retain their existing series behavior.
+
+Unsupported nested operations such as `np.stack([series, series])` now raise
+`TypeError` instead of recursing. Convert explicitly when you want raw arrays:
+
+```python
+import numpy as np
+from tsecon import TSeries, qq
+
+s = TSeries(qq(2020, 1), [1., 2., 3.])
+stacked = np.stack([np.asarray(s), np.asarray(s)])
+assert stacked.shape == (2, 3)
+```
+
+Fallback delegation accepts direct series and plain numerical arrays, scalars
+and built-in argument containers. It declines residual nested series, cyclic
+containers, object arrays and unknown objects or iterators. Foreign array
+overrides retain dispatch control. Non-`None` keyword `out=` is unsupported.
+
 ## Gather
 
 `tsecon.lookup(t, keys)` is the vectorised "gather a list of MITs (or integer offsets)

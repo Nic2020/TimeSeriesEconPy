@@ -39,6 +39,7 @@ from typing import Any, ClassVar, Final, Union
 import numpy as np
 import numpy.typing as npt
 
+from tsecon._array_protocols import array_function_fallback, supported_array_types
 from tsecon._selection import date_slice
 from tsecon.frequencies import Frequency, prettyprint_frequency
 from tsecon.linalg import _matmul_strip
@@ -1052,15 +1053,12 @@ class MVTSeries:
         args: tuple[Any, ...],
         kwargs: dict[str, Any],
     ) -> Any:
+        if not supported_array_types(types, MVTSeries) or kwargs.get("out") is not None:
+            return NotImplemented
         handler = _ARRAY_FUNCTION_HANDLERS.get(func)
         if handler is not None:
             return handler(*args, **kwargs)
-        # Fallback: unwrap MVTSeries → ndarray, call the function, return raw.
-        unwrapped_args = tuple(np.asarray(a) if isinstance(a, MVTSeries) else a for a in args)
-        unwrapped_kwargs = {
-            k: (np.asarray(v) if isinstance(v, MVTSeries) else v) for k, v in kwargs.items()
-        }
-        return func(*unwrapped_args, **unwrapped_kwargs)
+        return array_function_fallback(func, args, kwargs, MVTSeries)
 
     # -- arithmetic dunders ------------------------------------------------
     # ndarray operands hit __array_ufunc__ via ndarray's __add__/etc. For

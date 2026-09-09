@@ -41,6 +41,7 @@ from typing import Any, ClassVar, Final, Union
 import numpy as np
 import numpy.typing as npt
 
+from tsecon._array_protocols import array_function_fallback, supported_array_types
 from tsecon._selection import date_slice
 from tsecon.frequencies import Frequency, Unit, prettyprint_frequency
 from tsecon.linalg import _matmul_strip
@@ -673,15 +674,12 @@ class TSeries:
         args: tuple[Any, ...],
         kwargs: dict[str, Any],
     ) -> Any:
+        if not supported_array_types(types, TSeries) or kwargs.get("out") is not None:
+            return NotImplemented
         handler = _ARRAY_FUNCTION_HANDLERS.get(func)
         if handler is not None:
             return handler(*args, **kwargs)
-        # Fallback: unwrap TSeries → ndarray, call the function, return raw.
-        unwrapped_args = tuple(np.asarray(a) if isinstance(a, TSeries) else a for a in args)
-        unwrapped_kwargs = {
-            k: (np.asarray(v) if isinstance(v, TSeries) else v) for k, v in kwargs.items()
-        }
-        return func(*unwrapped_args, **unwrapped_kwargs)
+        return array_function_fallback(func, args, kwargs, TSeries)
 
     # -- arithmetic dunders ------------------------------------------------
     # NumPy dispatches arithmetic for ndarray operands through __array_ufunc__

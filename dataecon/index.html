@@ -991,6 +991,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Local Windows build">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#alternative-verified-upstream-binary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Alternative: verified upstream binary
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
     </ul>
@@ -1364,6 +1381,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Local Windows build">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#alternative-verified-upstream-binary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Alternative: verified upstream binary
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
     </ul>
@@ -1442,30 +1476,64 @@ and copying borrowed buffers. This does not synchronize a separate binding or
 Julia runtime embedded in the same process. Interchange verification runs Julia
 as a separate process.</p>
 <h2 id="local-windows-build">Local Windows build<a class="headerlink" href="#local-windows-build" title="Permanent link">&para;</a></h2>
-<p>Use CPython x86-64 and MSVC Build Tools. Install the project's build requirements
-(Cython, NumPy, setuptools, hatchling; <code>build</code> for the command below). Obtain the
+<p>Use CPython x86-64 and Visual Studio 2022 MSVC Build Tools with a Windows SDK.
+Install the project's build requirements (Cython, NumPy, setuptools, hatchling;
+<code>build</code> for the wheel command). The preferred route builds DataEcon and its bundled
+SQLite directly from pinned source using MSVC, matching the Cython toolchain.</p>
+<p>Download the <a href="https://codeload.github.com/bankofcanada/DataEcon/zip/1a108688a044380f808bebf64079e32dbb9cd1a4">pinned source ZIP</a>
+to <code>downloads/dataecon-source.zip</code>. Its SHA-256 is
+<code>d2b48df3a47d173c43354fe033438253bb46d878ae6c3824c6224fbd4e6a2d71</code>.
+The helper verifies this hash before extracting or compiling. Use a new output
+directory for each build; an existing one is never overwritten.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">python</span> <span class="n">scripts</span><span class="p">/</span><span class="n">build_dataecon_windows</span><span class="p">.</span><span class="n">py</span> <span class="n">downloads</span><span class="p">/</span><span class="n">dataecon-source</span><span class="p">.</span><span class="n">zip</span> <span class="p">-</span><span class="n">-output</span> <span class="n">build</span><span class="p">/</span><span class="n">dataecon-source</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nv">$env:TSECON_DATAECON_ROOT</span> <span class="p">=</span> <span class="p">(</span><span class="nb">Resolve-Path</span> <span class="n">build</span><span class="p">/</span><span class="n">dataecon-source</span><span class="p">).</span><span class="n">Path</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">python</span> <span class="n">-m</span> <span class="n">build</span> <span class="p">-</span><span class="n">-wheel</span> <span class="p">-</span><span class="n">-no-isolation</span>
+</code></pre></div>
+<p>The helper compiles the 13 DataEcon C files and bundled SQLite 3.50.2 amalgamation,
+links <code>bin/libdaec.dll</code>, and generates <code>lib/daec.lib</code>. This <strong>import library</strong> is
+the linker's description of the DLL's exported functions. It exports the 41 public
+functions declared in <code>daec.h</code>, copies that header and notices, and writes
+<code>build-info.json</code> with source/output hashes, compiler/SDK details and build flags.
+That manifest is included with the DLL in the configured wheel.</p>
+<p>One guarded portability adjustment is applied only to the extracted source:
+<code>static const uint32_t EPOCH_s = 82;</code> becomes <code>#define EPOCH_s UINT32_C(82)</code>.
+MSVC requires a constant expression in the dependent file-scope initializers;
+the unsigned value, formulas and public ABI are unchanged. The compiler uses
+C11 mode and its standard <code>/MD</code> shared C runtime. The native DLL therefore uses
+the Microsoft C runtime, as does the Cython extension; dependency auditing and
+installed-wheel checks remain required for each supported platform target.</p>
+<p>The build steps are repeatable from pinned inputs and record the selected toolchain.
+This is not yet a bit-for-bit reproducible build: linker timestamps are not
+normalized, and repeated builds can have different binary hashes even with the
+same compiler/SDK. Each manifest identifies its actual output binaries.
+Upstream narrowing-conversion warnings are left visible; the adapter's existing
+date/payload guards and limited supported scope still apply. No native source
+algorithm, file-format, type support or Windows path policy is expanded here.</p>
+<h3 id="alternative-verified-upstream-binary">Alternative: verified upstream binary<a class="headerlink" href="#alternative-verified-upstream-binary" title="Permanent link">&para;</a></h3>
+<p>For comparison or a local fallback, obtain the
 <strong>DataEcon_jll 0.4.0+0 Windows x86-64 artifact</strong> from its
 <a href="https://github.com/JuliaBinaryWrappers/DataEcon_jll.jl/releases/tag/DataEcon-v0.4.0%2B0">release</a>.
 The archive <code>DataEcon.v0.4.0.x86_64-w64-mingw32.tar.gz</code> has SHA-256
 <code>c4d965008d46ab204fa35bbaee3238f3a15393850f0993e1d3cda52dba9af465</code>.
 Verify it and extract it to a local directory. An already installed matching
 Julia artifact can also supply these build inputs.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">python</span> <span class="n">scripts</span><span class="p">/</span><span class="n">prepare_dataecon_windows</span><span class="p">.</span><span class="n">py</span> <span class="p">&lt;</span><span class="n">extracted-artifact-directory</span><span class="p">&gt;</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nv">$env:TSECON_DATAECON_ROOT</span> <span class="p">=</span> <span class="p">(</span><span class="nb">Resolve-Path</span> <span class="n">build</span><span class="p">/</span><span class="n">dataecon</span><span class="p">).</span><span class="n">Path</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">python</span> <span class="n">-m</span> <span class="n">build</span> <span class="p">-</span><span class="n">-wheel</span> <span class="p">-</span><span class="n">-no-isolation</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">python</span> <span class="n">scripts</span><span class="p">/</span><span class="n">prepare_dataecon_windows</span><span class="p">.</span><span class="n">py</span> <span class="p">&lt;</span><span class="n">extracted-artifact-directory</span><span class="p">&gt;</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="nv">$env:TSECON_DATAECON_ROOT</span> <span class="p">=</span> <span class="p">(</span><span class="nb">Resolve-Path</span> <span class="n">build</span><span class="p">/</span><span class="n">dataecon</span><span class="p">).</span><span class="n">Path</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">python</span> <span class="n">-m</span> <span class="n">build</span> <span class="p">-</span><span class="n">-wheel</span> <span class="p">-</span><span class="n">-no-isolation</span>
 </code></pre></div>
 <p>The preparation script checks the header and DLL hashes and generates an MSVC
 <strong>import library</strong>, the linker's description of the DLL's exported functions.
 The build hook compiles the extension against the actual header and bundles the
 DLL in the wheel. It does not download anything during build or runtime. The
 default build without <code>TSECON_DATAECON_ROOT</code> omits DataEcon native support.
-Source distributions include this preparation script and the adapter sources;
+Source distributions include both native build helpers and the adapter sources;
 the external native inputs/build tools are still required to enable the feature.</p>
 <p>Install the resulting <code>.whl</code> in a fresh environment and test outside the checkout.
 For a wheel containing this native support, users need neither a compiler nor a
 separate DataEcon/Julia installation. A <strong>wheel</strong> is the installable built package;
 GitHub Actions runs build/test jobs, and publishing is a separate operation.
-All-platform native source builds and bundled CI wheels remain future work.</p>
+Windows source builds are verified locally. Linux/macOS native source builds and
+DataEcon-enabled CI wheels remain future work.</p>
 <p>The bundled native library uses the BSD-3-Clause DataEcon license and public-domain
 SQLite; notices ship beside the adapter. Cython code uses the package's MIT license.</p>
 

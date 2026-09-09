@@ -10,31 +10,31 @@
       
       
       
-        <link rel="canonical" href="https://Nic2020.github.io/TimeSeriesEconPy/design/migration_from_julia/">
+        <link rel="canonical" href="https://Nic2020.github.io/TimeSeriesEconPy/dataecon/">
       
       
-        <link rel="prev" href="../serialization/">
+        <link rel="prev" href="../reference/io/">
       
       
-        <link rel="next" href="../../api_index/">
+        <link rel="next" href="../reference/mirror/">
       
       
         
       
       
-      <link rel="icon" href="../../assets/images/favicon.png">
+      <link rel="icon" href="../assets/images/favicon.png">
       <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
     
     
       
-        <title>Migration from Julia - TimeSeriesEconPy</title>
+        <title>DataEcon (limited native support) - TimeSeriesEconPy</title>
       
     
     
-      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
       
         
-        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
       
       
 
@@ -53,13 +53,13 @@
       
     
     
-      <link rel="stylesheet" href="../../assets/_markdown_exec_pyodide.css">
+      <link rel="stylesheet" href="../assets/_markdown_exec_pyodide.css">
     
-      <link rel="stylesheet" href="../../assets/_markdown_exec_ansi.css">
+      <link rel="stylesheet" href="../assets/_markdown_exec_ansi.css">
     
-      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
+      <link rel="stylesheet" href="../assets/_mkdocstrings.css">
     
-    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
 
@@ -84,7 +84,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#migration-from-julia" class="md-skip">
+        <a href="#dataecon-first-supported-series-slice" class="md-skip">
           Skip to content
         </a>
       
@@ -100,7 +100,7 @@
 
 <header class="md-header md-header--shadow" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
-    <a href="../.." title="TimeSeriesEconPy" class="md-header__button md-logo" aria-label="TimeSeriesEconPy" data-md-component="logo">
+    <a href=".." title="TimeSeriesEconPy" class="md-header__button md-logo" aria-label="TimeSeriesEconPy" data-md-component="logo">
       
   
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
@@ -120,7 +120,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Migration from Julia
+              DataEcon (limited native support)
             
           </span>
         </div>
@@ -238,7 +238,7 @@
 
 <nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href="../.." title="TimeSeriesEconPy" class="md-nav__button md-logo" aria-label="TimeSeriesEconPy" data-md-component="logo">
+    <a href=".." title="TimeSeriesEconPy" class="md-nav__button md-logo" aria-label="TimeSeriesEconPy" data-md-component="logo">
       
   
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
@@ -268,7 +268,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../.." class="md-nav__link">
+      <a href=".." class="md-nav__link">
         
   
   
@@ -347,7 +347,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../tutorials/1_timeseriesecon/" class="md-nav__link">
+      <a href="../tutorials/1_timeseriesecon/" class="md-nav__link">
         
   
   
@@ -355,597 +355,6 @@
     
   
     1. TimeSeriesEcon
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
-    
-    
-    
-    
-      
-        
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
-        
-          
-          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
-            
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Reference
-  
-
-    
-  </span>
-  
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    Reference
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../reference/frequencies/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Frequencies
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../reference/mit/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    MIT & MITRange
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../reference/tseries/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    TSeries
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../reference/mvtseries/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    MVTSeries
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../reference/workspace/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Workspace
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../reference/math/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Math (shift, diff, moving, undiff)
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../reference/stats/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Statistics (mean, std, cor)
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../reference/indexing/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Indexing (lookup)
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../reference/fconvert/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Frequency conversion (fconvert)
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../reference/recursive/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Recursive (rec, rec_linear)
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../reference/linalg/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Linear algebra (@ matrix multiply)
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../reference/various/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Misc helpers (overlay, compare, reindex)
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../reference/x13/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    X-13ARIMA-SEATS (x13)
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../reference/options/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Options
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../reference/plotting/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Plotting
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../reference/interop/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Interop (pandas, polars)
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../reference/io/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    JSON I/O
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../dataecon/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    DataEcon (limited native support)
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../reference/mirror/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Mirror metadata
   
 
     
@@ -988,17 +397,17 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
         
           
-          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
             
   
   
   <span class="md-ellipsis">
     
   
-    Design notes
+    Reference
   
 
     
@@ -1009,12 +418,12 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
-          <label class="md-nav__title" for="__nav_4">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3">
             <span class="md-nav__icon md-icon"></span>
             
   
-    Design notes
+    Reference
   
 
           </label>
@@ -1027,14 +436,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../decisions/" class="md-nav__link">
+      <a href="../reference/frequencies/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Overview
+    Frequencies
   
 
     
@@ -1055,14 +464,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../frequency_model/" class="md-nav__link">
+      <a href="../reference/mit/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Frequency model
+    MIT & MITRange
   
 
     
@@ -1083,14 +492,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../tseries_protocols/" class="md-nav__link">
+      <a href="../reference/tseries/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    TSeries protocols
+    TSeries
   
 
     
@@ -1111,14 +520,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../cython_strategy/" class="md-nav__link">
+      <a href="../reference/mvtseries/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Cython strategy
+    MVTSeries
   
 
     
@@ -1139,14 +548,350 @@
   
   
     <li class="md-nav__item">
-      <a href="../serialization/" class="md-nav__link">
+      <a href="../reference/workspace/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    JSON serialization
+    Workspace
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/math/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Math (shift, diff, moving, undiff)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/stats/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Statistics (mean, std, cor)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/indexing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Indexing (lookup)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/fconvert/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Frequency conversion (fconvert)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/recursive/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Recursive (rec, rec_linear)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/linalg/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Linear algebra (@ matrix multiply)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/various/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Misc helpers (overlay, compare, reindex)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/x13/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    X-13ARIMA-SEATS (x13)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/options/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Options
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/plotting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plotting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/interop/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Interop (pandas, polars)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/io/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    JSON I/O
   
 
     
@@ -1183,7 +928,7 @@
   <span class="md-ellipsis">
     
   
-    Migration from Julia
+    DataEcon (limited native support)
   
 
     
@@ -1201,7 +946,7 @@
   <span class="md-ellipsis">
     
   
-    Migration from Julia
+    DataEcon (limited native support)
   
 
     
@@ -1227,10 +972,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#semantics-that-are-identical" class="md-nav__link">
+  <a href="#closing-and-errors" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Semantics that are identical
+        Closing and errors
       
     </span>
   </a>
@@ -1238,10 +983,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#semantics-that-subtly-differ" class="md-nav__link">
+  <a href="#local-windows-build" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Semantics that subtly differ
+        Local Windows build
       
     </span>
   </a>
@@ -1252,6 +997,261 @@
   
 </nav>
       
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/mirror/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Mirror metadata
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Design notes
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Design notes
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../design/decisions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../design/frequency_model/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Frequency model
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../design/tseries_protocols/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    TSeries protocols
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../design/cython_strategy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cython strategy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../design/serialization/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    JSON serialization
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../design/migration_from_julia/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Migration from Julia
+  
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -1271,7 +1271,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../api_index/" class="md-nav__link">
+      <a href="../api_index/" class="md-nav__link">
         
   
   
@@ -1298,7 +1298,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../faq/" class="md-nav__link">
+      <a href="../faq/" class="md-nav__link">
         
   
   
@@ -1345,10 +1345,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#semantics-that-are-identical" class="md-nav__link">
+  <a href="#closing-and-errors" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Semantics that are identical
+        Closing and errors
       
     </span>
   </a>
@@ -1356,10 +1356,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#semantics-that-subtly-differ" class="md-nav__link">
+  <a href="#local-windows-build" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Semantics that subtly differ
+        Local Windows build
       
     </span>
   </a>
@@ -1386,281 +1386,88 @@
   
 
 
-<h1 id="migration-from-julia">Migration from Julia<a class="headerlink" href="#migration-from-julia" title="Permanent link">&para;</a></h1>
-<div class="admonition info">
-<p class="admonition-title">Work in progress</p>
-<p>This page is a stub. An exhaustive idiom table will be folded in here
-once the tutorial port has settled.</p>
-</div>
-<p>A reader coming from
-<a href="https://github.com/bankofcanada/TimeSeriesEcon.jl"><code>TimeSeriesEcon.jl</code></a> will
-recognise every concept in <code>tsecon</code>. The list below catalogues the <em>visible</em>
-differences — what the spellings, not the semantics, look like.</p>
-<table>
-<thead>
-<tr>
-<th>Concept</th>
-<th>Julia</th>
-<th>Python (<code>tsecon</code>)</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Quarterly literal</td>
-<td><code>2020Q1</code></td>
-<td><code>qq(2020, 1)</code></td>
-</tr>
-<tr>
-<td>Monthly literal</td>
-<td><code>2020M3</code></td>
-<td><code>mm(2020, 3)</code></td>
-</tr>
-<tr>
-<td>Yearly literal</td>
-<td><code>2020Y</code></td>
-<td><code>yy(2020)</code></td>
-</tr>
-<tr>
-<td>Inclusive range</td>
-<td><code>2020Q1:2021Q4</code></td>
-<td><code>MITRange(qq(2020, 1), qq(2021, 4))</code></td>
-</tr>
-<tr>
-<td>Frequency-of</td>
-<td><code>frequencyof(t)</code></td>
-<td><code>frequency_of(t)</code></td>
-</tr>
-<tr>
-<td>In-place op</td>
-<td><code>lag!(x)</code> / <code>lead!(x)</code></td>
-<td><code>lag_inplace(x)</code> / <code>lead_inplace(x)</code></td>
-</tr>
-<tr>
-<td>Whole-object arithmetic</td>
-<td><code>x + y</code> vs <code>x .+ y</code></td>
-<td><code>x + y</code> (one spelling — always element-wise)</td>
-</tr>
-<tr>
-<td>Dot-broadcast</td>
-<td><code>log.(x)</code></td>
-<td><code>np.log(x)</code></td>
-</tr>
-<tr>
-<td>Macro recurrence</td>
-<td><code>@rec</code> / <code>@rec(rng, expr)</code></td>
-<td><code>tsecon.rec(rng, target, fn)</code></td>
-</tr>
-<tr>
-<td>Linear recurrence</td>
-<td><code>@rec</code>-via-AR(p) idiom</td>
-<td><code>tsecon.rec_linear(target, coeffs, lags, rng)</code></td>
-</tr>
-<tr>
-<td>Workspace deletion</td>
-<td><code>delete!(w, :start)</code></td>
-<td><code>del w.start</code></td>
-</tr>
-<tr>
-<td>Range step</td>
-<td><code>2000M1:2:2000M8</code></td>
-<td><code>MITRange(mm(2000, 1), mm(2000, 8), step=2)</code></td>
-</tr>
-<tr>
-<td>Reversed range (backcast)</td>
-<td><code>10U:-1:1U</code></td>
-<td><code>MITRange(MIT(Unit(),10), MIT(Unit(),1), step=-1)</code></td>
-</tr>
-<tr>
-<td>Last element</td>
-<td><code>x[end]</code></td>
-<td><code>x[x.lastdate]</code></td>
-</tr>
-<tr>
-<td><code>overlay</code> (TSeries first-non-NaN wins)</td>
-<td><code>overlay(x1, x2, x3)</code></td>
-<td><code>overlay(x1, x2, x3)</code></td>
-</tr>
-<tr>
-<td><code>overlay</code> (forced range)</td>
-<td><code>overlay(2020Q1:2020Q4, x1, x2)</code></td>
-<td><code>overlay(x1, x2, rng=MITRange(qq(2020,1), qq(2020,4)))</code></td>
-</tr>
-<tr>
-<td><code>compare</code> / <code>@compare</code></td>
-<td><code>@compare(v1, v2, atol=1e-5)</code></td>
-<td><code>compare(v1, v2, atol=1e-5)</code> (returns <code>CompareResult</code>)</td>
-</tr>
-<tr>
-<td><code>reindex</code> (label shift)</td>
-<td><code>reindex(t, 2021Q1 =&gt; 1U)</code></td>
-<td><code>reindex(t, (qq(2021, 1), MIT(Unit(), 1)))</code></td>
-</tr>
-<tr>
-<td><code>rangeof</code> with <code>drop=</code></td>
-<td><code>rangeof(t, drop=1)</code></td>
-<td><code>rangeof(t, drop=1)</code></td>
-</tr>
-<tr>
-<td><code>rangeof(workspace; method=)</code></td>
-<td><code>rangeof(w, method=union)</code></td>
-<td><code>rangeof(w, method="union")</code></td>
-</tr>
-<tr>
-<td><code>TSeries(rng, ini::Function)</code></td>
-<td><code>TSeries(rng, zeros)</code> / <code>TSeries(rng, rand)</code></td>
-<td><code>TSeries(rng, np.zeros)</code> / <code>TSeries(rng, rng_np.random)</code></td>
-</tr>
-<tr>
-<td><code>mean(mvts; dims=1)</code> (per-column)</td>
-<td><code>mean(mvts; dims=1)</code></td>
-<td><code>mean(mvts, axis=0)</code> (NumPy convention)</td>
-</tr>
-<tr>
-<td><code>mean(mvts; dims=2)</code> (per-row)</td>
-<td><code>mean(mvts; dims=2)</code></td>
-<td><code>mean(mvts, axis=1)</code></td>
-</tr>
-<tr>
-<td>Matrix product (coefficient-matrix × series)</td>
-<td><code>A * t</code></td>
-<td><code>A @ t</code> (PEP 465; returns <code>ndarray</code>)</td>
-</tr>
-<tr>
-<td>TSeries-of-vectors dot</td>
-<td><code>_vals(t1) * _vals(t2)</code> (raises in Julia)</td>
-<td><code>t1 @ t2</code> (inner product scalar)</td>
-</tr>
-<tr>
-<td>Transpose / adjoint</td>
-<td><code>transpose(t)</code> / <code>adjoint(mvts)</code></td>
-<td><em>not ported</em> — use <code>np.asarray(x).T</code></td>
-</tr>
-<tr>
-<td>In-place copy Workspace → MVTSeries</td>
-<td><code>copyto!(mvts, w; verbose=, trange=)</code></td>
-<td><code>tsecon.copyto(mvts, w, *, verbose=, trange=)</code></td>
-</tr>
-<tr>
-<td><code>@weval</code> macro (Workspace-scoped eval)</td>
-<td><code>@weval w b + a</code></td>
-<td><code>w.b + w.a</code> <em>(preferred)</em> or <code>with w.as_namespace() as ns: ns.b + ns.a</code></td>
-</tr>
-</tbody>
-</table>
-<h2 id="semantics-that-are-identical">Semantics that are identical<a class="headerlink" href="#semantics-that-are-identical" title="Permanent link">&para;</a></h2>
-<ul>
-<li>MIT intersection on element-wise ops (<code>x + y</code>).</li>
-<li>Resize-on-assign when an out-of-range MIT key is written to.</li>
-<li>Frequency-mismatch raises on arithmetic between mismatched-frequency series.</li>
-<li><code>fconvert(t, target_freq, method=…)</code> round-trip behaviour (mean / sum / first /
-  last / min / max).</li>
-</ul>
-<h2 id="semantics-that-subtly-differ">Semantics that subtly differ<a class="headerlink" href="#semantics-that-subtly-differ" title="Permanent link">&para;</a></h2>
-<ul>
-<li><strong><code>MIT == int</code> is <code>False</code>.</strong> Use <code>int(mit)</code> to extract the underlying offset.</li>
-<li><strong>Default container fill is NaN, not uninitialised.</strong> <code>TSeries(rng)</code> is filled
-  with NaN; Julia's <code>TSeries(rng)</code> leaves the buffer at whatever was on the heap.</li>
-<li><strong><code>copy=False</code> is the default constructor mode</strong>, matching xarray and matching
-  the Julia upstream's pass-the-array-by-reference behaviour. Reach for
-  <code>copy=True</code> (or <code>.copy()</code>) for an alias break.</li>
-<li><strong>Recurrences split into two entry points.</strong> Julia's <code>@rec</code> is a single
-  parse-time macro that accepts any RHS expression. Python lacks parse-time
-  macros, so <code>tsecon</code> ships two entry points: <code>rec(rng, target, fn)</code> for the
-  general higher-order form (any nonlinear / multi-series body, expressed as
-  a <code>lambda</code>), and <code>rec_linear(target, coeffs, lags, rng)</code> for the closed-form
-  pure-linear-AR(p) narrowing (<code>target[t] = Σ_k coeffs[k] * target[t - lags[k]]</code>,
-  no constant term, no exogenous reads). The narrowing is what enables the
-  Cython-backed kernel path; for <code>target[t] = target[t-1] + c</code> reach for
-  <code>undiff</code> instead, for <code>target[t] = β·target[t-1] + γ·y[t]</code> reach for the
-  general <code>rec</code>.</li>
-<li><strong><code>compare</code> returns a <code>CompareResult</code>, not a <code>Bool</code>.</strong> Julia's
-  <code>compare(v1, v2)</code> prints to stdout and returns <code>Bool</code>; the Python form
-  returns a structured <code>CompareResult(equal, differences)</code> that is truthy
-  on equality, whose <code>__str__</code> reproduces the printed diff, and whose
-  <code>.differences</code> exposes one entry per leaf for callers that want to
-  introspect rather than re-parse stdout. The classic <code>if compare(v1, v2):
-  ...</code> one-liner still works; <code>quiet=True</code> suppresses the stdout side
-  effect when only the structured result is needed (e.g. inside a test
-  runner). Julia's <code>@compare</code> macro folds into the same <code>compare</code>
-  function: it existed only to capture variable names for the printed
-  diff, which Python users can supply directly via <code>left=</code> / <code>right=</code>.</li>
-<li><strong><code>reindex</code> takes a 2-tuple, not a <code>Pair</code>.</strong> Julia's <code>Pair{&lt;:MIT,&lt;:MIT}</code>
-  becomes a Python <code>(old_mit, new_mit)</code> 2-tuple. Dispatch over MIT /
-  MITRange / TSeries / MVTSeries / Workspace is identical; the <code>copy=</code>
-  kwarg is the same (default <code>False</code>, wrap-by-default).</li>
-<li><strong><code>Statistics.*</code> axis kwarg is <code>axis=</code>, not <code>dims=</code>.</strong> Julia's
-  <code>mean(mvts; dims=1)</code> reduces along rows (per-column); Python uses NumPy's
-  <code>axis=0</code> for the same operation. <code>dims=2</code> (per-row, Julia) maps to
-  <code>axis=1</code> (per-row, Python). <code>axis=None</code> (default) reduces flat to a
-  scalar — the existing behaviour. Returns: <code>axis=0</code> → single-row
-  MVTSeries (column names preserved); <code>axis=1</code> → 1-D TSeries indexed by
-  the input range. The convention switch is the same "Python idiom wins
-  for kwargs that are language-conventional" rule used elsewhere in this
-  table; the underlying behaviour matches Julia.</li>
-<li><strong>Matrix multiply uses <code>@</code>, not <code>*</code>.</strong> Julia's <code>linalg.jl</code> overloads <code>*</code>
-  for matrix-times-TSeries / -MVTSeries; the Python port uses PEP 465's
-  <code>@</code> instead, leaving element-wise <code>*</code> to mean element-wise (which is
-  how NumPy / pandas / xarray spell it). Both behave like Julia
-  <em>otherwise</em>: the result is a plain <code>numpy.ndarray</code> with frequency /
-  range / column-name labels stripped (Julia's overloads forward to
-  <code>*(_vals(A), _vals(B))</code> and return a bare <code>Vector</code> / <code>Matrix</code>; the
-  test <code>x * x3 == _vals(x) * _vals(x3)</code> upstream documents the same).
-  <code>transpose</code> / <code>adjoint</code> are not ported — neither has clean semantics
-  on a TSeries / MVTSeries whose row axis is time. See
-  <a href="../../reference/linalg/"><code>reference/linalg.md</code></a>. One related divergence
-  worth flagging: in Julia, <code>Vector * Vector</code> raises a <code>MethodError</code>,
-  so <code>_vals(t1) * _vals(t2)</code> doesn't actually work even though the
-  overload is defined; in Python, <code>t1 @ t2</code> returns the inner product
-  (NumPy 1-D matmul semantics) — the Python form is <em>more</em> useful, not
-  less.</li>
-<li><strong><code>copyto</code> is a free function, not a method or a <code>!</code>-suffixed mutator.</strong>
-  Julia spells the in-place materialiser <code>Base.copyto!(mvts, w; verbose=,
-  trange=)</code> — the <code>!</code> suffix is the Julia convention for an in-place
-  mutator. Python has no syntactic mutation marker; <code>tsecon</code> exports
-  <code>copyto(dst: MVTSeries, src: Workspace, *, verbose=False, trange=None)</code>
-  as a free function, mirroring NumPy's <code>np.copyto(dst, src)</code> signature
-  and convention. The function is still in-place — <code>id(dst._values)</code> is
-  preserved across the call — and returns <code>dst</code> for chaining. The
-  per-column write goes through the destination's existing <code>__setitem__</code>
-  with frequency / contained-range checks; a non-<code>TSeries</code> value at a
-  matching key raises <code>TypeError</code> (matching Julia's behaviour, which
-  would error inside the inner <code>copyto!</code>). <code>verbose=True</code> emits a single
-  <code>UserWarning</code> at the end of the loop with all missing-from-workspace
-  column names joined, matching Julia's end-of-loop <code>@warn</code>.</li>
-<li><strong><code>set_holidays_map(country, subdivision)</code> delegates to <code>python-holidays</code>.</strong>
-  The Julia upstream ships bundled CSVs (<code>TimeSeriesEcon.jl/src/holidays/</code>)
-  and reads them on first call. Python delegates to the
-  <a href="https://pypi.org/project/holidays/"><code>python-holidays</code></a> PyPI package
-  as the single source of truth — install the optional extra with
-  <code>pip install "TimeSeriesEconPy[holidays]"</code>. Country / subdivision
-  codes follow ISO 3166 conventions rather than the Julia CSVs'
-  space-separated forms; a small number of names diverge (e.g. Julia's
-  <code>"Yukon Territory"</code> is <code>"YT"</code> in Python). Use <code>get_holidays_options()</code>
-  and <code>get_holidays_options("CA")</code> to discover the supported codes. The
-  map's default range (<code>bdaily("1970-01-01")</code> to <code>bdaily("2049-12-31")</code>)
-  is identical.</li>
-<li><strong><code>@weval</code> becomes plain attribute access (or a snapshot context manager).</strong>
-  Julia's <code>@weval(w, EXPR)</code> macro rewrites <code>EXPR</code> so bare identifiers
-  resolve against <code>w</code>'s namespace; Python has no AST-rewriting macros.
-  The Pythonic spellings are direct attribute access (<code>w.b + w.a</code>, the
-  default — almost always sufficient) or, when several unprefixed reads
-  cluster, the snapshot context manager <code>Workspace.as_namespace()</code>:</li>
-</ul>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">with</span> <span class="n">w</span><span class="o">.</span><span class="n">as_namespace</span><span class="p">()</span> <span class="k">as</span> <span class="n">ns</span><span class="p">:</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">w</span><span class="o">.</span><span class="n">b1</span> <span class="o">=</span> <span class="n">ns</span><span class="o">.</span><span class="n">b</span> <span class="o">+</span> <span class="n">ns</span><span class="o">.</span><span class="n">a</span>       <span class="c1"># ports Julia&#39;s `w.b1 = @weval w b + a`</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">w</span><span class="o">.</span><span class="n">alpha</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">pi</span><span class="p">)</span> <span class="o">+</span> <span class="n">ns</span><span class="o">.</span><span class="n">a</span> <span class="o">-</span> <span class="n">ns</span><span class="o">.</span><span class="n">a</span>
+<h1 id="dataecon-first-supported-series-slice">DataEcon: first supported series slice<a class="headerlink" href="#dataecon-first-supported-series-slice" title="Permanent link">&para;</a></h1>
+<p><code>tsecon.dataecon</code> reads and writes <strong>nonempty monthly float64 TSeries</strong> through
+the DataEcon 0.4.0 C library. This is a limited integration: scalars, other
+frequencies/dtypes, empty series, catalogs, workspaces and general attributes
+are not supported yet. Existing JSON I/O is unchanged.</p>
+<p>Native DataEcon support currently requires a configured local Windows x86-64
+build. Ordinary CI wheels do not enable it yet. The integration uses a thin
+Cython extension; CFFI and Julia are not runtime dependencies. Only the native
+parts are compiled: the Python file API and conversion code remain Python.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">tsecon</span><span class="w"> </span><span class="kn">import</span> <span class="n">TSeries</span><span class="p">,</span> <span class="n">mm</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">tsecon.dataecon</span><span class="w"> </span><span class="kn">import</span> <span class="n">open_dataecon</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">series</span> <span class="o">=</span> <span class="n">TSeries</span><span class="p">(</span><span class="n">mm</span><span class="p">(</span><span class="mi">2024</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">1.25</span><span class="p">,</span> <span class="o">-</span><span class="mf">2.5</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">4.75</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">))</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="c1"># Use a new file/name: &quot;a&quot; appends without overwriting existing objects.</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="k">with</span> <span class="n">open_dataecon</span><span class="p">(</span><span class="s2">&quot;example.daec&quot;</span><span class="p">,</span> <span class="s2">&quot;a&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">db</span><span class="p">:</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="n">db</span><span class="o">.</span><span class="n">write_series</span><span class="p">(</span><span class="s2">&quot;sample&quot;</span><span class="p">,</span> <span class="n">series</span><span class="p">)</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="k">with</span> <span class="n">open_dataecon</span><span class="p">(</span><span class="s2">&quot;example.daec&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">db</span><span class="p">:</span>  <span class="c1"># read-only by default</span>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>    <span class="n">restored</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">read_series</span><span class="p">(</span><span class="s2">&quot;sample&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="k">assert</span> <span class="n">restored</span><span class="o">.</span><span class="n">firstdate</span> <span class="o">==</span> <span class="n">mm</span><span class="p">(</span><span class="mi">2024</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="k">assert</span> <span class="n">restored</span><span class="o">.</span><span class="n">lastdate</span> <span class="o">==</span> <span class="n">mm</span><span class="p">(</span><span class="mi">2024</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span>
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="n">np</span><span class="o">.</span><span class="n">testing</span><span class="o">.</span><span class="n">assert_array_equal</span><span class="p">(</span><span class="n">restored</span><span class="o">.</span><span class="n">values</span><span class="p">,</span> <span class="n">series</span><span class="o">.</span><span class="n">values</span><span class="p">)</span>
 </code></pre></div>
-<p>The namespace is a <code>types.SimpleNamespace</code> snapshot taken at
-  <code>__enter__</code>: mutations to <code>w</code> after entry are invisible, and mutating
-  the namespace does not write back to <code>w</code>. Use <code>w.x = ...</code> directly
-  for writes. Values are held by reference, so mutating a contained
-  TSeries / MVTSeries through the namespace still mutates the same
-  object inside <code>w</code>. Non-identifier keys (e.g. <code>"1x"</code>) are silently
-  omitted from the snapshot — keep using <code>w["..."]</code> for those. No
-  <code>eval</code>-based form is provided: deferring identifier resolution to
-  runtime <code>eval</code> of arbitrary expression strings would break static
-  tooling (mypy, IDE refactors, "find references") and is a security
-  footgun on workspaces loaded from untrusted sources.</p>
+<p>Reads return owning TSeries arrays that remain usable after closing the file.
+Writes copy the input, including strided arrays and column views. NaNs are
+preserved as floating-point missing values. Names must be nonempty root names
+without <code>/</code> or NUL; Unicode object names are supported. <strong>Windows file paths must
+be ASCII</strong>: the pinned native library's narrow <code>fopen</code> existence check does not
+reliably recognize UTF-8 paths when reopening files. The adapter rejects such
+paths before opening or creating anything.</p>
+<p>The payload limit is 128 MiB per series. Dates must fit the native encoding;
+extreme boundary years can also be rejected before native date arithmetic.
+Only little-endian hosts are currently supported. Julia <code>jtype</code>/<code>jeltype</code>
+reconstruction attributes are rejected, never evaluated. Custom attributes are
+outside this API's interchange contract.</p>
+<h2 id="closing-and-errors">Closing and errors<a class="headerlink" href="#closing-and-errors" title="Permanent link">&para;</a></h2>
+<p>Use a context manager or call <code>close()</code> explicitly. Successful close is
+idempotent. Missing objects and duplicate names raise <code>DataEconError</code>, which
+retains <code>code</code>, <code>operation</code>, <code>path</code>, <code>name</code> and <code>native_message</code>. Positive native
+codes come from SQLite. Invalid or unsupported Python inputs raise
+<code>TypeError</code>/<code>ValueError</code>; writes through an explicitly read-only owner are rejected
+before calling C. No truncation or replacement mode is provided.</p>
+<p>A native write failure may leave a partial object or unused axis; the adapter
+does not promise rollback or delete the file. A failed native close makes the
+owner unusable and is not retried: upstream statement-finalization retry safety
+is not guaranteed. Native resources may remain until process exit in that case.
+If a context body also raised, that original exception is preserved and the
+cleanup failure is attached as an exception note. Garbage-collection cleanup is
+best effort, not a substitute for explicit close.</p>
+<p>All native calls through this extension share a lock, including error capture
+and copying borrowed buffers. This does not synchronize a separate binding or
+Julia runtime embedded in the same process. Interchange verification runs Julia
+as a separate process.</p>
+<h2 id="local-windows-build">Local Windows build<a class="headerlink" href="#local-windows-build" title="Permanent link">&para;</a></h2>
+<p>Use CPython x86-64 and MSVC Build Tools. Install the project's build requirements
+(Cython, NumPy, setuptools, hatchling; <code>build</code> for the command below). Obtain the
+<strong>DataEcon_jll 0.4.0+0 Windows x86-64 artifact</strong> from its
+<a href="https://github.com/JuliaBinaryWrappers/DataEcon_jll.jl/releases/tag/DataEcon-v0.4.0%2B0">release</a>.
+The archive <code>DataEcon.v0.4.0.x86_64-w64-mingw32.tar.gz</code> has SHA-256
+<code>c4d965008d46ab204fa35bbaee3238f3a15393850f0993e1d3cda52dba9af465</code>.
+Verify it and extract it to a local directory. An already installed matching
+Julia artifact can also supply these build inputs.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">python</span> <span class="n">scripts</span><span class="p">/</span><span class="n">prepare_dataecon_windows</span><span class="p">.</span><span class="n">py</span> <span class="p">&lt;</span><span class="n">extracted-artifact-directory</span><span class="p">&gt;</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nv">$env:TSECON_DATAECON_ROOT</span> <span class="p">=</span> <span class="p">(</span><span class="nb">Resolve-Path</span> <span class="n">build</span><span class="p">/</span><span class="n">dataecon</span><span class="p">).</span><span class="n">Path</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">python</span> <span class="n">-m</span> <span class="n">build</span> <span class="p">-</span><span class="n">-wheel</span> <span class="p">-</span><span class="n">-no-isolation</span>
+</code></pre></div>
+<p>The preparation script checks the header and DLL hashes and generates an MSVC
+<strong>import library</strong>, the linker's description of the DLL's exported functions.
+The build hook compiles the extension against the actual header and bundles the
+DLL in the wheel. It does not download anything during build or runtime. The
+default build without <code>TSECON_DATAECON_ROOT</code> omits DataEcon native support.
+Source distributions include this preparation script and the adapter sources;
+the external native inputs/build tools are still required to enable the feature.</p>
+<p>Install the resulting <code>.whl</code> in a fresh environment and test outside the checkout.
+For a wheel containing this native support, users need neither a compiler nor a
+separate DataEcon/Julia installation. A <strong>wheel</strong> is the installable built package;
+GitHub Actions runs build/test jobs, and publishing is a separate operation.
+All-platform native source builds and bundled CI wheels remain future work.</p>
+<p>The bundled native library uses the BSD-3-Clause DataEcon license and public-domain
+SQLite; notices ship beside the adapter. Cython code uses the package's MIT license.</p>
 
 
 
@@ -1716,12 +1523,12 @@ differences — what the spellings, not the semantics, look like.</p>
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.tracking", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "content.code.copy", "content.code.annotate"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.instant", "navigation.tracking", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "content.code.copy", "content.code.annotate"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
       
-        <script src="../../assets/_markdown_exec_pyodide.js"></script>
+        <script src="../assets/_markdown_exec_pyodide.js"></script>
       
     
   </body>

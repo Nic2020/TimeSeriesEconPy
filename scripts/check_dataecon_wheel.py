@@ -153,6 +153,14 @@ def check(fixture: Path, output_dir: Path) -> None:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--fixture", type=Path, required=True)
-    parser.add_argument("--output-dir", type=Path, required=True)
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        default=os.environ.get(
+            "TSECON_DATAECON_OUTPUT_DIR",
+            Path(__file__).resolve().parents[1] / "build/dataecon-interchange",
+        ),
+        help="Defaults to TSECON_DATAECON_OUTPUT_DIR or the project build directory.",
+    )
     args = parser.parse_args()
     check(args.fixture, args.output_dir)

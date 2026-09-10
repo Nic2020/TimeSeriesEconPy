@@ -252,13 +252,14 @@ jobs:
             TSECON_REQUIRE_DATAECON=1
           CIBW_ENVIRONMENT_LINUX: >-
             TSECON_DATAECON_ROOT=/tmp/dataecon-native TSECON_REQUIRE_DATAECON=1
+            TSECON_DATAECON_OUTPUT_DIR="/host${{ github.workspace }}/build/dataecon-interchange"
           CIBW_ENVIRONMENT_MACOS: >-
             TSECON_DATAECON_ROOT="${{ github.workspace }}/build/dataecon-native"
             TSECON_REQUIRE_DATAECON=1 MACOSX_DEPLOYMENT_TARGET=11.0
           # Linux build runs inside the manylinux_2_28 container; gfortran is
           # installed via yum + the same make recipe runs there. The binary
-          # ends up at the mounted src/tsecon/x13/_binary path the host
-          # sees, so the rest of the wheel-build pipeline is platform-uniform.
+          # ends up in the container's project copy for wheel packaging.
+          # Interchange output uses /host above so Julia on the host can read it.
           CIBW_BEFORE_ALL_LINUX: |
             set -eu
             /opt/python/cp311-cp311/bin/python {project}/scripts/build_dataecon_unix.py {project}/downloads/dataecon-source.zip --output /tmp/dataecon-native
@@ -307,8 +308,7 @@ jobs:
             python -c "import tsecon; assert tsecon.rec_linear_is_cython(), 'rec_linear kernel missing'; assert tsecon.lookup_is_cython(), 'lookup kernel missing'; assert tsecon.stats_is_cython(), 'stats kernel missing'; assert tsecon.fconvert_is_cython(), 'fconvert kernel missing'" &&
             python -c "from tsecon.x13._result import _resolve_binary; assert _resolve_binary() is not None, 'x13as binary missing from installed wheel'; print('x13as binary at', _resolve_binary())" &&
             python "{project}/scripts/check_dataecon_wheel.py"
-            --fixture "{project}/tests/dataecon/fixtures/julia_monthly.daec"
-            --output-dir "{project}/build/dataecon-interchange" &&
+            --fixture "{project}/tests/dataecon/fixtures/julia_monthly.daec" &&
             pytest -x --benchmark-skip
             {project}/tests/test_recursive.py
             {project}/tests/test_indexing.py

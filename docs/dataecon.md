@@ -207,6 +207,12 @@ python scripts/check_dataecon_wheel.py --fixture tests/dataecon/fixtures/julia_m
 ```
 
 Use an absolute path to the script/fixture when running outside the checkout.
+Without `--output-dir`, the checker uses `TSECON_DATAECON_OUTPUT_DIR` when set,
+otherwise `build/dataecon-interchange` beside the project scripts directory.
+Linux CI sets that variable to the host workspace through cibuildwheel's `/host`
+mount. Its `/project` directory is a container copy, so files written there are
+not automatically available to the later Julia step on the host.
+
 The output is named for the CPython version tag (for example `cp311.daec`), and an existing
 output is not overwritten. CI builds and artifact checks do not publish to PyPI;
 publication remains a separate release workflow.

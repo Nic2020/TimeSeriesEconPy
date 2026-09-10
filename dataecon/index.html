@@ -1634,7 +1634,12 @@ environment's Python from outside the source package:</p>
 <a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="n">python</span> <span class="n">scripts</span><span class="p">/</span><span class="n">check_dataecon_wheel</span><span class="p">.</span><span class="n">py</span> <span class="p">-</span><span class="n">-fixture</span> <span class="n">tests</span><span class="p">/</span><span class="n">dataecon</span><span class="p">/</span><span class="n">fixtures</span><span class="p">/</span><span class="n">julia_monthly</span><span class="p">.</span><span class="n">daec</span> <span class="p">-</span><span class="n">-output-dir</span> <span class="n">build</span><span class="p">/</span><span class="n">interchange-output</span>
 </code></pre></div>
 <p>Use an absolute path to the script/fixture when running outside the checkout.
-The output is named for the CPython version tag (for example <code>cp311.daec</code>), and an existing
+Without <code>--output-dir</code>, the checker uses <code>TSECON_DATAECON_OUTPUT_DIR</code> when set,
+otherwise <code>build/dataecon-interchange</code> beside the project scripts directory.
+Linux CI sets that variable to the host workspace through cibuildwheel's <code>/host</code>
+mount. Its <code>/project</code> directory is a container copy, so files written there are
+not automatically available to the later Julia step on the host.</p>
+<p>The output is named for the CPython version tag (for example <code>cp311.daec</code>), and an existing
 output is not overwritten. CI builds and artifact checks do not publish to PyPI;
 publication remains a separate release workflow.</p>
 

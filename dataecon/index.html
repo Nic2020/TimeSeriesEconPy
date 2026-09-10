@@ -84,7 +84,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#dataecon-first-supported-series-slice" class="md-skip">
+        <a href="#dataecon-interchange" class="md-skip">
           Skip to content
         </a>
       
@@ -972,6 +972,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#quarterly-series-and-fiscal-anchors" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Quarterly series and fiscal anchors
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#empty-series" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1406,6 +1417,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#quarterly-series-and-fiscal-anchors" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Quarterly series and fiscal anchors
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#empty-series" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1508,15 +1530,15 @@
   
 
 
-<h1 id="dataecon-first-supported-series-slice">DataEcon: first supported series slice<a class="headerlink" href="#dataecon-first-supported-series-slice" title="Permanent link">&para;</a></h1>
-<p><code>tsecon.dataecon</code> reads and writes <strong>Float64 scalars and monthly float64 TSeries,
+<h1 id="dataecon-interchange">DataEcon interchange<a class="headerlink" href="#dataecon-interchange" title="Permanent link">&para;</a></h1>
+<p><code>tsecon.dataecon</code> reads and writes <strong>Float64 scalars and monthly/quarterly float64 TSeries,
 including empty series</strong>, through the DataEcon 0.4.0 C library. Other scalar types,
 frequencies/dtypes, catalogs, workspaces and general attributes
 are not supported yet. Existing JSON I/O is unchanged.</p>
 <p>Native DataEcon support is configured in the wheel workflow for CPython 3.11–3.13:
 Windows x86-64, Linux x86-64 and macOS arm64. Native wheel builds and Julia
-nonempty interchange checks have passed on all three platforms. Empty interchange
-and scalar interchange are included in the configured wheel checks. Successful CI builds
+monthly, empty and scalar interchange checks have passed on all three platforms.
+Quarterly interchange is included in the configured wheel checks. Successful CI builds
 are separate from a published release.
 The integration uses a thin
 Cython extension; CFFI and Julia are not runtime dependencies. Only the native
@@ -1548,19 +1570,44 @@ paths before opening or creating anything.</p>
 extreme boundary years can also be rejected before native date arithmetic.
 Only little-endian hosts are currently supported. Julia reconstruction attributes
 are never evaluated. <code>jtype</code> is rejected; <code>jeltype</code> is accepted only when its
-value is exactly <code>Float64</code> on an empty monthly float series. Custom attributes
+value is exactly <code>Float64</code> on an empty supported float series. Custom attributes
 are outside this API's interchange contract.</p>
+<h2 id="quarterly-series-and-fiscal-anchors">Quarterly series and fiscal anchors<a class="headerlink" href="#quarterly-series-and-fiscal-anchors" title="Permanent link">&para;</a></h2>
+<p>Quarterly series support all three canonical calendars. <code>end_month</code> is the
+ending month of the first quarter: 1 (January), 2 (February) or 3 (March,
+the default). The anchor remains part of the frequency when data is saved.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">tsecon</span><span class="w"> </span><span class="kn">import</span> <span class="n">MIT</span><span class="p">,</span> <span class="n">Quarterly</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">start</span> <span class="o">=</span> <span class="n">MIT</span><span class="o">.</span><span class="n">from_yp</span><span class="p">(</span><span class="n">Quarterly</span><span class="p">(</span><span class="n">end_month</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span> <span class="mi">2024</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="n">quarterly</span> <span class="o">=</span> <span class="n">TSeries</span><span class="p">(</span><span class="n">start</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">1.25</span><span class="p">,</span> <span class="o">-</span><span class="mf">2.5</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">4.75</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">))</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="k">with</span> <span class="n">open_dataecon</span><span class="p">(</span><span class="s2">&quot;quarterly-example.daec&quot;</span><span class="p">,</span> <span class="s2">&quot;a&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">db</span><span class="p">:</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>    <span class="n">db</span><span class="o">.</span><span class="n">write_series</span><span class="p">(</span><span class="s2">&quot;quarterly&quot;</span><span class="p">,</span> <span class="n">quarterly</span><span class="p">)</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="k">with</span> <span class="n">open_dataecon</span><span class="p">(</span><span class="s2">&quot;quarterly-example.daec&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">db</span><span class="p">:</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>    <span class="n">restored_quarterly</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">read_series</span><span class="p">(</span><span class="s2">&quot;quarterly&quot;</span><span class="p">)</span>
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="k">assert</span> <span class="n">restored_quarterly</span><span class="o">.</span><span class="n">frequency</span> <span class="o">==</span> <span class="n">Quarterly</span><span class="p">(</span><span class="n">end_month</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="k">assert</span> <span class="n">restored_quarterly</span><span class="o">.</span><span class="n">firstdate</span> <span class="o">==</span> <span class="n">start</span>
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="k">assert</span> <span class="n">restored_quarterly</span><span class="o">.</span><span class="n">lastdate</span> <span class="o">==</span> <span class="n">MIT</span><span class="o">.</span><span class="n">from_yp</span><span class="p">(</span><span class="n">Quarterly</span><span class="p">(</span><span class="n">end_month</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span> <span class="mi">2025</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="n">np</span><span class="o">.</span><span class="n">testing</span><span class="o">.</span><span class="n">assert_array_equal</span><span class="p">(</span><span class="n">restored_quarterly</span><span class="o">.</span><span class="n">values</span><span class="p">,</span> <span class="n">quarterly</span><span class="o">.</span><span class="n">values</span><span class="p">)</span>
+</code></pre></div>
+<p>Quarterly native date codes are <code>4 * year + period - 1</code>. The reliable range is
+<code>-131200</code> through <code>2147483647</code>, inclusive; both observation endpoints must fit.
+An empty series checks its stored first-date anchor, while its synthetic last
+date may lie below that limit. Invalid dates raise <code>ValueError</code> before storage.
+Integer date codes alone cannot distinguish fiscal anchors, so the adapter
+preserves the native frequency codes 65, 66 and 67 explicitly. Other encodings
+are rejected. Quarterly negative and zero years do not require conversion to
+Python <code>datetime.date</code>.</p>
 <h2 id="empty-series">Empty series<a class="headerlink" href="#empty-series" title="Permanent link">&para;</a></h2>
 <p>An empty series retains its first-date anchor and owns an empty float64 array:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">empty</span> <span class="o">=</span> <span class="n">TSeries</span><span class="p">(</span><span class="n">mm</span><span class="p">(</span><span class="mi">2024</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">))</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="k">with</span> <span class="n">open_dataecon</span><span class="p">(</span><span class="s2">&quot;empty-example.daec&quot;</span><span class="p">,</span> <span class="s2">&quot;a&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">db</span><span class="p">:</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>    <span class="n">db</span><span class="o">.</span><span class="n">write_series</span><span class="p">(</span><span class="s2">&quot;empty&quot;</span><span class="p">,</span> <span class="n">empty</span><span class="p">)</span>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="k">with</span> <span class="n">open_dataecon</span><span class="p">(</span><span class="s2">&quot;empty-example.daec&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">db</span><span class="p">:</span>
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>    <span class="n">restored_empty</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">read_series</span><span class="p">(</span><span class="s2">&quot;empty&quot;</span><span class="p">)</span>
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>
-<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="k">assert</span> <span class="n">restored_empty</span><span class="o">.</span><span class="n">firstdate</span> <span class="o">==</span> <span class="n">mm</span><span class="p">(</span><span class="mi">2024</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
-<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="k">assert</span> <span class="n">restored_empty</span><span class="o">.</span><span class="n">lastdate</span> <span class="o">==</span> <span class="n">mm</span><span class="p">(</span><span class="mi">2023</span><span class="p">,</span> <span class="mi">12</span><span class="p">)</span>
-<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="k">assert</span> <span class="n">restored_empty</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">shape</span> <span class="o">==</span> <span class="p">(</span><span class="mi">0</span><span class="p">,)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">empty</span> <span class="o">=</span> <span class="n">TSeries</span><span class="p">(</span><span class="n">mm</span><span class="p">(</span><span class="mi">2024</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">))</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="k">with</span> <span class="n">open_dataecon</span><span class="p">(</span><span class="s2">&quot;empty-example.daec&quot;</span><span class="p">,</span> <span class="s2">&quot;a&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">db</span><span class="p">:</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>    <span class="n">db</span><span class="o">.</span><span class="n">write_series</span><span class="p">(</span><span class="s2">&quot;empty&quot;</span><span class="p">,</span> <span class="n">empty</span><span class="p">)</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="k">with</span> <span class="n">open_dataecon</span><span class="p">(</span><span class="s2">&quot;empty-example.daec&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">db</span><span class="p">:</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>    <span class="n">restored_empty</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">read_series</span><span class="p">(</span><span class="s2">&quot;empty&quot;</span><span class="p">)</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="k">assert</span> <span class="n">restored_empty</span><span class="o">.</span><span class="n">firstdate</span> <span class="o">==</span> <span class="n">mm</span><span class="p">(</span><span class="mi">2024</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="k">assert</span> <span class="n">restored_empty</span><span class="o">.</span><span class="n">lastdate</span> <span class="o">==</span> <span class="n">mm</span><span class="p">(</span><span class="mi">2023</span><span class="p">,</span> <span class="mi">12</span><span class="p">)</span>
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="k">assert</span> <span class="n">restored_empty</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">shape</span> <span class="o">==</span> <span class="p">(</span><span class="mi">0</span><span class="p">,)</span>
 </code></pre></div>
 <p>The last date follows the core empty-range convention: one period before the
 first date. It does not identify a stored observation. Empty inputs retain the
@@ -1575,12 +1622,12 @@ representation defaults to float64, as it does in Julia.</p>
 <h2 id="float64-scalars">Float64 scalars<a class="headerlink" href="#float64-scalars" title="Permanent link">&para;</a></h2>
 <p>A scalar is a single value without a date axis; it is distinct from a
 one-observation TSeries. Use the same file owner:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">with</span> <span class="n">open_dataecon</span><span class="p">(</span><span class="s2">&quot;scalar-example.daec&quot;</span><span class="p">,</span> <span class="s2">&quot;a&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">db</span><span class="p">:</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>    <span class="n">db</span><span class="o">.</span><span class="n">write_scalar</span><span class="p">(</span><span class="s2">&quot;rate&quot;</span><span class="p">,</span> <span class="mf">1.25</span><span class="p">)</span>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="k">with</span> <span class="n">open_dataecon</span><span class="p">(</span><span class="s2">&quot;scalar-example.daec&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">db</span><span class="p">:</span>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>    <span class="n">rate</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">read_scalar</span><span class="p">(</span><span class="s2">&quot;rate&quot;</span><span class="p">)</span>
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="k">assert</span> <span class="nb">type</span><span class="p">(</span><span class="n">rate</span><span class="p">)</span> <span class="ow">is</span> <span class="nb">float</span>
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="k">assert</span> <span class="n">rate</span> <span class="o">==</span> <span class="mf">1.25</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">with</span> <span class="n">open_dataecon</span><span class="p">(</span><span class="s2">&quot;scalar-example.daec&quot;</span><span class="p">,</span> <span class="s2">&quot;a&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">db</span><span class="p">:</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>    <span class="n">db</span><span class="o">.</span><span class="n">write_scalar</span><span class="p">(</span><span class="s2">&quot;rate&quot;</span><span class="p">,</span> <span class="mf">1.25</span><span class="p">)</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="k">with</span> <span class="n">open_dataecon</span><span class="p">(</span><span class="s2">&quot;scalar-example.daec&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">db</span><span class="p">:</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>    <span class="n">rate</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">read_scalar</span><span class="p">(</span><span class="s2">&quot;rate&quot;</span><span class="p">)</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="k">assert</span> <span class="nb">type</span><span class="p">(</span><span class="n">rate</span><span class="p">)</span> <span class="ow">is</span> <span class="nb">float</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="k">assert</span> <span class="n">rate</span> <span class="o">==</span> <span class="mf">1.25</span>
 </code></pre></div>
 <p><code>write_scalar</code> accepts exact Python <code>float</code> and NumPy <code>float64</code> values.
 Integers (including booleans), Float32, Decimal, complex numbers, scalar
@@ -1620,9 +1667,9 @@ to <code>downloads/dataecon-source.zip</code>. Its SHA-256 is
 <code>d2b48df3a47d173c43354fe033438253bb46d878ae6c3824c6224fbd4e6a2d71</code>.
 The helper verifies this hash before extracting or compiling. Use a new output
 directory for each build; an existing one is never overwritten.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">python</span> <span class="n">scripts</span><span class="p">/</span><span class="n">build_dataecon_windows</span><span class="p">.</span><span class="n">py</span> <span class="n">downloads</span><span class="p">/</span><span class="n">dataecon-source</span><span class="p">.</span><span class="n">zip</span> <span class="p">-</span><span class="n">-output</span> <span class="n">build</span><span class="p">/</span><span class="n">dataecon-source</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="nv">$env:TSECON_DATAECON_ROOT</span> <span class="p">=</span> <span class="p">(</span><span class="nb">Resolve-Path</span> <span class="n">build</span><span class="p">/</span><span class="n">dataecon-source</span><span class="p">).</span><span class="n">Path</span>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="n">python</span> <span class="n">-m</span> <span class="n">build</span> <span class="p">-</span><span class="n">-wheel</span> <span class="p">-</span><span class="n">-no-isolation</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">python</span> <span class="n">scripts</span><span class="p">/</span><span class="n">build_dataecon_windows</span><span class="p">.</span><span class="n">py</span> <span class="n">downloads</span><span class="p">/</span><span class="n">dataecon-source</span><span class="p">.</span><span class="n">zip</span> <span class="p">-</span><span class="n">-output</span> <span class="n">build</span><span class="p">/</span><span class="n">dataecon-source</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="nv">$env:TSECON_DATAECON_ROOT</span> <span class="p">=</span> <span class="p">(</span><span class="nb">Resolve-Path</span> <span class="n">build</span><span class="p">/</span><span class="n">dataecon-source</span><span class="p">).</span><span class="n">Path</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">python</span> <span class="n">-m</span> <span class="n">build</span> <span class="p">-</span><span class="n">-wheel</span> <span class="p">-</span><span class="n">-no-isolation</span>
 </code></pre></div>
 <p>The helper compiles the 13 DataEcon C files and bundled SQLite 3.50.2 amalgamation,
 links <code>bin/libdaec.dll</code>, and generates <code>lib/daec.lib</code>. This <strong>import library</strong> is
@@ -1652,9 +1699,9 @@ The archive <code>DataEcon.v0.4.0.x86_64-w64-mingw32.tar.gz</code> has SHA-256
 <code>c4d965008d46ab204fa35bbaee3238f3a15393850f0993e1d3cda52dba9af465</code>.
 Verify it and extract it to a local directory. An already installed matching
 Julia artifact can also supply these build inputs.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">python</span> <span class="n">scripts</span><span class="p">/</span><span class="n">prepare_dataecon_windows</span><span class="p">.</span><span class="n">py</span> <span class="p">&lt;</span><span class="n">extracted-artifact-directory</span><span class="p">&gt;</span>
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="nv">$env:TSECON_DATAECON_ROOT</span> <span class="p">=</span> <span class="p">(</span><span class="nb">Resolve-Path</span> <span class="n">build</span><span class="p">/</span><span class="n">dataecon</span><span class="p">).</span><span class="n">Path</span>
-<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">python</span> <span class="n">-m</span> <span class="n">build</span> <span class="p">-</span><span class="n">-wheel</span> <span class="p">-</span><span class="n">-no-isolation</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">python</span> <span class="n">scripts</span><span class="p">/</span><span class="n">prepare_dataecon_windows</span><span class="p">.</span><span class="n">py</span> <span class="p">&lt;</span><span class="n">extracted-artifact-directory</span><span class="p">&gt;</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="nv">$env:TSECON_DATAECON_ROOT</span> <span class="p">=</span> <span class="p">(</span><span class="nb">Resolve-Path</span> <span class="n">build</span><span class="p">/</span><span class="n">dataecon</span><span class="p">).</span><span class="n">Path</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="n">python</span> <span class="n">-m</span> <span class="n">build</span> <span class="p">-</span><span class="n">-wheel</span> <span class="p">-</span><span class="n">-no-isolation</span>
 </code></pre></div>
 <p>The preparation script checks the header and DLL hashes and generates an MSVC
 <strong>import library</strong>, the linker's description of the DLL's exported functions.
@@ -1679,10 +1726,10 @@ incorporates that code into the Cython extension; no separate DataEcon shared
 library or runtime search path is needed. Native symbols have hidden visibility
 to isolate this SQLite copy from other extensions in the process. Windows retains
 its verified DLL/import-library route; both routes use the same Cython binding.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1"># macOS arm64 only: export MACOSX_DEPLOYMENT_TARGET=11.0</span>
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>python<span class="w"> </span>scripts/build_dataecon_unix.py<span class="w"> </span>downloads/dataecon-source.zip<span class="w"> </span>--output<span class="w"> </span>build/dataecon-native
-<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="nb">export</span><span class="w"> </span><span class="nv">TSECON_DATAECON_ROOT</span><span class="o">=</span><span class="s2">&quot;</span><span class="nv">$PWD</span><span class="s2">/build/dataecon-native&quot;</span>
-<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>python<span class="w"> </span>-m<span class="w"> </span>build<span class="w"> </span>--wheel
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># macOS arm64 only: export MACOSX_DEPLOYMENT_TARGET=11.0</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>python<span class="w"> </span>scripts/build_dataecon_unix.py<span class="w"> </span>downloads/dataecon-source.zip<span class="w"> </span>--output<span class="w"> </span>build/dataecon-native
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="nb">export</span><span class="w"> </span><span class="nv">TSECON_DATAECON_ROOT</span><span class="o">=</span><span class="s2">&quot;</span><span class="nv">$PWD</span><span class="s2">/build/dataecon-native&quot;</span>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>python<span class="w"> </span>-m<span class="w"> </span>build<span class="w"> </span>--wheel
 </code></pre></div>
 <p>The native helper needs a C compiler and <code>ar</code>. Its manifest records the compiler,
 flags, source/header hashes, portability patch and static archive hash. The build
@@ -1719,11 +1766,14 @@ checkout identity and nonempty/empty value, type and metadata assertions before
 wheel upload. Each output contains the nonempty sample and empty series anchored
 at 2024M1 and 2025M7; the Julia loader must preserve all three as dated TSeries.
 The same file contains seven Float64 scalars covering finite values, signed zero,
-NaN and infinities; Julia checks their types, metadata and values as well.</p>
+NaN and infinities; Julia checks their types, metadata and values as well.
+Quarterly objects cover all three fiscal anchors, year transitions, negative and
+zero years, and nonempty/empty anchors at the supported date limits. Their
+frequency and first/last dates must also survive the Julia read.</p>
 <p>For a local installed-wheel check, use a fresh output directory and the installed
 environment's Python from outside the source package:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nv">$env:TSECON_REQUIRE_DATAECON</span> <span class="p">=</span> <span class="s1">&#39;1&#39;</span>
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="n">python</span> <span class="n">scripts</span><span class="p">/</span><span class="n">check_dataecon_wheel</span><span class="p">.</span><span class="n">py</span> <span class="p">-</span><span class="n">-fixture</span> <span class="n">tests</span><span class="p">/</span><span class="n">dataecon</span><span class="p">/</span><span class="n">fixtures</span><span class="p">/</span><span class="n">julia_monthly</span><span class="p">.</span><span class="n">daec</span> <span class="p">-</span><span class="n">-output-dir</span> <span class="n">build</span><span class="p">/</span><span class="n">interchange-output</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="nv">$env:TSECON_REQUIRE_DATAECON</span> <span class="p">=</span> <span class="s1">&#39;1&#39;</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="n">python</span> <span class="n">scripts</span><span class="p">/</span><span class="n">check_dataecon_wheel</span><span class="p">.</span><span class="n">py</span> <span class="p">-</span><span class="n">-fixture</span> <span class="n">tests</span><span class="p">/</span><span class="n">dataecon</span><span class="p">/</span><span class="n">fixtures</span><span class="p">/</span><span class="n">julia_monthly</span><span class="p">.</span><span class="n">daec</span> <span class="p">-</span><span class="n">-output-dir</span> <span class="n">build</span><span class="p">/</span><span class="n">interchange-output</span>
 </code></pre></div>
 <p>Use an absolute path to the script/fixture when running outside the checkout.
 Without <code>--output-dir</code>, the checker uses <code>TSECON_DATAECON_OUTPUT_DIR</code> when set,

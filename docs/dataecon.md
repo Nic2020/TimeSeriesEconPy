@@ -1,14 +1,14 @@
 # DataEcon: first supported series slice
 
-`tsecon.dataecon` reads and writes **monthly float64 TSeries, including empty series**, through
-the DataEcon 0.4.0 C library. This is a limited integration: scalars, other
+`tsecon.dataecon` reads and writes **Float64 scalars and monthly float64 TSeries,
+including empty series**, through the DataEcon 0.4.0 C library. Other scalar types,
 frequencies/dtypes, catalogs, workspaces and general attributes
 are not supported yet. Existing JSON I/O is unchanged.
 
 Native DataEcon support is configured in the wheel workflow for CPython 3.11–3.13:
 Windows x86-64, Linux x86-64 and macOS arm64. Native wheel builds and Julia
 nonempty interchange checks have passed on all three platforms. Empty interchange
-is included in the configured wheel checks. Successful CI builds
+and scalar interchange are included in the configured wheel checks. Successful CI builds
 are separate from a published release.
 The integration uses a thin
 Cython extension; CFFI and Julia are not runtime dependencies. Only the native
@@ -74,6 +74,32 @@ preserves the TSeries. Python writes omit the redundant marker so the pinned
 Julia loader also returns a dated Float64 TSeries. Explicitly different markers,
 including `Float32`, are rejected. Without a marker, the zero-byte native float
 representation defaults to float64, as it does in Julia.
+
+## Float64 scalars
+
+A scalar is a single value without a date axis; it is distinct from a
+one-observation TSeries. Use the same file owner:
+
+```python
+with open_dataecon("scalar-example.daec", "a") as db:
+    db.write_scalar("rate", 1.25)
+with open_dataecon("scalar-example.daec") as db:
+    rate = db.read_scalar("rate")
+assert type(rate) is float
+assert rate == 1.25
+```
+
+`write_scalar` accepts exact Python `float` and NumPy `float64` values.
+Integers (including booleans), Float32, Decimal, complex numbers, scalar
+subclasses and arrays are rejected without implicit conversion. Reads return
+independent Python floats. NaN, infinities and the sign of zero are preserved;
+arbitrary signaling-NaN states or payload bits are not an interchange guarantee.
+
+Scalars share the root namespace with series: existing names are never
+overwritten, and wrong-class reads raise `DataEconError`. Scalar `jtype` and
+`jeltype` attributes are always rejected, including the literal `Float64`.
+The empty-series attribute exception does not apply to scalars. Native scalar
+payloads must be exactly eight bytes with no frequency metadata.
 
 ## Closing and errors
 
@@ -229,6 +255,8 @@ helper pins DataEcon_jll to 0.4.0+0; the interchange script verifies the referen
 checkout identity and nonempty/empty value, type and metadata assertions before
 wheel upload. Each output contains the nonempty sample and empty series anchored
 at 2024M1 and 2025M7; the Julia loader must preserve all three as dated TSeries.
+The same file contains seven Float64 scalars covering finite values, signed zero,
+NaN and infinities; Julia checks their types, metadata and values as well.
 
 For a local installed-wheel check, use a fresh output directory and the installed
 environment's Python from outside the source package:

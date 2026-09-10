@@ -18,7 +18,7 @@ from cpython.bytes cimport PyBytes_FromStringAndSize
 
 from threading import RLock
 
-from ._codec import validate_metadata
+from ._codec import validate_metadata, validate_scalar_metadata
 from ._errors import DataEconError
 
 cdef extern from "daec.h":
@@ -48,6 +48,11 @@ cdef extern from "daec.h":
         class_t obj_class
         type_t obj_type
         const char *name
+    ctypedef struct scalar_t:
+        object_t object
+        frequency_t frequency
+        int64_t nbytes
+        const void *value
     ctypedef struct axis_t:
         axis_id_t id
         axis_type_t ax_type
@@ -76,6 +81,9 @@ cdef extern from "daec.h":
     int de_store_tseries(de_file, obj_id_t, const char *, type_t, type_t,
                         frequency_t, axis_id_t, int64_t, const void *, obj_id_t *)
     int de_load_tseries(de_file, obj_id_t, tseries_t *)
+    int de_store_scalar(de_file, obj_id_t, const char *, type_t, frequency_t,
+                        int64_t, const void *, obj_id_t *)
+    int de_load_scalar(de_file, obj_id_t, scalar_t *)
 
 # DataEcon error state is process-global. The lock covers copying and error
 # extraction too, and is shared by every file owned by this module.
@@ -106,8 +114,14 @@ def abi_layout():
     cdef object_t obj
     cdef axis_t ax
     cdef tseries_t ts
+    cdef scalar_t scal
     return {
         "enums": (sizeof(class_t), sizeof(type_t), sizeof(frequency_t), sizeof(axis_type_t)),
+        "scalar_t": (sizeof(scalar_t), tuple([
+            <size_t>(<char *>&scal.object - <char *>&scal),
+            <size_t>(<char *>&scal.frequency - <char *>&scal),
+            <size_t>(<char *>&scal.nbytes - <char *>&scal),
+            <size_t>(<char *>&scal.value - <char *>&scal)])),
         "object_t": (sizeof(object_t), tuple([
             <size_t>(<char *>&obj.id - <char *>&obj),
             <size_t>(<char *>&obj.pid - <char *>&obj),
@@ -271,3 +285,55 @@ cdef class FileHandle:
             check(de_store_tseries(self.handle, 0, encoded, type_tseries, type_float,
                                   freq_none, axis, len(payload), value, &oid),
                   "write (partial object may remain)", self.path, name)
+
+
+    def read_scalar(self, str name):
+        cdef bytes encoded = name.encode("utf-8")
+        cdef obj_id_t oid = 0
+        cdef scalar_t scal
+        cdef const char *attribute = NULL
+        cdef bytes key
+        cdef int rc
+        if not encoded or b"/" in encoded or b"\0" in encoded:
+            raise ValueError("Expected a nonempty root object name without '/' or NUL.")
+        with _lock:
+            self.require_open()
+            check(de_find_object(self.handle, 0, encoded, &oid), "find", self.path, name)
+            memset(&scal, 0, sizeof(scal))
+            check(de_load_scalar(self.handle, oid, &scal), "read_scalar", self.path, name)
+            metadata = (int(scal.object.obj_class), int(scal.object.obj_type),
+                        int(scal.frequency), int(scal.nbytes))
+            validate_scalar_metadata(metadata)
+            if scal.value == NULL or scal.object.name == NULL:
+                raise ValueError("DataEcon returned a NULL scalar payload or name.")
+            payload = PyBytes_FromStringAndSize(<const char *>scal.value, 8)
+            loaded_name = (<bytes>scal.object.name).decode("utf-8")
+            # Both borrowed values are owned before attribute calls.
+            for key in (b"jtype", b"jeltype"):
+                rc = de_get_attribute(self.handle, oid, key, &attribute)
+                if rc == DE_MIS_ATTR:
+                    de_clear_error()
+                else:
+                    check(rc, "attribute", self.path, name)
+                    raise TypeError("Scalar reconstruction attributes are not supported.")
+            return payload, metadata, loaded_name
+
+    def write_scalar(self, str name, bytes payload):
+        cdef bytes encoded = name.encode("utf-8")
+        cdef obj_id_t oid = 0
+        cdef int rc
+        if not encoded or b"/" in encoded or b"\0" in encoded:
+            raise ValueError("Expected a nonempty root object name without '/' or NUL.")
+        validate_scalar_metadata((1, 4, 0, len(payload)))
+        with _lock:
+            self.require_open()
+            rc = de_find_object(self.handle, 0, encoded, &oid)
+            if rc == DE_SUCCESS:
+                raise DataEconError(DE_EXISTS, "write_scalar", self.path,
+                                   "Object already exists.", name)
+            if rc != DE_OBJ_DNE:
+                check(rc, "find", self.path, name)
+            de_clear_error()
+            check(de_store_scalar(self.handle, 0, encoded, type_float, freq_none,
+                                  8, <const char *>payload, &oid),
+                  "write_scalar (partial object may remain)", self.path, name)

@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import struct
 import sys
 from typing import TypeAlias
 
@@ -18,6 +19,33 @@ MAX_BYTES = 128 * 1024 * 1024
 MIN_DATE = -(2**31)
 MAX_DATE = 2**31 - 1
 Metadata: TypeAlias = tuple[int, int, int, int, int, int, int, int, int]
+ScalarMetadata: TypeAlias = tuple[int, int, int, int]
+
+
+def validate_scalar_metadata(metadata: ScalarMetadata) -> None:
+    """Validate scalar type and length before dereferencing native memory."""
+    cls, kind, frequency, nbytes = metadata
+    if (cls, kind, frequency) != (1, 4, 0):
+        raise TypeError("DataEcon scalar support requires Float64 with no frequency.")
+    if nbytes != 8:
+        raise ValueError("DataEcon Float64 scalars require exactly eight payload bytes.")
+
+
+def encode_scalar(value: float | np.float64) -> bytes:
+    """Snapshot an exact Python float or NumPy float64 without implicit coercion."""
+    if type(value) is not float and type(value) is not np.float64:
+        raise TypeError("write_scalar requires a Python float or NumPy float64.")
+    if sys.byteorder != "little":
+        raise RuntimeError("DataEcon interchange requires a little-endian host.")
+    return struct.pack("<d", value)
+
+
+def decode_scalar(payload: bytes) -> float:
+    """Return an independent Python float from a validated byte snapshot."""
+    validate_scalar_metadata((1, 4, 0, len(payload)))
+    if sys.byteorder != "little":
+        raise RuntimeError("DataEcon interchange requires a little-endian host.")
+    return float(struct.unpack("<d", payload)[0])
 
 
 def validate_metadata(metadata: Metadata) -> None:

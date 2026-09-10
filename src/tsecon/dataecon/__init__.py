@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-"""Read and write monthly Float64 series in DataEcon files, including empty series.
+"""Read and write Float64 scalars and monthly series, including empty series.
 
 Use ``open_dataecon`` as a context manager. The native extension loads on first
 use; importing the core package does not require it. Other data types,
@@ -16,9 +16,11 @@ from threading import RLock
 from types import TracebackType
 from typing import TYPE_CHECKING, Literal
 
+import numpy as np
+
 from tsecon.tseries import TSeries
 
-from ._codec import decode_series, encode_series
+from ._codec import decode_scalar, decode_series, encode_scalar, encode_series
 from ._errors import DataEconError
 
 if TYPE_CHECKING:
@@ -111,6 +113,28 @@ class DataEconFile:
             if self._mode == "r":
                 raise ValueError("Cannot write through a read-only DataEcon file.")
             self._handle.write(name, year, month, payload)
+
+    def read_scalar(self, name: str) -> float:
+        """Read a root Float64 scalar as a Python float that survives file closure."""
+        with self._lock:
+            self._require_open()
+            _validate_name(name)
+            payload, _, _ = self._handle.read_scalar(name)
+            return decode_scalar(payload)
+
+    def write_scalar(self, name: str, value: float | np.float64) -> None:
+        """Append a Float64 scalar without overwriting any existing root object.
+
+        Native failures may leave a partial object; no rollback is promised.
+        Integers and other scalar types are rejected without implicit conversion.
+        """
+        with self._lock:
+            self._require_open()
+            _validate_name(name)
+            payload = encode_scalar(value)
+            if self._mode == "r":
+                raise ValueError("Cannot write through a read-only DataEcon file.")
+            self._handle.write_scalar(name, payload)
 
     def close(self) -> None:
         """Close once; quarantine after failure instead of retrying native cleanup."""

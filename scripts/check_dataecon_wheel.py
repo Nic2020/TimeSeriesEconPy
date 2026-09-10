@@ -101,14 +101,36 @@ def check_extension_abis(package: Path) -> None:
         raise ValueError(f"Wheel contains extensions for another Python ABI: {stale}")
 
 
+SCALAR_CASES = {
+    "scalar_finite": 1.25,
+    "scalar_negative": -2.5,
+    "scalar_zero": 0.0,
+    "scalar_negative_zero": -0.0,
+    "scalar_nan": float("nan"),
+    "scalar_positive_inf": float("inf"),
+    "scalar_negative_inf": float("-inf"),
+}
+
+
+def check_scalar_value(actual: float, expected: float) -> None:
+    """Require a Python float, numerical classification and the sign of zero."""
+    if type(actual) is not float:
+        raise TypeError("Scalar read did not return a Python float.")
+    np.testing.assert_equal(actual, expected)
+    if expected == 0.0 and np.signbit(actual) != np.signbit(expected):
+        raise ValueError("Scalar read changed the sign of zero.")
+
+
 def write_interchange(output_dir: Path, series: tsecon.TSeries) -> Path:
-    """Write and reopen nonempty/empty objects for separate Julia verification."""
+    """Write and reopen series and scalars for separate Julia verification."""
     output_dir.mkdir(parents=True, exist_ok=True)
     output = output_dir / f"cp{sys.version_info.major}{sys.version_info.minor}.daec"
     if output.exists():
         raise FileExistsError(f"Use a fresh interchange output directory: {output}")
     with de.open_dataecon(output, "a") as db:
         db.write_series("sample", series)
+        for name, value in SCALAR_CASES.items():
+            db.write_scalar(name, value)
         for name, anchor in (("empty", mm(2024, 1)), ("empty_later", mm(2025, 7))):
             db.write_series(name, tsecon.TSeries(anchor, np.empty(0, dtype=np.float64)))
     with de.open_dataecon(output) as db:
@@ -117,6 +139,9 @@ def write_interchange(output_dir: Path, series: tsecon.TSeries) -> Path:
             (db.read_series(name), anchor)
             for name, anchor in (("empty", mm(2024, 1)), ("empty_later", mm(2025, 7)))
         ]
+        scalars = [(db.read_scalar(name), value) for name, value in SCALAR_CASES.items()]
+    for actual, expected in scalars:
+        check_scalar_value(actual, expected)
     for empty, anchor in empties:
         if (
             empty.firstdate != anchor

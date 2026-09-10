@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: MIT
 # Run in an isolated Julia project with the pinned local TimeSeriesEcon checkout.
-# julia --project=<environment> interchange.jl generate|verify|generate-empty|verify-empty|verify-wheel <file> <checkout>
+# julia --project=<environment> interchange.jl <action> <file> <checkout>
+# Actions: generate/verify, generate-empty/verify-empty,
+# generate-scalars/verify-scalars, verify-wheel.
 using TimeSeriesEcon
 using Test, SHA, TOML, Pkg
 
@@ -16,6 +18,10 @@ actual_sha = strip(read(`git -c safe.directory=$checkout -C $checkout rev-parse 
 @assert unsafe_string(C.de_version()) == "0.4.0"
 @assert string(Pkg.dependencies()[Base.PkgId(C.DataEcon_jll).uuid].version) == "0.4.0+0"
 expected = TSeries(2024M1, [1.25, -2.5, 0.0, 4.75])
+scalar_cases = ["scalar_finite" => 1.25, "scalar_negative" => -2.5,
+    "scalar_zero" => 0.0, "scalar_negative_zero" => -0.0,
+    "scalar_nan" => NaN, "scalar_positive_inf" => Inf, "scalar_negative_inf" => -Inf]
+
 
 if action == "generate"
     ispath(filename) && error("Output already exists; use a fresh fixture path.")
@@ -29,8 +35,17 @@ elseif action == "generate-empty"
         DE.store_tseries(db, DE.root_id, "empty_later", TSeries(2025M7, Float64[]))
         DE.store_tseries(db, DE.root_id, "empty_float32", TSeries(2024M1, Float32[]))
     end
-elseif !(action in ("verify", "verify-empty", "verify-wheel"))
-    error("Expected generate, verify, generate-empty, verify-empty or verify-wheel.")
+elseif action == "generate-scalars"
+    ispath(filename) && error("Output already exists; use a fresh fixture path.")
+    DE.opendaec(filename; write=true) do db
+        for (name, value) in scalar_cases
+            DE.store_scalar(db, DE.root_id, name, value)
+        end
+        DE.store_scalar(db, DE.root_id, "scalar_float32", Float32(1.25))
+        DE.store_scalar(db, DE.root_id, "scalar_integer", Int64(7))
+    end
+elseif !(action in ("verify", "verify-empty", "verify-scalars", "verify-wheel"))
+    error("Unknown action; use generate/verify, generate-empty/verify-empty, generate-scalars/verify-scalars or verify-wheel.")
 end
 
 if action in ("generate", "verify", "verify-wheel")
@@ -98,11 +113,34 @@ if action in ("generate-empty", "verify-empty", "verify-wheel")
     end
 end
 
-if action in ("generate", "generate-empty")
+if action in ("generate-scalars", "verify-scalars", "verify-wheel")
+    @testset "DataEcon Float64 scalar interchange" begin
+        DE.opendaec(filename) do db
+            for (name, expected_scalar) in scalar_cases
+                id = DE.find_object(db, DE.root_id, name)
+                scal = Ref{C.scalar_t}()
+                @test C.de_load_scalar(db, id, scal) == 0
+                v = scal[]
+                @test Int.((v.object.obj_class, v.object.obj_type, v.frequency, v.nbytes)) == (1,4,0,8)
+                @test v.value != C_NULL
+                @test isempty(DE.get_all_attributes(db, id))
+                value = DE.load_scalar(db, id)
+                @test value isa Float64
+                @test isequal(value, expected_scalar)
+            end
+            if action != "verify-wheel"
+                @test DE.load_scalar(db, DE.find_object(db, DE.root_id, "scalar_float32")) isa Float32
+                @test DE.load_scalar(db, DE.find_object(db, DE.root_id, "scalar_integer")) isa Int64
+            end
+        end
+    end
+end
+
+if action in ("generate", "generate-empty", "generate-scalars")
     layout = Dict{String,Any}(
         "enums" => sizeof.([C.class_t, C.type_t, C.frequency_t, C.axis_type_t]),
     )
-    for T in (C.object_t, C.axis_t, C.tseries_t)
+    for T in (C.object_t, C.axis_t, C.tseries_t, C.scalar_t)
         layout[string(nameof(T))] = Dict(
             "size" => sizeof(T),
             "offsets" => [Int(fieldoffset(T, i)) for i in 1:fieldcount(T)],

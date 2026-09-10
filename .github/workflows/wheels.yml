@@ -228,6 +228,15 @@ jobs:
           fi
           ls -la "$dest"
 
+      - name: Prepare host interchange directory (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          # The container writes through /host as root. Create its parent on the
+          # host first so later runner steps can create the Julia checkout/env.
+          mkdir -p build/dataecon-interchange
+
       - name: Build wheels
         uses: pypa/cibuildwheel@v3.4.1
         env:

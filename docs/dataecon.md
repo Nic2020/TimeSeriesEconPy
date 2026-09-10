@@ -1,14 +1,14 @@
-# DataEcon: first supported series slice
+# DataEcon interchange
 
-`tsecon.dataecon` reads and writes **Float64 scalars and monthly float64 TSeries,
+`tsecon.dataecon` reads and writes **Float64 scalars and monthly/quarterly float64 TSeries,
 including empty series**, through the DataEcon 0.4.0 C library. Other scalar types,
 frequencies/dtypes, catalogs, workspaces and general attributes
 are not supported yet. Existing JSON I/O is unchanged.
 
 Native DataEcon support is configured in the wheel workflow for CPython 3.11–3.13:
 Windows x86-64, Linux x86-64 and macOS arm64. Native wheel builds and Julia
-nonempty interchange checks have passed on all three platforms. Empty interchange
-and scalar interchange are included in the configured wheel checks. Successful CI builds
+monthly, empty and scalar interchange checks have passed on all three platforms.
+Quarterly interchange is included in the configured wheel checks. Successful CI builds
 are separate from a published release.
 The integration uses a thin
 Cython extension; CFFI and Julia are not runtime dependencies. Only the native
@@ -44,8 +44,38 @@ The payload limit is 128 MiB per series. Dates must fit the native encoding;
 extreme boundary years can also be rejected before native date arithmetic.
 Only little-endian hosts are currently supported. Julia reconstruction attributes
 are never evaluated. `jtype` is rejected; `jeltype` is accepted only when its
-value is exactly `Float64` on an empty monthly float series. Custom attributes
+value is exactly `Float64` on an empty supported float series. Custom attributes
 are outside this API's interchange contract.
+
+## Quarterly series and fiscal anchors
+
+Quarterly series support all three canonical calendars. `end_month` is the
+ending month of the first quarter: 1 (January), 2 (February) or 3 (March,
+the default). The anchor remains part of the frequency when data is saved.
+
+```python
+from tsecon import MIT, Quarterly
+
+start = MIT.from_yp(Quarterly(end_month=1), 2024, 4)
+quarterly = TSeries(start, np.array([1.25, -2.5, 0.0, 4.75], dtype=np.float64))
+with open_dataecon("quarterly-example.daec", "a") as db:
+    db.write_series("quarterly", quarterly)
+with open_dataecon("quarterly-example.daec") as db:
+    restored_quarterly = db.read_series("quarterly")
+assert restored_quarterly.frequency == Quarterly(end_month=1)
+assert restored_quarterly.firstdate == start
+assert restored_quarterly.lastdate == MIT.from_yp(Quarterly(end_month=1), 2025, 3)
+np.testing.assert_array_equal(restored_quarterly.values, quarterly.values)
+```
+
+Quarterly native date codes are `4 * year + period - 1`. The reliable range is
+`-131200` through `2147483647`, inclusive; both observation endpoints must fit.
+An empty series checks its stored first-date anchor, while its synthetic last
+date may lie below that limit. Invalid dates raise `ValueError` before storage.
+Integer date codes alone cannot distinguish fiscal anchors, so the adapter
+preserves the native frequency codes 65, 66 and 67 explicitly. Other encodings
+are rejected. Quarterly negative and zero years do not require conversion to
+Python `datetime.date`.
 
 ## Empty series
 
@@ -257,6 +287,9 @@ wheel upload. Each output contains the nonempty sample and empty series anchored
 at 2024M1 and 2025M7; the Julia loader must preserve all three as dated TSeries.
 The same file contains seven Float64 scalars covering finite values, signed zero,
 NaN and infinities; Julia checks their types, metadata and values as well.
+Quarterly objects cover all three fiscal anchors, year transitions, negative and
+zero years, and nonempty/empty anchors at the supported date limits. Their
+frequency and first/last dates must also survive the Julia read.
 
 For a local installed-wheel check, use a fresh output directory and the installed
 environment's Python from outside the source package:

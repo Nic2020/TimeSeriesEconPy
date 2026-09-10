@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-"""Read and write Float64 scalars and monthly series, including empty series.
+"""Read and write Float64 scalars and monthly/quarterly series, including empty series.
 
 Use ``open_dataecon`` as a context manager. The native extension loads on first
 use; importing the core package does not require it. Other data types,
@@ -97,8 +97,8 @@ class DataEconFile:
         with self._lock:
             self._require_open()
             _validate_name(name)
-            year, month, payload, _, _ = self._handle.read(name)
-            return decode_series(year, month, payload)
+            year, period, payload, metadata, _ = self._handle.read(name)
+            return decode_series(metadata[6], year, period, payload)
 
     def write_series(self, name: str, series: TSeries) -> None:
         """Append a root series; existing names fail and are never overwritten.
@@ -109,10 +109,10 @@ class DataEconFile:
         with self._lock:
             self._require_open()
             _validate_name(name)
-            year, month, payload = encode_series(series)
+            frequency, year, period, payload = encode_series(series)
             if self._mode == "r":
                 raise ValueError("Cannot write through a read-only DataEcon file.")
-            self._handle.write(name, year, month, payload)
+            self._handle.write(name, frequency, year, period, payload)
 
     def read_scalar(self, name: str) -> float:
         """Read a root Float64 scalar as a Python float that survives file closure."""

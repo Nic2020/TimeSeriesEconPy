@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-"""The deliberately narrow monthly Float64 DataEcon conversion contract."""
+"""Float64 scalar and monthly/quarterly series DataEcon conversions."""
 
 from __future__ import annotations
 
@@ -9,8 +9,8 @@ from typing import TypeAlias
 
 import numpy as np
 
-from tsecon.frequencies import Monthly
-from tsecon.mit import mm
+from tsecon.frequencies import Monthly, Quarterly
+from tsecon.mit import MIT
 from tsecon.tseries import TSeries
 
 # Native sqlite3_bind_blob takes a C int despite daec.h accepting int64_t.
@@ -18,8 +18,23 @@ from tsecon.tseries import TSeries
 MAX_BYTES = 128 * 1024 * 1024
 MIN_DATE = -(2**31)
 MAX_DATE = 2**31 - 1
+MIN_QUARTERLY_DATE = -131200
+_FREQUENCIES: dict[int, Monthly | Quarterly] = {
+    32: Monthly(),
+    65: Quarterly(1),
+    66: Quarterly(2),
+    67: Quarterly(3),
+}
 Metadata: TypeAlias = tuple[int, int, int, int, int, int, int, int, int]
 ScalarMetadata: TypeAlias = tuple[int, int, int, int]
+
+
+def series_frequency(code: int) -> Monthly | Quarterly:
+    """Resolve only canonical supported native frequency codes."""
+    try:
+        return _FREQUENCIES[code]
+    except KeyError:
+        raise TypeError("DataEcon supports only monthly or quarterly Float64 TSeries.") from None
 
 
 def validate_scalar_metadata(metadata: ScalarMetadata) -> None:
@@ -51,37 +66,43 @@ def decode_scalar(payload: bytes) -> float:
 def validate_metadata(metadata: Metadata) -> None:
     """Validate native metadata before the wrapper dereferences a value pointer."""
     cls, kind, element, element_freq, axis, length, frequency, first, nbytes = metadata
-    if (cls, kind, element, element_freq, axis, frequency) != (2, 12, 4, 0, 1, 32):
-        raise TypeError("DataEcon supports only monthly Float64 TSeries.")
+    series_frequency(frequency)
+    if (cls, kind, element, element_freq, axis) != (2, 12, 4, 0, 1):
+        raise TypeError("DataEcon supports only monthly or quarterly Float64 TSeries.")
     if length < 0:
         raise ValueError("Invalid negative DataEcon series length.")
     if nbytes != length * 8 or not 0 <= nbytes <= MAX_BYTES:
         raise ValueError("Invalid or oversized DataEcon series payload.")
     if not MIN_DATE <= first <= MAX_DATE or (length and first + length - 1 > MAX_DATE):
         raise ValueError("DataEcon dates must fit the native signed 32-bit date range.")
+    if frequency != 32 and first < MIN_QUARTERLY_DATE:
+        raise ValueError("Date is outside the reliable native quarterly date range.")
 
 
-def encode_series(series: TSeries) -> tuple[int, int, bytes]:
-    """Return year, month and an independent contiguous Float64 byte snapshot."""
+def encode_series(series: TSeries) -> tuple[int, int, int, bytes]:
+    """Return frequency, year, period and an independent Float64 byte snapshot."""
     if not isinstance(series, TSeries):
         raise TypeError("write_series requires a TSeries.")
     if sys.byteorder != "little":
         raise RuntimeError(
             "DataEcon interchange is currently supported on little-endian hosts only."
         )
-    if series.frequency != Monthly() or series.values.dtype != np.dtype(np.float64):
-        raise TypeError("DataEcon supports only monthly native-endian float64 TSeries.")
+    code = next((code for code, freq in _FREQUENCIES.items() if freq == series.frequency), None)
+    if code is None or series.values.dtype != np.dtype(np.float64):
+        raise TypeError(
+            "DataEcon supports only monthly or quarterly native-endian float64 TSeries."
+        )
     length = len(series.values)
-    validate_metadata((2, 12, 4, 0, 1, length, 32, series.firstdate.value, length * 8))
-    year, month_index = divmod(series.firstdate.value, 12)
-    return year, month_index + 1, series.values.tobytes(order="C")
+    validate_metadata((2, 12, 4, 0, 1, length, code, series.firstdate.value, length * 8))
+    year, period_index = divmod(series.firstdate.value, series_frequency(code).periods_per_year)
+    return code, year, period_index + 1, series.values.tobytes(order="C")
 
 
-def decode_series(year: int, month: int, payload: bytes) -> TSeries:
+def decode_series(code: int, year: int, period: int, payload: bytes) -> TSeries:
     """Construct an owning core series; no native storage escapes the adapter."""
     if sys.byteorder != "little":
         raise RuntimeError(
             "DataEcon interchange is currently supported on little-endian hosts only."
         )
     values = np.frombuffer(payload, dtype=np.float64).copy()
-    return TSeries(mm(year, month), values)
+    return TSeries(MIT.from_yp(series_frequency(code), year, period), values)

@@ -24,7 +24,7 @@ from build_dataecon_windows import HEADER_SHA256, SOURCE_COMMIT, SOURCE_SHA256
 
 import tsecon
 import tsecon.dataecon as de
-from tsecon import mm
+from tsecon import MIT, Quarterly, mm
 
 
 def validate_provenance(package: Path) -> dict:
@@ -112,6 +112,18 @@ SCALAR_CASES = {
 }
 
 
+QUARTERLY_CASES = (
+    ("cross_year", 8099, [1.25, -2.5, 0.0, 4.75]),
+    ("negative", -1, [1.25, -2.5]),
+    ("zero", 0, [1.25]),
+    ("minimum", -131200, [1.25]),
+    ("maximum", 2147483647, [1.25]),
+    ("empty", 8096, []),
+    ("empty_minimum", -131200, []),
+    ("empty_maximum", 2147483647, []),
+)
+
+
 def check_scalar_value(actual: float, expected: float) -> None:
     """Require a Python float, numerical classification and the sign of zero."""
     if type(actual) is not float:
@@ -133,6 +145,14 @@ def write_interchange(output_dir: Path, series: tsecon.TSeries) -> Path:
             db.write_scalar(name, value)
         for name, anchor in (("empty", mm(2024, 1)), ("empty_later", mm(2025, 7))):
             db.write_series(name, tsecon.TSeries(anchor, np.empty(0, dtype=np.float64)))
+        for anchor in (1, 2, 3):
+            for suffix, code, values in QUARTERLY_CASES:
+                db.write_series(
+                    f"q{anchor}_{suffix}",
+                    tsecon.TSeries(
+                        MIT(Quarterly(anchor), code), np.array(values, dtype=np.float64)
+                    ),
+                )
     with de.open_dataecon(output) as db:
         np.testing.assert_array_equal(db.read_series("sample").values, series.values)
         empties = [
@@ -140,6 +160,21 @@ def write_interchange(output_dir: Path, series: tsecon.TSeries) -> Path:
             for name, anchor in (("empty", mm(2024, 1)), ("empty_later", mm(2025, 7)))
         ]
         scalars = [(db.read_scalar(name), value) for name, value in SCALAR_CASES.items()]
+        quarters = [
+            (db.read_series(f"q{anchor}_{suffix}"), MIT(Quarterly(anchor), code), values)
+            for anchor in (1, 2, 3)
+            for suffix, code, values in QUARTERLY_CASES
+        ]
+    for actual, start, values in quarters:
+        np.testing.assert_array_equal(actual.values, values)
+        if (
+            actual.firstdate != start
+            or actual.lastdate != start + len(values) - 1
+            or actual.frequency != start.frequency
+            or actual.values.dtype != np.float64
+            or not actual.values.flags.owndata
+        ):
+            raise ValueError("Quarterly interchange lost dates, frequency, dtype or ownership.")
     for actual, expected in scalars:
         check_scalar_value(actual, expected)
     for empty, anchor in empties:

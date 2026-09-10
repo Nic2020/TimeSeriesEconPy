@@ -2,7 +2,7 @@
 # Run in an isolated Julia project with the pinned local TimeSeriesEcon checkout.
 # julia --project=<environment> interchange.jl <action> <file> <checkout>
 # Actions: generate/verify, generate-empty/verify-empty,
-# generate-scalars/verify-scalars, verify-wheel.
+# generate-scalars/verify-scalars, generate-quarterly/verify-quarterly, verify-wheel.
 using TimeSeriesEcon
 using Test, SHA, TOML, Pkg
 
@@ -21,6 +21,12 @@ expected = TSeries(2024M1, [1.25, -2.5, 0.0, 4.75])
 scalar_cases = ["scalar_finite" => 1.25, "scalar_negative" => -2.5,
     "scalar_zero" => 0.0, "scalar_negative_zero" => -0.0,
     "scalar_nan" => NaN, "scalar_positive_inf" => Inf, "scalar_negative_inf" => -Inf]
+quarterly_cases = [("cross_year", 8099, [1.25, -2.5, 0.0, 4.75]),
+    ("negative", -1, [1.25, -2.5]), ("zero", 0, [1.25]),
+    ("minimum", -131200, [1.25]), ("maximum", 2147483647, [1.25]),
+    ("empty", 8096, Float64[]), ("empty_minimum", -131200, Float64[]),
+    ("empty_maximum", 2147483647, Float64[])]
+
 
 
 if action == "generate"
@@ -44,8 +50,24 @@ elseif action == "generate-scalars"
         DE.store_scalar(db, DE.root_id, "scalar_float32", Float32(1.25))
         DE.store_scalar(db, DE.root_id, "scalar_integer", Int64(7))
     end
-elseif !(action in ("verify", "verify-empty", "verify-scalars", "verify-wheel"))
-    error("Unknown action; use generate/verify, generate-empty/verify-empty, generate-scalars/verify-scalars or verify-wheel.")
+elseif action == "generate-quarterly"
+    ispath(filename) && error("Output already exists; use a fresh fixture path.")
+    DE.opendaec(filename; write=true) do db
+        for anchor in 1:3
+            F = Quarterly{anchor}
+            for (suffix, code, values) in quarterly_cases
+                DE.store_tseries(db, DE.root_id, "q$(anchor)_$(suffix)", TSeries(MIT{F}(code), copy(values)))
+            end
+            # No reconstruction attribute: the encoding used for Python writes.
+            axis = Ref{C.axis_id_t}()
+            id = Ref{C.obj_id_t}()
+            @assert C.de_axis_range(db, 0, C.frequency_t(64+anchor), 8096, axis) == 0
+            @assert C.de_store_tseries(db, DE.root_id, "q$(anchor)_native_empty",
+                C.type_tseries, C.type_float, C.freq_none, axis[], 0, C_NULL, id) == 0
+        end
+    end
+elseif !(action in ("verify", "verify-empty", "verify-scalars", "verify-quarterly", "verify-wheel"))
+    error("Unknown action; use generate/verify, generate-empty/verify-empty, generate-scalars/verify-scalars, generate-quarterly/verify-quarterly or verify-wheel.")
 end
 
 if action in ("generate", "verify", "verify-wheel")
@@ -136,7 +158,43 @@ if action in ("generate-scalars", "verify-scalars", "verify-wheel")
     end
 end
 
-if action in ("generate", "generate-empty", "generate-scalars")
+if action in ("generate-quarterly", "verify-quarterly", "verify-wheel")
+    @testset "DataEcon quarterly interchange" begin
+        reference_fixture = action != "verify-wheel"
+        cases = copy(quarterly_cases)
+        reference_fixture && push!(cases, ("native_empty", 8096, Float64[]))
+        DE.opendaec(filename) do db
+            for anchor in 1:3, (suffix, code, values) in cases
+                F = Quarterly{anchor}
+                id = DE.find_object(db, DE.root_id, "q$(anchor)_$(suffix)")
+                arr = Ref{C.tseries_t}()
+                @test C.de_load_tseries(db, id, arr) == 0
+                ts = arr[]
+                @test Int.((ts.object.obj_class, ts.object.obj_type, ts.eltype, ts.elfreq,
+                    ts.axis.ax_type, ts.axis.length, ts.axis.frequency, ts.axis.first,
+                    ts.nbytes)) == (2,12,4,0,1,length(values),64+anchor,code,8length(values))
+                @test (ts.value == C_NULL) == isempty(values)
+                attrs = Dict(string(k)=>string(v) for (k,v) in DE.get_all_attributes(db, id))
+                value = DE.load_tseries(db, id)
+                if reference_fixture && isempty(values) && suffix != "native_empty"
+                    @test attrs == Dict("jeltype"=>"Float64")
+                    @test value isa Vector{Float64}
+                    @test isempty(value)
+                else
+                    @test isempty(attrs)
+                    @test value isa TSeries
+                    @test frequencyof(value) == F
+                    @test eltype(value) == Float64
+                    @test Int(firstdate(value)) == code
+                    @test Int(lastdate(value)) == code + length(values) - 1
+                    @test value.values == values
+                end
+            end
+        end
+    end
+end
+
+if action in ("generate", "generate-empty", "generate-scalars", "generate-quarterly")
     layout = Dict{String,Any}(
         "enums" => sizeof.([C.class_t, C.type_t, C.frequency_t, C.axis_type_t]),
     )

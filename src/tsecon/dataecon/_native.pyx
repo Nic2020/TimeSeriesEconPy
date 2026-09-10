@@ -18,7 +18,7 @@ from cpython.bytes cimport PyBytes_FromStringAndSize
 
 from threading import RLock
 
-from ._codec import validate_metadata, validate_scalar_metadata
+from ._codec import series_frequency, validate_metadata, validate_scalar_metadata
 from ._errors import DataEconError
 
 cdef extern from "daec.h":
@@ -35,6 +35,9 @@ cdef extern from "daec.h":
     ctypedef enum frequency_t:
         freq_none
         freq_monthly
+        freq_quarterly_jan
+        freq_quarterly_feb
+        freq_quarterly_mar
     ctypedef enum axis_type_t:
         axis_range
     enum:
@@ -101,6 +104,23 @@ cdef void check(int rc, str operation, str path, object name=None) except *:
     if strlen(message) == sizeof(message) - 1:
         text += " [message may be truncated]"
     raise DataEconError(rc, operation, path, text, name)
+
+
+cdef tuple unpack_date(frequency_t freq, date_t code, str path, str name):
+    # Caller owns the native lock and has already checked date/payload bounds.
+    cdef int32_t year = 0
+    cdef uint32_t period = 0
+    cdef uint32_t ppy
+    if freq == freq_monthly:
+        ppy = 12
+    elif freq in (freq_quarterly_jan, freq_quarterly_feb, freq_quarterly_mar):
+        ppy = 4
+    else:
+        raise TypeError("Unsupported DataEcon series frequency.")
+    check(de_unpack_year_period_date(freq, code, &year, &period), "unpack_date", path, name)
+    if not 1 <= period <= ppy or int(year) * ppy + int(period) - 1 != code:
+        raise ValueError("Date does not round-trip through the native date codec.")
+    return int(year), int(period)
 
 
 def version():
@@ -235,28 +255,35 @@ cdef class FileHandle:
                     marker = <bytes>attribute
                     if key != b"jeltype" or ts.axis.length != 0 or marker != b"Float64":
                         raise TypeError("Unsupported Julia reconstruction attribute.")
-            check(de_unpack_year_period_date(freq_monthly, ts.axis.first, &year, &month),
-                  "unpack_date", self.path, name)
-            if not 1 <= month <= 12 or int(year) * 12 + int(month) - 1 != ts.axis.first:
-                raise ValueError("Date does not round-trip through the native monthly codec.")
+            year, month = unpack_date(ts.axis.frequency, ts.axis.first, self.path, name)
+            if ts.axis.frequency != freq_monthly and ts.axis.length > 0:
+                unpack_date(ts.axis.frequency, ts.axis.first + ts.axis.length - 1, self.path, name)
             return int(year), int(month), payload, metadata, loaded_name
 
-    def write(self, str name, int32_t year, uint32_t month, bytes payload):
+    def write(self, str name, frequency, year, period, bytes payload):
         cdef bytes encoded = name.encode("utf-8")
         cdef obj_id_t oid = 0
         cdef axis_id_t axis = 0
         cdef date_t first = 0
-        cdef int32_t decoded_year = 0
-        cdef uint32_t decoded_month = 0
+        cdef frequency_t freq
+        cdef int32_t native_year
+        cdef uint32_t native_period
         cdef int rc
         cdef int64_t length = len(payload) // 8
         cdef const void *value = NULL
-        cdef tuple endpoints
         if not encoded or b"/" in encoded or b"\0" in encoded:
             raise ValueError("Expected a nonempty root object name without '/' or NUL.")
-        if not 1 <= month <= 12 or not -178956970 <= year <= 178956969:
+        ppy = series_frequency(frequency).periods_per_year
+        if type(year) is not int or type(period) is not int or not 1 <= period <= ppy:
+            raise ValueError("Expected an integer year and valid period.")
+        if frequency == 32 and not -178956970 <= year <= 178956969:
             raise ValueError("Date is outside the native monthly encoding range.")
-        validate_metadata((2, 12, 4, 0, 1, length, 32, int(year) * 12 + month - 1, len(payload)))
+        expected_first = year * ppy + period - 1
+        validate_metadata((2, 12, 4, 0, 1, length, frequency, expected_first, len(payload)))
+        # All Python arithmetic and bounds checks precede narrowing into C types.
+        freq = <frequency_t><uint32_t>frequency
+        native_year = year
+        native_period = period
         with _lock:
             self.require_open()
             rc = de_find_object(self.handle, 0, encoded, &oid)
@@ -265,26 +292,21 @@ cdef class FileHandle:
             if rc != DE_OBJ_DNE:
                 check(rc, "find", self.path, name)
             de_clear_error()
-            check(de_pack_year_period_date(freq_monthly, year, month, &first),
+            check(de_pack_year_period_date(freq, native_year, native_period, &first),
                   "pack_date", self.path, name)
-            # The native decoder has a narrower reliable range than its int64
-            # signature suggests. Reject non-round-trippable dates before storage.
-            endpoints = (first,)
+            if first != expected_first:
+                raise ValueError("Date does not round-trip through the native date codec.")
+            unpack_date(freq, first, self.path, name)
             if length > 0:
-                endpoints = (first, first + length - 1)
-            for code in endpoints:
-                check(de_unpack_year_period_date(freq_monthly, code, &decoded_year, &decoded_month),
-                      "unpack_date", self.path, name)
-                if (not 1 <= decoded_month <= 12 or
-                        int(decoded_year) * 12 + int(decoded_month) - 1 != code):
-                    raise ValueError("Date does not round-trip through the native monthly codec.")
-            check(de_axis_range(self.handle, length, freq_monthly, first, &axis),
+                unpack_date(freq, first + length - 1, self.path, name)
+            check(de_axis_range(self.handle, length, freq, first, &axis),
                   "axis", self.path, name)
             if length > 0:
                 value = <const char *>payload
             check(de_store_tseries(self.handle, 0, encoded, type_tseries, type_float,
                                   freq_none, axis, len(payload), value, &oid),
                   "write (partial object may remain)", self.path, name)
+
 
 
     def read_scalar(self, str name):

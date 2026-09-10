@@ -66,3 +66,16 @@ checkout arguments as above. `verify-wheel` now verifies all seven Python-writte
 Float64 scalars as well as the existing empty and nonempty series in one file.
 Julia must preserve numerical values, NaN classification, infinities and signed
 zero. Root DE_VERSION metadata is not a per-object reconstruction attribute.
+
+## Quarterly Float64 fixture
+
+`julia_quarterly.daec` and its TOML provenance are generated with the pinned
+Julia checkout by `interchange.jl generate-quarterly <fresh-file> <checkout>`.
+The 27 objects cover all three fiscal anchors, a year transition, negative/zero
+years, native date limits, empty anchors at both limits, and the no-attribute
+empty encoding. `verify-quarterly` checks the fixture again. The fixture contains
+Julia's empty `jeltype=Float64` markers; Python preserves their stored date axes.
+
+`verify-wheel` additionally checks Python-written quarterly objects for all
+three anchors, including empty and boundary cases, alongside monthly series
+and scalars. The wheel checker writes no quarterly reconstruction attributes.

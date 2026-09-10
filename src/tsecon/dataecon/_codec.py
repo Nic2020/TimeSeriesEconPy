@@ -24,14 +24,12 @@ def validate_metadata(metadata: Metadata) -> None:
     """Validate native metadata before the wrapper dereferences a value pointer."""
     cls, kind, element, element_freq, axis, length, frequency, first, nbytes = metadata
     if (cls, kind, element, element_freq, axis, frequency) != (2, 12, 4, 0, 1, 32):
-        raise TypeError(
-            "DataEcon supports only monthly Float64 TSeries without reconstruction attributes."
-        )
-    if length <= 0:
-        raise ValueError("Empty DataEcon series are not supported yet.")
-    if nbytes != length * 8 or not 0 < nbytes <= MAX_BYTES:
+        raise TypeError("DataEcon supports only monthly Float64 TSeries.")
+    if length < 0:
+        raise ValueError("Invalid negative DataEcon series length.")
+    if nbytes != length * 8 or not 0 <= nbytes <= MAX_BYTES:
         raise ValueError("Invalid or oversized DataEcon series payload.")
-    if first < MIN_DATE or first + length - 1 > MAX_DATE:
+    if not MIN_DATE <= first <= MAX_DATE or (length and first + length - 1 > MAX_DATE):
         raise ValueError("DataEcon dates must fit the native signed 32-bit date range.")
 
 

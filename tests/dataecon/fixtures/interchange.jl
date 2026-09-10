@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: MIT
 # Run in an isolated Julia project with the pinned local TimeSeriesEcon checkout.
-# julia --project=<environment> interchange.jl generate|verify <file> <checkout>
+# julia --project=<environment> interchange.jl generate|verify|generate-empty|verify-empty|verify-wheel <file> <checkout>
 using TimeSeriesEcon
 using Test, SHA, TOML, Pkg
 
@@ -14,6 +14,7 @@ action, filename, checkout = ARGS
 actual_sha = strip(read(`git -c safe.directory=$checkout -C $checkout rev-parse HEAD`, String))
 @assert actual_sha == SOURCE_SHA
 @assert unsafe_string(C.de_version()) == "0.4.0"
+@assert string(Pkg.dependencies()[Base.PkgId(C.DataEcon_jll).uuid].version) == "0.4.0+0"
 expected = TSeries(2024M1, [1.25, -2.5, 0.0, 4.75])
 
 if action == "generate"
@@ -21,36 +22,83 @@ if action == "generate"
     DE.opendaec(filename; write=true) do db
         DE.store_tseries(db, DE.root_id, "sample", expected)
     end
-elseif action != "verify"
-    error("Expected generate or verify.")
-end
-
-@testset "DataEcon monthly interchange" begin
-    y = DE.opendaec(filename) do db
-        id = DE.find_object(db, DE.root_id, "sample")
-        @test isempty(DE.get_all_attributes(db, id))
-        value = DE.load_tseries(db, id)
-        ts = Ref{C.tseries_t}()
-        @test C.de_load_tseries(db, id, ts) == 0
-        @test Int(ts[].object.obj_class) == 2
-        @test Int(ts[].object.obj_type) == 12
-        @test Int(ts[].eltype) == 4
-        @test Int(ts[].elfreq) == 0
-        @test Int(ts[].axis.ax_type) == 1
-        @test ts[].axis.length == 4
-        @test Int(ts[].axis.frequency) == 32
-        @test ts[].axis.first == 24288
-        @test ts[].nbytes == 32
-        value
+elseif action == "generate-empty"
+    ispath(filename) && error("Output already exists; use a fresh fixture path.")
+    DE.opendaec(filename; write=true) do db
+        DE.store_tseries(db, DE.root_id, "empty", TSeries(2024M1, Float64[]))
+        DE.store_tseries(db, DE.root_id, "empty_later", TSeries(2025M7, Float64[]))
+        DE.store_tseries(db, DE.root_id, "empty_float32", TSeries(2024M1, Float32[]))
     end
-    @test firstdate(y) == 2024M1
-    @test lastdate(y) == 2024M4
-    @test frequencyof(y) == Monthly
-    @test eltype(y) == Float64
-    @test y.values == expected.values
+elseif !(action in ("verify", "verify-empty", "verify-wheel"))
+    error("Expected generate, verify, generate-empty, verify-empty or verify-wheel.")
 end
 
-if action == "generate"
+if action in ("generate", "verify", "verify-wheel")
+    @testset "DataEcon monthly interchange" begin
+        y = DE.opendaec(filename) do db
+            id = DE.find_object(db, DE.root_id, "sample")
+            @test isempty(DE.get_all_attributes(db, id))
+            value = DE.load_tseries(db, id)
+            ts = Ref{C.tseries_t}()
+            @test C.de_load_tseries(db, id, ts) == 0
+            @test Int(ts[].object.obj_class) == 2
+            @test Int(ts[].object.obj_type) == 12
+            @test Int(ts[].eltype) == 4
+            @test Int(ts[].elfreq) == 0
+            @test Int(ts[].axis.ax_type) == 1
+            @test ts[].axis.length == 4
+            @test Int(ts[].axis.frequency) == 32
+            @test ts[].axis.first == 24288
+            @test ts[].nbytes == 32
+            value
+        end
+        @test firstdate(y) == 2024M1
+        @test lastdate(y) == 2024M4
+        @test frequencyof(y) == Monthly
+        @test eltype(y) == Float64
+        @test y.values == expected.values
+    end
+end
+
+if action in ("generate-empty", "verify-empty", "verify-wheel")
+    reference_fixture = action != "verify-wheel"
+    @testset "DataEcon empty monthly interchange" begin
+        cases = [("empty", 2024M1, 24288, Float64), ("empty_later", 2025M7, 24306, Float64)]
+        reference_fixture && push!(cases, ("empty_float32", 2024M1, 24288, Float32))
+        DE.opendaec(filename) do db
+            for (name, anchor, code, ET) in cases
+                id = DE.find_object(db, DE.root_id, name)
+                arr = Ref{C.tseries_t}()
+                @test C.de_load_tseries(db, id, arr) == 0
+                ts = arr[]
+                @test Int.((ts.object.obj_class, ts.object.obj_type, ts.eltype, ts.elfreq,
+                    ts.axis.ax_type, ts.axis.length, ts.axis.frequency, ts.axis.first,
+                    ts.nbytes)) == (2, 12, 4, 0, 1, 0, 32, code, 0)
+                @test ts.value == C_NULL
+                attrs = Dict(string(k) => string(v) for (k,v) in DE.get_all_attributes(db, id))
+                value = DE.load_tseries(db, id)
+                @test isempty(value)
+                @test eltype(value) == ET
+                if reference_fixture
+                    # Pinned Julia's jeltype reconstruction discards an empty
+                    # TSeries wrapper. The axis remains intact in the file.
+                    @test attrs == Dict("jeltype" => string(ET))
+                    @test value isa Vector{ET}
+                else
+                    # Python omits the redundant Float64 marker to preserve the
+                    # dated wrapper through the unmodified Julia public loader.
+                    @test isempty(attrs)
+                    @test value isa TSeries
+                    @test firstdate(value) == anchor
+                    @test lastdate(value) == anchor - 1
+                    @test frequencyof(value) == Monthly
+                end
+            end
+        end
+    end
+end
+
+if action in ("generate", "generate-empty")
     layout = Dict{String,Any}(
         "enums" => sizeof.([C.class_t, C.type_t, C.frequency_t, C.axis_type_t]),
     )

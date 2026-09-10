@@ -101,6 +101,34 @@ def check_extension_abis(package: Path) -> None:
         raise ValueError(f"Wheel contains extensions for another Python ABI: {stale}")
 
 
+def write_interchange(output_dir: Path, series: tsecon.TSeries) -> Path:
+    """Write and reopen nonempty/empty objects for separate Julia verification."""
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output = output_dir / f"cp{sys.version_info.major}{sys.version_info.minor}.daec"
+    if output.exists():
+        raise FileExistsError(f"Use a fresh interchange output directory: {output}")
+    with de.open_dataecon(output, "a") as db:
+        db.write_series("sample", series)
+        for name, anchor in (("empty", mm(2024, 1)), ("empty_later", mm(2025, 7))):
+            db.write_series(name, tsecon.TSeries(anchor, np.empty(0, dtype=np.float64)))
+    with de.open_dataecon(output) as db:
+        np.testing.assert_array_equal(db.read_series("sample").values, series.values)
+        empties = [
+            (db.read_series(name), anchor)
+            for name, anchor in (("empty", mm(2024, 1)), ("empty_later", mm(2025, 7)))
+        ]
+    for empty, anchor in empties:
+        if (
+            empty.firstdate != anchor
+            or empty.lastdate != anchor - 1
+            or empty.values.shape != (0,)
+            or empty.values.dtype != np.float64
+            or not empty.values.flags.owndata
+        ):
+            raise ValueError("Empty series lost its date anchor, dtype or ownership.")
+    return output
+
+
 def check(fixture: Path, output_dir: Path) -> None:
     """Check installed provenance and generate an output for separate Julia verification."""
     package = Path(de.__file__).resolve().parent
@@ -135,14 +163,7 @@ def check(fixture: Path, output_dir: Path) -> None:
     if not series.values.flags.owndata:
         raise ValueError("Loaded series does not own its data.")
     np.testing.assert_array_equal(series.values, [1.25, -2.5, 0.0, 4.75])
-    output_dir.mkdir(parents=True, exist_ok=True)
-    output = output_dir / f"cp{sys.version_info.major}{sys.version_info.minor}.daec"
-    if output.exists():
-        raise FileExistsError(f"Use a fresh interchange output directory: {output}")
-    with de.open_dataecon(output, "a") as db:
-        db.write_series("sample", series)
-    with de.open_dataecon(output) as db:
-        np.testing.assert_array_equal(db.read_series("sample").values, series.values)
+    output = write_interchange(output_dir, series)
     print(f"DataEcon installed-wheel check passed for Python {sys.version.split()[0]}.")
     print(f"Package: {Path(tsecon.__file__).parent}")
     if sys.platform == "win32":

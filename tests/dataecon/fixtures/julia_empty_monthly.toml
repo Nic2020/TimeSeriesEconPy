@@ -1,0 +1,25 @@
+dataecon_jll_version = "0.4.0+0"
+fixture_sha256 = "fd906d1613ddf1a9e1014bad5239edc9ed6be8929ffe242732987ffcd4d19b1f"
+header_sha256 = "b593ac15cf4d262705d2b19b1cc3cf7936322e8cb28079ed0fa07c2049a97c10"
+julia_version = "1.12.5"
+native_sha256 = "1b11c18a26e5ab3e65fcccced1c0357c58717c59e8cb4a8cbc57ade3703e7004"
+native_source_sha = "1a108688a044380f808bebf64079e32dbb9cd1a4"
+native_version = "0.4.0"
+platform = "x86_64-w64-mingw32"
+timeseriesecon_sha = "fc0a0d01aed4903ea6c64b12d78d0bdf68468df6"
+timeseriesecon_version = "0.7.4"
+
+[layout]
+enums = [4, 4, 4, 4]
+
+    [layout.axis_t]
+    offsets = [0, 8, 16, 24, 32, 40]
+    size = 48
+
+    [layout.object_t]
+    offsets = [0, 8, 16, 20, 24]
+    size = 32
+
+    [layout.tseries_t]
+    offsets = [0, 32, 36, 40, 88, 96]
+    size = 104

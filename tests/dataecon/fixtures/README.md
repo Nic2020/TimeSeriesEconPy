@@ -28,3 +28,26 @@ same `/sample` using `open_dataecon` and close it before starting Julia.
 The original fixture was generated with Julia 1.12.5 on Windows x86-64.
 That Julia version emits an upstream `Int` constructor deprecation warning;
 the interchange assertions pass. No upstream source was changed to silence it.
+
+## Empty monthly fixture
+
+`julia_empty_monthly.daec` contains `/empty` (Float64, 2024M1), `/empty_later`
+(Float64, 2025M7) and `/empty_float32` (Float32, 2024M1; an unsupported-input
+control). Its matching TOML file records the same provenance fields. All have
+axis length and payload bytes zero, a NULL native payload, and `jeltype` set to
+the literal Julia element type. Base metadata alone does not distinguish these
+empty float widths. First-date codes are 24288 and 24306.
+
+```text
+julia --startup-file=no --project=<isolated-project> tests/dataecon/fixtures/interchange.jl generate-empty <new-file.daec> <absolute-source-checkout>
+julia --startup-file=no --project=<isolated-project> tests/dataecon/fixtures/interchange.jl verify-empty <empty-fixture.daec> <absolute-source-checkout>
+julia --startup-file=no --project=<isolated-project> tests/dataecon/fixtures/interchange.jl verify-wheel <python-written-file.daec> <absolute-source-checkout>
+```
+
+`verify-empty` records the pinned Julia loader's behavior: its `jeltype` handling
+returns a plain Vector for these empty fixtures, despite the intact native range
+axis. Python preserves the TSeries and accepts only the exact Float64 marker.
+`verify-wheel` checks the existing nonempty sample plus Python-written `/empty`
+and `/empty_later`. Python omits reconstruction markers, so Julia must return
+dated empty Float64 TSeries. No evaluation of arbitrary type strings is used
+by the Python reader. No change to the upstream Julia implementation is implied.

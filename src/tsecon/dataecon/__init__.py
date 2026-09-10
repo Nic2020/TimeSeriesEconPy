@@ -1,9 +1,9 @@
 # SPDX-License-Identifier: MIT
-"""Read and write nonempty monthly Float64 series in DataEcon files.
+"""Read and write monthly Float64 series in DataEcon files, including empty series.
 
 Use ``open_dataecon`` as a context manager. The native extension loads on first
-use; importing the core package does not require it. Other data types, empty
-series, catalogs and general attributes are not supported yet.
+use; importing the core package does not require it. Other data types,
+catalogs and general attributes are not supported yet.
 """
 
 from __future__ import annotations

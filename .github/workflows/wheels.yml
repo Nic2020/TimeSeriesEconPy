@@ -349,7 +349,7 @@ jobs:
           $output = @(Get-ChildItem build/dataecon-interchange/*.daec)
           if ($output.Count -ne 1) { throw 'Expected one installed-wheel interchange output.' }
           $outputFile = $output[0].FullName
-          julia --startup-file=no --project=build/julia-interop tests/dataecon/fixtures/interchange.jl verify $outputFile $reference
+          julia --startup-file=no --project=build/julia-interop tests/dataecon/fixtures/interchange.jl verify-wheel $outputFile $reference
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Verify installed-wheel output in Julia (Linux / macOS)
@@ -362,7 +362,7 @@ jobs:
           outputs=(build/dataecon-interchange/*.daec)
           test "${#outputs[@]}" -eq 1
           test -f "${outputs[0]}"
-          julia --startup-file=no --project=build/julia-interop tests/dataecon/fixtures/interchange.jl verify "${outputs[0]}" "$reference"
+          julia --startup-file=no --project=build/julia-interop tests/dataecon/fixtures/interchange.jl verify-wheel "${outputs[0]}" "$reference"
 
       - name: Upload wheels
         uses: actions/upload-artifact@v4

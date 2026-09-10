@@ -204,10 +204,10 @@ cdef class FileHandle:
                         int(ts.elfreq), int(ts.axis.ax_type), int(ts.axis.length),
                         int(ts.axis.frequency), int(ts.axis.first), int(ts.nbytes))
             validate_metadata(metadata)
-            if ts.value == NULL or ts.object.name == NULL:
+            if (ts.nbytes > 0 and ts.value == NULL) or ts.object.name == NULL:
                 raise ValueError("DataEcon returned a NULL series payload or name.")
             loaded_name = (<bytes>ts.object.name).decode("utf-8")
-            payload = PyBytes_FromStringAndSize(<const char *>ts.value, ts.nbytes)
+            payload = b"" if ts.nbytes == 0 else PyBytes_FromStringAndSize(<const char *>ts.value, ts.nbytes)
             # All borrowed data is now owned by Python, before further C calls.
             for key in (b"jtype", b"jeltype"):
                 rc = de_get_attribute(self.handle, oid, key, &attribute)
@@ -215,7 +215,12 @@ cdef class FileHandle:
                     de_clear_error()
                 else:
                     check(rc, "attribute", self.path, name)
-                    raise TypeError("Julia reconstruction attributes are not supported yet.")
+                    if attribute == NULL:
+                        raise TypeError("DataEcon returned a NULL reconstruction attribute.")
+                    # Copy the borrowed C string before any subsequent native call.
+                    marker = <bytes>attribute
+                    if key != b"jeltype" or ts.axis.length != 0 or marker != b"Float64":
+                        raise TypeError("Unsupported Julia reconstruction attribute.")
             check(de_unpack_year_period_date(freq_monthly, ts.axis.first, &year, &month),
                   "unpack_date", self.path, name)
             if not 1 <= month <= 12 or int(year) * 12 + int(month) - 1 != ts.axis.first:
@@ -231,6 +236,8 @@ cdef class FileHandle:
         cdef uint32_t decoded_month = 0
         cdef int rc
         cdef int64_t length = len(payload) // 8
+        cdef const void *value = NULL
+        cdef tuple endpoints
         if not encoded or b"/" in encoded or b"\0" in encoded:
             raise ValueError("Expected a nonempty root object name without '/' or NUL.")
         if not 1 <= month <= 12 or not -178956970 <= year <= 178956969:
@@ -248,7 +255,10 @@ cdef class FileHandle:
                   "pack_date", self.path, name)
             # The native decoder has a narrower reliable range than its int64
             # signature suggests. Reject non-round-trippable dates before storage.
-            for code in (first, first + length - 1):
+            endpoints = (first,)
+            if length > 0:
+                endpoints = (first, first + length - 1)
+            for code in endpoints:
                 check(de_unpack_year_period_date(freq_monthly, code, &decoded_year, &decoded_month),
                       "unpack_date", self.path, name)
                 if (not 1 <= decoded_month <= 12 or
@@ -256,6 +266,8 @@ cdef class FileHandle:
                     raise ValueError("Date does not round-trip through the native monthly codec.")
             check(de_axis_range(self.handle, length, freq_monthly, first, &axis),
                   "axis", self.path, name)
+            if length > 0:
+                value = <const char *>payload
             check(de_store_tseries(self.handle, 0, encoded, type_tseries, type_float,
-                                  freq_none, axis, len(payload), <const char *>payload, &oid),
+                                  freq_none, axis, len(payload), value, &oid),
                   "write (partial object may remain)", self.path, name)

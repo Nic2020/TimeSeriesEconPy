@@ -15,7 +15,8 @@ from tsecon.dataecon._codec import MAX_BYTES, decode_series, encode_series, vali
         (TSeries(mm(2024, 1), np.ones(4, dtype=np.float32)), TypeError),
         (TSeries(mm(2024, 1), np.ones(4, dtype=np.int64)), TypeError),
         (TSeries(mm(2024, 1), np.ones(4, dtype=">f8")), TypeError),
-        (TSeries(mm(2024, 1), np.array([], dtype=np.float64)), ValueError),
+        (TSeries(mm(2024, 1), np.array([], dtype=np.float32)), TypeError),
+        (TSeries(qq(2024, 1), np.array([], dtype=np.float64)), TypeError),
     ],
 )
 def test_reject_unsupported_input(series, exception):
@@ -60,3 +61,22 @@ def test_strided_snapshot_and_owning_decode():
     np.testing.assert_array_equal(result.values, [0.0, 2.0, 4.0, 6.0])
     result.values[0] = 10
     assert np.frombuffer(payload, dtype=np.float64)[0] == 0
+
+
+@pytest.mark.parametrize("anchor", [mm(2024, 1), mm(2025, 7)])
+def test_empty_codec_preserves_anchor_and_owns_values(anchor):
+    source = TSeries(anchor, np.empty(0, dtype=np.float64))
+    year, month, payload = encode_series(source)
+    assert payload == b""
+    result = decode_series(year, month, payload)
+    assert result.firstdate == anchor
+    assert result.lastdate == anchor - 1
+    assert result.values.shape == (0,)
+    assert result.values.dtype == np.float64
+    assert result.values.flags.owndata
+
+
+@pytest.mark.parametrize("first", [-(2**31) - 1, 2**31])
+def test_empty_anchor_bounds_are_checked_independently(first):
+    with pytest.raises(ValueError, match="date range"):
+        validate_metadata((2, 12, 4, 0, 1, 0, 32, first, 0))

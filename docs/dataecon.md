@@ -1,13 +1,14 @@
 # DataEcon: first supported series slice
 
-`tsecon.dataecon` reads and writes **nonempty monthly float64 TSeries** through
+`tsecon.dataecon` reads and writes **monthly float64 TSeries, including empty series**, through
 the DataEcon 0.4.0 C library. This is a limited integration: scalars, other
-frequencies/dtypes, empty series, catalogs, workspaces and general attributes
+frequencies/dtypes, catalogs, workspaces and general attributes
 are not supported yet. Existing JSON I/O is unchanged.
 
 Native DataEcon support is configured in the wheel workflow for CPython 3.11–3.13:
 Windows x86-64, Linux x86-64 and macOS arm64. Native wheel builds and Julia
-interchange checks have passed on all three platforms. Successful CI builds
+nonempty interchange checks have passed on all three platforms. Empty interchange
+is included in the configured wheel checks. Successful CI builds
 are separate from a published release.
 The integration uses a thin
 Cython extension; CFFI and Julia are not runtime dependencies. Only the native
@@ -41,9 +42,38 @@ paths before opening or creating anything.
 
 The payload limit is 128 MiB per series. Dates must fit the native encoding;
 extreme boundary years can also be rejected before native date arithmetic.
-Only little-endian hosts are currently supported. Julia `jtype`/`jeltype`
-reconstruction attributes are rejected, never evaluated. Custom attributes are
-outside this API's interchange contract.
+Only little-endian hosts are currently supported. Julia reconstruction attributes
+are never evaluated. `jtype` is rejected; `jeltype` is accepted only when its
+value is exactly `Float64` on an empty monthly float series. Custom attributes
+are outside this API's interchange contract.
+
+## Empty series
+
+An empty series retains its first-date anchor and owns an empty float64 array:
+
+```python
+empty = TSeries(mm(2024, 1), np.empty(0, dtype=np.float64))
+with open_dataecon("empty-example.daec", "a") as db:
+    db.write_series("empty", empty)
+with open_dataecon("empty-example.daec") as db:
+    restored_empty = db.read_series("empty")
+
+assert restored_empty.firstdate == mm(2024, 1)
+assert restored_empty.lastdate == mm(2023, 12)
+assert restored_empty.values.shape == (0,)
+```
+
+The last date follows the core empty-range convention: one period before the
+first date. It does not identify a stored observation. Empty inputs retain the
+same read-only, closed-file, duplicate-name and native date-range checks.
+
+The pinned TimeSeriesEcon.jl 0.7.4 writer stores `jeltype="Float64"` for an empty
+series. Its loader reconstructs a plain vector when that marker is present,
+although the file retains the dated axis. Python reads that exact marker and
+preserves the TSeries. Python writes omit the redundant marker so the pinned
+Julia loader also returns a dated Float64 TSeries. Explicitly different markers,
+including `Float32`, are rejected. Without a marker, the zero-byte native float
+representation defaults to float64, as it does in Julia.
 
 ## Closing and errors
 
@@ -196,7 +226,9 @@ After the installed tests pass, each platform job checks its output with Julia
 1.12.5 and the pinned TimeSeriesEcon.jl checkout. Julia and DataEcon_jll are CI
 verification dependencies, not dependencies of the Python wheel. The Julia setup
 helper pins DataEcon_jll to 0.4.0+0; the interchange script verifies the reference
-checkout identity and 16 value/type/metadata assertions before wheel upload.
+checkout identity and nonempty/empty value, type and metadata assertions before
+wheel upload. Each output contains the nonempty sample and empty series anchored
+at 2024M1 and 2025M7; the Julia loader must preserve all three as dated TSeries.
 
 For a local installed-wheel check, use a fresh output directory and the installed
 environment's Python from outside the source package:

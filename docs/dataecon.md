@@ -6,9 +6,9 @@ frequencies/dtypes, empty series, catalogs, workspaces and general attributes
 are not supported yet. Existing JSON I/O is unchanged.
 
 Native DataEcon support is configured in the wheel workflow for CPython 3.11–3.13:
-Windows x86-64, Linux x86-64 and macOS arm64. Windows builds have passed CI;
-the Linux/macOS additions await their first platform verification. Workflow
-configuration is separate from a published release.
+Windows x86-64, Linux x86-64 and macOS arm64. Native wheel builds and Julia
+interchange checks have passed on all three platforms. Successful CI builds
+are separate from a published release.
 The integration uses a thin
 Cython extension; CFFI and Julia are not runtime dependencies. Only the native
 parts are compiled: the Python file API and conversion code remain Python.
@@ -138,7 +138,7 @@ For a wheel containing this native support, users need neither a compiler nor a
 separate DataEcon/Julia installation. A **wheel** is the installable built package;
 GitHub Actions runs build/test jobs, and publishing is a separate operation.
 Windows source builds are verified locally and in wheel CI. The Linux/macOS
-source-build configuration below still requires platform CI verification.
+source-build configuration below is also verified in platform CI.
 
 The bundled native library uses the BSD-3-Clause DataEcon license and public-domain
 SQLite; notices ship beside the adapter. Cython code uses the package's MIT license.

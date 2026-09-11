@@ -1016,10 +1016,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#float64-scalars" class="md-nav__link">
+  <a href="#float64-and-int64-scalars" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Float64 scalars
+        Float64 and Int64 scalars
       
     </span>
   </a>
@@ -1483,10 +1483,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#float64-scalars" class="md-nav__link">
+  <a href="#float64-and-int64-scalars" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Float64 scalars
+        Float64 and Int64 scalars
       
     </span>
   </a>
@@ -1575,7 +1575,7 @@
 
 
 <h1 id="dataecon-interchange">DataEcon interchange<a class="headerlink" href="#dataecon-interchange" title="Permanent link">&para;</a></h1>
-<p><code>tsecon.dataecon</code> reads and writes <strong>Float64 scalars and monthly, quarterly,
+<p><code>tsecon.dataecon</code> reads and writes <strong>Float64 and Int64 scalars and monthly, quarterly,
 half-yearly or annual float64 TSeries, including empty series</strong>, through the DataEcon 0.4.0 C library. Other scalar types,
 frequencies/dtypes, catalogs, workspaces and general attributes
 are not supported yet. Existing JSON I/O is unchanged.</p>
@@ -1714,26 +1714,39 @@ preserves the TSeries. Python writes omit the redundant marker so the pinned
 Julia loader also returns a dated Float64 TSeries. Explicitly different markers,
 including <code>Float32</code>, are rejected. Without a marker, the zero-byte native float
 representation defaults to float64, as it does in Julia.</p>
-<h2 id="float64-scalars">Float64 scalars<a class="headerlink" href="#float64-scalars" title="Permanent link">&para;</a></h2>
+<h2 id="float64-and-int64-scalars">Float64 and Int64 scalars<a class="headerlink" href="#float64-and-int64-scalars" title="Permanent link">&para;</a></h2>
 <p>A scalar is a single value without a date axis; it is distinct from a
 one-observation TSeries. Use the same file owner:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="k">with</span> <span class="n">open_dataecon</span><span class="p">(</span><span class="s2">&quot;scalar-example.daec&quot;</span><span class="p">,</span> <span class="s2">&quot;a&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">db</span><span class="p">:</span>
 <a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>    <span class="n">db</span><span class="o">.</span><span class="n">write_scalar</span><span class="p">(</span><span class="s2">&quot;rate&quot;</span><span class="p">,</span> <span class="mf">1.25</span><span class="p">)</span>
-<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="k">with</span> <span class="n">open_dataecon</span><span class="p">(</span><span class="s2">&quot;scalar-example.daec&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">db</span><span class="p">:</span>
-<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>    <span class="n">rate</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">read_scalar</span><span class="p">(</span><span class="s2">&quot;rate&quot;</span><span class="p">)</span>
-<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="k">assert</span> <span class="nb">type</span><span class="p">(</span><span class="n">rate</span><span class="p">)</span> <span class="ow">is</span> <span class="nb">float</span>
-<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="k">assert</span> <span class="n">rate</span> <span class="o">==</span> <span class="mf">1.25</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>    <span class="n">db</span><span class="o">.</span><span class="n">write_scalar</span><span class="p">(</span><span class="s2">&quot;count&quot;</span><span class="p">,</span> <span class="mi">2</span><span class="o">**</span><span class="mi">53</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="k">with</span> <span class="n">open_dataecon</span><span class="p">(</span><span class="s2">&quot;scalar-example.daec&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">db</span><span class="p">:</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>    <span class="n">rate</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">read_scalar</span><span class="p">(</span><span class="s2">&quot;rate&quot;</span><span class="p">)</span>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>    <span class="n">count</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">read_scalar</span><span class="p">(</span><span class="s2">&quot;count&quot;</span><span class="p">)</span>
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="k">assert</span> <span class="nb">type</span><span class="p">(</span><span class="n">rate</span><span class="p">)</span> <span class="ow">is</span> <span class="nb">float</span>
+<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="k">assert</span> <span class="n">rate</span> <span class="o">==</span> <span class="mf">1.25</span>
+<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="k">assert</span> <span class="nb">type</span><span class="p">(</span><span class="n">count</span><span class="p">)</span> <span class="ow">is</span> <span class="nb">int</span>
+<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="k">assert</span> <span class="n">count</span> <span class="o">==</span> <span class="mi">9007199254740993</span>
 </code></pre></div>
-<p><code>write_scalar</code> accepts exact Python <code>float</code> and NumPy <code>float64</code> values.
-Integers (including booleans), Float32, Decimal, complex numbers, scalar
-subclasses and arrays are rejected without implicit conversion. Reads return
-independent Python floats. NaN, infinities and the sign of zero are preserved;
-arbitrary signaling-NaN states or payload bits are not an interchange guarantee.</p>
+<p><code>write_scalar</code> accepts exact Python <code>float</code> and NumPy <code>float64</code> values, stored
+as Float64, and exact Python <code>int</code> and NumPy <code>int64</code> values, stored as Int64.
+Integers are packed as signed 64-bit two's complement and never pass through
+floating point, so values beyond 2^53 and both signed endpoints round-trip
+exactly; a Python <code>int</code> outside that range raises <code>ValueError</code>. Booleans,
+other NumPy integer widths, unsigned integers, Float32, Decimal, Fraction,
+complex numbers, scalar subclasses and arrays are rejected without implicit
+conversion. Reads return an independent Python <code>float</code> or <code>int</code> according to
+the stored type. NaN, infinities and the sign of zero are preserved; arbitrary
+signaling-NaN states or payload bits are not an interchange guarantee.</p>
+<p>Julia writes <code>Int64</code> values with the same metadata and reads them back as
+<code>Int64</code>. Its date scalars (<code>MIT</code>) and <code>Duration</code> values share the scalar class
+but carry a frequency; they, unsigned integers, other widths and strings are
+rejected on read with <code>TypeError</code> or <code>ValueError</code> rather than being coerced.</p>
 <p>Scalars share the root namespace with series: existing names are never
 overwritten, and wrong-class reads raise <code>DataEconError</code>. Scalar <code>jtype</code> and
-<code>jeltype</code> attributes are always rejected, including the literal <code>Float64</code>.
-The empty-series attribute exception does not apply to scalars. Native scalar
-payloads must be exactly eight bytes with no frequency metadata.</p>
+<code>jeltype</code> attributes are always rejected, including the literals <code>Float64</code>
+and <code>Int64</code>. The empty-series attribute exception does not apply to scalars.
+Native scalar payloads must be exactly eight bytes with no frequency metadata.</p>
 <h2 id="closing-and-errors">Closing and errors<a class="headerlink" href="#closing-and-errors" title="Permanent link">&para;</a></h2>
 <p>Use a context manager or call <code>close()</code> explicitly. Successful close is
 idempotent. Missing objects and duplicate names raise <code>DataEconError</code>, which
@@ -1861,7 +1874,8 @@ checkout identity and nonempty/empty value, type and metadata assertions before
 wheel upload. Each output contains the nonempty sample and empty series anchored
 at 2024M1 and 2025M7; the Julia loader must preserve all three as dated TSeries.
 The same file contains seven Float64 scalars covering finite values, signed zero,
-NaN and infinities; Julia checks their types, metadata and values as well.
+NaN and infinities, and fourteen Int64 scalars including both signed endpoints
+and values around 2^53; Julia checks their types, metadata and values as well.
 Quarterly objects cover all three fiscal anchors, year transitions, negative and
 zero years, and nonempty/empty anchors at the supported date limits. Their
 frequency and first/last dates must also survive the Julia read. Annual objects

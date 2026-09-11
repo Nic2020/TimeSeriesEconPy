@@ -24,7 +24,7 @@ from build_dataecon_windows import HEADER_SHA256, SOURCE_COMMIT, SOURCE_SHA256
 
 import tsecon
 import tsecon.dataecon as de
-from tsecon import MIT, Quarterly, Yearly, mm
+from tsecon import MIT, HalfYearly, Quarterly, Yearly, mm
 
 
 def validate_provenance(package: Path) -> dict:
@@ -136,6 +136,24 @@ ANNUAL_CASES = (
 )
 
 
+HALFYEARLY_CASES = (
+    ("cross_year", 4048, [1.25, -2.5, 0.0, 4.75]),
+    ("negative", -1, [1.25, -2.5]),
+    ("zero", 0, [1.25]),
+    ("minimum", -65600, [1.25]),
+    ("maximum", 2**31 - 1, [1.25]),
+    ("empty", 4048, []),
+    ("empty_minimum", -65600, []),
+    ("empty_maximum", 2**31 - 1, []),
+)
+# Name prefix, frequency constructor, fiscal anchors and cases written per target.
+DATED_GROUPS = (
+    ("q", Quarterly, (1, 2, 3), QUARTERLY_CASES),
+    ("y", Yearly, range(1, 13), ANNUAL_CASES),
+    ("h", HalfYearly, range(1, 7), HALFYEARLY_CASES),
+)
+
+
 def check_scalar_value(actual: float, expected: float) -> None:
     """Require a Python float, numerical classification and the sign of zero."""
     if type(actual) is not float:
@@ -157,20 +175,15 @@ def write_interchange(output_dir: Path, series: tsecon.TSeries) -> Path:
             db.write_scalar(name, value)
         for name, anchor in (("empty", mm(2024, 1)), ("empty_later", mm(2025, 7))):
             db.write_series(name, tsecon.TSeries(anchor, np.empty(0, dtype=np.float64)))
-        for anchor in (1, 2, 3):
-            for suffix, code, values in QUARTERLY_CASES:
-                db.write_series(
-                    f"q{anchor}_{suffix}",
-                    tsecon.TSeries(
-                        MIT(Quarterly(anchor), code), np.array(values, dtype=np.float64)
-                    ),
-                )
-        for anchor in range(1, 13):
-            for suffix, code, values in ANNUAL_CASES:
-                db.write_series(
-                    f"y{anchor}_{suffix}",
-                    tsecon.TSeries(MIT(Yearly(anchor), code), np.array(values, dtype=np.float64)),
-                )
+        for prefix, frequency, anchors, cases in DATED_GROUPS:
+            for anchor in anchors:
+                for suffix, code, values in cases:
+                    db.write_series(
+                        f"{prefix}{anchor}_{suffix}",
+                        tsecon.TSeries(
+                            MIT(frequency(anchor), code), np.array(values, dtype=np.float64)
+                        ),
+                    )
     with de.open_dataecon(output) as db:
         np.testing.assert_array_equal(db.read_series("sample").values, series.values)
         empties = [
@@ -178,17 +191,13 @@ def write_interchange(output_dir: Path, series: tsecon.TSeries) -> Path:
             for name, anchor in (("empty", mm(2024, 1)), ("empty_later", mm(2025, 7)))
         ]
         scalars = [(db.read_scalar(name), value) for name, value in SCALAR_CASES.items()]
-        quarters = [
-            (db.read_series(f"q{anchor}_{suffix}"), MIT(Quarterly(anchor), code), values)
-            for anchor in (1, 2, 3)
-            for suffix, code, values in QUARTERLY_CASES
+        dated = [
+            (db.read_series(f"{prefix}{anchor}_{suffix}"), MIT(frequency(anchor), code), values)
+            for prefix, frequency, anchors, cases in DATED_GROUPS
+            for anchor in anchors
+            for suffix, code, values in cases
         ]
-        annuals = [
-            (db.read_series(f"y{anchor}_{suffix}"), MIT(Yearly(anchor), code), values)
-            for anchor in range(1, 13)
-            for suffix, code, values in ANNUAL_CASES
-        ]
-    for actual, start, values in quarters + annuals:
+    for actual, start, values in dated:
         np.testing.assert_array_equal(actual.values, values)
         if (
             actual.firstdate != start

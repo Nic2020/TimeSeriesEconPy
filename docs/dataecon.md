@@ -1,16 +1,16 @@
 # DataEcon interchange
 
-`tsecon.dataecon` reads and writes **Float64 scalars and monthly, quarterly or annual float64 TSeries,
-including empty series**, through the DataEcon 0.4.0 C library. Other scalar types,
+`tsecon.dataecon` reads and writes **Float64 scalars and monthly, quarterly,
+half-yearly or annual float64 TSeries, including empty series**, through the DataEcon 0.4.0 C library. Other scalar types,
 frequencies/dtypes, catalogs, workspaces and general attributes
 are not supported yet. Existing JSON I/O is unchanged.
 
 Native DataEcon support is configured in the wheel workflow for CPython 3.11–3.13:
 Windows x86-64, Linux x86-64 and macOS arm64. Native wheel builds and Julia
 monthly, empty and scalar interchange checks have passed on all three platforms.
-Quarterly interchange has also passed; annual interchange is included in the
-configured wheel checks. Successful CI builds
-are separate from a published release.
+Quarterly and annual interchange have also passed on all three platforms.
+Half-yearly interchange is included in the configured wheel checks. Successful
+CI builds are separate from a published release.
 The integration uses a thin
 Cython extension; CFFI and Julia are not runtime dependencies. Only the native
 parts are compiled: the Python file API and conversion code remain Python.
@@ -77,6 +77,39 @@ Integer date codes alone cannot distinguish fiscal anchors, so the adapter
 preserves the native frequency codes 65, 66 and 67 explicitly. Other encodings
 are rejected. Quarterly negative and zero years do not require conversion to
 Python `datetime.date`.
+
+## Half-yearly series and fiscal endings
+
+Half-yearly series support all six `HalfYearly(end_month=...)` values from 1
+through 6. The default is June. `end_month` is the ending month of the first
+half-year; the second half-year ends six months later. Each year has two
+periods, and the year labels the calendar year containing the first half-year's
+end: `HalfYearly(end_month=3)` at 2024 period 1 covers October 2023 through
+March 2024, and period 2 covers April through September 2024.
+
+```python
+from tsecon import HalfYearly
+
+half_start = MIT.from_yp(HalfYearly(end_month=3), 2024, 1)
+half = TSeries(half_start, np.array([1.25, -2.5, 0.0, 4.75], dtype=np.float64))
+with open_dataecon("halfyearly-example.daec", "a") as db:
+    db.write_series("halfyearly", half)
+with open_dataecon("halfyearly-example.daec") as db:
+    restored_half = db.read_series("halfyearly")
+assert restored_half.frequency == HalfYearly(end_month=3)
+assert restored_half.firstdate == half_start
+assert restored_half.lastdate == MIT.from_yp(HalfYearly(end_month=3), 2025, 2)
+np.testing.assert_array_equal(restored_half.values, half.values)
+```
+
+Half-yearly native date codes are `2 * year + period - 1`. The reliable range is
+`-65600` through `2147483647`, inclusive; both observation endpoints must fit.
+This lower limit differs from the quarterly and annual limits because the native
+decoder divides by the number of periods per year. An empty series checks its
+stored first-date anchor, while its synthetic last date may lie below that limit.
+The adapter preserves the native frequency codes 129 through 134 explicitly; the
+bare half-yearly code 128 and other encodings are rejected. A stored code below
+the limit is rejected on read rather than decoded as a different date.
 
 ## Annual series and fiscal year endings
 
@@ -319,7 +352,8 @@ Quarterly objects cover all three fiscal anchors, year transitions, negative and
 zero years, and nonempty/empty anchors at the supported date limits. Their
 frequency and first/last dates must also survive the Julia read. Annual objects
 exercise all twelve fiscal endings with the same kinds of empty and boundary
-checks, including both signed 32-bit year limits.
+checks, including both signed 32-bit year limits. Half-yearly objects cover
+all six endings with the same nonempty/empty and limit cases.
 
 For a local installed-wheel check, use a fresh output directory and the installed
 environment's Python from outside the source package:

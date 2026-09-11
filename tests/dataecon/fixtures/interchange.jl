@@ -4,6 +4,7 @@
 # Actions: generate/verify, generate-empty/verify-empty,
 # generate-scalars/verify-scalars, generate-quarterly/verify-quarterly, verify-wheel.
 # Annual actions: generate-annual/verify-annual (also checked by verify-wheel).
+# Half-yearly actions: generate-halfyearly/verify-halfyearly (also checked by verify-wheel).
 using TimeSeriesEcon
 using Test, SHA, TOML, Pkg
 
@@ -35,6 +36,17 @@ annual_cases = [("cross_year", 2024, [1.25, -2.5, 0.0, 4.75]),
     ("empty_maximum", 2147483647, Float64[])]
 annual_native_empties = [("native_empty", 2024, Float64[]),
     ("native_empty_minimum", -2147483648, Float64[]),
+    ("native_empty_maximum", 2147483647, Float64[])]
+# Half-yearly codes are 2 * year + period - 1; -65600 is the lowest code the
+# native decoder reproduces (EPOCH_L * ppy = 32800 * 2 in uint32 arithmetic).
+halfyearly_cases = [("cross_year", 4048, [1.25, -2.5, 0.0, 4.75]),
+    ("negative", -1, [1.25, -2.5]), ("zero", 0, [1.25]),
+    ("minimum", -65600, [1.25]), ("maximum", 2147483647, [1.25]),
+    ("empty", 4048, Float64[]), ("empty_minimum", -65600, Float64[]),
+    ("empty_maximum", 2147483647, Float64[])]
+halfyearly_below_minimum = ("below_minimum", -65601, [1.25])
+halfyearly_native_empties = [("native_empty", 4048, Float64[]),
+    ("native_empty_minimum", -65600, Float64[]),
     ("native_empty_maximum", 2147483647, Float64[])]
 
 
@@ -93,8 +105,25 @@ elseif action == "generate-annual"
             end
         end
     end
-elseif !(action in ("verify", "verify-empty", "verify-scalars", "verify-quarterly", "verify-annual", "verify-wheel"))
-    error("Unknown action; use generate/verify, generate-empty/verify-empty, generate-scalars/verify-scalars, generate-quarterly/verify-quarterly, generate-annual/verify-annual or verify-wheel.")
+elseif action == "generate-halfyearly"
+    ispath(filename) && error("Output already exists; use a fresh fixture path.")
+    DE.opendaec(filename; write=true) do db
+        for anchor in 1:6
+            F = HalfYearly{anchor}
+            for (suffix, code, values) in [halfyearly_cases; halfyearly_below_minimum]
+                DE.store_tseries(db, DE.root_id, "h$(anchor)_$(suffix)", TSeries(MIT{F}(code), copy(values)))
+            end
+            for (suffix, code, _) in halfyearly_native_empties
+                axis = Ref{C.axis_id_t}()
+                id = Ref{C.obj_id_t}()
+                @assert C.de_axis_range(db, 0, C.frequency_t(128+anchor), code, axis) == 0
+                @assert C.de_store_tseries(db, DE.root_id, "h$(anchor)_$(suffix)",
+                    C.type_tseries, C.type_float, C.freq_none, axis[], 0, C_NULL, id) == 0
+            end
+        end
+    end
+elseif !(action in ("verify", "verify-empty", "verify-scalars", "verify-quarterly", "verify-annual", "verify-halfyearly", "verify-wheel"))
+    error("Unknown action; use generate/verify, generate-empty/verify-empty, generate-scalars/verify-scalars, generate-quarterly/verify-quarterly, generate-annual/verify-annual, generate-halfyearly/verify-halfyearly or verify-wheel.")
 end
 
 if action in ("generate", "verify", "verify-wheel")
@@ -257,7 +286,53 @@ if action in ("generate-annual", "verify-annual", "verify-wheel")
     end
 end
 
-if action in ("generate", "generate-empty", "generate-scalars", "generate-quarterly", "generate-annual")
+if action in ("generate-halfyearly", "verify-halfyearly", "verify-wheel")
+    @testset "DataEcon half-yearly interchange" begin
+        reference_fixture = action != "verify-wheel"
+        cases = copy(halfyearly_cases)
+        reference_fixture && append!(cases, [halfyearly_below_minimum; halfyearly_native_empties])
+        DE.opendaec(filename) do db
+            for anchor in 1:6, (suffix, code, values) in cases
+                F = HalfYearly{anchor}
+                id = DE.find_object(db, DE.root_id, "h$(anchor)_$(suffix)")
+                arr = Ref{C.tseries_t}()
+                @test C.de_load_tseries(db, id, arr) == 0
+                ts = arr[]
+                @test Int.((ts.object.obj_class, ts.object.obj_type, ts.eltype, ts.elfreq,
+                    ts.axis.ax_type, ts.axis.length, ts.axis.frequency, ts.axis.first,
+                    ts.nbytes)) == (2,12,4,0,1,length(values),128+anchor,code,8length(values))
+                @test (ts.value == C_NULL) == isempty(values)
+                attrs = Dict(string(k)=>string(v) for (k,v) in DE.get_all_attributes(db, id))
+                if suffix == "below_minimum"
+                    # Stored intact, but the pinned loader decodes another date and
+                    # warns. Python rejects this stored code instead of misdating it.
+                    value = @test_logs (:warn, r"MIT codes differ") DE.load_tseries(db, id)
+                    @test isempty(attrs)
+                    @test value isa TSeries
+                    @test frequencyof(value) == F
+                    @test Int(firstdate(value)) != code
+                    @test value.values == values
+                elseif reference_fixture && isempty(values) && !startswith(suffix, "native_")
+                    value = DE.load_tseries(db, id)
+                    @test attrs == Dict("jeltype"=>"Float64")
+                    @test value isa Vector{Float64}
+                    @test isempty(value)
+                else
+                    value = DE.load_tseries(db, id)
+                    @test isempty(attrs)
+                    @test value isa TSeries
+                    @test frequencyof(value) == F
+                    @test eltype(value) == Float64
+                    @test Int(firstdate(value)) == code
+                    @test Int(lastdate(value)) == code + length(values) - 1
+                    @test value.values == values
+                end
+            end
+        end
+    end
+end
+
+if action in ("generate", "generate-empty", "generate-scalars", "generate-quarterly", "generate-annual", "generate-halfyearly")
     layout = Dict{String,Any}(
         "enums" => sizeof.([C.class_t, C.type_t, C.frequency_t, C.axis_type_t]),
     )

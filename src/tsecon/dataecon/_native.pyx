@@ -38,6 +38,8 @@ cdef extern from "daec.h":
         freq_quarterly_jan
         freq_quarterly_feb
         freq_quarterly_mar
+        freq_halfyearly_jan
+        freq_halfyearly_jun
         freq_yearly_jan
         freq_yearly_dec
     ctypedef enum axis_type_t:
@@ -117,6 +119,8 @@ cdef tuple unpack_date(frequency_t freq, date_t code, str path, str name):
         ppy = 12
     elif freq in (freq_quarterly_jan, freq_quarterly_feb, freq_quarterly_mar):
         ppy = 4
+    elif freq_halfyearly_jan <= freq <= freq_halfyearly_jun:
+        ppy = 2
     elif freq_yearly_jan <= freq <= freq_yearly_dec:
         ppy = 1
     else:

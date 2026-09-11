@@ -56,7 +56,7 @@ def test_codec_preserves_anchor_and_snapshots_strides(anchor):
     assert np.frombuffer(payload, dtype=np.float64)[0] == 0
 
 
-@pytest.mark.parametrize("frequency", [0, 33, 64, 68, 96, 129, 256, -1, 2**40])
+@pytest.mark.parametrize("frequency", [0, 33, 64, 68, 96, 128, 135, 256, -1, 2**40])
 def test_noncanonical_frequency_rejected(frequency):
     with pytest.raises(TypeError):
         validate_metadata((2, 12, 4, 0, 1, 1, frequency, 8099, 8))

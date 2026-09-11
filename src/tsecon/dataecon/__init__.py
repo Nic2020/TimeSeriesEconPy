@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-"""Read and write Float64 scalars and monthly, quarterly or annual series.
+"""Read and write Float64 scalars and monthly, quarterly, half-yearly or annual series.
 
 Use ``open_dataecon`` as a context manager. The native extension loads on first
 use; importing the core package does not require it. Other data types,

@@ -24,7 +24,7 @@ from build_dataecon_windows import HEADER_SHA256, SOURCE_COMMIT, SOURCE_SHA256
 
 import tsecon
 import tsecon.dataecon as de
-from tsecon import MIT, Quarterly, mm
+from tsecon import MIT, Quarterly, Yearly, mm
 
 
 def validate_provenance(package: Path) -> dict:
@@ -124,6 +124,18 @@ QUARTERLY_CASES = (
 )
 
 
+ANNUAL_CASES = (
+    ("cross_year", 2024, [1.25, -2.5, 0.0, 4.75]),
+    ("negative", -1, [1.25, -2.5]),
+    ("zero", 0, [1.25]),
+    ("minimum", -(2**31), [1.25]),
+    ("maximum", 2**31 - 1, [1.25]),
+    ("empty", 2024, []),
+    ("empty_minimum", -(2**31), []),
+    ("empty_maximum", 2**31 - 1, []),
+)
+
+
 def check_scalar_value(actual: float, expected: float) -> None:
     """Require a Python float, numerical classification and the sign of zero."""
     if type(actual) is not float:
@@ -153,6 +165,12 @@ def write_interchange(output_dir: Path, series: tsecon.TSeries) -> Path:
                         MIT(Quarterly(anchor), code), np.array(values, dtype=np.float64)
                     ),
                 )
+        for anchor in range(1, 13):
+            for suffix, code, values in ANNUAL_CASES:
+                db.write_series(
+                    f"y{anchor}_{suffix}",
+                    tsecon.TSeries(MIT(Yearly(anchor), code), np.array(values, dtype=np.float64)),
+                )
     with de.open_dataecon(output) as db:
         np.testing.assert_array_equal(db.read_series("sample").values, series.values)
         empties = [
@@ -165,7 +183,12 @@ def write_interchange(output_dir: Path, series: tsecon.TSeries) -> Path:
             for anchor in (1, 2, 3)
             for suffix, code, values in QUARTERLY_CASES
         ]
-    for actual, start, values in quarters:
+        annuals = [
+            (db.read_series(f"y{anchor}_{suffix}"), MIT(Yearly(anchor), code), values)
+            for anchor in range(1, 13)
+            for suffix, code, values in ANNUAL_CASES
+        ]
+    for actual, start, values in quarters + annuals:
         np.testing.assert_array_equal(actual.values, values)
         if (
             actual.firstdate != start
@@ -174,7 +197,7 @@ def write_interchange(output_dir: Path, series: tsecon.TSeries) -> Path:
             or actual.values.dtype != np.float64
             or not actual.values.flags.owndata
         ):
-            raise ValueError("Quarterly interchange lost dates, frequency, dtype or ownership.")
+            raise ValueError("Series interchange lost dates, frequency, dtype or ownership.")
     for actual, expected in scalars:
         check_scalar_value(actual, expected)
     for empty, anchor in empties:

@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-"""Float64 scalar and monthly/quarterly series DataEcon conversions."""
+"""Float64 scalar and monthly, quarterly or annual series DataEcon conversions."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from typing import TypeAlias
 
 import numpy as np
 
-from tsecon.frequencies import Monthly, Quarterly
+from tsecon.frequencies import Monthly, Quarterly, Yearly
 from tsecon.mit import MIT
 from tsecon.tseries import TSeries
 
@@ -19,22 +19,25 @@ MAX_BYTES = 128 * 1024 * 1024
 MIN_DATE = -(2**31)
 MAX_DATE = 2**31 - 1
 MIN_QUARTERLY_DATE = -131200
-_FREQUENCIES: dict[int, Monthly | Quarterly] = {
+_FREQUENCIES: dict[int, Monthly | Quarterly | Yearly] = {
     32: Monthly(),
     65: Quarterly(1),
     66: Quarterly(2),
     67: Quarterly(3),
+    **{256 + month: Yearly(month) for month in range(1, 13)},
 }
 Metadata: TypeAlias = tuple[int, int, int, int, int, int, int, int, int]
 ScalarMetadata: TypeAlias = tuple[int, int, int, int]
 
 
-def series_frequency(code: int) -> Monthly | Quarterly:
+def series_frequency(code: int) -> Monthly | Quarterly | Yearly:
     """Resolve only canonical supported native frequency codes."""
     try:
         return _FREQUENCIES[code]
     except KeyError:
-        raise TypeError("DataEcon supports only monthly or quarterly Float64 TSeries.") from None
+        raise TypeError(
+            "DataEcon supports only monthly, quarterly or annual Float64 TSeries."
+        ) from None
 
 
 def validate_scalar_metadata(metadata: ScalarMetadata) -> None:
@@ -68,14 +71,14 @@ def validate_metadata(metadata: Metadata) -> None:
     cls, kind, element, element_freq, axis, length, frequency, first, nbytes = metadata
     series_frequency(frequency)
     if (cls, kind, element, element_freq, axis) != (2, 12, 4, 0, 1):
-        raise TypeError("DataEcon supports only monthly or quarterly Float64 TSeries.")
+        raise TypeError("DataEcon supports only monthly, quarterly or annual Float64 TSeries.")
     if length < 0:
         raise ValueError("Invalid negative DataEcon series length.")
     if nbytes != length * 8 or not 0 <= nbytes <= MAX_BYTES:
         raise ValueError("Invalid or oversized DataEcon series payload.")
     if not MIN_DATE <= first <= MAX_DATE or (length and first + length - 1 > MAX_DATE):
         raise ValueError("DataEcon dates must fit the native signed 32-bit date range.")
-    if frequency != 32 and first < MIN_QUARTERLY_DATE:
+    if frequency in (65, 66, 67) and first < MIN_QUARTERLY_DATE:
         raise ValueError("Date is outside the reliable native quarterly date range.")
 
 
@@ -90,7 +93,7 @@ def encode_series(series: TSeries) -> tuple[int, int, int, bytes]:
     code = next((code for code, freq in _FREQUENCIES.items() if freq == series.frequency), None)
     if code is None or series.values.dtype != np.dtype(np.float64):
         raise TypeError(
-            "DataEcon supports only monthly or quarterly native-endian float64 TSeries."
+            "DataEcon supports only monthly, quarterly or annual native-endian float64 TSeries."
         )
     length = len(series.values)
     validate_metadata((2, 12, 4, 0, 1, length, code, series.firstdate.value, length * 8))

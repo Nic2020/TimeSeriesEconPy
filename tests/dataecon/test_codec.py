@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from tsecon import TSeries, mm, yy
+from tsecon import MIT, HalfYearly, TSeries, mm
 from tsecon.dataecon._codec import MAX_BYTES, decode_series, encode_series, validate_metadata
 
 
@@ -11,12 +11,12 @@ from tsecon.dataecon._codec import MAX_BYTES, decode_series, encode_series, vali
     ("series", "exception"),
     [
         (np.ones(4), TypeError),
-        (TSeries(yy(2024), np.ones(4)), TypeError),
+        (TSeries(MIT(HalfYearly(), 4048), np.ones(4)), TypeError),
         (TSeries(mm(2024, 1), np.ones(4, dtype=np.float32)), TypeError),
         (TSeries(mm(2024, 1), np.ones(4, dtype=np.int64)), TypeError),
         (TSeries(mm(2024, 1), np.ones(4, dtype=">f8")), TypeError),
         (TSeries(mm(2024, 1), np.array([], dtype=np.float32)), TypeError),
-        (TSeries(yy(2024), np.array([], dtype=np.float64)), TypeError),
+        (TSeries(MIT(HalfYearly(), 4048), np.array([], dtype=np.float64)), TypeError),
     ],
 )
 def test_reject_unsupported_input(series, exception):

@@ -1,6 +1,6 @@
 # DataEcon interchange
 
-`tsecon.dataecon` reads and writes **Float64 scalars and monthly/quarterly float64 TSeries,
+`tsecon.dataecon` reads and writes **Float64 scalars and monthly, quarterly or annual float64 TSeries,
 including empty series**, through the DataEcon 0.4.0 C library. Other scalar types,
 frequencies/dtypes, catalogs, workspaces and general attributes
 are not supported yet. Existing JSON I/O is unchanged.
@@ -8,7 +8,8 @@ are not supported yet. Existing JSON I/O is unchanged.
 Native DataEcon support is configured in the wheel workflow for CPython 3.11–3.13:
 Windows x86-64, Linux x86-64 and macOS arm64. Native wheel builds and Julia
 monthly, empty and scalar interchange checks have passed on all three platforms.
-Quarterly interchange is included in the configured wheel checks. Successful CI builds
+Quarterly interchange has also passed; annual interchange is included in the
+configured wheel checks. Successful CI builds
 are separate from a published release.
 The integration uses a thin
 Cython extension; CFFI and Julia are not runtime dependencies. Only the native
@@ -76,6 +77,33 @@ Integer date codes alone cannot distinguish fiscal anchors, so the adapter
 preserves the native frequency codes 65, 66 and 67 explicitly. Other encodings
 are rejected. Quarterly negative and zero years do not require conversion to
 Python `datetime.date`.
+
+## Annual series and fiscal year endings
+
+Annual series support every `Yearly(end_month=...)` value from 1 through 12.
+The default is December. The year labels the calendar year in which the fiscal
+period ends: `Yearly(end_month=6)` at 2024 covers July 2023 through June 2024.
+
+```python
+from tsecon import Yearly
+
+annual_start = MIT.from_yp(Yearly(end_month=6), 2024, 1)
+annual = TSeries(annual_start, np.array([1.25, -2.5, 0.0, 4.75], dtype=np.float64))
+with open_dataecon("annual-example.daec", "a") as db:
+    db.write_series("annual", annual)
+with open_dataecon("annual-example.daec") as db:
+    restored_annual = db.read_series("annual")
+assert restored_annual.frequency == Yearly(end_month=6)
+assert restored_annual.firstdate == annual_start
+assert restored_annual.lastdate == MIT.from_yp(Yearly(end_month=6), 2027, 1)
+np.testing.assert_array_equal(restored_annual.values, annual.values)
+```
+
+Annual native date codes equal the year. Both observation endpoints must fit
+`-2147483648` through `2147483647`, inclusive. For an empty series only the stored
+first-date anchor is checked. Invalid dates fail before storage; negative and
+zero years do not require conversion to Python `datetime.date`. Fiscal endings
+remain distinct even when their integer dates and values are identical.
 
 ## Empty series
 
@@ -289,7 +317,9 @@ The same file contains seven Float64 scalars covering finite values, signed zero
 NaN and infinities; Julia checks their types, metadata and values as well.
 Quarterly objects cover all three fiscal anchors, year transitions, negative and
 zero years, and nonempty/empty anchors at the supported date limits. Their
-frequency and first/last dates must also survive the Julia read.
+frequency and first/last dates must also survive the Julia read. Annual objects
+exercise all twelve fiscal endings with the same kinds of empty and boundary
+checks, including both signed 32-bit year limits.
 
 For a local installed-wheel check, use a fresh output directory and the installed
 environment's Python from outside the source package:

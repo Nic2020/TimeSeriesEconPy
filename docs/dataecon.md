@@ -1,6 +1,6 @@
 # DataEcon interchange
 
-`tsecon.dataecon` reads and writes **Float64 scalars and monthly, quarterly,
+`tsecon.dataecon` reads and writes **Float64 and Int64 scalars and monthly, quarterly,
 half-yearly or annual float64 TSeries, including empty series**, through the DataEcon 0.4.0 C library. Other scalar types,
 frequencies/dtypes, catalogs, workspaces and general attributes
 are not supported yet. Existing JSON I/O is unchanged.
@@ -166,7 +166,7 @@ Julia loader also returns a dated Float64 TSeries. Explicitly different markers,
 including `Float32`, are rejected. Without a marker, the zero-byte native float
 representation defaults to float64, as it does in Julia.
 
-## Float64 scalars
+## Float64 and Int64 scalars
 
 A scalar is a single value without a date axis; it is distinct from a
 one-observation TSeries. Use the same file owner:
@@ -174,23 +174,37 @@ one-observation TSeries. Use the same file owner:
 ```python
 with open_dataecon("scalar-example.daec", "a") as db:
     db.write_scalar("rate", 1.25)
+    db.write_scalar("count", 2**53 + 1)
 with open_dataecon("scalar-example.daec") as db:
     rate = db.read_scalar("rate")
+    count = db.read_scalar("count")
 assert type(rate) is float
 assert rate == 1.25
+assert type(count) is int
+assert count == 9007199254740993
 ```
 
-`write_scalar` accepts exact Python `float` and NumPy `float64` values.
-Integers (including booleans), Float32, Decimal, complex numbers, scalar
-subclasses and arrays are rejected without implicit conversion. Reads return
-independent Python floats. NaN, infinities and the sign of zero are preserved;
-arbitrary signaling-NaN states or payload bits are not an interchange guarantee.
+`write_scalar` accepts exact Python `float` and NumPy `float64` values, stored
+as Float64, and exact Python `int` and NumPy `int64` values, stored as Int64.
+Integers are packed as signed 64-bit two's complement and never pass through
+floating point, so values beyond 2^53 and both signed endpoints round-trip
+exactly; a Python `int` outside that range raises `ValueError`. Booleans,
+other NumPy integer widths, unsigned integers, Float32, Decimal, Fraction,
+complex numbers, scalar subclasses and arrays are rejected without implicit
+conversion. Reads return an independent Python `float` or `int` according to
+the stored type. NaN, infinities and the sign of zero are preserved; arbitrary
+signaling-NaN states or payload bits are not an interchange guarantee.
+
+Julia writes `Int64` values with the same metadata and reads them back as
+`Int64`. Its date scalars (`MIT`) and `Duration` values share the scalar class
+but carry a frequency; they, unsigned integers, other widths and strings are
+rejected on read with `TypeError` or `ValueError` rather than being coerced.
 
 Scalars share the root namespace with series: existing names are never
 overwritten, and wrong-class reads raise `DataEconError`. Scalar `jtype` and
-`jeltype` attributes are always rejected, including the literal `Float64`.
-The empty-series attribute exception does not apply to scalars. Native scalar
-payloads must be exactly eight bytes with no frequency metadata.
+`jeltype` attributes are always rejected, including the literals `Float64`
+and `Int64`. The empty-series attribute exception does not apply to scalars.
+Native scalar payloads must be exactly eight bytes with no frequency metadata.
 
 ## Closing and errors
 
@@ -347,7 +361,8 @@ checkout identity and nonempty/empty value, type and metadata assertions before
 wheel upload. Each output contains the nonempty sample and empty series anchored
 at 2024M1 and 2025M7; the Julia loader must preserve all three as dated TSeries.
 The same file contains seven Float64 scalars covering finite values, signed zero,
-NaN and infinities; Julia checks their types, metadata and values as well.
+NaN and infinities, and fourteen Int64 scalars including both signed endpoints
+and values around 2^53; Julia checks their types, metadata and values as well.
 Quarterly objects cover all three fiscal anchors, year transitions, negative and
 zero years, and nonempty/empty anchors at the supported date limits. Their
 frequency and first/last dates must also survive the Julia read. Annual objects

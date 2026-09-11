@@ -112,6 +112,26 @@ SCALAR_CASES = {
 }
 
 
+# Exact Int64 values, including both signed endpoints and values around 2**53
+# that a floating-point detour would change.
+INT64_CASES = {
+    "int_zero": 0,
+    "int_one": 1,
+    "int_negative_one": -1,
+    "int_seven": 7,
+    "int_negative_seven": -7,
+    "int_pow53": 2**53,
+    "int_pow53_plus_one": 2**53 + 1,
+    "int_pow53_minus_one": 2**53 - 1,
+    "int_negative_pow53_minus_one": -(2**53 + 1),
+    "int_pow62_plus_one": 2**62 + 1,
+    "int_max": 2**63 - 1,
+    "int_min": -(2**63),
+    "int_min_plus_one": -(2**63) + 1,
+    "int_max_minus_one": 2**63 - 2,
+}
+
+
 QUARTERLY_CASES = (
     ("cross_year", 8099, [1.25, -2.5, 0.0, 4.75]),
     ("negative", -1, [1.25, -2.5]),
@@ -154,8 +174,16 @@ DATED_GROUPS = (
 )
 
 
-def check_scalar_value(actual: float, expected: float) -> None:
-    """Require a Python float, numerical classification and the sign of zero."""
+def check_scalar_value(actual: float | int, expected: float | int) -> None:
+    """Require the exact Python type, numerical classification and the sign of zero.
+
+    Int64 expectations require an exact ``int``; a floating-point detour would
+    change the values beyond 2**53 and is a failure, not a tolerance.
+    """
+    if type(expected) is int:
+        if type(actual) is not int or actual != expected:
+            raise TypeError(f"Int64 scalar read returned {actual!r} instead of {expected!r}.")
+        return
     if type(actual) is not float:
         raise TypeError("Scalar read did not return a Python float.")
     np.testing.assert_equal(actual, expected)
@@ -171,7 +199,7 @@ def write_interchange(output_dir: Path, series: tsecon.TSeries) -> Path:
         raise FileExistsError(f"Use a fresh interchange output directory: {output}")
     with de.open_dataecon(output, "a") as db:
         db.write_series("sample", series)
-        for name, value in SCALAR_CASES.items():
+        for name, value in {**SCALAR_CASES, **INT64_CASES}.items():
             db.write_scalar(name, value)
         for name, anchor in (("empty", mm(2024, 1)), ("empty_later", mm(2025, 7))):
             db.write_series(name, tsecon.TSeries(anchor, np.empty(0, dtype=np.float64)))
@@ -190,7 +218,9 @@ def write_interchange(output_dir: Path, series: tsecon.TSeries) -> Path:
             (db.read_series(name), anchor)
             for name, anchor in (("empty", mm(2024, 1)), ("empty_later", mm(2025, 7)))
         ]
-        scalars = [(db.read_scalar(name), value) for name, value in SCALAR_CASES.items()]
+        scalars = [
+            (db.read_scalar(name), value) for name, value in {**SCALAR_CASES, **INT64_CASES}.items()
+        ]
         dated = [
             (db.read_series(f"{prefix}{anchor}_{suffix}"), MIT(frequency(anchor), code), values)
             for prefix, frequency, anchors, cases in DATED_GROUPS

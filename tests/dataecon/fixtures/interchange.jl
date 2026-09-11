@@ -5,6 +5,7 @@
 # generate-scalars/verify-scalars, generate-quarterly/verify-quarterly, verify-wheel.
 # Annual actions: generate-annual/verify-annual (also checked by verify-wheel).
 # Half-yearly actions: generate-halfyearly/verify-halfyearly (also checked by verify-wheel).
+# Int64 scalar actions: generate-int64/verify-int64 (also checked by verify-wheel).
 using TimeSeriesEcon
 using Test, SHA, TOML, Pkg
 
@@ -48,6 +49,20 @@ halfyearly_below_minimum = ("below_minimum", -65601, [1.25])
 halfyearly_native_empties = [("native_empty", 4048, Float64[]),
     ("native_empty_minimum", -65600, Float64[]),
     ("native_empty_maximum", 2147483647, Float64[])]
+# Int64 scalars: metadata (1,1,0,8), little-endian two's complement, no attributes.
+# Values around 2^53 expose any floating-point detour; both endpoints are included.
+int64_cases = [("zero", 0), ("one", 1), ("negative_one", -1), ("seven", 7),
+    ("negative_seven", -7), ("pow53", 2^53), ("pow53_plus_one", 2^53 + 1),
+    ("pow53_minus_one", 2^53 - 1), ("negative_pow53_minus_one", -(2^53 + 1)),
+    ("pow62_plus_one", 2^62 + 1), ("max", typemax(Int64)), ("min", typemin(Int64)),
+    ("min_plus_one", typemin(Int64) + 1), ("max_minus_one", typemax(Int64) - 1)]
+# The same encoding written directly through the C ABI, as Python writes it.
+int64_native_cases = [("native_pow53_plus_one", 2^53 + 1), ("native_min", typemin(Int64)),
+    ("native_max", typemax(Int64)), ("native_negative_one", -1)]
+# Unsupported-representation controls sharing the scalar class.
+int64_controls = [("bool_true", true), ("int32", Int32(7)), ("int128", Int128(7)),
+    ("uint64", UInt64(7)), ("duration_monthly", 2024M4 - 2024M1),
+    ("mit_monthly", 2024M1), ("rational", 1 // 2), ("string", "7")]
 
 
 
@@ -122,8 +137,24 @@ elseif action == "generate-halfyearly"
             end
         end
     end
-elseif !(action in ("verify", "verify-empty", "verify-scalars", "verify-quarterly", "verify-annual", "verify-halfyearly", "verify-wheel"))
-    error("Unknown action; use generate/verify, generate-empty/verify-empty, generate-scalars/verify-scalars, generate-quarterly/verify-quarterly, generate-annual/verify-annual, generate-halfyearly/verify-halfyearly or verify-wheel.")
+elseif action == "generate-int64"
+    ispath(filename) && error("Output already exists; use a fresh fixture path.")
+    DE.opendaec(filename; write=true) do db
+        for (suffix, value) in int64_cases
+            DE.store_scalar(db, DE.root_id, "int_$(suffix)", value)
+        end
+        for (suffix, value) in int64_native_cases
+            id = Ref{C.obj_id_t}()
+            box = Ref{Int64}(value)
+            @assert C.de_store_scalar(db, DE.root_id, "int_$(suffix)", C.type_signed,
+                C.freq_none, 8, box, id) == 0
+        end
+        for (suffix, value) in int64_controls
+            DE.store_scalar(db, DE.root_id, "ctl_$(suffix)", value)
+        end
+    end
+elseif !(action in ("verify", "verify-empty", "verify-scalars", "verify-quarterly", "verify-annual", "verify-halfyearly", "verify-int64", "verify-wheel"))
+    error("Unknown action; use generate/verify, generate-empty/verify-empty, generate-scalars/verify-scalars, generate-quarterly/verify-quarterly, generate-annual/verify-annual, generate-halfyearly/verify-halfyearly, generate-int64/verify-int64 or verify-wheel.")
 end
 
 if action in ("generate", "verify", "verify-wheel")
@@ -332,7 +363,45 @@ if action in ("generate-halfyearly", "verify-halfyearly", "verify-wheel")
     end
 end
 
-if action in ("generate", "generate-empty", "generate-scalars", "generate-quarterly", "generate-annual", "generate-halfyearly")
+if action in ("generate-int64", "verify-int64", "verify-wheel")
+    @testset "DataEcon Int64 scalar interchange" begin
+        reference_fixture = action != "verify-wheel"
+        cases = copy(int64_cases)
+        reference_fixture && append!(cases, int64_native_cases)
+        DE.opendaec(filename) do db
+            for (suffix, expected_int) in cases
+                id = DE.find_object(db, DE.root_id, "int_$(suffix)")
+                scal = Ref{C.scalar_t}()
+                @test C.de_load_scalar(db, id, scal) == 0
+                v = scal[]
+                @test Int.((v.object.obj_class, v.object.obj_type, v.frequency, v.nbytes)) == (1,1,0,8)
+                @test v.value != C_NULL
+                @test isempty(DE.get_all_attributes(db, id))
+                value = DE.load_scalar(db, id)
+                @test value isa Int64
+                @test value === expected_int
+            end
+            if reference_fixture
+                expected_controls = [("bool_true", Int8, (1,1,0,1)), ("int32", Int32, (1,1,0,4)),
+                    ("int128", Int128, (1,1,0,16)), ("uint64", UInt64, (1,2,0,8)),
+                    ("duration_monthly", Duration{Monthly}, (1,1,32,8)),
+                    ("mit_monthly", MIT{Monthly}, (1,3,32,8)),
+                    ("rational", Rational{Int64}, (1,4,0,8)), ("string", String, (1,6,0,2))]
+                for (suffix, T, metadata) in expected_controls
+                    id = DE.find_object(db, DE.root_id, "ctl_$(suffix)")
+                    scal = Ref{C.scalar_t}()
+                    @test C.de_load_scalar(db, id, scal) == 0
+                    v = scal[]
+                    @test Int.((v.object.obj_class, v.object.obj_type, v.frequency, v.nbytes)) == metadata
+                    # Julia reloads a stored Bool as Int8; Python rejects these controls.
+                    @test DE.load_scalar(db, id) isa T
+                end
+            end
+        end
+    end
+end
+
+if action in ("generate", "generate-empty", "generate-scalars", "generate-quarterly", "generate-annual", "generate-halfyearly", "generate-int64")
     layout = Dict{String,Any}(
         "enums" => sizeof.([C.class_t, C.type_t, C.frequency_t, C.axis_type_t]),
     )

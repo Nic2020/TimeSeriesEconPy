@@ -30,6 +30,7 @@ cdef extern from "daec.h":
     ctypedef enum class_t:
         class_tseries
     ctypedef enum type_t:
+        type_integer
         type_tseries
         type_float
     ctypedef enum frequency_t:
@@ -348,13 +349,16 @@ cdef class FileHandle:
                     raise TypeError("Scalar reconstruction attributes are not supported.")
             return payload, metadata, loaded_name
 
-    def write_scalar(self, str name, bytes payload):
+    def write_scalar(self, str name, int kind, bytes payload):
+        # kind is the validated native scalar type code: 1 (Int64) or 4 (Float64).
         cdef bytes encoded = name.encode("utf-8")
         cdef obj_id_t oid = 0
         cdef int rc
+        cdef type_t native_type
         if not encoded or b"/" in encoded or b"\0" in encoded:
             raise ValueError("Expected a nonempty root object name without '/' or NUL.")
-        validate_scalar_metadata((1, 4, 0, len(payload)))
+        validate_scalar_metadata((1, kind, 0, len(payload)))
+        native_type = type_float if kind == 4 else type_integer
         with _lock:
             self.require_open()
             rc = de_find_object(self.handle, 0, encoded, &oid)
@@ -364,6 +368,6 @@ cdef class FileHandle:
             if rc != DE_OBJ_DNE:
                 check(rc, "find", self.path, name)
             de_clear_error()
-            check(de_store_scalar(self.handle, 0, encoded, type_float, freq_none,
+            check(de_store_scalar(self.handle, 0, encoded, native_type, freq_none,
                                   8, <const char *>payload, &oid),
                   "write_scalar (partial object may remain)", self.path, name)

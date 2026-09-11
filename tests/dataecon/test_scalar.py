@@ -1,4 +1,7 @@
-"""Float64 scalar codecs, native interchange and representation guards."""
+"""Float64 scalar codecs, native interchange and representation guards.
+
+Int64 scalar coverage lives in ``test_int64.py``.
+"""
 
 import hashlib
 import importlib.util
@@ -46,17 +49,17 @@ def assert_scalar(actual, expected):
 @pytest.mark.parametrize(("name", "value"), CASES)
 @pytest.mark.parametrize("constructor", [float, np.float64])
 def test_scalar_codec(name, value, constructor):
-    payload = encode_scalar(constructor(value))
+    kind, payload = encode_scalar(constructor(value))
+    assert kind == 4
     assert len(payload) == 8
-    assert_scalar(decode_scalar(payload), value)
+    assert_scalar(decode_scalar(kind, payload), value)
 
 
 @pytest.mark.parametrize(
     "value",
     [
-        1,
         True,
-        np.int64(1),
+        np.int32(1),
         np.float32(1.25),
         Decimal("1.25"),
         1.25 + 0j,
@@ -101,14 +104,14 @@ def test_scalar_size_guard(length):
         validate_scalar_metadata((1, 4, 0, length))
 
 
-@pytest.mark.parametrize("metadata", [(2, 4, 0, 8), (1, 1, 0, 8), (1, 4, 32, 8)])
+@pytest.mark.parametrize("metadata", [(2, 4, 0, 8), (1, 2, 0, 8), (1, 3, 0, 8), (1, 4, 32, 8)])
 def test_scalar_type_guard(metadata):
     with pytest.raises(TypeError):
         validate_scalar_metadata(metadata)
 
 
 @pytest.mark.parametrize(
-    "operation", [lambda: encode_scalar(1.25), lambda: decode_scalar(bytes(8))]
+    "operation", [lambda: encode_scalar(1.25), lambda: decode_scalar(4, bytes(8))]
 )
 def test_scalar_codec_rejects_big_endian(monkeypatch, operation):
     monkeypatch.setattr(_codec.sys, "byteorder", "big")
@@ -121,7 +124,7 @@ def test_scalar_codec_rejects_big_endian(monkeypatch, operation):
 def test_scalar_backend_validates_payload_before_storage(tmp_path, payload):
     with open_dataecon(tmp_path / "invalid-write.daec", "a") as db:
         with pytest.raises(ValueError, match="eight"):
-            db._handle.write_scalar("bad", payload)
+            db._handle.write_scalar("bad", 4, payload)
         with pytest.raises(DataEconError) as caught:
             db.read_scalar("bad")
         assert caught.value.code == -989
@@ -136,9 +139,12 @@ def test_julia_scalar_fixture_and_abi():
     assert hashlib.sha256(fixture.read_bytes()).hexdigest() == provenance["fixture_sha256"]
     with open_dataecon(fixture) as db:
         results = [(db.read_scalar(name), value) for name, value in CASES]
-        for name, error in (("scalar_float32", ValueError), ("scalar_integer", TypeError)):
-            with pytest.raises(error):
-                db.read_scalar(name)
+        with pytest.raises(ValueError):
+            db.read_scalar("scalar_float32")
+        # The Int64 control is a supported representation since Int64 support landed.
+        integer = db.read_scalar("scalar_integer")
+        assert type(integer) is int
+        assert integer == 7
     for actual, expected in results:
         assert_scalar(actual, expected)
     native = importlib.import_module("tsecon.dataecon._native")
@@ -166,7 +172,7 @@ def test_scalar_roundtrip_metadata_and_owner_guards(tmp_path):
         with pytest.raises(DataEconError):
             db.read_series("scalar_finite")
         with pytest.raises(TypeError):
-            db.write_scalar("invalid", 1)
+            db.write_scalar("invalid", True)
         with pytest.raises(DataEconError) as caught:
             db.read_scalar("invalid")
         assert caught.value.code == -989
@@ -197,7 +203,10 @@ def test_scalar_roundtrip_metadata_and_owner_guards(tmp_path):
         ("UPDATE scalars SET value=zeroblob(7)", ValueError),
         ("UPDATE scalars SET value=zeroblob(9)", ValueError),
         ("UPDATE scalars SET frequency=32", TypeError),
-        ("UPDATE objects SET type=1 WHERE class=1", TypeError),
+        # Type 1 would read the same bytes as an Int64: the format cannot tell
+        # a retyped Float64 apart. Unsigned and date codes are rejected.
+        ("UPDATE objects SET type=2 WHERE class=1", TypeError),
+        ("UPDATE objects SET type=3 WHERE class=1", TypeError),
     ],
 )
 def test_scalar_malformed_storage(tmp_path, sql, error):

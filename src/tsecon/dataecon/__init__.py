@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-"""Read and write Float64 scalars and monthly, quarterly, half-yearly or annual series.
+"""Read and write Float64/Int64 scalars and monthly, quarterly, half-yearly or annual series.
 
 Use ``open_dataecon`` as a context manager. The native extension loads on first
 use; importing the core package does not require it. Other data types,
@@ -114,27 +114,33 @@ class DataEconFile:
                 raise ValueError("Cannot write through a read-only DataEcon file.")
             self._handle.write(name, frequency, year, period, payload)
 
-    def read_scalar(self, name: str) -> float:
-        """Read a root Float64 scalar as a Python float that survives file closure."""
-        with self._lock:
-            self._require_open()
-            _validate_name(name)
-            payload, _, _ = self._handle.read_scalar(name)
-            return decode_scalar(payload)
+    def read_scalar(self, name: str) -> float | int:
+        """Read a root Float64 or Int64 scalar as a Python float or int.
 
-    def write_scalar(self, name: str, value: float | np.float64) -> None:
-        """Append a Float64 scalar without overwriting any existing root object.
-
-        Native failures may leave a partial object; no rollback is promised.
-        Integers and other scalar types are rejected without implicit conversion.
+        The result is independent of the file and survives closure. Stored
+        integers are decoded exactly; they never pass through floating point.
         """
         with self._lock:
             self._require_open()
             _validate_name(name)
-            payload = encode_scalar(value)
+            payload, metadata, _ = self._handle.read_scalar(name)
+            return decode_scalar(metadata[1], payload)
+
+    def write_scalar(self, name: str, value: float | np.float64 | int | np.int64) -> None:
+        """Append a Float64 or Int64 scalar without overwriting any existing root object.
+
+        Native failures may leave a partial object; no rollback is promised.
+        Booleans, other integer widths, unsigned values, subclasses and other
+        scalar types are rejected without implicit conversion; Python integers
+        outside the signed 64-bit range raise ValueError.
+        """
+        with self._lock:
+            self._require_open()
+            _validate_name(name)
+            kind, payload = encode_scalar(value)
             if self._mode == "r":
                 raise ValueError("Cannot write through a read-only DataEcon file.")
-            self._handle.write_scalar(name, payload)
+            self._handle.write_scalar(name, kind, payload)
 
     def close(self) -> None:
         """Close once; quarantine after failure instead of retrying native cleanup."""

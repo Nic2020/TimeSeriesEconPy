@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-"""Float64 scalar and monthly, quarterly, half-yearly or annual series conversions."""
+"""Float64/Int64 scalar and monthly, quarterly, half-yearly or annual series conversions."""
 
 from __future__ import annotations
 
@@ -35,6 +35,12 @@ _MIN_DATES: dict[int, tuple[int, str]] = {
     **dict.fromkeys((65, 66, 67), (MIN_QUARTERLY_DATE, "quarterly")),
     **dict.fromkeys(range(129, 135), (MIN_HALFYEARLY_DATE, "half-yearly")),
 }
+MIN_INT64 = -(2**63)
+MAX_INT64 = 2**63 - 1
+# Native scalar type codes accepted without a frequency: type_integer (which the
+# header also names type_signed) and type_float. Type 1 with a frequency is a
+# Julia Duration encoding and type 3 a date scalar; both stay unsupported.
+_SCALAR_KINDS: dict[int, str] = {1: "<q", 4: "<d"}
 Metadata: TypeAlias = tuple[int, int, int, int, int, int, int, int, int]
 ScalarMetadata: TypeAlias = tuple[int, int, int, int]
 
@@ -52,27 +58,43 @@ def series_frequency(code: int) -> Monthly | Quarterly | HalfYearly | Yearly:
 def validate_scalar_metadata(metadata: ScalarMetadata) -> None:
     """Validate scalar type and length before dereferencing native memory."""
     cls, kind, frequency, nbytes = metadata
-    if (cls, kind, frequency) != (1, 4, 0):
-        raise TypeError("DataEcon scalar support requires Float64 with no frequency.")
+    if cls != 1 or kind not in _SCALAR_KINDS or frequency != 0:
+        raise TypeError("DataEcon scalar support requires Float64 or Int64 with no frequency.")
     if nbytes != 8:
-        raise ValueError("DataEcon Float64 scalars require exactly eight payload bytes.")
+        raise ValueError("DataEcon Float64 and Int64 scalars require exactly eight payload bytes.")
 
 
-def encode_scalar(value: float | np.float64) -> bytes:
-    """Snapshot an exact Python float or NumPy float64 without implicit coercion."""
-    if type(value) is not float and type(value) is not np.float64:
-        raise TypeError("write_scalar requires a Python float or NumPy float64.")
+def encode_scalar(value: float | np.float64 | int | np.int64) -> tuple[int, bytes]:
+    """Return the native type code and an exact eight-byte snapshot.
+
+    Only exact Python float/NumPy float64 and Python int/NumPy int64 values are
+    accepted. Integers never pass through floating point; bool, other integer
+    widths, unsigned values and subclasses are rejected without conversion.
+    """
+    if type(value) is float or type(value) is np.float64:
+        kind, packed = 4, struct.pack("<d", value)
+    elif type(value) is int or type(value) is np.int64:
+        number = int(value)
+        if not MIN_INT64 <= number <= MAX_INT64:
+            raise ValueError("write_scalar integers must fit the signed 64-bit range.")
+        kind, packed = 1, struct.pack("<q", number)
+    else:
+        raise TypeError(
+            "write_scalar requires a Python float, NumPy float64, Python int or NumPy int64."
+        )
     if sys.byteorder != "little":
         raise RuntimeError("DataEcon interchange requires a little-endian host.")
-    return struct.pack("<d", value)
+    return kind, packed
 
 
-def decode_scalar(payload: bytes) -> float:
-    """Return an independent Python float from a validated byte snapshot."""
-    validate_scalar_metadata((1, 4, 0, len(payload)))
+def decode_scalar(kind: int, payload: bytes) -> float | int:
+    """Return an independent Python float or int from a validated byte snapshot."""
+    validate_scalar_metadata((1, kind, 0, len(payload)))
     if sys.byteorder != "little":
         raise RuntimeError("DataEcon interchange requires a little-endian host.")
-    return float(struct.unpack("<d", payload)[0])
+    if kind == 4:
+        return float(struct.unpack("<d", payload)[0])
+    return int(struct.unpack("<q", payload)[0])
 
 
 def validate_metadata(metadata: Metadata) -> None:

@@ -149,7 +149,7 @@ def test_int64_codec_does_not_invoke_custom_conversion():
 
 @pytest.mark.parametrize(
     "metadata",
-    [(1, 1, 11, 8), (1, 1, 12, 8), (1, 1, 192, 8), (1, 3, 0, 8), (1, 2, 0, 8), (2, 1, 0, 8)],
+    [(1, 1, 14, 8), (1, 1, 16, 8), (1, 1, 192, 8), (1, 3, 0, 8), (1, 2, 0, 8), (2, 1, 0, 8)],
 )
 def test_int64_metadata_guard_rejects_unsupported_duration_date_unsigned_and_class(metadata):
     with pytest.raises(TypeError):
@@ -273,7 +273,7 @@ def test_int64_backend_validates_kind_and_width_before_storage(tmp_path, kind, p
         ("UPDATE scalars SET value=NULL", ValueError),
         ("UPDATE scalars SET value=zeroblob(4)", ValueError),
         ("UPDATE scalars SET value=zeroblob(16)", ValueError),
-        ("UPDATE scalars SET frequency=11", TypeError),
+        ("UPDATE scalars SET frequency=16", TypeError),
         ("UPDATE objects SET type=2", TypeError),
         ("UPDATE objects SET type=3", TypeError),
     ],

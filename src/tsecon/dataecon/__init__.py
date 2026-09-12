@@ -1,11 +1,13 @@
 # SPDX-License-Identifier: MIT
 """Read and write DataEcon scalars and monthly, quarterly, half-yearly or annual series.
 
-Scalars cover Float64, Int64, strings, and MIT dates or Durations over those
-four frequencies; series carry Float64 values. Use ``open_dataecon`` as a
-context manager. The native extension loads on first use; importing the core
-package does not require it. Other data types, calendar/unit frequencies,
-catalogs and general attributes are not supported yet.
+Scalars cover Float64, Int64, strings, and MIT dates or Durations over every
+core frequency (Unit, Daily, BDaily, Weekly with any end day, Monthly,
+Quarterly, HalfYearly and Yearly); series carry Float64 values over the four
+year/period frequencies. Use ``open_dataecon`` as a context manager. The native
+extension loads on first use; importing the core package does not require it.
+Other data types, calendar-frequency series, catalogs and general attributes
+are not supported yet.
 """
 
 from __future__ import annotations
@@ -127,7 +129,8 @@ class DataEconFile:
         The result is independent of the file and survives closure. Stored
         integers, dates and durations are decoded exactly and never pass
         through floating point; strings are decoded strictly as UTF-8. Dates
-        are validated against the reliable native range of their frequency.
+        are validated against the reliable native range of their frequency;
+        Unit dates are plain 64-bit codes and are not range-checked.
         """
         with self._lock:
             self._require_open()
@@ -140,12 +143,13 @@ class DataEconFile:
 
         Accepted exactly by type: Python float / NumPy float64 (Float64),
         Python int / NumPy int64 (Int64), str (UTF-8 string), MIT (date) and
-        Duration over the monthly, quarterly, half-yearly or annual frequencies.
-        Booleans, other widths, unsigned values, bytes, subclasses and other
-        types are rejected without implicit conversion. Out-of-range integers
-        or durations, dates outside the reliable native range, and strings
-        containing NUL or lone surrogates raise ValueError. Native failures may
-        leave a partial object; no rollback is promised.
+        Duration over the Unit, Daily, BDaily, Weekly, Monthly, Quarterly,
+        HalfYearly or Yearly frequencies. Booleans, other widths, unsigned
+        values, bytes, subclasses and other types are rejected without implicit
+        conversion. Out-of-range integers or durations, dates outside the
+        reliable native range of their frequency, and strings containing NUL or
+        lone surrogates raise ValueError. Native failures may leave a partial
+        object; no rollback is promised.
         """
         with self._lock:
             self._require_open()

@@ -2,8 +2,9 @@
 """Scalar and series conversions between core objects and native DataEcon payloads.
 
 Scalars: Float64, Int64, UTF-8 strings, and MIT dates or Durations over the
-monthly, quarterly, half-yearly and annual frequencies. Series: Float64 values
-over the same four frequencies.
+unit, daily, business-daily, weekly (every end day), monthly, quarterly,
+half-yearly and annual frequencies. Series: Float64 values over the monthly,
+quarterly, half-yearly and annual frequencies.
 """
 
 from __future__ import annotations
@@ -14,7 +15,17 @@ from typing import TypeAlias
 
 import numpy as np
 
-from tsecon.frequencies import HalfYearly, Monthly, Quarterly, Yearly
+from tsecon.frequencies import (
+    BDaily,
+    Daily,
+    Frequency,
+    HalfYearly,
+    Monthly,
+    Quarterly,
+    Unit,
+    Weekly,
+    Yearly,
+)
 from tsecon.mit import MIT, Duration
 from tsecon.tseries import TSeries
 
@@ -50,6 +61,31 @@ _SCALAR_MIN_DATES: dict[int, int] = {
 }
 MIN_INT64 = -(2**63)
 MAX_INT64 = 2**63 - 1
+# Scalar-only frequencies. Unit (11) is Julia's generic pass-through: the code
+# is a plain signed 64-bit integer and no native codec applies. Daily (12),
+# business daily (13) and weekly (16 + ISO end day, 17..23) use the native
+# calendar codec, whose encoder accepts years in [-32800, 32800] and whose
+# decoders shift by fixed uint32 constants. The exact round-trip windows below
+# were verified natively on every code: daily from 1 March -32800, business
+# daily and weekly from the last week of December -32800, all through 31
+# December 32800. Code 16 (a second Sunday alias) and 24..31 are never written
+# by Julia and decode to invalid anchors, so they are rejected like bare codes.
+UNIT_FREQUENCY = 11
+_CALENDAR_FREQUENCIES: dict[int, Daily | BDaily | Weekly] = {
+    12: Daily(),
+    13: BDaily(),
+    **{16 + day: Weekly(day) for day in range(1, 8)},
+}
+_CALENDAR_RANGES: dict[int, tuple[int, int]] = {
+    12: (-11980259, 11979954),
+    13: (-8557114, 8557110),
+    **dict.fromkeys(range(17, 24), (-1711422, 1711422)),
+}
+_SCALAR_FREQUENCIES: dict[int, Frequency] = {
+    **_FREQUENCIES,
+    UNIT_FREQUENCY: Unit(),
+    **_CALENDAR_FREQUENCIES,
+}
 # Native scalar type codes: type_integer (which the header also names
 # type_signed) is 1, type_date 3, type_float 4 and type_string 6. Type 1 with a
 # supported frequency is a Duration; type 3 always carries a frequency.
@@ -62,8 +98,9 @@ ScalarMetadata: TypeAlias = tuple[int, int, int, int]
 ScalarValue: TypeAlias = float | np.float64 | int | np.int64 | str | MIT | Duration
 ScalarResult: TypeAlias = float | int | str | MIT | Duration
 _SCALAR_SUPPORT = (
-    "DataEcon scalar support covers Float64, Int64, strings, and monthly, quarterly, "
-    "half-yearly or annual MIT dates and Durations."
+    "DataEcon scalar support covers Float64, Int64, strings, and MIT dates or Durations "
+    "over the Unit, Daily, BDaily, Weekly, Monthly, Quarterly, HalfYearly and Yearly "
+    "frequencies."
 )
 
 
@@ -77,26 +114,39 @@ def series_frequency(code: int) -> Monthly | Quarterly | HalfYearly | Yearly:
         ) from None
 
 
-def scalar_frequency(code: int) -> Monthly | Quarterly | HalfYearly | Yearly:
+def scalar_frequency(code: int) -> Frequency:
     """Resolve a supported native frequency code for a date or duration scalar."""
     try:
-        return _FREQUENCIES[code]
+        return _SCALAR_FREQUENCIES[code]
     except KeyError:
         raise TypeError(_SCALAR_SUPPORT) from None
 
 
 def scalar_frequency_code(frequency: object) -> int:
     """Return the canonical native code for a supported core frequency object."""
-    code = next((code for code, freq in _FREQUENCIES.items() if freq == frequency), None)
+    code = next((code for code, freq in _SCALAR_FREQUENCIES.items() if freq == frequency), None)
     if code is None:
         raise TypeError(_SCALAR_SUPPORT)
     return code
 
 
 def validate_date_code(frequency: int, code: int) -> None:
-    """Require a date code the native codec decodes exactly for this frequency."""
+    """Require a date code the native codec decodes exactly for this frequency.
+
+    Unit codes are plain signed 64-bit integers with no date bound. Calendar and
+    year/period codes must lie inside their verified native windows; the backend
+    then confirms the native round trip for those frequencies.
+    """
     scalar_frequency(frequency)
-    if not _SCALAR_MIN_DATES[frequency] <= code <= MAX_DATE:
+    if frequency == UNIT_FREQUENCY:
+        if not MIN_INT64 <= code <= MAX_INT64:
+            raise ValueError("Unit date codes must fit the signed 64-bit range.")
+        return
+    if frequency in _CALENDAR_RANGES:
+        minimum, maximum = _CALENDAR_RANGES[frequency]
+    else:
+        minimum, maximum = _SCALAR_MIN_DATES[frequency], MAX_DATE
+    if not minimum <= code <= maximum:
         raise ValueError("Date is outside the reliable native date range for its frequency.")
 
 
@@ -149,8 +199,9 @@ def encode_scalar(value: ScalarValue) -> tuple[int, int, bytes]:
     Only exact Python float/NumPy float64, Python int/NumPy int64, Python str,
     core MIT and core Duration values are accepted. Integers and durations never
     pass through floating point; strings are UTF-8 plus a NUL terminator; dates
-    must lie inside the reliable native range of their frequency. Subclasses,
-    other widths, bytes, bool and every other type are rejected without conversion.
+    must lie inside the reliable native range of their frequency (Unit dates are
+    unbounded 64-bit codes). Subclasses, other widths, bytes, bool and every
+    other type are rejected without conversion.
     """
     if type(value) is float or type(value) is np.float64:
         kind, frequency, packed = KIND_FLOAT, 0, struct.pack("<d", value)

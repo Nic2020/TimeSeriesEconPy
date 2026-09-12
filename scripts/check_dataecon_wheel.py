@@ -24,7 +24,19 @@ from build_dataecon_windows import HEADER_SHA256, SOURCE_COMMIT, SOURCE_SHA256
 
 import tsecon
 import tsecon.dataecon as de
-from tsecon import MIT, Duration, HalfYearly, Monthly, Quarterly, Yearly, mm
+from tsecon import (
+    MIT,
+    BDaily,
+    Daily,
+    Duration,
+    HalfYearly,
+    Monthly,
+    Quarterly,
+    Unit,
+    Weekly,
+    Yearly,
+    mm,
+)
 
 
 def validate_provenance(package: Path) -> dict:
@@ -169,6 +181,165 @@ DURATION_VALUES = (
 )
 
 
+# Unit and calendar scalars. Unit codes are plain signed 64-bit integers; calendar
+# codes are the native rata-die style codes of the period's end date. The window
+# endpoints (`minimum`/`maximum`) and the year-10000 cases lie outside Python's
+# datetime range and are handled as integer codes only. Dates in comments.
+UNIT_CASES = {
+    "min": -(2**63),
+    "neg_pow40": -(2**40),
+    "below_int32": -(2**31) - 1,
+    "int32_min": -(2**31),
+    "negative_one": -1,
+    "zero": 0,
+    "five": 5,
+    "int32_max": 2**31 - 1,
+    "beyond_int32": 2**31,
+    "pow40": 2**40,
+    "max": 2**63 - 1,
+}
+CALENDAR_FAMILIES = [("d", Daily()), ("b", BDaily())] + [
+    (f"w{day}", Weekly(day)) for day in range(1, 8)
+]
+CALENDAR_CASES = {
+    "d": (
+        ("typical", 738900),  # 2024-01-15
+        ("year_end", 739251),  # 2024-12-31
+        ("year_start", 739252),  # 2025-01-01
+        ("leap_day", 738945),  # 2024-02-29
+        ("first_day", 1),  # 0001-01-01
+        ("year_zero", -199),  # 0000-06-15
+        ("negative_year", -2130),  # -0005-03-03
+        ("negative_one", -1),  # 0000-12-30
+        ("zero", 0),  # 0000-12-31
+        ("minimum", -11980259),  # -32800-03-01
+        ("maximum", 11979954),  # 32800-12-31
+        ("py_max_year", 3652059),  # 9999-12-31
+        ("beyond_py_year", 3652062),  # 10000-01-03
+    ),
+    "b": (
+        ("typical", 527786),  # 2024-01-15
+        ("year_end", 528037),  # 2024-12-31
+        ("year_start", 528038),  # 2025-01-01
+        ("leap_day", 527819),  # 2024-02-29
+        ("first_day", 1),  # 0001-01-01
+        ("year_zero", -141),  # 0000-06-15
+        ("negative_year", -1520),  # -0005-03-03
+        ("negative_one", -1),  # 0000-12-28
+        ("zero", 0),  # 0000-12-29
+        ("minimum", -8557114),  # -32800-12-25
+        ("maximum", 8557110),  # 32800-12-29
+        ("py_max_year", 2608615),  # 9999-12-31
+        ("beyond_py_year", 2608616),  # 10000-01-03
+    ),
+    "w1": (
+        ("typical", 105558),  # week ending 2024-01-15
+        ("year_end", 105609),  # 2025-01-06
+        ("year_start", 105609),  # 2025-01-06
+        ("leap_day", 105565),  # 2024-03-04
+        ("first_day", 1),  # 0001-01-01
+        ("year_zero", -27),  # 0000-06-19
+        ("negative_year", -303),  # -0005-03-06
+        ("negative_one", -1),  # 0000-12-18
+        ("zero", 0),  # 0000-12-25
+        ("minimum", -1711422),  # -32800-12-25
+        ("maximum", 1711422),  # 32800-12-25
+        ("py_max_year", 521724),  # 10000-01-03
+        ("beyond_py_year", 521724),  # 10000-01-03
+    ),
+    "w2": (
+        ("typical", 105558),  # 2024-01-16
+        ("year_end", 105608),  # 2024-12-31
+        ("year_start", 105609),  # 2025-01-07
+        ("leap_day", 105565),  # 2024-03-05
+        ("first_day", 1),  # 0001-01-02
+        ("year_zero", -27),  # 0000-06-20
+        ("negative_year", -303),  # -0005-03-07
+        ("negative_one", -1),  # 0000-12-19
+        ("zero", 0),  # 0000-12-26
+        ("minimum", -1711422),  # -32800-12-26
+        ("maximum", 1711422),  # 32800-12-26
+        ("py_max_year", 521724),  # 10000-01-04
+        ("beyond_py_year", 521724),  # 10000-01-04
+    ),
+    "w3": (
+        ("typical", 105558),  # 2024-01-17
+        ("year_end", 105608),  # 2025-01-01
+        ("year_start", 105608),  # 2025-01-01
+        ("leap_day", 105565),  # 2024-03-06
+        ("first_day", 1),  # 0001-01-03
+        ("year_zero", -27),  # 0000-06-21
+        ("negative_year", -303),  # -0005-03-08
+        ("negative_one", -1),  # 0000-12-20
+        ("zero", 0),  # 0000-12-27
+        ("minimum", -1711422),  # -32800-12-27
+        ("maximum", 1711422),  # 32800-12-27
+        ("py_max_year", 521724),  # 10000-01-05
+        ("beyond_py_year", 521724),  # 10000-01-05
+    ),
+    "w4": (
+        ("typical", 105558),  # 2024-01-18
+        ("year_end", 105608),  # 2025-01-02
+        ("year_start", 105608),  # 2025-01-02
+        ("leap_day", 105564),  # 2024-02-29
+        ("first_day", 1),  # 0001-01-04
+        ("year_zero", -28),  # 0000-06-15
+        ("negative_year", -303),  # -0005-03-09
+        ("negative_one", -1),  # 0000-12-21
+        ("zero", 0),  # 0000-12-28
+        ("minimum", -1711422),  # -32800-12-28
+        ("maximum", 1711422),  # 32800-12-28
+        ("py_max_year", 521724),  # 10000-01-06
+        ("beyond_py_year", 521724),  # 10000-01-06
+    ),
+    "w5": (
+        ("typical", 105558),  # 2024-01-19
+        ("year_end", 105608),  # 2025-01-03
+        ("year_start", 105608),  # 2025-01-03
+        ("leap_day", 105564),  # 2024-03-01
+        ("first_day", 1),  # 0001-01-05
+        ("year_zero", -28),  # 0000-06-16
+        ("negative_year", -304),  # -0005-03-03
+        ("negative_one", -1),  # 0000-12-22
+        ("zero", 0),  # 0000-12-29
+        ("minimum", -1711422),  # -32800-12-29
+        ("maximum", 1711422),  # 32800-12-29
+        ("py_max_year", 521723),  # 9999-12-31
+        ("beyond_py_year", 521724),  # 10000-01-07
+    ),
+    "w6": (
+        ("typical", 105558),  # 2024-01-20
+        ("year_end", 105608),  # 2025-01-04
+        ("year_start", 105608),  # 2025-01-04
+        ("leap_day", 105564),  # 2024-03-02
+        ("first_day", 1),  # 0001-01-06
+        ("year_zero", -28),  # 0000-06-17
+        ("negative_year", -304),  # -0005-03-04
+        ("negative_one", -1),  # 0000-12-23
+        ("zero", 0),  # 0000-12-30
+        ("minimum", -1711422),  # -32800-12-30
+        ("maximum", 1711422),  # 32800-12-30
+        ("py_max_year", 521723),  # 10000-01-01
+        ("beyond_py_year", 521724),  # 10000-01-08
+    ),
+    "w7": (
+        ("typical", 105558),  # 2024-01-21
+        ("year_end", 105608),  # 2025-01-05
+        ("year_start", 105608),  # 2025-01-05
+        ("leap_day", 105564),  # 2024-03-03
+        ("first_day", 1),  # 0001-01-07
+        ("year_zero", -28),  # 0000-06-18
+        ("negative_year", -304),  # -0005-03-05
+        ("negative_one", -1),  # 0000-12-24
+        ("zero", 0),  # 0000-12-31
+        ("minimum", -1711422),  # -32800-12-31
+        ("maximum", 1711422),  # 32800-12-31
+        ("py_max_year", 521723),  # 10000-01-02
+        ("beyond_py_year", 521724),  # 10000-01-09
+    ),
+}
+
+
 def date_codes(frequency) -> tuple[tuple[str, int], ...]:
     """Return the same per-frequency date codes the Julia verifier expects."""
     ppy = frequency.periods_per_year
@@ -190,6 +361,14 @@ def scalar_cases() -> dict:
             cases[f"mit_{label}_{suffix}"] = MIT(frequency, code)
         for suffix, value in DURATION_VALUES:
             cases[f"dur_{label}_{suffix}"] = Duration(frequency, value)
+    for label, frequency in CALENDAR_FAMILIES:
+        for suffix, code in CALENDAR_CASES[label]:
+            cases[f"mit_{label}_{suffix}"] = MIT(frequency, code)
+        for suffix, value in DURATION_VALUES:
+            cases[f"dur_{label}_{suffix}"] = Duration(frequency, value)
+    for suffix, value in UNIT_CASES.items():
+        cases[f"mit_u_{suffix}"] = MIT(Unit(), value)
+        cases[f"dur_u_{suffix}"] = Duration(Unit(), value)
     return cases
 
 

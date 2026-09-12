@@ -3,16 +3,17 @@
 `tsecon.dataecon` reads and writes **Float64, Int64, string, MIT date and Duration
 scalars, and monthly, quarterly, half-yearly or annual float64 TSeries, including
 empty series**, through the DataEcon 0.4.0 C library. Date and duration scalars
-cover those same four frequency families. Other scalar types, calendar and unit
-frequencies, other series dtypes, catalogs, workspaces and general attributes are
-not supported yet. Existing JSON I/O is unchanged.
+cover every core frequency: `Unit`, `Daily`, `BDaily`, `Weekly` with any end day,
+`Monthly`, `Quarterly`, `HalfYearly` and `Yearly`. Other scalar types, series over
+calendar or unit frequencies, other series dtypes, catalogs, workspaces and
+general attributes are not supported yet. Existing JSON I/O is unchanged.
 
 Native DataEcon support is configured in the wheel workflow for CPython 3.11–3.13:
 Windows x86-64, Linux x86-64 and macOS arm64. Native wheel builds and Julia
 monthly, empty and scalar interchange checks have passed on all three platforms.
 Quarterly and annual interchange have also passed on all three platforms.
 Half-yearly interchange is included in the configured wheel checks, as are
-string, date and duration scalars. Successful
+string, date and duration scalars over every frequency. Successful
 CI builds are separate from a published release.
 The integration uses a thin
 Cython extension; CFFI and Julia are not runtime dependencies. Only the native
@@ -253,9 +254,9 @@ Julia symbols are not read as strings. Julia `SubString` values carry a
 
 An `MIT` scalar is stored as the native date type with its frequency code; a
 `Duration` scalar is stored as a signed 64-bit integer with the same frequency
-code. Both currently cover `Monthly`, all three `Quarterly` anchors, all six
-`HalfYearly` endings and all twelve `Yearly` endings. `Unit`, `Daily`, `BDaily`
-and `Weekly` values raise `TypeError` for now; they remain planned work.
+code. Both cover `Monthly`, all three `Quarterly` anchors, all six `HalfYearly`
+endings and all twelve `Yearly` endings, plus `Unit`, `Daily`, `BDaily` and
+`Weekly` with every end day (see the next section).
 
 ```python
 from tsecon import Duration
@@ -297,6 +298,56 @@ range collapse to canonical codes on write (its `Quarterly{4}` is stored as
 `Quarterly{1}`), so Python reads them as the canonical `Quarterly(end_month=1)`.
 Bare family codes such as 64, 128 or 256, mixed bits, the monthly alias 33,
 and date or duration payloads that are not eight bytes are rejected.
+
+## Unit and calendar date scalars
+
+`Unit` dates and durations are plain signed 64-bit codes. Julia stores them
+without any date conversion, so Python does the same: any value from -2^63 to
+2^63-1 round-trips exactly and no date validation applies (frequency code 11).
+
+`Daily` (12), `BDaily` (13) and `Weekly` (16 plus the ISO end day, Monday 17
+through Sunday 23) dates use the native calendar codec. Python never converts
+these codes through `datetime`, so years outside 1..9999 are stored and read as
+integer codes. The reliable code range of each frequency was verified natively
+on every code: daily `-11980259` (1 March -32800) through `11979954` (31
+December 32800); business daily `-8557114` (25 December -32800) through
+`8557110` (29 December 32800); weekly `-1711422` through `1711422` for every
+end day (the weeks ending in the last week of December -32800 and of 32800).
+Codes outside these ranges raise `ValueError` in both directions, and every
+accepted code must also survive the native decode/encode round trip. The
+native encoder accepts years down to -32800, but its arithmetic wraps for
+dates before those minimums: the pinned Julia writer stores such a value with
+a warning and then reloads a different date (daily, business daily) or the
+same one by coincidence (weekly). Python rejects those stored codes instead.
+Julia's loader also reads a natively written code just above the maximum
+unchanged, although its own writer cannot produce one; Python rejects it.
+
+```python
+from tsecon import BDaily, Daily, Unit, Weekly, bdaily, daily, weekly
+
+with open_dataecon("calendar-example.daec", "a") as db:
+    db.write_scalar("day", daily("2024-01-15"))
+    db.write_scalar("business_day", bdaily("2024-01-15"))
+    db.write_scalar("week", weekly("2024-01-17", 3))
+    db.write_scalar("far_future", MIT(Daily(), 3652062))  # 3 January 10000
+    db.write_scalar("step", MIT(Unit(), 2**40))
+    db.write_scalar("horizon", Duration(BDaily(), 20))
+with open_dataecon("calendar-example.daec") as db:
+    assert db.read_scalar("day") == daily("2024-01-15")
+    assert db.read_scalar("business_day") == bdaily("2024-01-15")
+    assert db.read_scalar("week") == MIT(Weekly(3), 105558)
+    assert db.read_scalar("far_future") == MIT(Daily(), 3652062)
+    assert db.read_scalar("step") == MIT(Unit(), 2**40)
+    assert db.read_scalar("horizon") == Duration(BDaily(), 20)
+```
+
+Business daily means Monday to Friday on both sides; neither Julia nor Python
+applies a holiday calendar. Every business-daily code identifies a weekday, so
+the native weekend error cannot arise from a stored code. The weekly end day is
+part of the frequency code, so `Weekly(1)` and `Weekly(7)` dates with the same
+integer stay distinct. Julia anchors beyond 1..7 collapse on write (`Weekly{8}`
+is stored as `Weekly{1}`). The Sunday alias 16, the unused codes 14 and 15 and
+weekly codes 24 through 31, which Julia never writes, are rejected.
 
 ## Closing and errors
 
@@ -457,9 +508,13 @@ NaN and infinities, and fourteen Int64 scalars including both signed endpoints
 and values around 2^53; Julia checks their types, metadata and values as well.
 It also contains fifteen strings (empty, ASCII, accented, CJK, emoji,
 whitespace, punctuation and long values) that Julia must load as `String`, and
-six `MIT` dates plus six `Duration` values for each of the 22 supported
+six `MIT` dates plus six `Duration` values for each of the 22 year/period
 frequency families, covering typical, year-boundary, negative, zero and both
-reliable-limit codes and the signed 64-bit duration endpoints.
+reliable-limit codes and the signed 64-bit duration endpoints; thirteen dates
+plus six durations for each of the nine daily, business-daily and weekly
+families, including leap day, year zero, a negative year, both window
+endpoints and years beyond `datetime`; and eleven `Unit` dates and durations
+including both signed 64-bit endpoints.
 Quarterly objects cover all three fiscal anchors, year transitions, negative and
 zero years, and nonempty/empty anchors at the supported date limits. Their
 frequency and first/last dates must also survive the Julia read. Annual objects

@@ -38,6 +38,11 @@ cdef extern from "daec.h":
         type_tseries
     ctypedef enum frequency_t:
         freq_none
+        freq_unit
+        freq_daily
+        freq_bdaily
+        freq_weekly_mon
+        freq_weekly_sun7
         freq_monthly
         freq_quarterly_jan
         freq_quarterly_feb
@@ -88,6 +93,8 @@ cdef extern from "daec.h":
     int de_get_attribute(de_file, obj_id_t, const char *, const char **)
     int de_pack_year_period_date(frequency_t, int32_t, uint32_t, date_t *)
     int de_unpack_year_period_date(frequency_t, date_t, int32_t *, uint32_t *)
+    int de_pack_calendar_date(frequency_t, int32_t, uint32_t, uint32_t, date_t *)
+    int de_unpack_calendar_date(frequency_t, date_t, int32_t *, uint32_t *, uint32_t *)
     int de_axis_range(de_file, int64_t, frequency_t, int64_t, axis_id_t *)
     int de_store_tseries(de_file, obj_id_t, const char *, type_t, type_t,
                         frequency_t, axis_id_t, int64_t, const void *, obj_id_t *)
@@ -133,6 +140,39 @@ cdef tuple unpack_date(frequency_t freq, date_t code, str path, str name):
     if not 1 <= period <= ppy or int(year) * ppy + int(period) - 1 != code:
         raise ValueError("Date does not round-trip through the native date codec.")
     return int(year), int(period)
+
+
+cdef void verify_scalar_date(frequency_t freq, int64_t code, str path, str name) except *:
+    # Caller owns the native lock; validate_date_code already bounded the code for
+    # this frequency. Unit codes are Julia's pass-through and see no native codec.
+    # Calendar codes must decode to a year/month/day that re-encodes to the same
+    # code: the native decoder has no range check of its own and the encoder only
+    # checks the year, so the explicit window plus this round trip together
+    # exclude every code that wraps in either direction.
+    cdef int32_t year = 0
+    cdef uint32_t month = 0
+    cdef uint32_t day = 0
+    cdef date_t packed = 0
+    cdef int32_t native_year = 0
+    cdef uint32_t native_period = 0
+    if freq == freq_unit:
+        return
+    if freq == freq_daily or freq == freq_bdaily or freq_weekly_mon <= freq <= freq_weekly_sun7:
+        check(de_unpack_calendar_date(freq, code, &year, &month, &day),
+              "unpack_date", path, name)
+        check(de_pack_calendar_date(freq, year, month, day, &packed), "pack_date", path, name)
+        if packed != code:
+            raise ValueError("Date does not round-trip through the native date codec.")
+        return
+    ppy = series_frequency(freq).periods_per_year
+    year_py, period_index = divmod(int(code), ppy)
+    native_year = year_py
+    native_period = period_index + 1
+    check(de_pack_year_period_date(freq, native_year, native_period, &packed),
+          "pack_date", path, name)
+    if packed != code:
+        raise ValueError("Date does not round-trip through the native date codec.")
+    unpack_date(freq, code, path, name)
 
 
 def version():
@@ -349,10 +389,10 @@ cdef class FileHandle:
                 # Decode the owned eight-byte snapshot with memcpy: the SQLite
                 # blob carries no int64 alignment guarantee, and the borrowed
                 # scal.value is not touched again. Python bounds first, then
-                # the native codec must reproduce the code.
+                # the native codec must reproduce the code (Unit excepted).
                 memcpy(&code, <const char *>payload, sizeof(code))
                 validate_date_code(metadata[2], int(code))
-                unpack_date(scal.frequency, code, self.path, name)
+                verify_scalar_date(scal.frequency, code, self.path, name)
             for key in (b"jtype", b"jeltype"):
                 rc = de_get_attribute(self.handle, oid, key, &attribute)
                 if rc == DE_MIS_ATTR:
@@ -365,14 +405,12 @@ cdef class FileHandle:
     def write_scalar(self, str name, int kind, frequency, bytes payload):
         # kind is the validated native scalar type code: 1 (Int64, or a Duration
         # when frequency is nonzero), 3 (MIT date), 4 (Float64) or 6 (string).
+        # Date frequencies cover Unit (11), the calendar codes and year/period codes.
         cdef bytes encoded = name.encode("utf-8")
         cdef obj_id_t oid = 0
         cdef int rc
         cdef type_t native_type
         cdef frequency_t freq
-        cdef date_t packed = 0
-        cdef int32_t native_year = 0
-        cdef uint32_t native_period = 0
         cdef int64_t code = 0
         if not encoded or b"/" in encoded or b"\0" in encoded:
             raise ValueError("Expected a nonempty root object name without '/' or NUL.")
@@ -392,10 +430,6 @@ cdef class FileHandle:
             # avoids assuming the bytes object's buffer is int64-aligned.
             memcpy(&code, <const char *>payload, sizeof(code))
             validate_date_code(frequency, int(code))
-            ppy = series_frequency(frequency).periods_per_year
-            year, period_index = divmod(int(code), ppy)
-            native_year = year
-            native_period = period_index + 1
         # All Python arithmetic and bounds checks precede narrowing into C types.
         freq = <frequency_t><uint32_t>frequency
         with _lock:
@@ -408,11 +442,7 @@ cdef class FileHandle:
                 check(rc, "find", self.path, name)
             de_clear_error()
             if kind == 3:
-                check(de_pack_year_period_date(freq, native_year, native_period, &packed),
-                      "pack_date", self.path, name)
-                if packed != code:
-                    raise ValueError("Date does not round-trip through the native date codec.")
-                unpack_date(freq, code, self.path, name)
+                verify_scalar_date(freq, code, self.path, name)
             check(de_store_scalar(self.handle, 0, encoded, native_type, freq,
                                   len(payload), <const char *>payload, &oid),
                   "write_scalar (partial object may remain)", self.path, name)

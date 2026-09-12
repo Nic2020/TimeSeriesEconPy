@@ -58,14 +58,16 @@ DURATION_VALUES = [
     ("max", 2**63 - 1),
     ("min", -(2**63)),
 ]
-OUTSTANDING_CONTROLS = [
-    "ctl_unit_mit",
-    "ctl_unit_duration",
-    "ctl_daily_mit",
-    "ctl_daily_duration",
-    "ctl_bdaily_mit",
-    "ctl_weekly7_mit",
-]
+# Unit and calendar controls stored by Julia in the date fixture; their full
+# contract and regressions are in test_calendar.py.
+UNIT_CALENDAR_CONTROLS = {
+    "ctl_unit_mit": MIT(Unit(), 5),
+    "ctl_unit_duration": Duration(Unit(), 3),
+    "ctl_daily_mit": MIT(Daily(), 738900),
+    "ctl_daily_duration": Duration(Daily(), 14),
+    "ctl_bdaily_mit": MIT(BDaily(), 527786),
+    "ctl_weekly7_mit": MIT(Weekly(7), 105557),
+}
 
 
 def date_codes(frequency):
@@ -132,21 +134,22 @@ def test_duration_never_uses_date_bounds(label, frequency, code):
 
 
 @pytest.mark.parametrize(
-    "value",
+    ("value", "kind", "code"),
     [
-        MIT(Unit(), 5),
-        MIT(Daily(), 738900),
-        MIT(BDaily(), 527786),
-        MIT(Weekly(7), 105557),
-        MIT(Weekly(3), 105558),
-        Duration(Unit(), 3),
-        Duration(Daily(), 14),
-        Duration(Weekly(), 1),
+        (MIT(Unit(), 5), 3, 11),
+        (MIT(Daily(), 738900), 3, 12),
+        (MIT(BDaily(), 527786), 3, 13),
+        (MIT(Weekly(7), 105557), 3, 23),
+        (MIT(Weekly(3), 105558), 3, 19),
+        (Duration(Unit(), 3), 1, 11),
+        (Duration(Daily(), 14), 1, 12),
+        (Duration(Weekly(), 1), 1, 23),
     ],
 )
-def test_unit_and_calendar_frequencies_remain_outstanding(value):
-    with pytest.raises(TypeError, match="monthly, quarterly, half-yearly or annual"):
-        encode_scalar(value)
+def test_unit_and_calendar_frequencies_share_the_scalar_codec(value, kind, code):
+    encoded = encode_scalar(value)
+    assert encoded[:2] == (kind, code)
+    assert_exact(decode_scalar(*encoded), value)
 
 
 def test_fiscal_anchor_identity_is_preserved_in_codec():
@@ -173,17 +176,18 @@ def test_date_duration_and_int64_kinds_are_distinct():
     "metadata",
     [
         (1, 3, 0, 8),  # a date needs a frequency
-        (1, 3, 11, 8),  # unit
-        (1, 3, 12, 8),  # daily
-        (1, 3, 13, 8),  # business daily
-        (1, 3, 23, 8),  # weekly
+        (1, 3, 14, 8),  # unused codes between business daily and weekly
+        (1, 3, 15, 8),
+        (1, 3, 16, 8),  # Sunday alias never written by Julia (loads as Weekly{0})
+        (1, 3, 24, 8),  # weekly anchor 8
+        (1, 3, 31, 8),  # weekly anchor 15
         (1, 3, 33, 8),  # monthly alias never written by Julia; Julia fails to load it
         (1, 3, 64, 8),  # bare quarterly
         (1, 3, 128, 8),  # bare half-yearly
         (1, 3, 256, 8),  # bare yearly
         (1, 3, 269, 8),  # yearly anchor 13
         (1, 3, 192, 8),  # mixed bits
-        (1, 1, 11, 8),  # unit duration
+        (1, 1, 16, 8),  # weekly alias duration
         (1, 1, 192, 8),
         (1, 4, 32, 8),  # Float64 with a frequency
         (1, 2, 32, 8),
@@ -221,9 +225,8 @@ def test_julia_date_fixture_values_and_controls():
                 # Julia stored the code intact but misdates it on load; Python rejects it.
                 with pytest.raises(ValueError, match="reliable native date range"):
                     db.read_scalar(f"ctl_mit_{label}_below_minimum")
-        for name in OUTSTANDING_CONTROLS:
-            with pytest.raises(TypeError):
-                db.read_scalar(name)
+        for name, expected in UNIT_CALENDAR_CONTROLS.items():
+            assert_exact(db.read_scalar(name), expected)
         # Julia's Quarterly{4} collapses to native code 65: Python reads Quarterly(1).
         assert_exact(db.read_scalar("ctl_quarterly4_mit"), MIT(Quarterly(1), 8096))
         for name, error in {
@@ -269,8 +272,8 @@ def test_date_roundtrip_storage_and_shared_namespace(tmp_path):
             db.write_scalar("bad", MIT(Monthly(), -393601))
         with pytest.raises(ValueError, match="reliable native date range"):
             db.write_scalar("bad", MIT(HalfYearly(1), MAXIMUM + 1))
-        with pytest.raises(TypeError):
-            db.write_scalar("bad", MIT(Daily(), 1))
+        with pytest.raises(ValueError, match="reliable native date range"):
+            db.write_scalar("bad", MIT(Daily(), 11979955))
         with pytest.raises(DataEconError) as caught:
             db.read_scalar("bad")
         assert caught.value.code == -989
@@ -299,7 +302,7 @@ def test_date_roundtrip_storage_and_shared_namespace(tmp_path):
     ("kind", "frequency", "payload", "error"),
     [
         (3, 0, struct.pack("<q", 24288), TypeError),
-        (3, 12, struct.pack("<q", 24288), TypeError),
+        (3, 16, struct.pack("<q", 24288), TypeError),
         (3, 192, struct.pack("<q", 24288), TypeError),
         (3, 32, struct.pack("<q", -393601), ValueError),
         (3, 65, struct.pack("<q", -131201), ValueError),
@@ -307,7 +310,7 @@ def test_date_roundtrip_storage_and_shared_namespace(tmp_path):
         (3, 257, struct.pack("<q", -(2**31) - 1), ValueError),
         (3, 32, struct.pack("<q", 2**31), ValueError),
         (3, 32, bytes(4), ValueError),
-        (1, 11, struct.pack("<q", 1), TypeError),
+        (1, 14, struct.pack("<q", 1), TypeError),
         (1, 32, bytes(4), ValueError),
         (3, "32", struct.pack("<q", 24288), TypeError),
     ],
@@ -331,7 +334,7 @@ def test_date_backend_validates_before_storage(tmp_path, kind, frequency, payloa
         ("UPDATE scalars SET value=zeroblob(4)", ValueError),
         (f"UPDATE scalars SET value=X'{struct.pack('<q', -393601).hex()}'", ValueError),
         (f"UPDATE scalars SET value=X'{struct.pack('<q', 2**31).hex()}'", ValueError),
-        ("UPDATE scalars SET frequency=11", TypeError),
+        ("UPDATE scalars SET frequency=16", TypeError),
         ("UPDATE scalars SET frequency=0", TypeError),
         ("UPDATE scalars SET frequency=64", TypeError),
         ("UPDATE objects SET type=4", TypeError),

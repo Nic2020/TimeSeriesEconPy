@@ -8,8 +8,9 @@
 # Int64 scalar actions: generate-int64/verify-int64 (also checked by verify-wheel).
 # String scalar actions: generate-strings/verify-strings (also checked by verify-wheel).
 # Date/duration scalar actions: generate-dates/verify-dates (also checked by verify-wheel).
+# Unit/calendar scalar actions: generate-calendar/verify-calendar (also checked by verify-wheel).
 using TimeSeriesEcon
-using Test, SHA, TOML, Pkg
+using Test, SHA, TOML, Pkg, Dates
 
 const DE = TimeSeriesEcon.DataEcon
 const C = DE.C
@@ -106,6 +107,47 @@ date_natives = [("date_no_freq", C.type_date, C.freq_none, 8),
     ("date_mixed_bits", C.type_date, C.frequency_t(192), 8),
     ("date_bare_quarterly", C.type_date, C.frequency_t(64), 8),
     ("duration_four_bytes", C.type_signed, C.freq_monthly, 4)]
+# Calendar scalar families: (label, type, native code, end day or 0). Unit is code 11.
+calendar_families = Any[("d", Daily, 12, 0), ("b", BDaily, 13, 0)]
+for ed in 1:7
+    push!(calendar_families, ("w$(ed)", Weekly{ed}, 16 + ed, ed))
+end
+# Exact native calendar windows: the decoder shifts bound the minimum (1 March
+# -32800 for daily, the last week of December -32800 for business daily and
+# weekly); the encoder's year check bounds the maximum in December 32800.
+calendar_windows = Dict(12 => (-11980259, 11979954), 13 => (-8557114, 8557110),
+    (16 + ed => (-1711422, 1711422) for ed in 1:7)...)
+_weekday_on_or_after(d) = d + Day(dayofweek(d) > 5 ? 8 - dayofweek(d) : 0)
+_calendar_mit(::Type{Daily}, d, ed) = daily(d)
+_calendar_mit(::Type{BDaily}, d, ed) = bdaily(_weekday_on_or_after(d))
+_calendar_mit(::Type{<:Weekly}, d, ed) = weekly(d, ed)
+function calendar_codes(F, code, ed)
+    at(d) = Int(_calendar_mit(F, d, ed))
+    lo, hi = calendar_windows[code]
+    return [("typical", at(Date(2024, 1, 15))), ("year_end", at(Date(2024, 12, 31))),
+        ("year_start", at(Date(2025, 1, 1))), ("leap_day", at(Date(2024, 2, 29))),
+        ("first_day", at(Date(1, 1, 1))), ("year_zero", at(Date(0, 6, 15))),
+        ("negative_year", at(Date(-5, 3, 3))), ("negative_one", -1), ("zero", 0),
+        ("minimum", lo), ("maximum", hi), ("py_max_year", at(Date(9999, 12, 31))),
+        ("beyond_py_year", at(Date(10000, 1, 3)))]
+end
+# Unit codes are Julia's generic Int64 pass-through: both endpoints and values beyond Int32.
+unit_values = [("min", typemin(Int64)), ("neg_pow40", -2^40), ("below_int32", -2^31 - 1),
+    ("int32_min", -2^31), ("negative_one", -1), ("zero", 0), ("five", 5),
+    ("int32_max", 2^31 - 1), ("beyond_int32", 2^31), ("pow40", 2^40), ("max", typemax(Int64))]
+# Julia stores these below-window codes with a "codes differ" warning; daily and
+# business daily reload as another date, weekly happens to reload correctly.
+calendar_below_window = [("d", Daily, -11980260), ("b", BDaily, -8557115), ("w7", Weekly{7}, -1711423)]
+# Native encodings Julia never writes: the Sunday alias 16, the unused code 14,
+# an out-of-range weekly anchor, a four-byte unit payload, the first daily code
+# above the window and an Int32-wrapped daily code.
+calendar_natives = [("date_weekly16", C.type_date, C.frequency_t(16), 8, 105557),
+    ("date_freq14", C.type_date, C.frequency_t(14), 8, 738900),
+    ("date_weekly24", C.type_date, C.frequency_t(24), 8, 105557),
+    ("date_unit_four_bytes", C.type_date, C.freq_unit, 4, 5),
+    ("date_daily_above_maximum", C.type_date, C.freq_daily, 8, 11979955),
+    ("date_daily_int32_wrap", C.type_date, C.freq_daily, 8, 2^32 + 738900),
+    ("duration_weekly16", C.type_signed, C.frequency_t(16), 8, 2)]
 
 
 
@@ -242,8 +284,37 @@ elseif action == "generate-dates"
             end
         end
     end
-elseif !(action in ("verify", "verify-empty", "verify-scalars", "verify-quarterly", "verify-annual", "verify-halfyearly", "verify-int64", "verify-strings", "verify-dates", "verify-wheel"))
-    error("Unknown action; use generate/verify, generate-empty/verify-empty, generate-scalars/verify-scalars, generate-quarterly/verify-quarterly, generate-annual/verify-annual, generate-halfyearly/verify-halfyearly, generate-int64/verify-int64, generate-strings/verify-strings, generate-dates/verify-dates or verify-wheel.")
+elseif action == "generate-calendar"
+    ispath(filename) && error("Output already exists; use a fresh fixture path.")
+    DE.opendaec(filename; write=true) do db
+        for (label, F, code, ed) in calendar_families
+            for (suffix, value) in calendar_codes(F, code, ed)
+                DE.store_scalar(db, DE.root_id, "mit_$(label)_$(suffix)", MIT{F}(value))
+            end
+            for (suffix, value) in duration_values
+                DE.store_scalar(db, DE.root_id, "dur_$(label)_$(suffix)", Duration{F}(value))
+            end
+        end
+        for (suffix, value) in unit_values
+            DE.store_scalar(db, DE.root_id, "mit_u_$(suffix)", MIT{Unit}(value))
+            DE.store_scalar(db, DE.root_id, "dur_u_$(suffix)", Duration{Unit}(value))
+        end
+        for (label, F, value) in calendar_below_window
+            @test_logs (:warn, r"MIT codes differ") DE.store_scalar(db, DE.root_id, "ctl_mit_$(label)_below_window", MIT{F}(value))
+        end
+        # Non-canonical anchor: stored as code 17 and reloaded as Weekly{1}.
+        @test_logs (:warn, r"MIT codes differ") DE.store_scalar(db, DE.root_id, "ctl_weekly8_mit", MIT{Weekly{8}}(105557))
+        for (suffix, kind, freq, nbytes, value) in calendar_natives
+            id = Ref{C.obj_id_t}()
+            bytes = UInt8[reinterpret(UInt8, [Int64(value)]); zeros(UInt8, 8)][1:nbytes]
+            GC.@preserve bytes begin
+                @assert C.de_store_scalar(db, DE.root_id, "native_$(suffix)", kind, freq,
+                    nbytes, pointer(bytes), id) == 0
+            end
+        end
+    end
+elseif !(action in ("verify", "verify-empty", "verify-scalars", "verify-quarterly", "verify-annual", "verify-halfyearly", "verify-int64", "verify-strings", "verify-dates", "verify-calendar", "verify-wheel"))
+    error("Unknown action; use generate/verify, generate-empty/verify-empty, generate-scalars/verify-scalars, generate-quarterly/verify-quarterly, generate-annual/verify-annual, generate-halfyearly/verify-halfyearly, generate-int64/verify-int64, generate-strings/verify-strings, generate-dates/verify-dates, generate-calendar/verify-calendar or verify-wheel.")
 end
 
 if action in ("generate", "verify", "verify-wheel")
@@ -589,7 +660,68 @@ if action in ("generate-dates", "verify-dates", "verify-wheel")
     end
 end
 
-if action in ("generate", "generate-empty", "generate-scalars", "generate-quarterly", "generate-annual", "generate-halfyearly", "generate-int64", "generate-strings", "generate-dates")
+if action in ("generate-calendar", "verify-calendar", "verify-wheel")
+    @testset "DataEcon unit and calendar scalar interchange" begin
+        reference_fixture = action != "verify-wheel"
+        DE.opendaec(filename) do db
+            function load_exact(name, T, metadata, expected)
+                id = DE.find_object(db, DE.root_id, name)
+                scal = Ref{C.scalar_t}()
+                @test C.de_load_scalar(db, id, scal) == 0
+                v = scal[]
+                @test Int.((v.object.obj_class, v.object.obj_type, v.frequency, v.nbytes)) == metadata
+                @test unsafe_load(Ptr{Int64}(v.value)) == expected
+                @test isempty(DE.get_all_attributes(db, id))
+                value = @test_logs DE.load_scalar(db, id)
+                @test value isa T
+                @test Int(value) == expected
+            end
+            for (label, F, code, ed) in calendar_families
+                for (suffix, expected_code) in calendar_codes(F, code, ed)
+                    load_exact("mit_$(label)_$(suffix)", MIT{F}, (1, 3, code, 8), expected_code)
+                end
+                for (suffix, expected_value) in duration_values
+                    load_exact("dur_$(label)_$(suffix)", Duration{F}, (1, 1, code, 8), expected_value)
+                end
+            end
+            for (suffix, expected_value) in unit_values
+                load_exact("mit_u_$(suffix)", MIT{Unit}, (1, 3, 11, 8), expected_value)
+                load_exact("dur_u_$(suffix)", Duration{Unit}, (1, 1, 11, 8), expected_value)
+            end
+            if reference_fixture
+                for (label, F, value) in calendar_below_window
+                    id = DE.find_object(db, DE.root_id, "ctl_mit_$(label)_below_window")
+                    if F <: Weekly
+                        # The weekly decoder is exact modulo 2^32 for this code.
+                        @test Int(DE.load_scalar(db, id)) == value
+                    else
+                        loaded = @test_logs (:warn, r"MIT codes differ") DE.load_scalar(db, id)
+                        @test loaded isa MIT{F} && Int(loaded) != value
+                    end
+                end
+                @test DE.load_scalar(db, DE.find_object(db, DE.root_id, "ctl_weekly8_mit")) isa MIT{Weekly{1}}
+                for (suffix, kind, freq, nbytes, value) in calendar_natives
+                    id = DE.find_object(db, DE.root_id, "native_$(suffix)")
+                    scal = Ref{C.scalar_t}()
+                    @test C.de_load_scalar(db, id, scal) == 0
+                    v = scal[]
+                    @test Int.((v.object.obj_class, v.object.obj_type, v.frequency, v.nbytes)) == (1, Int(kind), Int(freq), nbytes)
+                end
+                # Julia's loader maps code 16 to an invalid Weekly{0} anchor and reads a
+                # code above the window unchanged; Python rejects both.
+                @test (@test_logs (:warn, r"MIT codes differ") DE.load_scalar(db, DE.find_object(db, DE.root_id, "native_date_weekly16"))) isa MIT{Weekly{0}}
+                @test DE.load_scalar(db, DE.find_object(db, DE.root_id, "native_date_weekly24")) isa MIT{Weekly{8}}
+                @test Int(DE.load_scalar(db, DE.find_object(db, DE.root_id, "native_date_daily_above_maximum"))) == 11979955
+                @test Int(@test_logs (:warn, r"MIT codes differ") DE.load_scalar(db, DE.find_object(db, DE.root_id, "native_date_daily_int32_wrap"))) == 738900
+                for suffix in ("date_freq14", "date_unit_four_bytes")
+                    @test_throws Exception DE.load_scalar(db, DE.find_object(db, DE.root_id, "native_$(suffix)"))
+                end
+            end
+        end
+    end
+end
+
+if action in ("generate", "generate-empty", "generate-scalars", "generate-quarterly", "generate-annual", "generate-halfyearly", "generate-int64", "generate-strings", "generate-dates", "generate-calendar")
     layout = Dict{String,Any}(
         "enums" => sizeof.([C.class_t, C.type_t, C.frequency_t, C.axis_type_t]),
     )

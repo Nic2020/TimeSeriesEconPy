@@ -157,11 +157,33 @@ boundary, -1, 0, the reliable minimum and 2147483647) with metadata
 64-bit endpoints) with metadata `(1,1,code,8)`. Every family with more than
 one period per year also stores `ctl_mit_*_below_minimum`, which Julia writes
 intact and then misdates on load with a warning; Python rejects it. Further
-controls cover `Unit`, `Daily`, `BDaily` and `Weekly` scalars (outstanding in
-Python), Julia's non-canonical `Quarterly{4}` anchor (stored as code 65) and
-native encodings Julia never writes: a date without a frequency, four-byte
-payloads, mixed frequency bits and a bare family code.
+controls cover `Unit`, `Daily`, `BDaily` and `Weekly` scalars (now supported;
+see the next fixture), Julia's non-canonical `Quarterly{4}` anchor (stored as
+code 65) and native encodings Julia never writes: a date without a frequency,
+four-byte payloads, mixed frequency bits and a bare family code.
 
 `verify-wheel` additionally checks the 264 Python-written date and duration
 objects in the combined interchange file: Julia must load each as the exact
 `MIT{F}` or `Duration{F}` with the expected integer code and no attribute.
+
+## Unit and calendar scalar fixture
+
+`julia_unit_calendar_scalars.daec` and its TOML provenance are generated with
+`interchange.jl generate-calendar <fresh-file> <checkout>`; `verify-calendar`
+verifies it again. For `Daily`, `BDaily` and each `Weekly{1..7}` end day the
+Julia writer stores thirteen `mit_*` dates (15 January 2024, the 2024/2025
+year boundary, leap day 2024, 1 January 0001, a year-zero date, a negative
+year, -1, 0, both endpoints of the verified native window, 31 December 9999
+and a date in year 10000) with metadata `(1,3,code,8)` and six `dur_*`
+durations with `(1,1,code,8)`; `Unit` stores eleven `mit_u_*` dates and
+`dur_u_*` durations with codes 11, including both signed 64-bit endpoints.
+Controls: `ctl_mit_{d,b,w7}_below_window` (Julia stores each with a "codes
+differ" warning; daily and business daily reload as another date, weekly by
+coincidence as the same one; Python rejects all three), `ctl_weekly8_mit`
+(Julia's `Weekly{8}` stored as code 17), and native encodings Julia never
+writes: the Sunday alias 16 (Julia loads `Weekly{0}`), the unused code 14, the
+weekly anchor 24, a four-byte unit payload, the first daily code above the
+window (Julia reloads it unchanged) and an Int32-wrapped daily code.
+
+`verify-wheel` additionally checks the 193 Python-written unit and calendar
+objects in the combined interchange file.

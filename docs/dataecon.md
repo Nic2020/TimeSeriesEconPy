@@ -1,15 +1,18 @@
 # DataEcon interchange
 
-`tsecon.dataecon` reads and writes **Float64 and Int64 scalars and monthly, quarterly,
-half-yearly or annual float64 TSeries, including empty series**, through the DataEcon 0.4.0 C library. Other scalar types,
-frequencies/dtypes, catalogs, workspaces and general attributes
-are not supported yet. Existing JSON I/O is unchanged.
+`tsecon.dataecon` reads and writes **Float64, Int64, string, MIT date and Duration
+scalars, and monthly, quarterly, half-yearly or annual float64 TSeries, including
+empty series**, through the DataEcon 0.4.0 C library. Date and duration scalars
+cover those same four frequency families. Other scalar types, calendar and unit
+frequencies, other series dtypes, catalogs, workspaces and general attributes are
+not supported yet. Existing JSON I/O is unchanged.
 
 Native DataEcon support is configured in the wheel workflow for CPython 3.11–3.13:
 Windows x86-64, Linux x86-64 and macOS arm64. Native wheel builds and Julia
 monthly, empty and scalar interchange checks have passed on all three platforms.
 Quarterly and annual interchange have also passed on all three platforms.
-Half-yearly interchange is included in the configured wheel checks. Successful
+Half-yearly interchange is included in the configured wheel checks, as are
+string, date and duration scalars. Successful
 CI builds are separate from a published release.
 The integration uses a thin
 Cython extension; CFFI and Julia are not runtime dependencies. Only the native
@@ -196,15 +199,104 @@ the stored type. NaN, infinities and the sign of zero are preserved; arbitrary
 signaling-NaN states or payload bits are not an interchange guarantee.
 
 Julia writes `Int64` values with the same metadata and reads them back as
-`Int64`. Its date scalars (`MIT`) and `Duration` values share the scalar class
-but carry a frequency; they, unsigned integers, other widths and strings are
-rejected on read with `TypeError` or `ValueError` rather than being coerced.
+`Int64`. Unsigned integers, other widths and `Bool` (which Julia itself reloads
+as `Int8`) are rejected on read with `TypeError` or `ValueError` rather than
+being coerced. Strings, dates and durations are separate scalar kinds below.
 
 Scalars share the root namespace with series: existing names are never
 overwritten, and wrong-class reads raise `DataEconError`. Scalar `jtype` and
 `jeltype` attributes are always rejected, including the literals `Float64`
 and `Int64`. The empty-series attribute exception does not apply to scalars.
-Native scalar payloads must be exactly eight bytes with no frequency metadata.
+Numeric scalar payloads must be exactly eight bytes with no frequency metadata.
+
+## String scalars
+
+Python `str` values are stored as the native string type: UTF-8 bytes followed
+by one NUL terminator, with no frequency and no attributes. Reads return an
+independent `str`.
+
+```python
+with open_dataecon("string-example.daec", "a") as db:
+    db.write_scalar("label", "héllo wörld")
+    db.write_scalar("note", "")
+with open_dataecon("string-example.daec") as db:
+    label = db.read_scalar("label")
+    note = db.read_scalar("note")
+assert type(label) is str
+assert label == "héllo wörld"
+assert note == ""
+```
+
+Only exact `str` is accepted: `bytes`, `bytearray`, `str` subclasses and other
+types raise `TypeError`. A string containing NUL or a lone surrogate raises
+`ValueError` before anything is written, because the native format is a C
+string and Julia's loader stops at the first NUL. The payload, including the
+terminator, must stay within the 128 MiB limit.
+
+Reads are strict. The stored payload must end with NUL, contain no other NUL
+and decode as valid UTF-8; otherwise `read_scalar` raises `ValueError`. The
+pinned Julia loader instead truncates at an embedded NUL and returns invalid
+bytes unchecked; Python never returns a silently shortened or undecodable
+value. A string object whose metadata carries a frequency raises `TypeError`.
+
+The supported subset is therefore valid-UTF-8 text without NUL. Julia's
+`String` deliberately admits arbitrary bytes, and its writer stores an
+embedded NUL, so a Julia file can hold string objects that Python currently
+refuses rather than misreads. A lossless Python representation for those
+values is planned parity work, not a permanent exclusion.
+Julia stores a `Symbol` through the same string path with a `jtype="Symbol"`
+marker; that marker is rejected like every other reconstruction attribute, so
+Julia symbols are not read as strings. Julia `SubString` values carry a
+`jtype` marker as well and are rejected the same way.
+
+## Date and duration scalars
+
+An `MIT` scalar is stored as the native date type with its frequency code; a
+`Duration` scalar is stored as a signed 64-bit integer with the same frequency
+code. Both currently cover `Monthly`, all three `Quarterly` anchors, all six
+`HalfYearly` endings and all twelve `Yearly` endings. `Unit`, `Daily`, `BDaily`
+and `Weekly` values raise `TypeError` for now; they remain planned work.
+
+```python
+from tsecon import Duration
+
+start = MIT.from_yp(Quarterly(end_month=1), 2024, 4)
+with open_dataecon("date-example.daec", "a") as db:
+    db.write_scalar("start", start)
+    db.write_scalar("horizon", Duration(Quarterly(end_month=1), 8))
+    db.write_scalar("lag", Duration(Yearly(), -1))
+with open_dataecon("date-example.daec") as db:
+    restored_start = db.read_scalar("start")
+    horizon = db.read_scalar("horizon")
+    lag = db.read_scalar("lag")
+assert type(restored_start) is MIT and restored_start == start
+assert type(horizon) is Duration and horizon.value == 8
+assert horizon.frequency == Quarterly(end_month=1)
+assert lag == Duration(Yearly(), -1)
+```
+
+A date is validated as a date. Its integer code must lie within the reliable
+native range of its frequency, checked before any C call and confirmed by the
+native pack/unpack round trip: monthly `-393600` through `2147483647`,
+quarterly `-131200` through `2147483647`, half-yearly `-65600` through
+`2147483647`, and annual the full signed 32-bit range. Codes outside these
+limits raise `ValueError` in both directions. The pinned Julia writer stores a
+below-minimum code intact and then misdates it on load with a warning; Python
+rejects such a stored code instead of returning a different date. Fiscal
+anchors are part of the frequency code, so `Quarterly(end_month=1)` and
+`Quarterly(end_month=3)` dates with the same integer stay distinct.
+
+A duration is a count of periods, not a date. It only needs to fit the signed
+64-bit range; no date bound applies, and values beyond 2^53 round-trip exactly.
+The stored type code is shared with `Int64`: a frequency of zero reads back as
+a Python `int`, and a supported frequency reads back as a `Duration`.
+
+Julia writes `MIT` and `Duration` values with exactly this metadata and loads
+them back as `MIT{F}` and `Duration{F}`. Julia anchors beyond the canonical
+range collapse to canonical codes on write (its `Quarterly{4}` is stored as
+`Quarterly{1}`), so Python reads them as the canonical `Quarterly(end_month=1)`.
+Bare family codes such as 64, 128 or 256, mixed bits, the monthly alias 33,
+and date or duration payloads that are not eight bytes are rejected.
 
 ## Closing and errors
 
@@ -363,6 +455,11 @@ at 2024M1 and 2025M7; the Julia loader must preserve all three as dated TSeries.
 The same file contains seven Float64 scalars covering finite values, signed zero,
 NaN and infinities, and fourteen Int64 scalars including both signed endpoints
 and values around 2^53; Julia checks their types, metadata and values as well.
+It also contains fifteen strings (empty, ASCII, accented, CJK, emoji,
+whitespace, punctuation and long values) that Julia must load as `String`, and
+six `MIT` dates plus six `Duration` values for each of the 22 supported
+frequency families, covering typical, year-boundary, negative, zero and both
+reliable-limit codes and the signed 64-bit duration endpoints.
 Quarterly objects cover all three fiscal anchors, year transitions, negative and
 zero years, and nonempty/empty anchors at the supported date limits. Their
 frequency and first/last dates must also survive the Julia read. Annual objects

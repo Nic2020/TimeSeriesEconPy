@@ -6,6 +6,8 @@
 # Annual actions: generate-annual/verify-annual (also checked by verify-wheel).
 # Half-yearly actions: generate-halfyearly/verify-halfyearly (also checked by verify-wheel).
 # Int64 scalar actions: generate-int64/verify-int64 (also checked by verify-wheel).
+# String scalar actions: generate-strings/verify-strings (also checked by verify-wheel).
+# Date/duration scalar actions: generate-dates/verify-dates (also checked by verify-wheel).
 using TimeSeriesEcon
 using Test, SHA, TOML, Pkg
 
@@ -63,6 +65,47 @@ int64_native_cases = [("native_pow53_plus_one", 2^53 + 1), ("native_min", typemi
 int64_controls = [("bool_true", true), ("int32", Int32(7)), ("int128", Int128(7)),
     ("uint64", UInt64(7)), ("duration_monthly", 2024M4 - 2024M1),
     ("mit_monthly", 2024M1), ("rational", 1 // 2), ("string", "7")]
+# String scalars: metadata (1,6,0,n), UTF-8 bytes plus one NUL terminator, no attributes.
+string_cases = [("ascii", "hello"), ("empty", ""), ("digits", "7"), ("space", " "),
+    ("latin", "héllo wörld"), ("cjk", "日本語"), ("emoji", "🙂 ok"), ("combining", "é"),
+    ("whitespace", "a\nb\tc\r\n"), ("delimiter", "a‖b"), ("slash", "a/b"),
+    ("quote", "say \"hi\""), ("expression", "error(123)"), ("long", repeat("x", 1000)),
+    ("long_utf8", repeat("é", 500))]
+# Controls: Julia truncates an embedded NUL on load and does not validate UTF-8;
+# Python rejects both payloads. A Symbol carries a jtype marker that Python rejects.
+string_controls = [("embedded_nul", "a\0b"), ("invalid_utf8", String(UInt8[0x66, 0xff, 0x6f]))]
+# Payloads Julia never writes: no terminator, NULL payload, and a frequency code.
+string_natives = [("no_terminator", UInt8[0x68, 0x69], C.freq_none),
+    ("empty_payload", UInt8[], C.freq_none), ("only_nul", UInt8[0x00], C.freq_none),
+    ("with_frequency", UInt8[0x68, 0x69, 0x00], C.freq_monthly)]
+# Year/period frequency families for MIT date and Duration scalars:
+# (label, type, native code, periods per year, reliable minimum code).
+date_families = Any[("m", Monthly, 32, 12, -393600)]
+for a in 1:3
+    push!(date_families, ("q$(a)", Quarterly{a}, 64 + a, 4, -131200))
+end
+for a in 1:6
+    push!(date_families, ("h$(a)", HalfYearly{a}, 128 + a, 2, -65600))
+end
+for a in 1:12
+    push!(date_families, ("y$(a)", Yearly{a}, 256 + a, 1, -2147483648))
+end
+date_codes(ppy, minimum) = [("typical", 2024 * ppy), ("cross_year", 2024 * ppy + ppy - 1),
+    ("negative_one", -1), ("zero", 0), ("minimum", minimum), ("maximum", 2147483647)]
+duration_values = [("zero", 0), ("one", 1), ("negative_one", -1),
+    ("pow53_plus_one", 2^53 + 1), ("max", typemax(Int64)), ("min", typemin(Int64))]
+# Outstanding frequencies (unit/calendar) and non-canonical anchors that Julia
+# collapses to canonical native codes; Python rejects the former for now.
+date_controls = [("unit_mit", MIT{Unit}(5)), ("unit_duration", Duration{Unit}(3)),
+    ("daily_mit", d"2024-01-15"), ("daily_duration", d"2024-01-15" - d"2024-01-01"),
+    ("bdaily_mit", bd"2024-01-15"), ("weekly7_mit", w"2024-01-14"),
+    ("quarterly4_mit", MIT{Quarterly{4}}(2024, 1))]
+# Native metadata Julia never writes for dates/durations.
+date_natives = [("date_no_freq", C.type_date, C.freq_none, 8),
+    ("date_four_bytes", C.type_date, C.freq_monthly, 4),
+    ("date_mixed_bits", C.type_date, C.frequency_t(192), 8),
+    ("date_bare_quarterly", C.type_date, C.frequency_t(64), 8),
+    ("duration_four_bytes", C.type_signed, C.freq_monthly, 4)]
 
 
 
@@ -153,8 +196,54 @@ elseif action == "generate-int64"
             DE.store_scalar(db, DE.root_id, "ctl_$(suffix)", value)
         end
     end
-elseif !(action in ("verify", "verify-empty", "verify-scalars", "verify-quarterly", "verify-annual", "verify-halfyearly", "verify-int64", "verify-wheel"))
-    error("Unknown action; use generate/verify, generate-empty/verify-empty, generate-scalars/verify-scalars, generate-quarterly/verify-quarterly, generate-annual/verify-annual, generate-halfyearly/verify-halfyearly, generate-int64/verify-int64 or verify-wheel.")
+elseif action == "generate-strings"
+    ispath(filename) && error("Output already exists; use a fresh fixture path.")
+    DE.opendaec(filename; write=true) do db
+        for (suffix, value) in string_cases
+            DE.store_scalar(db, DE.root_id, "str_$(suffix)", value)
+        end
+        for (suffix, value) in string_controls
+            DE.store_scalar(db, DE.root_id, "ctl_str_$(suffix)", value)
+        end
+        DE.store_scalar(db, DE.root_id, "ctl_symbol", :hello)
+        for (suffix, bytes, freq) in string_natives
+            id = Ref{C.obj_id_t}()
+            ptr = isempty(bytes) ? C_NULL : pointer(bytes)
+            GC.@preserve bytes begin
+                @assert C.de_store_scalar(db, DE.root_id, "native_str_$(suffix)", C.type_string,
+                    freq, length(bytes), ptr, id) == 0
+            end
+        end
+    end
+elseif action == "generate-dates"
+    ispath(filename) && error("Output already exists; use a fresh fixture path.")
+    DE.opendaec(filename; write=true) do db
+        for (label, F, code, ppy, minimum) in date_families
+            for (suffix, value) in date_codes(ppy, minimum)
+                DE.store_scalar(db, DE.root_id, "mit_$(label)_$(suffix)", MIT{F}(value))
+            end
+            if ppy > 1
+                # Stored intact by Julia; its loader decodes another date and warns.
+                DE.store_scalar(db, DE.root_id, "ctl_mit_$(label)_below_minimum", MIT{F}(minimum - 1))
+            end
+            for (suffix, value) in duration_values
+                DE.store_scalar(db, DE.root_id, "dur_$(label)_$(suffix)", Duration{F}(value))
+            end
+        end
+        for (suffix, value) in date_controls
+            DE.store_scalar(db, DE.root_id, "ctl_$(suffix)", value)
+        end
+        for (suffix, kind, freq, nbytes) in date_natives
+            id = Ref{C.obj_id_t}()
+            bytes = UInt8[reinterpret(UInt8, [Int64(24288)]); zeros(UInt8, 8)][1:nbytes]
+            GC.@preserve bytes begin
+                @assert C.de_store_scalar(db, DE.root_id, "native_$(suffix)", kind, freq,
+                    nbytes, pointer(bytes), id) == 0
+            end
+        end
+    end
+elseif !(action in ("verify", "verify-empty", "verify-scalars", "verify-quarterly", "verify-annual", "verify-halfyearly", "verify-int64", "verify-strings", "verify-dates", "verify-wheel"))
+    error("Unknown action; use generate/verify, generate-empty/verify-empty, generate-scalars/verify-scalars, generate-quarterly/verify-quarterly, generate-annual/verify-annual, generate-halfyearly/verify-halfyearly, generate-int64/verify-int64, generate-strings/verify-strings, generate-dates/verify-dates or verify-wheel.")
 end
 
 if action in ("generate", "verify", "verify-wheel")
@@ -401,7 +490,106 @@ if action in ("generate-int64", "verify-int64", "verify-wheel")
     end
 end
 
-if action in ("generate", "generate-empty", "generate-scalars", "generate-quarterly", "generate-annual", "generate-halfyearly", "generate-int64")
+if action in ("generate-strings", "verify-strings", "verify-wheel")
+    @testset "DataEcon string scalar interchange" begin
+        reference_fixture = action != "verify-wheel"
+        DE.opendaec(filename) do db
+            for (suffix, expected_string) in string_cases
+                id = DE.find_object(db, DE.root_id, "str_$(suffix)")
+                scal = Ref{C.scalar_t}()
+                @test C.de_load_scalar(db, id, scal) == 0
+                v = scal[]
+                @test Int.((v.object.obj_class, v.object.obj_type, v.frequency, v.nbytes)) == (1,6,0,sizeof(expected_string)+1)
+                @test v.value != C_NULL
+                @test unsafe_wrap(Vector{UInt8}, Ptr{UInt8}(v.value), Int(v.nbytes); own=false) == [codeunits(expected_string); 0x00]
+                @test isempty(DE.get_all_attributes(db, id))
+                value = DE.load_scalar(db, id)
+                @test value isa String
+                @test value == expected_string
+            end
+            if reference_fixture
+                # Julia's loader stops at the first NUL and does not validate UTF-8.
+                @test DE.load_scalar(db, DE.find_object(db, DE.root_id, "ctl_str_embedded_nul")) == "a"
+                @test codeunits(DE.load_scalar(db, DE.find_object(db, DE.root_id, "ctl_str_invalid_utf8"))) == UInt8[0x66, 0xff, 0x6f]
+                symbol_id = DE.find_object(db, DE.root_id, "ctl_symbol")
+                @test DE.get_all_attributes(db, symbol_id) == Dict("jtype" => "Symbol")
+                @test DE.load_scalar(db, symbol_id) === :hello
+                @test DE.load_scalar(db, DE.find_object(db, DE.root_id, "native_str_with_frequency")) == "hi"
+                @test DE.load_scalar(db, DE.find_object(db, DE.root_id, "native_str_only_nul")) == ""
+                @test_throws ArgumentError DE.load_scalar(db, DE.find_object(db, DE.root_id, "native_str_empty_payload"))
+            end
+        end
+    end
+end
+
+if action in ("generate-dates", "verify-dates", "verify-wheel")
+    @testset "DataEcon date and duration scalar interchange" begin
+        reference_fixture = action != "verify-wheel"
+        DE.opendaec(filename) do db
+            for (label, F, code, ppy, minimum) in date_families
+                for (suffix, expected_code) in date_codes(ppy, minimum)
+                    id = DE.find_object(db, DE.root_id, "mit_$(label)_$(suffix)")
+                    scal = Ref{C.scalar_t}()
+                    @test C.de_load_scalar(db, id, scal) == 0
+                    v = scal[]
+                    @test Int.((v.object.obj_class, v.object.obj_type, v.frequency, v.nbytes)) == (1,3,code,8)
+                    @test unsafe_load(Ptr{Int64}(v.value)) == expected_code
+                    @test isempty(DE.get_all_attributes(db, id))
+                    value = DE.load_scalar(db, id)
+                    @test value isa MIT{F}
+                    @test Int(value) == expected_code
+                end
+                for (suffix, expected_value) in duration_values
+                    id = DE.find_object(db, DE.root_id, "dur_$(label)_$(suffix)")
+                    scal = Ref{C.scalar_t}()
+                    @test C.de_load_scalar(db, id, scal) == 0
+                    v = scal[]
+                    @test Int.((v.object.obj_class, v.object.obj_type, v.frequency, v.nbytes)) == (1,1,code,8)
+                    @test unsafe_load(Ptr{Int64}(v.value)) == expected_value
+                    @test isempty(DE.get_all_attributes(db, id))
+                    value = DE.load_scalar(db, id)
+                    @test value isa Duration{F}
+                    @test Int(value) == expected_value
+                end
+                if reference_fixture && ppy > 1
+                    id = DE.find_object(db, DE.root_id, "ctl_mit_$(label)_below_minimum")
+                    value = @test_logs (:warn, r"MIT codes differ") DE.load_scalar(db, id)
+                    @test value isa MIT{F}
+                    @test Int(value) != minimum - 1
+                end
+            end
+            if reference_fixture
+                expected_controls = [("unit_mit", MIT{Unit}, (1,3,11,8)), ("unit_duration", Duration{Unit}, (1,1,11,8)),
+                    ("daily_mit", MIT{Daily}, (1,3,12,8)), ("daily_duration", Duration{Daily}, (1,1,12,8)),
+                    ("bdaily_mit", MIT{BDaily}, (1,3,13,8)), ("weekly7_mit", MIT{Weekly{7}}, (1,3,23,8)),
+                    ("quarterly4_mit", MIT{Quarterly{1}}, (1,3,65,8))]
+                for (suffix, T, metadata) in expected_controls
+                    id = DE.find_object(db, DE.root_id, "ctl_$(suffix)")
+                    scal = Ref{C.scalar_t}()
+                    @test C.de_load_scalar(db, id, scal) == 0
+                    v = scal[]
+                    @test Int.((v.object.obj_class, v.object.obj_type, v.frequency, v.nbytes)) == metadata
+                    @test DE.load_scalar(db, id) isa T
+                end
+                for (suffix, kind, freq, nbytes) in date_natives
+                    id = DE.find_object(db, DE.root_id, "native_$(suffix)")
+                    scal = Ref{C.scalar_t}()
+                    @test C.de_load_scalar(db, id, scal) == 0
+                    v = scal[]
+                    @test Int.((v.object.obj_class, v.object.obj_type, v.frequency, v.nbytes)) == (1, Int(kind), Int(freq), nbytes)
+                end
+                # Julia cannot load these encodings either (no frequency, other widths, mixed bits).
+                for suffix in ("date_no_freq", "date_four_bytes", "date_mixed_bits", "duration_four_bytes")
+                    @test_throws Exception DE.load_scalar(db, DE.find_object(db, DE.root_id, "native_$(suffix)"))
+                end
+                # A bare quarterly code decodes in Julia as an invalid anchor; Python rejects it.
+                @test DE.load_scalar(db, DE.find_object(db, DE.root_id, "native_date_bare_quarterly")) isa MIT{Quarterly{0}}
+            end
+        end
+    end
+end
+
+if action in ("generate", "generate-empty", "generate-scalars", "generate-quarterly", "generate-annual", "generate-halfyearly", "generate-int64", "generate-strings", "generate-dates")
     layout = Dict{String,Any}(
         "enums" => sizeof.([C.class_t, C.type_t, C.frequency_t, C.axis_type_t]),
     )

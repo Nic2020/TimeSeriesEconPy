@@ -13,12 +13,13 @@ See DATAECON_LICENSE.txt. Borrowed results are copied before another native call
 
 from libc.stdint cimport int32_t, uint32_t, int64_t
 from libc.stddef cimport size_t
-from libc.string cimport memset, strlen
+from libc.string cimport memcpy, memset, strlen
 from cpython.bytes cimport PyBytes_FromStringAndSize
 
 from threading import RLock
 
-from ._codec import series_frequency, validate_metadata, validate_scalar_metadata
+from ._codec import (series_frequency, validate_date_code, validate_metadata,
+                     validate_scalar_metadata)
 from ._errors import DataEconError
 
 cdef extern from "daec.h":
@@ -31,8 +32,10 @@ cdef extern from "daec.h":
         class_tseries
     ctypedef enum type_t:
         type_integer
-        type_tseries
+        type_date
         type_float
+        type_string
+        type_tseries
     ctypedef enum frequency_t:
         freq_none
         freq_monthly
@@ -325,6 +328,7 @@ cdef class FileHandle:
         cdef const char *attribute = NULL
         cdef bytes key
         cdef int rc
+        cdef int64_t code
         if not encoded or b"/" in encoded or b"\0" in encoded:
             raise ValueError("Expected a nonempty root object name without '/' or NUL.")
         with _lock:
@@ -334,12 +338,21 @@ cdef class FileHandle:
             check(de_load_scalar(self.handle, oid, &scal), "read_scalar", self.path, name)
             metadata = (int(scal.object.obj_class), int(scal.object.obj_type),
                         int(scal.frequency), int(scal.nbytes))
+            # Validation bounds nbytes (eight, or 1..MAX_BYTES for strings) before the copy.
             validate_scalar_metadata(metadata)
             if scal.value == NULL or scal.object.name == NULL:
                 raise ValueError("DataEcon returned a NULL scalar payload or name.")
-            payload = PyBytes_FromStringAndSize(<const char *>scal.value, 8)
+            payload = PyBytes_FromStringAndSize(<const char *>scal.value, scal.nbytes)
             loaded_name = (<bytes>scal.object.name).decode("utf-8")
             # Both borrowed values are owned before attribute calls.
+            if scal.object.obj_type == type_date:
+                # Decode the owned eight-byte snapshot with memcpy: the SQLite
+                # blob carries no int64 alignment guarantee, and the borrowed
+                # scal.value is not touched again. Python bounds first, then
+                # the native codec must reproduce the code.
+                memcpy(&code, <const char *>payload, sizeof(code))
+                validate_date_code(metadata[2], int(code))
+                unpack_date(scal.frequency, code, self.path, name)
             for key in (b"jtype", b"jeltype"):
                 rc = de_get_attribute(self.handle, oid, key, &attribute)
                 if rc == DE_MIS_ATTR:
@@ -349,16 +362,42 @@ cdef class FileHandle:
                     raise TypeError("Scalar reconstruction attributes are not supported.")
             return payload, metadata, loaded_name
 
-    def write_scalar(self, str name, int kind, bytes payload):
-        # kind is the validated native scalar type code: 1 (Int64) or 4 (Float64).
+    def write_scalar(self, str name, int kind, frequency, bytes payload):
+        # kind is the validated native scalar type code: 1 (Int64, or a Duration
+        # when frequency is nonzero), 3 (MIT date), 4 (Float64) or 6 (string).
         cdef bytes encoded = name.encode("utf-8")
         cdef obj_id_t oid = 0
         cdef int rc
         cdef type_t native_type
+        cdef frequency_t freq
+        cdef date_t packed = 0
+        cdef int32_t native_year = 0
+        cdef uint32_t native_period = 0
+        cdef int64_t code = 0
         if not encoded or b"/" in encoded or b"\0" in encoded:
             raise ValueError("Expected a nonempty root object name without '/' or NUL.")
-        validate_scalar_metadata((1, kind, 0, len(payload)))
-        native_type = type_float if kind == 4 else type_integer
+        if type(frequency) is not int:
+            raise TypeError("Scalar frequency must be an integer native code.")
+        validate_scalar_metadata((1, kind, frequency, len(payload)))
+        if kind == 4:
+            native_type = type_float
+        elif kind == 3:
+            native_type = type_date
+        elif kind == 6:
+            native_type = type_string
+        else:
+            native_type = type_integer
+        if kind == 3:
+            # validate_scalar_metadata established len(payload) == 8; memcpy
+            # avoids assuming the bytes object's buffer is int64-aligned.
+            memcpy(&code, <const char *>payload, sizeof(code))
+            validate_date_code(frequency, int(code))
+            ppy = series_frequency(frequency).periods_per_year
+            year, period_index = divmod(int(code), ppy)
+            native_year = year
+            native_period = period_index + 1
+        # All Python arithmetic and bounds checks precede narrowing into C types.
+        freq = <frequency_t><uint32_t>frequency
         with _lock:
             self.require_open()
             rc = de_find_object(self.handle, 0, encoded, &oid)
@@ -368,6 +407,12 @@ cdef class FileHandle:
             if rc != DE_OBJ_DNE:
                 check(rc, "find", self.path, name)
             de_clear_error()
-            check(de_store_scalar(self.handle, 0, encoded, native_type, freq_none,
-                                  8, <const char *>payload, &oid),
+            if kind == 3:
+                check(de_pack_year_period_date(freq, native_year, native_period, &packed),
+                      "pack_date", self.path, name)
+                if packed != code:
+                    raise ValueError("Date does not round-trip through the native date codec.")
+                unpack_date(freq, code, self.path, name)
+            check(de_store_scalar(self.handle, 0, encoded, native_type, freq,
+                                  len(payload), <const char *>payload, &oid),
                   "write_scalar (partial object may remain)", self.path, name)

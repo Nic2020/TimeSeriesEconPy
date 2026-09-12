@@ -14,6 +14,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from tsecon import MIT, Duration, Monthly
 from tsecon.dataecon import DataEconError, open_dataecon
 from tsecon.dataecon._codec import decode_scalar, encode_scalar, validate_scalar_metadata
 
@@ -51,10 +52,13 @@ CONTROLS = {
     "ctl_int32": ValueError,
     "ctl_int128": ValueError,
     "ctl_uint64": TypeError,
-    "ctl_duration_monthly": TypeError,
-    "ctl_mit_monthly": TypeError,
     "ctl_rational": TypeError,
-    "ctl_string": TypeError,
+}
+# Neighbours that later slices made supported; they must never read as int.
+SUPPORTED_CONTROLS = {
+    "ctl_duration_monthly": Duration(Monthly(), 3),
+    "ctl_mit_monthly": MIT(Monthly(), 24288),
+    "ctl_string": "7",
 }
 
 
@@ -66,10 +70,10 @@ def assert_int(actual, expected):
 @pytest.mark.parametrize(("name", "value"), CASES)
 @pytest.mark.parametrize("constructor", [int, np.int64])
 def test_int64_codec_is_exact(name, value, constructor):
-    kind, payload = encode_scalar(constructor(value))
-    assert kind == 1
+    kind, frequency, payload = encode_scalar(constructor(value))
+    assert (kind, frequency) == (1, 0)
     assert payload == struct.pack("<q", value) == np.int64(value).tobytes()
-    assert_int(decode_scalar(kind, payload), value)
+    assert_int(decode_scalar(kind, frequency, payload), value)
 
 
 @pytest.mark.parametrize(
@@ -77,16 +81,16 @@ def test_int64_codec_is_exact(name, value, constructor):
 )
 def test_int64_codec_does_not_round_through_float(value):
     assert int(float(value)) != value
-    kind, payload = encode_scalar(value)
-    assert_int(decode_scalar(kind, payload), value)
+    kind, frequency, payload = encode_scalar(value)
+    assert_int(decode_scalar(kind, frequency, payload), value)
 
 
 def test_int64_and_float64_kinds_are_distinct():
     assert encode_scalar(1)[0] == 1
     assert encode_scalar(1.0)[0] == 4
-    assert encode_scalar(1)[1] != encode_scalar(1.0)[1]
-    assert type(decode_scalar(4, struct.pack("<d", 1.0))) is float
-    assert type(decode_scalar(1, struct.pack("<q", 1))) is int
+    assert encode_scalar(1)[2] != encode_scalar(1.0)[2]
+    assert type(decode_scalar(4, 0, struct.pack("<d", 1.0))) is float
+    assert type(decode_scalar(1, 0, struct.pack("<q", 1))) is int
 
 
 @pytest.mark.parametrize(
@@ -106,7 +110,7 @@ def test_int64_and_float64_kinds_are_distinct():
         Fraction(7),
         Decimal(7),
         7j,
-        "7",
+        b"7",
         np.array(7),
         np.array([7]),
         None,
@@ -145,9 +149,9 @@ def test_int64_codec_does_not_invoke_custom_conversion():
 
 @pytest.mark.parametrize(
     "metadata",
-    [(1, 1, 32, 8), (1, 1, 67, 8), (1, 3, 32, 8), (1, 3, 0, 8), (1, 2, 0, 8), (2, 1, 0, 8)],
+    [(1, 1, 11, 8), (1, 1, 12, 8), (1, 1, 192, 8), (1, 3, 0, 8), (1, 2, 0, 8), (2, 1, 0, 8)],
 )
-def test_int64_metadata_guard_rejects_duration_date_unsigned_and_class(metadata):
+def test_int64_metadata_guard_rejects_unsupported_duration_date_unsigned_and_class(metadata):
     with pytest.raises(TypeError):
         validate_scalar_metadata(metadata)
 
@@ -158,7 +162,7 @@ def test_int64_metadata_guard_rejects_other_widths(nbytes):
         validate_scalar_metadata((1, 1, 0, nbytes))
     if 0 <= nbytes <= 16:
         with pytest.raises(ValueError, match="eight"):
-            decode_scalar(1, bytes(nbytes))
+            decode_scalar(1, 0, bytes(nbytes))
 
 
 def test_int64_metadata_guard_accepts_exact_encoding():
@@ -176,6 +180,10 @@ def test_julia_int64_fixture_values_and_controls():
         for name, error in CONTROLS.items():
             with pytest.raises(error):
                 db.read_scalar(name)
+        for name, expected in SUPPORTED_CONTROLS.items():
+            loaded = db.read_scalar(name)
+            assert type(loaded) is type(expected)
+            assert loaded == expected
         assert_int(db.read_scalar("int_max"), 2**63 - 1)
     for actual, expected in results:
         assert_int(actual, expected)
@@ -250,7 +258,7 @@ def test_int64_roundtrip_storage_and_shared_namespace(tmp_path):
 def test_int64_backend_validates_kind_and_width_before_storage(tmp_path, kind, payload, error):
     with open_dataecon(tmp_path / "invalid.daec", "a") as db:
         with pytest.raises(error):
-            db._handle.write_scalar("bad", kind, payload)
+            db._handle.write_scalar("bad", kind, 0, payload)
         with pytest.raises(DataEconError) as caught:
             db.read_scalar("bad")
         assert caught.value.code == -989
@@ -265,7 +273,7 @@ def test_int64_backend_validates_kind_and_width_before_storage(tmp_path, kind, p
         ("UPDATE scalars SET value=NULL", ValueError),
         ("UPDATE scalars SET value=zeroblob(4)", ValueError),
         ("UPDATE scalars SET value=zeroblob(16)", ValueError),
-        ("UPDATE scalars SET frequency=32", TypeError),
+        ("UPDATE scalars SET frequency=11", TypeError),
         ("UPDATE objects SET type=2", TypeError),
         ("UPDATE objects SET type=3", TypeError),
     ],

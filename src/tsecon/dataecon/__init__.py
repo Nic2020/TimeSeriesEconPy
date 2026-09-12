@@ -1,8 +1,10 @@
 # SPDX-License-Identifier: MIT
-"""Read and write Float64/Int64 scalars and monthly, quarterly, half-yearly or annual series.
+"""Read and write DataEcon scalars and monthly, quarterly, half-yearly or annual series.
 
-Use ``open_dataecon`` as a context manager. The native extension loads on first
-use; importing the core package does not require it. Other data types,
+Scalars cover Float64, Int64, strings, and MIT dates or Durations over those
+four frequencies; series carry Float64 values. Use ``open_dataecon`` as a
+context manager. The native extension loads on first use; importing the core
+package does not require it. Other data types, calendar/unit frequencies,
 catalogs and general attributes are not supported yet.
 """
 
@@ -16,17 +18,22 @@ from threading import RLock
 from types import TracebackType
 from typing import TYPE_CHECKING, Literal
 
-import numpy as np
-
 from tsecon.tseries import TSeries
 
-from ._codec import decode_scalar, decode_series, encode_scalar, encode_series
+from ._codec import (
+    ScalarResult,
+    ScalarValue,
+    decode_scalar,
+    decode_series,
+    encode_scalar,
+    encode_series,
+)
 from ._errors import DataEconError
 
 if TYPE_CHECKING:
     from . import _native
 
-__all__ = ["DataEconError", "DataEconFile", "open_dataecon"]
+__all__ = ["DataEconError", "DataEconFile", "ScalarResult", "ScalarValue", "open_dataecon"]
 
 _loader_lock = RLock()
 _dll_directories: list[object] = []
@@ -114,33 +121,39 @@ class DataEconFile:
                 raise ValueError("Cannot write through a read-only DataEcon file.")
             self._handle.write(name, frequency, year, period, payload)
 
-    def read_scalar(self, name: str) -> float | int:
-        """Read a root Float64 or Int64 scalar as a Python float or int.
+    def read_scalar(self, name: str) -> ScalarResult:
+        """Read a root scalar as a Python float, int, str, MIT or Duration.
 
         The result is independent of the file and survives closure. Stored
-        integers are decoded exactly; they never pass through floating point.
+        integers, dates and durations are decoded exactly and never pass
+        through floating point; strings are decoded strictly as UTF-8. Dates
+        are validated against the reliable native range of their frequency.
         """
         with self._lock:
             self._require_open()
             _validate_name(name)
             payload, metadata, _ = self._handle.read_scalar(name)
-            return decode_scalar(metadata[1], payload)
+            return decode_scalar(metadata[1], metadata[2], payload)
 
-    def write_scalar(self, name: str, value: float | np.float64 | int | np.int64) -> None:
-        """Append a Float64 or Int64 scalar without overwriting any existing root object.
+    def write_scalar(self, name: str, value: ScalarValue) -> None:
+        """Append a scalar without overwriting any existing root object.
 
-        Native failures may leave a partial object; no rollback is promised.
-        Booleans, other integer widths, unsigned values, subclasses and other
-        scalar types are rejected without implicit conversion; Python integers
-        outside the signed 64-bit range raise ValueError.
+        Accepted exactly by type: Python float / NumPy float64 (Float64),
+        Python int / NumPy int64 (Int64), str (UTF-8 string), MIT (date) and
+        Duration over the monthly, quarterly, half-yearly or annual frequencies.
+        Booleans, other widths, unsigned values, bytes, subclasses and other
+        types are rejected without implicit conversion. Out-of-range integers
+        or durations, dates outside the reliable native range, and strings
+        containing NUL or lone surrogates raise ValueError. Native failures may
+        leave a partial object; no rollback is promised.
         """
         with self._lock:
             self._require_open()
             _validate_name(name)
-            kind, payload = encode_scalar(value)
+            kind, frequency, payload = encode_scalar(value)
             if self._mode == "r":
                 raise ValueError("Cannot write through a read-only DataEcon file.")
-            self._handle.write_scalar(name, kind, payload)
+            self._handle.write_scalar(name, kind, frequency, payload)
 
     def close(self) -> None:
         """Close once; quarantine after failure instead of retrying native cleanup."""

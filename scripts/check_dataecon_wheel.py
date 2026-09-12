@@ -24,7 +24,7 @@ from build_dataecon_windows import HEADER_SHA256, SOURCE_COMMIT, SOURCE_SHA256
 
 import tsecon
 import tsecon.dataecon as de
-from tsecon import MIT, HalfYearly, Quarterly, Yearly, mm
+from tsecon import MIT, Duration, HalfYearly, Monthly, Quarterly, Yearly, mm
 
 
 def validate_provenance(package: Path) -> dict:
@@ -132,6 +132,67 @@ INT64_CASES = {
 }
 
 
+# UTF-8 strings stored with a NUL terminator; Julia must load each as a String.
+STRING_CASES = {
+    "str_ascii": "hello",
+    "str_empty": "",
+    "str_digits": "7",
+    "str_space": " ",
+    "str_latin": "héllo wörld",
+    "str_cjk": "日本語",
+    "str_emoji": "🙂 ok",
+    "str_combining": "é",
+    "str_whitespace": "a\nb\tc\r\n",
+    "str_delimiter": "a‖b",
+    "str_slash": "a/b",
+    "str_quote": 'say "hi"',
+    "str_expression": "error(123)",
+    "str_long": "x" * 1000,
+    "str_long_utf8": "é" * 500,
+}
+# MIT date and Duration scalars over every year/period frequency and anchor.
+# Reliable minimum codes: -32800 * periods_per_year, except annual (full Int32).
+DATE_FAMILIES = (
+    [("m", Monthly())]
+    + [(f"q{a}", Quarterly(a)) for a in (1, 2, 3)]
+    + [(f"h{a}", HalfYearly(a)) for a in range(1, 7)]
+    + [(f"y{a}", Yearly(a)) for a in range(1, 13)]
+)
+DATE_MINIMUMS = {12: -393600, 4: -131200, 2: -65600, 1: -(2**31)}
+DURATION_VALUES = (
+    ("zero", 0),
+    ("one", 1),
+    ("negative_one", -1),
+    ("pow53_plus_one", 2**53 + 1),
+    ("max", 2**63 - 1),
+    ("min", -(2**63)),
+)
+
+
+def date_codes(frequency) -> tuple[tuple[str, int], ...]:
+    """Return the same per-frequency date codes the Julia verifier expects."""
+    ppy = frequency.periods_per_year
+    return (
+        ("typical", 2024 * ppy),
+        ("cross_year", 2024 * ppy + ppy - 1),
+        ("negative_one", -1),
+        ("zero", 0),
+        ("minimum", DATE_MINIMUMS[ppy]),
+        ("maximum", 2**31 - 1),
+    )
+
+
+def scalar_cases() -> dict:
+    """All scalar objects written to the interchange output, keyed by name."""
+    cases = {**SCALAR_CASES, **INT64_CASES, **STRING_CASES}
+    for label, frequency in DATE_FAMILIES:
+        for suffix, code in date_codes(frequency):
+            cases[f"mit_{label}_{suffix}"] = MIT(frequency, code)
+        for suffix, value in DURATION_VALUES:
+            cases[f"dur_{label}_{suffix}"] = Duration(frequency, value)
+    return cases
+
+
 QUARTERLY_CASES = (
     ("cross_year", 8099, [1.25, -2.5, 0.0, 4.75]),
     ("negative", -1, [1.25, -2.5]),
@@ -174,15 +235,16 @@ DATED_GROUPS = (
 )
 
 
-def check_scalar_value(actual: float | int, expected: float | int) -> None:
+def check_scalar_value(actual: object, expected: object) -> None:
     """Require the exact Python type, numerical classification and the sign of zero.
 
-    Int64 expectations require an exact ``int``; a floating-point detour would
-    change the values beyond 2**53 and is a failure, not a tolerance.
+    Int64, string, MIT and Duration expectations require the exact type and an
+    equal value; a floating-point detour would change integers beyond 2**53
+    and is a failure, not a tolerance.
     """
-    if type(expected) is int:
-        if type(actual) is not int or actual != expected:
-            raise TypeError(f"Int64 scalar read returned {actual!r} instead of {expected!r}.")
+    if type(expected) in (int, str, MIT, Duration):
+        if type(actual) is not type(expected) or actual != expected:
+            raise TypeError(f"Scalar read returned {actual!r} instead of {expected!r}.")
         return
     if type(actual) is not float:
         raise TypeError("Scalar read did not return a Python float.")
@@ -199,7 +261,7 @@ def write_interchange(output_dir: Path, series: tsecon.TSeries) -> Path:
         raise FileExistsError(f"Use a fresh interchange output directory: {output}")
     with de.open_dataecon(output, "a") as db:
         db.write_series("sample", series)
-        for name, value in {**SCALAR_CASES, **INT64_CASES}.items():
+        for name, value in scalar_cases().items():
             db.write_scalar(name, value)
         for name, anchor in (("empty", mm(2024, 1)), ("empty_later", mm(2025, 7))):
             db.write_series(name, tsecon.TSeries(anchor, np.empty(0, dtype=np.float64)))
@@ -218,9 +280,7 @@ def write_interchange(output_dir: Path, series: tsecon.TSeries) -> Path:
             (db.read_series(name), anchor)
             for name, anchor in (("empty", mm(2024, 1)), ("empty_later", mm(2025, 7)))
         ]
-        scalars = [
-            (db.read_scalar(name), value) for name, value in {**SCALAR_CASES, **INT64_CASES}.items()
-        ]
+        scalars = [(db.read_scalar(name), value) for name, value in scalar_cases().items()]
         dated = [
             (db.read_series(f"{prefix}{anchor}_{suffix}"), MIT(frequency(anchor), code), values)
             for prefix, frequency, anchors, cases in DATED_GROUPS

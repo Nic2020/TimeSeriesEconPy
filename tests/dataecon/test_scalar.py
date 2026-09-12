@@ -1,6 +1,7 @@
 """Float64 scalar codecs, native interchange and representation guards.
 
-Int64 scalar coverage lives in ``test_int64.py``.
+Int64, string and date/duration scalar coverage lives in ``test_int64.py``,
+``test_string.py`` and ``test_dates.py``.
 """
 
 import hashlib
@@ -49,10 +50,10 @@ def assert_scalar(actual, expected):
 @pytest.mark.parametrize(("name", "value"), CASES)
 @pytest.mark.parametrize("constructor", [float, np.float64])
 def test_scalar_codec(name, value, constructor):
-    kind, payload = encode_scalar(constructor(value))
-    assert kind == 4
+    kind, frequency, payload = encode_scalar(constructor(value))
+    assert (kind, frequency) == (4, 0)
     assert len(payload) == 8
-    assert_scalar(decode_scalar(kind, payload), value)
+    assert_scalar(decode_scalar(kind, frequency, payload), value)
 
 
 @pytest.mark.parametrize(
@@ -65,7 +66,7 @@ def test_scalar_codec(name, value, constructor):
         1.25 + 0j,
         np.array(1.25),
         np.array([1.25]),
-        "1.25",
+        b"1.25",
         None,
     ],
 )
@@ -111,7 +112,7 @@ def test_scalar_type_guard(metadata):
 
 
 @pytest.mark.parametrize(
-    "operation", [lambda: encode_scalar(1.25), lambda: decode_scalar(4, bytes(8))]
+    "operation", [lambda: encode_scalar(1.25), lambda: decode_scalar(4, 0, bytes(8))]
 )
 def test_scalar_codec_rejects_big_endian(monkeypatch, operation):
     monkeypatch.setattr(_codec.sys, "byteorder", "big")
@@ -124,7 +125,7 @@ def test_scalar_codec_rejects_big_endian(monkeypatch, operation):
 def test_scalar_backend_validates_payload_before_storage(tmp_path, payload):
     with open_dataecon(tmp_path / "invalid-write.daec", "a") as db:
         with pytest.raises(ValueError, match="eight"):
-            db._handle.write_scalar("bad", 4, payload)
+            db._handle.write_scalar("bad", 4, 0, payload)
         with pytest.raises(DataEconError) as caught:
             db.read_scalar("bad")
         assert caught.value.code == -989

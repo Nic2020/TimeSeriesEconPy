@@ -1,5 +1,10 @@
 # SPDX-License-Identifier: MIT
-"""Float64/Int64 scalar and monthly, quarterly, half-yearly or annual series conversions."""
+"""Scalar and series conversions between core objects and native DataEcon payloads.
+
+Scalars: Float64, Int64, UTF-8 strings, and MIT dates or Durations over the
+monthly, quarterly, half-yearly and annual frequencies. Series: Float64 values
+over the same four frequencies.
+"""
 
 from __future__ import annotations
 
@@ -10,7 +15,7 @@ from typing import TypeAlias
 import numpy as np
 
 from tsecon.frequencies import HalfYearly, Monthly, Quarterly, Yearly
-from tsecon.mit import MIT
+from tsecon.mit import MIT, Duration
 from tsecon.tseries import TSeries
 
 # Native sqlite3_bind_blob takes a C int despite daec.h accepting int64_t.
@@ -18,6 +23,7 @@ from tsecon.tseries import TSeries
 MAX_BYTES = 128 * 1024 * 1024
 MIN_DATE = -(2**31)
 MAX_DATE = 2**31 - 1
+MIN_MONTHLY_DATE = -393600
 MIN_QUARTERLY_DATE = -131200
 MIN_HALFYEARLY_DATE = -65600
 _FREQUENCIES: dict[int, Monthly | Quarterly | HalfYearly | Yearly] = {
@@ -30,19 +36,35 @@ _FREQUENCIES: dict[int, Monthly | Quarterly | HalfYearly | Yearly] = {
 }
 # The native decoder adds EPOCH_L * periods_per_year in uint32 arithmetic and
 # then divides; below these codes the wrapped sum decodes to a different year.
-# Annual (division by one) preserves the whole signed 32-bit range.
+# Annual (division by one) preserves the whole signed 32-bit range. Series
+# writes already reject monthly codes below -393600 through the native
+# round-trip check; scalar dates apply the explicit table before any C call.
 _MIN_DATES: dict[int, tuple[int, str]] = {
     **dict.fromkeys((65, 66, 67), (MIN_QUARTERLY_DATE, "quarterly")),
     **dict.fromkeys(range(129, 135), (MIN_HALFYEARLY_DATE, "half-yearly")),
 }
+_SCALAR_MIN_DATES: dict[int, int] = {
+    32: MIN_MONTHLY_DATE,
+    **{code: minimum for code, (minimum, _) in _MIN_DATES.items()},
+    **dict.fromkeys(range(257, 269), MIN_DATE),
+}
 MIN_INT64 = -(2**63)
 MAX_INT64 = 2**63 - 1
-# Native scalar type codes accepted without a frequency: type_integer (which the
-# header also names type_signed) and type_float. Type 1 with a frequency is a
-# Julia Duration encoding and type 3 a date scalar; both stay unsupported.
-_SCALAR_KINDS: dict[int, str] = {1: "<q", 4: "<d"}
+# Native scalar type codes: type_integer (which the header also names
+# type_signed) is 1, type_date 3, type_float 4 and type_string 6. Type 1 with a
+# supported frequency is a Duration; type 3 always carries a frequency.
+KIND_INTEGER = 1
+KIND_DATE = 3
+KIND_FLOAT = 4
+KIND_STRING = 6
 Metadata: TypeAlias = tuple[int, int, int, int, int, int, int, int, int]
 ScalarMetadata: TypeAlias = tuple[int, int, int, int]
+ScalarValue: TypeAlias = float | np.float64 | int | np.int64 | str | MIT | Duration
+ScalarResult: TypeAlias = float | int | str | MIT | Duration
+_SCALAR_SUPPORT = (
+    "DataEcon scalar support covers Float64, Int64, strings, and monthly, quarterly, "
+    "half-yearly or annual MIT dates and Durations."
+)
 
 
 def series_frequency(code: int) -> Monthly | Quarterly | HalfYearly | Yearly:
@@ -55,46 +77,130 @@ def series_frequency(code: int) -> Monthly | Quarterly | HalfYearly | Yearly:
         ) from None
 
 
+def scalar_frequency(code: int) -> Monthly | Quarterly | HalfYearly | Yearly:
+    """Resolve a supported native frequency code for a date or duration scalar."""
+    try:
+        return _FREQUENCIES[code]
+    except KeyError:
+        raise TypeError(_SCALAR_SUPPORT) from None
+
+
+def scalar_frequency_code(frequency: object) -> int:
+    """Return the canonical native code for a supported core frequency object."""
+    code = next((code for code, freq in _FREQUENCIES.items() if freq == frequency), None)
+    if code is None:
+        raise TypeError(_SCALAR_SUPPORT)
+    return code
+
+
+def validate_date_code(frequency: int, code: int) -> None:
+    """Require a date code the native codec decodes exactly for this frequency."""
+    scalar_frequency(frequency)
+    if not _SCALAR_MIN_DATES[frequency] <= code <= MAX_DATE:
+        raise ValueError("Date is outside the reliable native date range for its frequency.")
+
+
 def validate_scalar_metadata(metadata: ScalarMetadata) -> None:
-    """Validate scalar type and length before dereferencing native memory."""
+    """Validate scalar class, type, frequency and length before dereferencing native memory."""
     cls, kind, frequency, nbytes = metadata
-    if cls != 1 or kind not in _SCALAR_KINDS or frequency != 0:
-        raise TypeError("DataEcon scalar support requires Float64 or Int64 with no frequency.")
+    if cls != 1:
+        raise TypeError(_SCALAR_SUPPORT)
+    if kind == KIND_STRING:
+        if frequency != 0:
+            raise TypeError("DataEcon string scalars carry no frequency.")
+        if not 1 <= nbytes <= MAX_BYTES:
+            raise ValueError(
+                "DataEcon string scalars require a NUL-terminated payload within the size limit."
+            )
+        return
+    if kind == KIND_FLOAT:
+        if frequency != 0:
+            raise TypeError("DataEcon Float64 scalars carry no frequency.")
+    elif kind == KIND_INTEGER:
+        if frequency != 0:
+            scalar_frequency(frequency)
+    elif kind == KIND_DATE:
+        scalar_frequency(frequency)
+    else:
+        raise TypeError(_SCALAR_SUPPORT)
     if nbytes != 8:
-        raise ValueError("DataEcon Float64 and Int64 scalars require exactly eight payload bytes.")
+        raise ValueError("DataEcon numeric, date and duration scalars require exactly eight bytes.")
 
 
-def encode_scalar(value: float | np.float64 | int | np.int64) -> tuple[int, bytes]:
-    """Return the native type code and an exact eight-byte snapshot.
+def _encode_text(value: str) -> bytes:
+    if "\0" in value:
+        raise ValueError(
+            "DataEcon strings cannot contain NUL; the native format is NUL-terminated."
+        )
+    try:
+        encoded = value.encode("utf-8")
+    except UnicodeEncodeError:
+        raise ValueError(
+            "DataEcon strings must be encodable as UTF-8 (no lone surrogates)."
+        ) from None
+    if len(encoded) >= MAX_BYTES:
+        raise ValueError("DataEcon string exceeds the payload size limit.")
+    return encoded + b"\0"
 
-    Only exact Python float/NumPy float64 and Python int/NumPy int64 values are
-    accepted. Integers never pass through floating point; bool, other integer
-    widths, unsigned values and subclasses are rejected without conversion.
+
+def encode_scalar(value: ScalarValue) -> tuple[int, int, bytes]:
+    """Return the native type code, frequency code and an owned payload snapshot.
+
+    Only exact Python float/NumPy float64, Python int/NumPy int64, Python str,
+    core MIT and core Duration values are accepted. Integers and durations never
+    pass through floating point; strings are UTF-8 plus a NUL terminator; dates
+    must lie inside the reliable native range of their frequency. Subclasses,
+    other widths, bytes, bool and every other type are rejected without conversion.
     """
     if type(value) is float or type(value) is np.float64:
-        kind, packed = 4, struct.pack("<d", value)
+        kind, frequency, packed = KIND_FLOAT, 0, struct.pack("<d", value)
     elif type(value) is int or type(value) is np.int64:
         number = int(value)
         if not MIN_INT64 <= number <= MAX_INT64:
             raise ValueError("write_scalar integers must fit the signed 64-bit range.")
-        kind, packed = 1, struct.pack("<q", number)
+        kind, frequency, packed = KIND_INTEGER, 0, struct.pack("<q", number)
+    elif type(value) is str:
+        kind, frequency, packed = KIND_STRING, 0, _encode_text(value)
+    elif type(value) is MIT:
+        frequency = scalar_frequency_code(value.frequency)
+        validate_date_code(frequency, value.value)
+        kind, packed = KIND_DATE, struct.pack("<q", value.value)
+    elif type(value) is Duration:
+        frequency = scalar_frequency_code(value.frequency)
+        if not MIN_INT64 <= value.value <= MAX_INT64:
+            raise ValueError("write_scalar durations must fit the signed 64-bit range.")
+        kind, packed = KIND_INTEGER, struct.pack("<q", value.value)
     else:
         raise TypeError(
-            "write_scalar requires a Python float, NumPy float64, Python int or NumPy int64."
+            "write_scalar requires a Python float, NumPy float64, Python int, NumPy int64, "
+            "str, MIT or Duration."
         )
     if sys.byteorder != "little":
         raise RuntimeError("DataEcon interchange requires a little-endian host.")
-    return kind, packed
+    return kind, frequency, packed
 
 
-def decode_scalar(kind: int, payload: bytes) -> float | int:
-    """Return an independent Python float or int from a validated byte snapshot."""
-    validate_scalar_metadata((1, kind, 0, len(payload)))
+def decode_scalar(kind: int, frequency: int, payload: bytes) -> ScalarResult:
+    """Return an independent core value from validated metadata and a byte snapshot."""
+    validate_scalar_metadata((1, kind, frequency, len(payload)))
     if sys.byteorder != "little":
         raise RuntimeError("DataEcon interchange requires a little-endian host.")
-    if kind == 4:
+    if kind == KIND_STRING:
+        if payload[-1] != 0 or b"\0" in payload[:-1]:
+            raise ValueError("DataEcon string payload is not a single NUL-terminated string.")
+        try:
+            return payload[:-1].decode("utf-8")
+        except UnicodeDecodeError:
+            raise ValueError("DataEcon string payload is not valid UTF-8.") from None
+    if kind == KIND_FLOAT:
         return float(struct.unpack("<d", payload)[0])
-    return int(struct.unpack("<q", payload)[0])
+    number = int(struct.unpack("<q", payload)[0])
+    if frequency == 0:
+        return number
+    if kind == KIND_DATE:
+        validate_date_code(frequency, number)
+        return MIT(scalar_frequency(frequency), number)
+    return Duration(scalar_frequency(frequency), number)
 
 
 def validate_metadata(metadata: Metadata) -> None:

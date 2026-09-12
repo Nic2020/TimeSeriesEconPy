@@ -1,18 +1,19 @@
 # SPDX-License-Identifier: MIT
-"""Read and write DataEcon scalars and monthly, quarterly, half-yearly or annual series.
+"""Read and write DataEcon scalars and Float64 series over every core frequency but Unit.
 
 Scalars cover every Julia numeric width with a NumPy scalar type (Float16/32/64,
 Int8/16/32/64, UInt8/16/32/64, Complex64/128), strings, and MIT dates or
 Durations over every core frequency (Unit, Daily, BDaily, Weekly with any end
 day, Monthly, Quarterly, HalfYearly and Yearly); series carry Float64 values
-over the four year/period frequencies. Files open read-only by default, append
-without overwriting with ``"a"``, or truncate with ``"w"``; explicit
+over the monthly, quarterly, half-yearly, annual, daily, business-daily and
+weekly frequencies. Files open read-only by default, append without
+overwriting with ``"a"``, or truncate with ``"w"``; explicit
 ``overwrite=True`` writes, ``delete``, ``truncate``, ``is_empty`` and
 in-memory databases (``open_dataecon_memory``) mirror the Julia file
 operations. Use ``open_dataecon`` as a context manager. The native extension
 loads on first use; importing the core package does not require it. Other
-data types, calendar-frequency series, catalogs and general attributes are
-not supported yet.
+data types, Unit-frequency series, catalogs and general attributes are not
+supported yet.
 """
 
 from __future__ import annotations
@@ -146,15 +147,38 @@ class DataEconFile:
             raise ValueError("Cannot write through a read-only DataEcon file.")
 
     def read_series(self, name: str) -> TSeries:
-        """Read one root series into owning storage that survives file closure."""
+        """Read one root series into owning storage that survives file closure.
+
+        The stored axis must carry a supported frequency code and a first date
+        inside the reliable native range of that frequency; quarterly,
+        half-yearly and annual series also decode their last date, while
+        calendar series follow Julia and
+        check only the stored first date (later observations are consecutive
+        codes). Calendar codes are never converted through ``datetime``, so
+        years outside 1..9999 are returned as codes. The native object is
+        loaded first; frequency, axis, length, payload size and date bounds
+        are validated before the borrowed payload is copied. Reconstruction
+        attributes and native date decoding are checked afterward, before
+        constructing the result. Unsupported or malformed data raises
+        ``TypeError`` or ``ValueError``.
+        """
         with self._lock:
             self._require_open()
             _validate_name(name)
-            year, period, payload, metadata, _ = self._handle.read(name)
-            return decode_series(metadata[6], year, period, payload)
+            payload, metadata, _ = self._handle.read(name)
+            return decode_series(metadata[6], metadata[7], payload)
 
     def write_series(self, name: str, series: TSeries, *, overwrite: bool = False) -> None:
         """Write a root series; by default an existing name fails and is never replaced.
+
+        Accepted series carry native-endian float64 values over the Monthly,
+        Quarterly, HalfYearly, Yearly, Daily, BDaily or Weekly frequency (any
+        fiscal anchor or week end day). The first date must lie inside the
+        reliable native range of the frequency and reproduce through the
+        native codec before anything is stored; year/period series also check
+        their last date, and calendar series may run past the window like
+        Julia's (``ValueError`` otherwise; ``TypeError`` for other dtypes,
+        Unit series or non-series input).
 
         With ``overwrite=True`` an existing root scalar or series of that name
         is deleted after the new series has been fully validated and just
@@ -169,9 +193,9 @@ class DataEconFile:
         with self._lock:
             self._require_open()
             _validate_name(name)
-            frequency, year, period, payload = encode_series(series)
+            frequency, first, payload = encode_series(series)
             self._require_writable()
-            self._handle.write(name, frequency, year, period, payload, bool(overwrite))
+            self._handle.write(name, frequency, first, payload, bool(overwrite))
 
     def read_scalar(self, name: str) -> ScalarResult:
         """Read a root scalar as an exact-width Python or NumPy value.

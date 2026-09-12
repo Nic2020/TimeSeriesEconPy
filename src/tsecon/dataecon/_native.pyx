@@ -150,13 +150,19 @@ cdef tuple unpack_date(frequency_t freq, date_t code, str path, str name):
     return int(year), int(period)
 
 
-cdef void verify_scalar_date(frequency_t freq, int64_t code, str path, str name) except *:
-    # Caller owns the native lock; validate_date_code already bounded the code for
-    # this frequency. Unit codes are Julia's pass-through and see no native codec.
-    # Calendar codes must decode to a year/month/day that re-encodes to the same
-    # code: the native decoder has no range check of its own and the encoder only
-    # checks the year, so the explicit window plus this round trip together
-    # exclude every code that wraps in either direction.
+cdef bint is_calendar(frequency_t freq) noexcept:
+    return freq == freq_daily or freq == freq_bdaily or freq_weekly_mon <= freq <= freq_weekly_sun7
+
+
+cdef void verify_date(frequency_t freq, int64_t code, str path, str name) except *:
+    # Caller owns the native lock; validate_date_code (scalars) or validate_metadata
+    # (series axes) already bounded the code for this frequency. Unit codes are
+    # Julia's pass-through and see no native codec. Calendar codes must decode to
+    # a year/month/day that re-encodes to the same code: the native decoder has no
+    # range check of its own and the encoder only checks the year, so the explicit
+    # window plus this round trip together exclude every code that wraps in either
+    # direction. Year/period codes must pack from their year and period to the
+    # same code and unpack back to them.
     cdef int32_t year = 0
     cdef uint32_t month = 0
     cdef uint32_t day = 0
@@ -165,7 +171,7 @@ cdef void verify_scalar_date(frequency_t freq, int64_t code, str path, str name)
     cdef uint32_t native_period = 0
     if freq == freq_unit:
         return
-    if freq == freq_daily or freq == freq_bdaily or freq_weekly_mon <= freq <= freq_weekly_sun7:
+    if is_calendar(freq):
         check(de_unpack_calendar_date(freq, code, &year, &month, &day),
               "unpack_date", path, name)
         check(de_pack_calendar_date(freq, year, month, day, &packed), "pack_date", path, name)
@@ -288,8 +294,6 @@ cdef class FileHandle:
         cdef bytes encoded = name.encode("utf-8")
         cdef obj_id_t oid = 0
         cdef tseries_t ts
-        cdef int32_t year = 0
-        cdef uint32_t month = 0
         cdef const char *attribute = NULL
         cdef bytes key
         cdef int rc
@@ -321,10 +325,19 @@ cdef class FileHandle:
                     marker = <bytes>attribute
                     if key != b"jeltype" or ts.axis.length != 0 or marker != b"Float64":
                         raise TypeError("Unsupported Julia reconstruction attribute.")
-            year, month = unpack_date(ts.axis.frequency, ts.axis.first, self.path, name)
-            if ts.axis.frequency != freq_monthly and ts.axis.length > 0:
-                unpack_date(ts.axis.frequency, ts.axis.first + ts.axis.length - 1, self.path, name)
-            return int(year), int(month), payload, metadata, loaded_name
+            # validate_metadata bounded first and length, so the last code cannot
+            # overflow. Calendar axes take the calendar round trip on the stored
+            # first date only, like Julia (trailing codes are implicit and never
+            # packed); year/period axes keep their unpack checks (monthly: first
+            # only).
+            if is_calendar(ts.axis.frequency):
+                verify_date(ts.axis.frequency, ts.axis.first, self.path, name)
+            else:
+                unpack_date(ts.axis.frequency, ts.axis.first, self.path, name)
+                if ts.axis.frequency != freq_monthly and ts.axis.length > 0:
+                    unpack_date(ts.axis.frequency, ts.axis.first + ts.axis.length - 1,
+                                self.path, name)
+            return payload, metadata, loaded_name
 
     cdef void replace_existing(self, obj_id_t oid, str operation, str name) except *:
         # Caller owns the native lock, has finished every Python/native validation
@@ -344,31 +357,34 @@ cdef class FileHandle:
             )
         check(de_delete_object(self.handle, oid), operation, self.path, name)
 
-    def write(self, str name, frequency, year, period, bytes payload, bint overwrite=False):
+    def write(self, str name, frequency, first, bytes payload, bint overwrite=False):
+        # first is the native date code of the first observation (the axis
+        # anchor for an empty series). validate_metadata bounds it to the
+        # reliable range of its frequency before it is narrowed to date_t.
         cdef bytes encoded = name.encode("utf-8")
         cdef obj_id_t oid = 0
         cdef axis_id_t axis = 0
-        cdef date_t first = 0
+        cdef date_t native_first = 0
         cdef frequency_t freq
-        cdef int32_t native_year
-        cdef uint32_t native_period
         cdef int rc
         cdef int64_t length = len(payload) // 8
         cdef const void *value = NULL
         cdef bint existing = False
         if not encoded or b"/" in encoded or b"\0" in encoded:
             raise ValueError("Expected a nonempty root object name without '/' or NUL.")
-        ppy = series_frequency(frequency).periods_per_year
-        if type(year) is not int or type(period) is not int or not 1 <= period <= ppy:
-            raise ValueError("Expected an integer year and valid period.")
-        if frequency == 32 and not -178956970 <= year <= 178956969:
+        if type(frequency) is not int:
+            raise TypeError("Series frequency must be an integer native code.")
+        if type(first) is not int:
+            raise ValueError("Expected an integer first date code.")
+        validate_metadata((2, 12, 4, 0, 1, length, frequency, first, len(payload)))
+        if frequency == 32 and not -178956970 <= first // 12 <= 178956969:
+            # Historical monthly series-write guard: the last eight signed
+            # 32-bit monthly codes (year 178956970) stay rejected on write.
+            # Scalar dates and reads are unaffected.
             raise ValueError("Date is outside the native monthly encoding range.")
-        expected_first = year * ppy + period - 1
-        validate_metadata((2, 12, 4, 0, 1, length, frequency, expected_first, len(payload)))
         # All Python arithmetic and bounds checks precede narrowing into C types.
         freq = <frequency_t><uint32_t>frequency
-        native_year = year
-        native_period = period
+        native_first = first
         with _lock:
             self.require_open()
             rc = de_find_object(self.handle, 0, encoded, &oid)
@@ -380,17 +396,15 @@ cdef class FileHandle:
             elif rc != DE_OBJ_DNE:
                 check(rc, "find", self.path, name)
             de_clear_error()
-            check(de_pack_year_period_date(freq, native_year, native_period, &first),
-                  "pack_date", self.path, name)
-            if first != expected_first:
-                raise ValueError("Date does not round-trip through the native date codec.")
-            unpack_date(freq, first, self.path, name)
-            if length > 0:
-                unpack_date(freq, first + length - 1, self.path, name)
+            verify_date(freq, native_first, self.path, name)
+            if length > 0 and not is_calendar(freq):
+                # Year/period axes also check their last date; calendar axes
+                # follow Julia and pack the first date only.
+                unpack_date(freq, native_first + length - 1, self.path, name)
             if existing:
                 # Every validation of the new series is complete; delete only now.
                 self.replace_existing(oid, "write (overwrite)", name)
-            check(de_axis_range(self.handle, length, freq, first, &axis),
+            check(de_axis_range(self.handle, length, freq, native_first, &axis),
                   "axis", self.path, name)
             if length > 0:
                 value = <const char *>payload
@@ -432,7 +446,7 @@ cdef class FileHandle:
                 # the native codec must reproduce the code (Unit excepted).
                 memcpy(&code, <const char *>payload, sizeof(code))
                 validate_date_code(metadata[2], int(code))
-                verify_scalar_date(scal.frequency, code, self.path, name)
+                verify_date(scal.frequency, code, self.path, name)
             for key in (b"jtype", b"jeltype"):
                 rc = de_get_attribute(self.handle, oid, key, &attribute)
                 if rc == DE_MIS_ATTR:
@@ -491,7 +505,7 @@ cdef class FileHandle:
                 check(rc, "find", self.path, name)
             de_clear_error()
             if kind == 3:
-                verify_scalar_date(freq, code, self.path, name)
+                verify_date(freq, code, self.path, name)
             if existing:
                 # Every validation of the new value is complete; delete only now.
                 self.replace_existing(oid, "write_scalar (overwrite)", name)

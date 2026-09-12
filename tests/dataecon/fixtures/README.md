@@ -188,6 +188,34 @@ window (Julia reloads it unchanged) and an Int32-wrapped daily code.
 `verify-wheel` additionally checks the 193 Python-written unit and calendar
 objects in the combined interchange file.
 
+## Calendar series fixture
+
+`julia_calendar_series.daec` and its TOML provenance are generated with
+`interchange.jl generate-calendar-series <fresh-file> <checkout>`;
+`verify-calendar-series` verifies it again. For `Daily`, `BDaily` and each
+`Weekly{1..7}` end day the Julia writer stores thirteen `cs_*` Float64
+TSeries: four values from 30 December 2024 (crossing the year end), three from
+28 February 2024 (leap day), two from Friday 12 January 2024 (a weekend for
+business days), two from code -1, one at code 0, one at each verified window
+endpoint, five from 31 December 9999 into year 10000, two values from the
+window maximum and a thousand values (`0.25k`) from 499 codes before it (both
+run past the window; only the first date is packed), and empty series
+anchored at 15 January 2024 and at both endpoints. Metadata is
+`(2,12,4,0,1,n,code,first,8n)`; Julia's empty series carry `jeltype =
+"Float64"`, nonempty ones no attribute. Control per family:
+`ctl_*_below_window` (Julia stores the first date with a "codes differ"
+warning; daily and business daily reload another date), and native objects
+Julia never writes: `cs_*_native_empty` (no marker, Julia reloads a dated
+empty TSeries), `cs_*_native_first_above_maximum` (Julia reloads it unchanged)
+and `cs_*_native_int32_wrap` (Julia reloads the wrapped code with a warning).
+Singles: `ctl_weekly8_series` (Julia's `Weekly{8}` stored as code 17),
+`native_axis_weekly16`/`weekly24`/`freq14` and `ctl_empty_float32_daily`
+(`jeltype = "Float32"`). Python rejects every control except the marker-free
+native empties and the collapsed `Weekly{8}` series.
+
+`verify-wheel` additionally checks the 117 Python-written `cs_*` series in
+the combined interchange file.
+
 ## Numeric width scalar fixture
 
 `julia_numeric_widths.daec` contains 90 Julia-written `w_<group>_<case>`

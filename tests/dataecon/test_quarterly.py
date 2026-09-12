@@ -47,10 +47,10 @@ def assert_series(actual, anchor, code, values):
 def test_codec_preserves_anchor_and_snapshots_strides(anchor):
     values = np.arange(8, dtype=np.float64)
     source = TSeries(MIT(Quarterly(anchor), 8099), values[::2])
-    freq, year, period, payload = encode_series(source)
-    assert (freq, year, period) == (64 + anchor, 2024, 4)
+    freq, first, payload = encode_series(source)
+    assert (freq, first) == (64 + anchor, 8099)
     values[:] = -1
-    result = decode_series(freq, year, period, payload)
+    result = decode_series(freq, first, payload)
     assert_series(result, anchor, 8099, [0, 2, 4, 6])
     result.values[0] = 99
     assert np.frombuffer(payload, dtype=np.float64)[0] == 0
@@ -157,26 +157,25 @@ def test_same_integer_dates_keep_distinct_fiscal_anchors(tmp_path):
 
 @NATIVE
 @pytest.mark.parametrize(
-    ("frequency", "year", "period", "payload", "exception"),
+    ("frequency", "first", "payload", "exception"),
     [
-        (64, 2024, 1, b"", TypeError),
-        (68, 2024, 1, b"", TypeError),
-        (65, 2024, 0, b"", ValueError),
-        (65, 2024, 5, b"", ValueError),
-        (65, 10**30, 1, b"", ValueError),
-        (65, -32801, 4, b"", ValueError),
-        (65, 536870912, 1, b"", ValueError),
-        (65, 536870911, 4, bytes(16), ValueError),
-        (65, 2024, 1, bytes(7), ValueError),
+        (64, 8096, b"", TypeError),
+        (68, 8096, b"", TypeError),
+        ("65", 8096, b"", TypeError),
+        (65, 8096.0, b"", ValueError),
+        (65, True, b"", ValueError),
+        (65, 10**30, b"", ValueError),
+        (65, -131201, b"", ValueError),
+        (65, 2**31, b"", ValueError),
+        (65, 2**31 - 1, bytes(16), ValueError),
+        (65, 8096, bytes(7), ValueError),
     ],
 )
-def test_native_input_guards_leave_no_partial_axis(
-    tmp_path, frequency, year, period, payload, exception
-):
+def test_native_input_guards_leave_no_partial_axis(tmp_path, frequency, first, payload, exception):
     path = tmp_path / "invalid.daec"
     with open_dataecon(path, "a") as db:
         with pytest.raises(exception):
-            db._handle.write("bad", frequency, year, period, payload)
+            db._handle.write("bad", frequency, first, payload)
         with pytest.raises(DataEconError) as caught:
             db.read_series("bad")
         assert caught.value.code == -989

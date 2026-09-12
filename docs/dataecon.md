@@ -2,21 +2,23 @@
 
 `tsecon.dataecon` reads and writes **numeric scalars at every Julia width
 (Float16/32/64, Int8/16/32/64, UInt8/16/32/64, Complex64/128), string, MIT date
-and Duration scalars, and monthly, quarterly, half-yearly or annual float64
-TSeries, including empty series**, through the DataEcon 0.4.0 C library. Date
-and duration scalars cover every core frequency: `Unit`, `Daily`, `BDaily`,
-`Weekly` with any end day, `Monthly`, `Quarterly`, `HalfYearly` and `Yearly`.
-Int128/UInt128/ComplexF16 scalars, marker-reconstructed Julia types, series
-over calendar or unit frequencies, other series dtypes, catalogs, workspaces
-and general attributes are not supported yet. Existing JSON I/O is unchanged.
+and Duration scalars, and float64 TSeries over the monthly, quarterly,
+half-yearly, annual, daily, business-daily and weekly frequencies, including
+empty series**, through the DataEcon 0.4.0 C library. Date and duration
+scalars cover every core frequency: `Unit`, `Daily`, `BDaily`, `Weekly` with
+any end day, `Monthly`, `Quarterly`, `HalfYearly` and `Yearly`.
+Int128/UInt128/ComplexF16 scalars, marker-reconstructed Julia types,
+Unit-frequency series, other series dtypes, catalogs, workspaces and general
+attributes are not supported yet. Existing JSON I/O is unchanged.
 
 Native DataEcon support is configured in the wheel workflow for CPython 3.11–3.13:
 Windows x86-64, Linux x86-64 and macOS arm64. Native wheel builds and Julia
 monthly, empty and scalar interchange checks have passed on all three platforms.
 Quarterly and annual interchange have also passed on all three platforms.
 Half-yearly interchange is included in the configured wheel checks, as are
-string, date and duration scalars over every frequency. Successful
-CI builds are separate from a published release.
+string, date and duration scalars over every frequency and daily,
+business-daily and weekly series. Successful CI builds are separate from a
+published release.
 The integration uses a thin
 Cython extension; CFFI and Julia are not runtime dependencies. Only the native
 parts are compiled: the Python file API and conversion code remain Python.
@@ -143,6 +145,56 @@ Annual native date codes equal the year. Both observation endpoints must fit
 first-date anchor is checked. Invalid dates fail before storage; negative and
 zero years do not require conversion to Python `datetime.date`. Fiscal endings
 remain distinct even when their integer dates and values are identical.
+
+## Daily, business-daily and weekly series
+
+Series over `Daily`, `BDaily` and `Weekly` (any end day) use the native
+calendar codec. The stored axis holds the code of the first observation and
+the length; observations are consecutive codes, so a business-daily series
+continues from Friday to Monday (Monday to Friday only, no holiday calendar
+on either side) and a weekly series advances by seven days on its end day.
+Year ends and leap days need no special handling.
+
+```python
+from tsecon import MIT, BDaily, Daily, Weekly, bdaily, weekly
+
+business = TSeries(bdaily("2024-01-12"), np.array([1.25, -2.5], dtype=np.float64))
+weeks = TSeries(weekly("2024-12-30", 3), np.array([1.25, -2.5, 0.0, 4.75], dtype=np.float64))
+far = TSeries(MIT(Daily(), 3652059), np.array([1.0, 2.0], dtype=np.float64))  # from 31 Dec 9999
+with open_dataecon("calendar-series-example.daec", "a") as db:
+    db.write_series("business", business)
+    db.write_series("weeks", weeks)
+    db.write_series("far", far)
+with open_dataecon("calendar-series-example.daec") as db:
+    restored_business = db.read_series("business")
+    restored_weeks = db.read_series("weeks")
+    restored_far = db.read_series("far")
+assert restored_business.frequency == BDaily()
+assert restored_business.lastdate == bdaily("2024-01-15")  # Friday, then Monday
+assert restored_weeks.frequency == Weekly(3)
+assert restored_weeks.firstdate == weekly("2025-01-01", 3)  # the week ending Wednesday 1 January
+assert restored_far.lastdate == MIT(Daily(), 3652060)  # 1 January 10000, beyond datetime
+np.testing.assert_array_equal(restored_weeks.values, weeks.values)
+```
+
+The stored first date must lie inside the reliable code range of its
+frequency (the same windows as the calendar date scalars: daily `-11980259`
+through `11979954`, business daily `-8557114` through `8557110`, weekly
+`-1711422` through `1711422`) and the native codec must reproduce it;
+otherwise `ValueError` is raised before anything is stored. Only the first
+date is stored and packed, on both sides: later observations are consecutive
+codes, so a series may run past 31 December 32800 exactly as Julia writes and
+reloads it (for example two daily values from code `11979954`, or a thousand
+values straddling the maximum). The 128 MiB payload limit bounds a series at
+16,777,216 values, so a trailing code never exceeds the window maximum plus
+16,777,215 and stays inside the signed 32-bit range the adapter checks. A
+stored first date below the window, which Julia writes with a warning and
+reloads as another date, is rejected on read, as are the weekly axis codes 16
+and 24 through 31 that Julia never writes. Codes are never converted through
+`datetime`, so years outside 1..9999 round-trip; converting such an `MIT` to a
+`date` with the core's `mit_to_date` still raises. The weekly end day is part
+of the frequency code, so `Weekly(1)` and `Weekly(7)` series with equal codes
+stay distinct. Unit-frequency series are not supported yet.
 
 ## Empty series
 
@@ -657,7 +709,13 @@ zero years, and nonempty/empty anchors at the supported date limits. Their
 frequency and first/last dates must also survive the Julia read. Annual objects
 exercise all twelve fiscal endings with the same kinds of empty and boundary
 checks, including both signed 32-bit year limits. Half-yearly objects cover
-all six endings with the same nonempty/empty and limit cases.
+all six endings with the same nonempty/empty and limit cases. Calendar series
+objects (117: thirteen per daily, business-daily and weekly end-day family)
+cross a year end, leap day 2024 and a weekend, include negative and zero
+codes, both window endpoints, a series from 31 December 9999 into year 10000,
+two values from the window maximum and a thousand values straddling it, and
+empty anchors at typical and endpoint codes; Julia checks their metadata,
+frequency, first/last dates and values.
 
 For a local installed-wheel check, use a fresh output directory and the installed
 environment's Python from outside the source package:

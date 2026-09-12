@@ -188,6 +188,31 @@ def test_column_view_write_does_not_change_parent(tmp_path):
     np.testing.assert_array_equal(parent.values, before)
 
 
+@pytest.mark.parametrize("length", [0, 1])
+def test_monthly_write_guard_keeps_its_historical_upper_bound(tmp_path, length):
+    # Monthly codes 2147483640..2147483647 (year 178956970) fit the signed 32-bit
+    # axis and read back, but the historical series-write guard rejects them.
+    values = np.ones(length)
+    path = tmp_path / "monthly-bound.daec"
+    with open_dataecon(path, "a") as db:
+        db.write_series("last_allowed", TSeries(mm(178956969, 12), values))
+        assert db.read_series("last_allowed").firstdate.value == 2147483639
+        with pytest.raises(ValueError, match="monthly encoding range"):
+            db.write_series("beyond", TSeries(mm(178956970, 1), values))
+        with pytest.raises(DataEconError) as caught:
+            db.read_series("beyond")
+        assert caught.value.code == -989
+        # Validation precedes the delete: the original survives a rejected overwrite.
+        db.write_series("keep", TSeries(mm(2024, 1), np.array([1.0, 2.0])))
+        with pytest.raises(ValueError, match="monthly encoding range"):
+            db.write_series("keep", TSeries(mm(178956970, 1), values), overwrite=True)
+        np.testing.assert_array_equal(db.read_series("keep").values, [1.0, 2.0])
+        db.write_series("keep", TSeries(mm(178956969, 12), values), overwrite=True)
+        assert db.read_series("keep").firstdate == mm(178956969, 12)
+    with closing(sqlite3.connect(path)) as conn:
+        assert conn.execute("SELECT count(*) FROM objects WHERE name='beyond'").fetchone() == (0,)
+
+
 def test_non_roundtrippable_dates_rejected_before_storage(tmp_path):
     with open_dataecon(tmp_path / "date.daec", "a") as db:
         with pytest.raises(ValueError, match="round-trip"):
@@ -214,7 +239,7 @@ import sys
 from tsecon.dataecon import open_dataecon, DataEconError
 db = open_dataecon(sys.argv[1])
 try:
-    db._handle.write('readonly_fault', 32, 2024, 1, bytes(32))
+    db._handle.write('readonly_fault', 32, 24288, bytes(32))
 except DataEconError as error:
     assert error.code > 0
 else:

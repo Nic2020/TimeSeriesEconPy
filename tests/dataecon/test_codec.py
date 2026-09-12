@@ -5,19 +5,19 @@ import pytest
 
 from tsecon import MIT, TSeries, mm
 from tsecon.dataecon._codec import MAX_BYTES, decode_series, encode_series, validate_metadata
-from tsecon.frequencies import Daily, Weekly
+from tsecon.frequencies import Unit
 
 
 @pytest.mark.parametrize(
     ("series", "exception"),
     [
         (np.ones(4), TypeError),
-        (TSeries(MIT(Weekly(), 4048), np.ones(4)), TypeError),
+        (TSeries(MIT(Unit(), 4048), np.ones(4)), TypeError),
         (TSeries(mm(2024, 1), np.ones(4, dtype=np.float32)), TypeError),
         (TSeries(mm(2024, 1), np.ones(4, dtype=np.int64)), TypeError),
         (TSeries(mm(2024, 1), np.ones(4, dtype=">f8")), TypeError),
         (TSeries(mm(2024, 1), np.array([], dtype=np.float32)), TypeError),
-        (TSeries(MIT(Daily(), 4048), np.array([], dtype=np.float64)), TypeError),
+        (TSeries(MIT(Unit(), 4048), np.array([], dtype=np.float64)), TypeError),
     ],
 )
 def test_reject_unsupported_input(series, exception):
@@ -54,9 +54,10 @@ def test_validate_before_pointer_read(position, value, exception):
 def test_strided_snapshot_and_owning_decode():
     source = np.arange(8, dtype=np.float64)
     series = TSeries(mm(2024, 1), source[::2])
-    frequency, year, month, payload = encode_series(series)
+    frequency, first, payload = encode_series(series)
+    assert (frequency, first) == (32, 24288)
     source[:] = -1
-    result = decode_series(frequency, year, month, payload)
+    result = decode_series(frequency, first, payload)
     assert result.firstdate == mm(2024, 1)
     assert result.values.flags.owndata
     np.testing.assert_array_equal(result.values, [0.0, 2.0, 4.0, 6.0])
@@ -67,9 +68,10 @@ def test_strided_snapshot_and_owning_decode():
 @pytest.mark.parametrize("anchor", [mm(2024, 1), mm(2025, 7)])
 def test_empty_codec_preserves_anchor_and_owns_values(anchor):
     source = TSeries(anchor, np.empty(0, dtype=np.float64))
-    frequency, year, month, payload = encode_series(source)
+    frequency, first, payload = encode_series(source)
     assert payload == b""
-    result = decode_series(frequency, year, month, payload)
+    assert first == anchor.value
+    result = decode_series(frequency, first, payload)
     assert result.firstdate == anchor
     assert result.lastdate == anchor - 1
     assert result.values.shape == (0,)

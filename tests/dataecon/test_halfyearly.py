@@ -48,7 +48,7 @@ def assert_half(actual, month, first, values):
 def test_codec_halfyearly_snapshot_and_empty_limits(month):
     values = np.arange(8, dtype=np.float64)
     encoded = encode_series(TSeries(MIT(HalfYearly(month), 4049), values[::2]))
-    assert encoded[:3] == (128 + month, 2024, 2)
+    assert encoded[:2] == (128 + month, 4049)
     values[:] = -1
     assert_half(decode_series(*encoded), month, 4049, [0, 2, 4, 6])
     for code in (MINIMUM, MINIMUM + 1, -1, 0, 2**31 - 1):
@@ -190,31 +190,27 @@ def test_all_half_year_ends_stay_distinct_and_february_handles_leap_year():
 
 @NATIVE
 @pytest.mark.parametrize(
-    ("frequency", "year", "period", "payload", "exception"),
+    ("frequency", "first", "payload", "exception"),
     [
-        (128, 2024, 1, b"", TypeError),
-        (135, 2024, 1, b"", TypeError),
-        (134, 2024, 0, b"", ValueError),
-        (134, 2024, 3, b"", ValueError),
-        (134, 2024, 1.0, b"", ValueError),
-        (134, 2024.0, 1, b"", ValueError),
-        (134, -32801, 2, b"", ValueError),
-        (134, -32801, 1, b"", ValueError),
-        (134, -(2**30), 1, b"", ValueError),
-        (134, 2**30, 1, b"", ValueError),
-        (134, 10**30, 1, b"", ValueError),
-        (134, 2**30 - 1, 2, bytes(16), ValueError),
-        (134, 2024, 1, bytes(7), ValueError),
+        (128, 4048, b"", TypeError),
+        (135, 4048, b"", TypeError),
+        (134, 4048.0, b"", ValueError),
+        (134, "4048", b"", ValueError),
+        (134, -65601, b"", ValueError),
+        (134, -65602, b"", ValueError),
+        (134, -(2**31), b"", ValueError),
+        (134, 2**31, b"", ValueError),
+        (134, 10**30, b"", ValueError),
+        (134, 2**31 - 1, bytes(16), ValueError),
+        (134, 4048, bytes(7), ValueError),
     ],
 )
-def test_native_validation_creates_no_partial_axis(
-    tmp_path, frequency, year, period, payload, exception
-):
+def test_native_validation_creates_no_partial_axis(tmp_path, frequency, first, payload, exception):
     path = tmp_path / "invalid.daec"
     with open_dataecon(path, "a") as db:
         db.write_series("good", TSeries(MIT(HalfYearly(6), 4048), np.ones(1)))
         with pytest.raises(exception):
-            db._handle.write("bad", frequency, year, period, payload)
+            db._handle.write("bad", frequency, first, payload)
         with pytest.raises(DataEconError) as caught:
             db.read_series("bad")
         assert caught.value.code == -989

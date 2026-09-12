@@ -4,8 +4,8 @@
 Scalars: Float16/32/64, Int8/16/32/64, UInt8/16/32/64, Complex64/128, UTF-8
 strings, and MIT dates or Durations over the unit, daily, business-daily,
 weekly (every end day), monthly, quarterly, half-yearly and annual
-frequencies. Series: Float64 values over the monthly, quarterly, half-yearly
-and annual frequencies.
+frequencies. Series: Float64 values over the same frequencies except Unit
+(daily, business-daily and weekly axes use the verified calendar windows).
 """
 
 from __future__ import annotations
@@ -82,6 +82,9 @@ _CALENDAR_RANGES: dict[int, tuple[int, int]] = {
     13: (-8557114, 8557110),
     **dict.fromkeys(range(17, 24), (-1711422, 1711422)),
 }
+# Series axes: the year/period families plus the calendar families. Unit series
+# (code 11) are not yet supported; Julia writes them as a plain Int64 axis.
+_SERIES_FREQUENCIES: dict[int, Frequency] = {**_FREQUENCIES, **_CALENDAR_FREQUENCIES}
 _SCALAR_FREQUENCIES: dict[int, Frequency] = {
     **_FREQUENCIES,
     UNIT_FREQUENCY: Unit(),
@@ -204,16 +207,18 @@ _SCALAR_SUPPORT = (
     "Complex64/128, strings, and MIT dates or Durations over the Unit, Daily, BDaily, "
     "Weekly, Monthly, Quarterly, HalfYearly and Yearly frequencies."
 )
+_SERIES_SUPPORT = (
+    "DataEcon supports only monthly, quarterly, half-yearly, annual, daily, "
+    "business-daily or weekly Float64 TSeries."
+)
 
 
-def series_frequency(code: int) -> Monthly | Quarterly | HalfYearly | Yearly:
-    """Resolve only canonical supported native frequency codes."""
+def series_frequency(code: int) -> Frequency:
+    """Resolve only canonical supported native series frequency codes."""
     try:
-        return _FREQUENCIES[code]
+        return _SERIES_FREQUENCIES[code]
     except KeyError:
-        raise TypeError(
-            "DataEcon supports only monthly, quarterly, half-yearly or annual Float64 TSeries."
-        ) from None
+        raise TypeError(_SERIES_SUPPORT) from None
 
 
 def scalar_frequency(code: int) -> Frequency:
@@ -391,46 +396,53 @@ def validate_metadata(metadata: Metadata) -> None:
     cls, kind, element, element_freq, axis, length, frequency, first, nbytes = metadata
     series_frequency(frequency)
     if (cls, kind, element, element_freq, axis) != (2, 12, 4, 0, 1):
-        raise TypeError(
-            "DataEcon supports only monthly, quarterly, half-yearly or annual Float64 TSeries."
-        )
+        raise TypeError(_SERIES_SUPPORT)
     if length < 0:
         raise ValueError("Invalid negative DataEcon series length.")
     if nbytes != length * 8 or not 0 <= nbytes <= MAX_BYTES:
         raise ValueError("Invalid or oversized DataEcon series payload.")
     if not MIN_DATE <= first <= MAX_DATE or (length and first + length - 1 > MAX_DATE):
         raise ValueError("DataEcon dates must fit the native signed 32-bit date range.")
-    if frequency in _MIN_DATES and first < _MIN_DATES[frequency][0]:
+    if frequency in _CALENDAR_RANGES:
+        # Only the stored first date must lie inside the verified calendar
+        # window: Julia packs nothing else and never decodes a trailing date.
+        # Later observations are implicit consecutive codes, bounded above by
+        # the signed 32-bit check and the payload limit (at most 16,777,216
+        # values), so the last code stays below maximum + 16,777,216 and never
+        # reaches a native calendar call.
+        minimum, maximum = _CALENDAR_RANGES[frequency]
+        if not minimum <= first <= maximum:
+            raise ValueError("Date is outside the reliable native date range for its frequency.")
+    elif frequency in _MIN_DATES and first < _MIN_DATES[frequency][0]:
         raise ValueError(
             f"Date is outside the reliable native {_MIN_DATES[frequency][1]} date range."
         )
 
 
-def encode_series(series: TSeries) -> tuple[int, int, int, bytes]:
-    """Return frequency, year, period and an independent Float64 byte snapshot."""
+def encode_series(series: TSeries) -> tuple[int, int, bytes]:
+    """Return the frequency code, first date code and an independent Float64 snapshot."""
     if not isinstance(series, TSeries):
         raise TypeError("write_series requires a TSeries.")
     if sys.byteorder != "little":
         raise RuntimeError(
             "DataEcon interchange is currently supported on little-endian hosts only."
         )
-    code = next((code for code, freq in _FREQUENCIES.items() if freq == series.frequency), None)
+    code = next(
+        (code for code, freq in _SERIES_FREQUENCIES.items() if freq == series.frequency), None
+    )
     if code is None or series.values.dtype != np.dtype(np.float64):
-        raise TypeError(
-            "DataEcon supports only monthly, quarterly, half-yearly or annual "
-            "native-endian float64 TSeries."
-        )
+        raise TypeError(_SERIES_SUPPORT + " Values must be native-endian float64.")
     length = len(series.values)
-    validate_metadata((2, 12, 4, 0, 1, length, code, series.firstdate.value, length * 8))
-    year, period_index = divmod(series.firstdate.value, series_frequency(code).periods_per_year)
-    return code, year, period_index + 1, series.values.tobytes(order="C")
+    first = series.firstdate.value
+    validate_metadata((2, 12, 4, 0, 1, length, code, first, length * 8))
+    return code, first, series.values.tobytes(order="C")
 
 
-def decode_series(code: int, year: int, period: int, payload: bytes) -> TSeries:
+def decode_series(code: int, first: int, payload: bytes) -> TSeries:
     """Construct an owning core series; no native storage escapes the adapter."""
     if sys.byteorder != "little":
         raise RuntimeError(
             "DataEcon interchange is currently supported on little-endian hosts only."
         )
     values = np.frombuffer(payload, dtype=np.float64).copy()
-    return TSeries(MIT.from_yp(series_frequency(code), year, period), values)
+    return TSeries(MIT(series_frequency(code), first), values)

@@ -47,7 +47,7 @@ def assert_annual(actual, month, first, values):
 def test_codec_annual_snapshot_and_empty_limits(month):
     values = np.arange(8, dtype=np.float64)
     encoded = encode_series(TSeries(MIT(Yearly(month), 2024), values[::2]))
-    assert encoded[:3] == (256 + month, 2024, 1)
+    assert encoded[:2] == (256 + month, 2024)
     values[:] = -1
     assert_annual(decode_series(*encoded), month, 2024, [0, 2, 4, 6])
     for year in (-(2**31), -32801, 0, 2**31 - 1):
@@ -148,29 +148,25 @@ def test_all_year_ends_stay_distinct_and_february_handles_leap_year():
 
 @NATIVE
 @pytest.mark.parametrize(
-    ("frequency", "year", "period", "payload", "exception"),
+    ("frequency", "first", "payload", "exception"),
     [
-        (256, 2024, 1, b"", TypeError),
-        (269, 2024, 1, b"", TypeError),
-        (262, 2024, 0, b"", ValueError),
-        (262, 2024, 2, b"", ValueError),
-        (262, 2024, 1.0, b"", ValueError),
-        (262, 2024.0, 1, b"", ValueError),
-        (262, -(2**31) - 1, 1, b"", ValueError),
-        (262, 2**31, 1, b"", ValueError),
-        (262, 10**30, 1, b"", ValueError),
-        (262, 2**31 - 1, 1, bytes(16), ValueError),
-        (262, 2024, 1, bytes(7), ValueError),
+        (256, 2024, b"", TypeError),
+        (269, 2024, b"", TypeError),
+        (262, 2024.0, b"", ValueError),
+        (262, "2024", b"", ValueError),
+        (262, -(2**31) - 1, b"", ValueError),
+        (262, 2**31, b"", ValueError),
+        (262, 10**30, b"", ValueError),
+        (262, 2**31 - 1, bytes(16), ValueError),
+        (262, 2024, bytes(7), ValueError),
     ],
 )
-def test_native_validation_creates_no_partial_axis(
-    tmp_path, frequency, year, period, payload, exception
-):
+def test_native_validation_creates_no_partial_axis(tmp_path, frequency, first, payload, exception):
     path = tmp_path / "invalid.daec"
     with open_dataecon(path, "a") as db:
         db.write_series("good", TSeries(MIT(Yearly(6), 2024), np.ones(1)))
         with pytest.raises(exception):
-            db._handle.write("bad", frequency, year, period, payload)
+            db._handle.write("bad", frequency, first, payload)
         with pytest.raises(DataEconError) as caught:
             db.read_series("bad")
         assert caught.value.code == -989

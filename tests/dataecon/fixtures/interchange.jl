@@ -13,6 +13,8 @@
 # File operation actions: generate-fileops/verify-fileops (verify-wheel also checks the
 # Python-written overwrite/delete outcomes and the auxiliary "fileops/<name>-fileops.daec"
 # output, kept out of the workflow's single-file "*.daec" discovery directory).
+# Calendar series actions: generate-calendar-series/verify-calendar-series (also checked
+# by verify-wheel): Daily, BDaily and Weekly{1..7} Float64 TSeries.
 using TimeSeriesEcon
 using Test, SHA, TOML, Pkg, Dates
 
@@ -196,6 +198,124 @@ calendar_natives = [("date_weekly16", C.type_date, C.frequency_t(16), 8, 105557)
     ("date_daily_above_maximum", C.type_date, C.freq_daily, 8, 11979955),
     ("date_daily_int32_wrap", C.type_date, C.freq_daily, 8, 2^32 + 738900),
     ("duration_weekly16", C.type_signed, C.frequency_t(16), 8, 2)]
+# Calendar-frequency Float64 series: the axis stores the packed calendar code of
+# the first observation; the verified scalar windows bound every observation.
+# Nonempty cases cross a year end, leap day 2024 and a weekend (Friday start),
+# and reach both window endpoints and the years beyond Python's datetime.
+_series_mit(::Type{Daily}, d, ed) = daily(d)
+_series_mit(::Type{BDaily}, d, ed) = bdaily(d)
+_series_mit(::Type{<:Weekly}, d, ed) = weekly(d, ed)
+function calendar_series_cases(F, code, ed)
+    at(d) = Int(_series_mit(F, d, ed))
+    lo, hi = calendar_windows[code]
+    return [("cross_year", at(Date(2024, 12, 30)), [1.25, -2.5, 0.0, 4.75]),
+        ("leap", at(Date(2024, 2, 28)), [1.25, -2.5, 0.0]),
+        ("weekend", at(Date(2024, 1, 12)), [1.25, -2.5]),
+        ("negative", -1, [1.25, -2.5]), ("zero", 0, [1.25]),
+        ("minimum", lo, [1.25]), ("maximum", hi, [1.25]),
+        ("beyond_py_year", at(Date(9999, 12, 31)), [1.25, -2.5, 0.0, 4.75, 8.5]),
+        # Trailing observations may run past the window: only the first date is
+        # packed, as in Julia. Two values from the maximum, and 1,000 values
+        # straddling it (500 past the window).
+        ("last_beyond_maximum", hi, [1.25, -2.5]),
+        ("long_span", hi - 499, [0.25k for k in 1:1000]),
+        ("empty", at(Date(2024, 1, 15)), Float64[]),
+        ("empty_minimum", lo, Float64[]), ("empty_maximum", hi, Float64[])]
+end
+# Reference-only control per family: Julia stores a below-window first date
+# with a "codes differ" warning; native objects Julia never writes: a
+# marker-free empty series, a first date just above the window and an
+# Int32-wrapped first date. Python rejects all but the marker-free empty.
+function calendar_series_controls(F, code, ed)
+    lo, hi = calendar_windows[code]
+    return [("below_window", lo - 1, [1.25])]
+end
+function calendar_series_natives(F, code, ed)
+    lo, hi = calendar_windows[code]
+    return [("native_empty", Int(_series_mit(F, Date(2024, 1, 15), ed)), Float64[]),
+        ("native_first_above_maximum", hi + 1, [1.25]),
+        ("native_int32_wrap", 2^32 + Int(_series_mit(F, Date(2024, 1, 15), ed)), [1.25])]
+end
+function store_native_series!(db, name, freq, code, values)
+    axis = Ref{C.axis_id_t}()
+    id = Ref{C.obj_id_t}()
+    @test C.de_axis_range(db, length(values), C.frequency_t(freq), code, axis) == 0
+    GC.@preserve values begin
+        ptr = isempty(values) ? C_NULL : pointer(values)
+        @test C.de_store_tseries(db, DE.root_id, name, C.type_tseries, C.type_float,
+            C.freq_none, axis[], 8length(values), ptr, id) == 0
+    end
+end
+function load_series_raw(db, id)
+    arr = Ref{C.tseries_t}()
+    @test C.de_load_tseries(db, id, arr) == 0
+    ts = arr[]
+    metadata = Int.((ts.object.obj_class, ts.object.obj_type, ts.eltype, ts.elfreq,
+        ts.axis.ax_type, ts.axis.length, ts.axis.frequency, ts.axis.first, ts.nbytes))
+    attrs = Dict(string(k) => string(v) for (k, v) in DE.get_all_attributes(db, id))
+    return metadata, ts.value == C_NULL, attrs
+end
+# Function barrier: F is chosen at runtime.
+function write_calendar_series!(db, ::Type{F}, label, code, ed) where {F}
+    for (suffix, first, values) in calendar_series_cases(F, code, ed)
+        DE.store_tseries(db, DE.root_id, "cs_$(label)_$(suffix)", TSeries(MIT{F}(first), copy(values)))
+    end
+    for (suffix, first, values) in calendar_series_controls(F, code, ed)
+        ts = TSeries(MIT{F}(first), copy(values))
+        @test_logs (:warn, r"MIT codes differ") DE.store_tseries(db, DE.root_id, "ctl_$(label)_$(suffix)", ts)
+    end
+    for (suffix, first, values) in calendar_series_natives(F, code, ed)
+        store_native_series!(db, "cs_$(label)_$(suffix)", code, first, values)
+    end
+end
+function verify_calendar_series(db, ::Type{F}, label, code, ed, reference_fixture) where {F}
+    for (suffix, first, values) in calendar_series_cases(F, code, ed)
+        id = DE.find_object(db, DE.root_id, "cs_$(label)_$(suffix)")
+        metadata, null_value, attrs = load_series_raw(db, id)
+        @test metadata == (2, 12, 4, 0, 1, length(values), code, first, 8length(values))
+        @test null_value == isempty(values)
+        value = @test_logs DE.load_tseries(db, id)
+        if reference_fixture && isempty(values)
+            @test attrs == Dict("jeltype" => "Float64")
+            @test value isa Vector{Float64} && isempty(value)
+        else
+            @test isempty(attrs)
+            @test value isa TSeries{F,Float64}
+            @test Int(firstdate(value)) == first
+            @test Int(lastdate(value)) == first + length(values) - 1
+            @test value.values == values
+        end
+    end
+    reference_fixture || return
+    lo, hi = calendar_windows[code]
+    for (suffix, first, values) in calendar_series_controls(F, code, ed)
+        id = DE.find_object(db, DE.root_id, "ctl_$(label)_$(suffix)")
+        metadata, _, attrs = load_series_raw(db, id)
+        @test metadata == (2, 12, 4, 0, 1, length(values), code, first, 8length(values))
+        @test isempty(attrs)
+        if F <: Weekly
+            # The weekly decoder is exact modulo 2^32 for this code.
+            @test Int(firstdate(@test_logs DE.load_tseries(db, id))) == first
+        else
+            value = @test_logs (:warn, r"MIT codes differ") DE.load_tseries(db, id)
+            @test value isa TSeries{F,Float64} && Int(firstdate(value)) != first
+        end
+    end
+    for (suffix, first, values) in calendar_series_natives(F, code, ed)
+        id = DE.find_object(db, DE.root_id, "cs_$(label)_$(suffix)")
+        metadata, _, attrs = load_series_raw(db, id)
+        @test metadata == (2, 12, 4, 0, 1, length(values), code, first, 8length(values))
+        @test isempty(attrs)
+        if suffix == "native_int32_wrap"
+            value = @test_logs (:warn, r"MIT codes differ") DE.load_tseries(db, id)
+            @test Int(firstdate(value)) == first - 2^32
+        else
+            value = @test_logs DE.load_tseries(db, id)
+            @test value isa TSeries{F,Float64} && Int(firstdate(value)) == first
+            @test Int(lastdate(value)) == first + length(values) - 1
+        end
+    end
+end
 
 
 
@@ -419,8 +539,22 @@ elseif action == "generate-fileops"
         DE.store_scalar(db, "a", "replaced")
         DE.store_tseries(db, "overwritten_series", fileops_series)
     end
-elseif !(action in ("verify", "verify-empty", "verify-scalars", "verify-quarterly", "verify-annual", "verify-halfyearly", "verify-int64", "verify-strings", "verify-dates", "verify-calendar", "verify-widths", "verify-fileops", "verify-wheel"))
-    error("Unknown action; use generate/verify, generate-empty/verify-empty, generate-scalars/verify-scalars, generate-quarterly/verify-quarterly, generate-annual/verify-annual, generate-halfyearly/verify-halfyearly, generate-int64/verify-int64, generate-strings/verify-strings, generate-dates/verify-dates, generate-calendar/verify-calendar, generate-widths/verify-widths, generate-fileops/verify-fileops or verify-wheel.")
+elseif action == "generate-calendar-series"
+    ispath(filename) && error("Output already exists; use a fresh fixture path.")
+    DE.opendaec(filename; write=true) do db
+        for (label, F, code, ed) in calendar_families
+            write_calendar_series!(db, F, label, code, ed)
+        end
+        # Noncanonical Julia anchors collapse to canonical codes on write; native
+        # axis codes Julia never writes; an empty Float32 series marker control.
+        @test_logs (:warn, r"MIT codes differ") DE.store_tseries(db, DE.root_id, "ctl_weekly8_series", TSeries(MIT{Weekly{8}}(105557), [1.25]))
+        for (suffix, freq) in [("weekly16", 16), ("weekly24", 24), ("freq14", 14)]
+            store_native_series!(db, "native_axis_$(suffix)", freq, 105557, [1.25])
+        end
+        DE.store_tseries(db, DE.root_id, "ctl_empty_float32_daily", TSeries(daily("2024-01-15"), Float32[]))
+    end
+elseif !(action in ("verify", "verify-empty", "verify-scalars", "verify-quarterly", "verify-annual", "verify-halfyearly", "verify-int64", "verify-strings", "verify-dates", "verify-calendar", "verify-widths", "verify-fileops", "verify-calendar-series", "verify-wheel"))
+    error("Unknown action; use generate/verify, generate-empty/verify-empty, generate-scalars/verify-scalars, generate-quarterly/verify-quarterly, generate-annual/verify-annual, generate-halfyearly/verify-halfyearly, generate-int64/verify-int64, generate-strings/verify-strings, generate-dates/verify-dates, generate-calendar/verify-calendar, generate-widths/verify-widths, generate-fileops/verify-fileops, generate-calendar-series/verify-calendar-series or verify-wheel.")
 end
 
 if action in ("generate", "verify", "verify-wheel")
@@ -915,7 +1049,30 @@ if action in ("generate-fileops", "verify-fileops", "verify-wheel")
     end
 end
 
-if action in ("generate", "generate-empty", "generate-scalars", "generate-quarterly", "generate-annual", "generate-halfyearly", "generate-int64", "generate-strings", "generate-dates", "generate-calendar", "generate-widths", "generate-fileops")
+if action in ("generate-calendar-series", "verify-calendar-series", "verify-wheel")
+    @testset "DataEcon calendar series interchange" begin
+        reference_fixture = action != "verify-wheel"
+        DE.opendaec(filename) do db
+            for (label, F, code, ed) in calendar_families
+                verify_calendar_series(db, F, label, code, ed, reference_fixture)
+            end
+            if reference_fixture
+                id = DE.find_object(db, DE.root_id, "ctl_weekly8_series")
+                @test load_series_raw(db, id)[1][7] == 17
+                @test DE.load_tseries(db, id) isa TSeries{Weekly{1},Float64}
+                id = DE.find_object(db, DE.root_id, "native_axis_weekly16")
+                @test (@test_logs (:warn, r"MIT codes differ") DE.load_tseries(db, id)) isa TSeries{Weekly{0},Float64}
+                @test DE.load_tseries(db, DE.find_object(db, DE.root_id, "native_axis_weekly24")) isa TSeries{Weekly{8},Float64}
+                @test_throws Exception DE.load_tseries(db, DE.find_object(db, DE.root_id, "native_axis_freq14"))
+                id = DE.find_object(db, DE.root_id, "ctl_empty_float32_daily")
+                @test load_series_raw(db, id)[3] == Dict("jeltype" => "Float32")
+                @test DE.load_tseries(db, id) isa Vector{Float32}
+            end
+        end
+    end
+end
+
+if action in ("generate", "generate-empty", "generate-scalars", "generate-quarterly", "generate-annual", "generate-halfyearly", "generate-int64", "generate-strings", "generate-dates", "generate-calendar", "generate-widths", "generate-fileops", "generate-calendar-series")
     layout = Dict{String,Any}(
         "enums" => sizeof.([C.class_t, C.type_t, C.frequency_t, C.axis_type_t]),
     )

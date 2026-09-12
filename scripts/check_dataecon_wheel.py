@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import ctypes
+import datetime as dt
 import hashlib
 import importlib.util
 import json
@@ -36,7 +37,10 @@ from tsecon import (
     Unit,
     Weekly,
     Yearly,
+    bdaily,
+    daily,
     mm,
+    weekly,
 )
 
 
@@ -497,6 +501,79 @@ DATED_GROUPS = (
     ("y", Yearly, range(1, 13), ANNUAL_CASES),
     ("h", HalfYearly, range(1, 7), HALFYEARLY_CASES),
 )
+# Calendar-frequency series (Daily 12, BDaily 13, Weekly 17..23): the Julia
+# verifier expects these exact first codes, which the core's own calendar
+# reproduces from the dates (30 December 2024, 28 February 2024, Friday 12
+# January 2024, 15 January 2024, 31 December 9999) and the verified windows.
+CALENDAR_WINDOWS = {12: (-11980259, 11979954), 13: (-8557114, 8557110)}
+CALENDAR_WINDOWS.update(dict.fromkeys(range(17, 24), (-1711422, 1711422)))
+
+
+def _calendar_dates(frequency) -> tuple[int, ...]:
+    """First codes from the core's own calendar; Julia derives them independently."""
+    dates = (
+        dt.date(2024, 12, 30),
+        dt.date(2024, 2, 28),
+        dt.date(2024, 1, 12),
+        dt.date(2024, 1, 15),
+        dt.date(9999, 12, 31),
+    )
+    if isinstance(frequency, Daily):
+        return tuple(daily(d).value for d in dates)
+    if isinstance(frequency, BDaily):
+        return tuple(bdaily(d).value for d in dates)
+    return tuple(weekly(d, frequency.end_day).value for d in dates)
+
+
+_CALENDAR_DATES = {label: _calendar_dates(frequency) for label, frequency in CALENDAR_FAMILIES}
+_KNOWN_CODES = (_CALENDAR_DATES["d"][0], _CALENDAR_DATES["b"][2], _CALENDAR_DATES["w3"][0])
+if _KNOWN_CODES != (739250, 527785, 105608):
+    raise ValueError("Core calendar codes differ from the Julia fixture's known values.")
+
+
+def calendar_series_cases(label: str, code: int) -> tuple[tuple[str, int, list[float]], ...]:
+    """The calendar-series cases the Julia verifier expects for one family."""
+    cross_year, leap, weekend, mid, far = _CALENDAR_DATES[label]
+    lo, hi = CALENDAR_WINDOWS[code]
+    values = [1.25, -2.5, 0.0, 4.75]
+    return (
+        ("cross_year", cross_year, values),
+        ("leap", leap, values[:3]),
+        ("weekend", weekend, values[:2]),
+        ("negative", -1, values[:2]),
+        ("zero", 0, values[:1]),
+        ("minimum", lo, values[:1]),
+        ("maximum", hi, values[:1]),
+        ("beyond_py_year", far, [*values, 8.5]),
+        # Only the first date is packed: trailing codes may pass the window.
+        ("last_beyond_maximum", hi, values[:2]),
+        ("long_span", hi - 499, list(0.25 * np.arange(1, 1001))),
+        ("empty", mid, []),
+        ("empty_minimum", lo, []),
+        ("empty_maximum", hi, []),
+    )
+
+
+CALENDAR_SERIES_GROUPS = tuple(
+    (label, frequency, code, calendar_series_cases(label, code))
+    for (label, frequency), code in zip(CALENDAR_FAMILIES, (12, 13, *range(17, 24)), strict=True)
+)
+
+
+def series_cases() -> list[tuple[str, MIT, list[float]]]:
+    """Every dated series written to the interchange output: name, start and values."""
+    dated = [
+        (f"{prefix}{anchor}_{suffix}", MIT(frequency(anchor), code), values)
+        for prefix, frequency, anchors, cases in DATED_GROUPS
+        for anchor in anchors
+        for suffix, code, values in cases
+    ]
+    calendar = [
+        (f"cs_{label}_{suffix}", MIT(frequency, first), values)
+        for label, frequency, _, cases in CALENDAR_SERIES_GROUPS
+        for suffix, first, values in cases
+    ]
+    return dated + calendar
 
 
 def check_scalar_value(actual: object, expected: object) -> None:
@@ -636,15 +713,8 @@ def write_interchange(output_dir: Path, series: tsecon.TSeries) -> Path:
             db.write_scalar(name, value)
         for name, anchor in (("empty", mm(2024, 1)), ("empty_later", mm(2025, 7))):
             db.write_series(name, tsecon.TSeries(anchor, np.empty(0, dtype=np.float64)))
-        for prefix, frequency, anchors, cases in DATED_GROUPS:
-            for anchor in anchors:
-                for suffix, code, values in cases:
-                    db.write_series(
-                        f"{prefix}{anchor}_{suffix}",
-                        tsecon.TSeries(
-                            MIT(frequency(anchor), code), np.array(values, dtype=np.float64)
-                        ),
-                    )
+        for name, start, values in series_cases():
+            db.write_series(name, tsecon.TSeries(start, np.array(values, dtype=np.float64)))
         write_file_operation_objects(db)
     write_file_operations(output)
     check_discovery_contract(output_dir)
@@ -656,12 +726,7 @@ def write_interchange(output_dir: Path, series: tsecon.TSeries) -> Path:
             for name, anchor in (("empty", mm(2024, 1)), ("empty_later", mm(2025, 7)))
         ]
         scalars = [(db.read_scalar(name), value) for name, value in scalar_cases().items()]
-        dated = [
-            (db.read_series(f"{prefix}{anchor}_{suffix}"), MIT(frequency(anchor), code), values)
-            for prefix, frequency, anchors, cases in DATED_GROUPS
-            for anchor in anchors
-            for suffix, code, values in cases
-        ]
+        dated = [(db.read_series(name), start, values) for name, start, values in series_cases()]
     for actual, start, values in dated:
         np.testing.assert_array_equal(actual.values, values)
         if (

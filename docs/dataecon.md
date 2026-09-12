@@ -1,12 +1,14 @@
 # DataEcon interchange
 
-`tsecon.dataecon` reads and writes **Float64, Int64, string, MIT date and Duration
-scalars, and monthly, quarterly, half-yearly or annual float64 TSeries, including
-empty series**, through the DataEcon 0.4.0 C library. Date and duration scalars
-cover every core frequency: `Unit`, `Daily`, `BDaily`, `Weekly` with any end day,
-`Monthly`, `Quarterly`, `HalfYearly` and `Yearly`. Other scalar types, series over
-calendar or unit frequencies, other series dtypes, catalogs, workspaces and
-general attributes are not supported yet. Existing JSON I/O is unchanged.
+`tsecon.dataecon` reads and writes **numeric scalars at every Julia width
+(Float16/32/64, Int8/16/32/64, UInt8/16/32/64, Complex64/128), string, MIT date
+and Duration scalars, and monthly, quarterly, half-yearly or annual float64
+TSeries, including empty series**, through the DataEcon 0.4.0 C library. Date
+and duration scalars cover every core frequency: `Unit`, `Daily`, `BDaily`,
+`Weekly` with any end day, `Monthly`, `Quarterly`, `HalfYearly` and `Yearly`.
+Int128/UInt128/ComplexF16 scalars, marker-reconstructed Julia types, series
+over calendar or unit frequencies, other series dtypes, catalogs, workspaces
+and general attributes are not supported yet. Existing JSON I/O is unchanged.
 
 Native DataEcon support is configured in the wheel workflow for CPython 3.11–3.13:
 Windows x86-64, Linux x86-64 and macOS arm64. Native wheel builds and Julia
@@ -200,15 +202,61 @@ the stored type. NaN, infinities and the sign of zero are preserved; arbitrary
 signaling-NaN states or payload bits are not an interchange guarantee.
 
 Julia writes `Int64` values with the same metadata and reads them back as
-`Int64`. Unsigned integers, other widths and `Bool` (which Julia itself reloads
-as `Int8`) are rejected on read with `TypeError` or `ValueError` rather than
-being coerced. Strings, dates and durations are separate scalar kinds below.
+`Int64`. Strings, dates and durations are separate scalar kinds below; the
+narrower, unsigned and complex numeric widths follow next.
 
 Scalars share the root namespace with series: existing names are never
 overwritten, and wrong-class reads raise `DataEconError`. Scalar `jtype` and
 `jeltype` attributes are always rejected, including the literals `Float64`
 and `Int64`. The empty-series attribute exception does not apply to scalars.
 Numeric scalar payloads must be exactly eight bytes with no frequency metadata.
+
+## Narrow, unsigned and complex numeric scalars
+
+Julia stores `Float16`/`Float32`, `Int8`/`Int16`/`Int32`, `UInt8`..`UInt64`
+and `ComplexF32`/`ComplexF64` at their own byte width with no marker and reloads
+them by type and width. Python mirrors that with exact NumPy scalar classes:
+
+```python
+import numpy as np
+
+with open_dataecon("width-example.daec", "a") as db:
+    db.write_scalar("half", np.float16(0.1))
+    db.write_scalar("mask", np.uint64(2**64 - 1))
+    db.write_scalar("small", np.int8(-128))
+    db.write_scalar("z32", np.complex64(1.5 - 2.25j))
+    db.write_scalar("z", 8 + 3j)
+with open_dataecon("width-example.daec") as db:
+    half, mask, small, z32, z = (db.read_scalar(n) for n in ("half", "mask", "small", "z32", "z"))
+assert type(half) is np.float16 and half.tobytes() == b"\x66\x2e"
+assert type(mask) is np.uint64 and mask == 2**64 - 1
+assert type(small) is np.int8 and small == -128
+assert type(z32) is np.complex64
+assert type(z) is complex and z == 8 + 3j
+```
+
+`write_scalar` accepts `np.float16`, `np.float32`, `np.int8`, `np.int16`,
+`np.int32`, `np.uint8`, `np.uint16`, `np.uint32`, `np.uint64`, `np.complex64`,
+`np.complex128` and Python `complex` (stored as `ComplexF64`, like Julia's
+`8.0 + 3.0im`). Each NumPy value is stored from its own bytes, so NaN payloads,
+signed zeros and subnormals survive and nothing is widened: precision is
+whatever the caller chose when it built the value (`np.float16(2049)` is
+already `2048`). The C-named NumPy classes (`np.intc`, `np.uintc`,
+`np.longlong`, `np.ulonglong`, and NumPy 2's `np.long`, `np.ulong`) are
+accepted by their width on every platform and every supported NumPy version:
+the accepted classes are discovered through the dtype type codes, not through
+attribute names, and are matched by class identity. Python `int`/`float` and
+`np.int64`/`np.float64` keep their Int64/Float64 behavior.
+
+Reads return the sized NumPy class of the stored width, except the eight-byte
+Int64/Float64 and sixteen-byte ComplexF64 encodings, which return Python
+`int`, `float` and `complex`. A Julia `Bool` is byte-identical to `Int8` in the
+file (Julia itself reloads it as `Int8`), so it reads as `np.int8`; writing a
+Python `bool` is still rejected rather than silently stored as an integer.
+`Int128`, `UInt128` and `ComplexF16` objects, which Julia can write, have no
+NumPy scalar type and raise `ValueError` on read; there is no write path for
+them yet. Any other width, a frequency on a numeric type, and scalar `jtype`
+or `jeltype` attributes are rejected without coercion or evaluation.
 
 ## String scalars
 
@@ -349,14 +397,90 @@ integer stay distinct. Julia anchors beyond 1..7 collapse on write (`Weekly{8}`
 is stored as `Weekly{1}`). The Sunday alias 16, the unused codes 14 and 15 and
 weekly codes 24 through 31, which Julia never writes, are rejected.
 
+## Deleting, overwriting, truncating and in-memory files
+
+The defaults are unchanged: `open_dataecon(path)` is read-only and `"a"`
+appends without ever replacing an object. The Julia file operations are
+available as explicit calls:
+
+```python
+import numpy as np
+from tsecon import TSeries, mm
+from tsecon.dataecon import open_dataecon, open_dataecon_memory
+
+with open_dataecon("fileops-example.daec", "a") as db:
+    db.write_scalar("rate", 1.25)
+    db.write_scalar("rate", "revised", overwrite=True)  # delete-then-store
+    db.write_scalar("temporary", 7)
+    db.delete("temporary")
+    assert db.read_scalar("rate") == "revised"
+    assert not db.is_empty()
+
+with open_dataecon("fileops-example.daec", "w") as db:  # "w" truncates on open
+    assert db.is_empty()
+    db.write_series("fresh", TSeries(mm(2024, 1), np.array([1.0, 2.0])))
+    db.truncate()  # same as Julia's empty!(de); the owner stays usable
+    assert db.is_empty()
+    db.write_scalar("after", 42)
+
+with open_dataecon_memory() as scratch:  # Julia's opendaecmem()
+    scratch.write_scalar("x", np.float32(0.1))
+    assert scratch.read_scalar("x") == np.float32(0.1)
+    assert scratch.path == ":memory:"
+```
+
+`delete(name)` removes one root object with its payload and attributes. A
+missing name raises `DataEconError` (code -989) and the owner stays usable.
+A root **catalog** (written by Julia) is refused unless you pass
+`recursive=True`, in which case every nested catalog and object under it is
+deleted, exactly as Julia's `delete_object` does without asking. Deleting a
+series leaves its shared axis row in the file (axes are not objects), and
+values returned by earlier reads remain valid because reads copy.
+
+`overwrite=True` on `write_scalar`/`write_series` is Julia's
+`opendaec(...; overwrite=true)` behavior for that one call: the existing root
+scalar or series of that name is deleted and the new object stored, whatever
+its class. Python validates the new value completely *before* deleting, so a
+rejected value leaves the old object intact (Julia deletes first and then
+fails). The operation is **not atomic** and nothing rolls back: once the
+delete has run the original value is gone, and a native store failure after
+it leaves the name either absent or holding a partial, unreadable replacement
+(the native library creates the object row before it stores the payload, so
+a failure in between leaves an object without a value; reading it raises
+`DataEconError`). Such a failure is reported with the operation label
+`write_scalar (overwrite; original deleted, partial replacement may remain)`
+(or `write (...)` for series). An existing catalog is never overwritten
+implicitly; delete it explicitly with `recursive=True`.
+
+`truncate()` (Julia's `truncatedaec`/`empty!`) commits pending writes, resets
+the file to a freshly created state, restarts object ids and leaves the owner
+open; `open_dataecon(path, "w")` does the same immediately after opening
+(Julia's `truncate=true`) and creates the file when it does not exist.
+`is_empty()` is Julia's `isempty(de)`: true when the root catalog holds no
+objects. Read-only owners reject `delete`, `truncate` and `overwrite=True`
+with `ValueError` before any native call. Note that writes made through an
+open owner are committed only when it closes (or truncates); another
+connection opened in the meantime does not see them.
+
+`open_dataecon_memory()` opens a private, writable, empty in-memory database
+that is discarded on close; it cannot be reopened or shared with Julia, and
+no file named `:memory:` is created. Passing the literal `":memory:"` to
+`open_dataecon` raises `ValueError` rather than turning it into a disk path.
+
+A native truncate failure quarantines the owner the same way a failed close
+does: it cannot be used or closed again and native resources may remain until
+process exit. This is deliberate: the native library's statement-finalization
+path is unsafe once a statement has failed, so the adapter never makes a second
+native call on such a handle.
+
 ## Closing and errors
 
 Use a context manager or call `close()` explicitly. Successful close is
 idempotent. Missing objects and duplicate names raise `DataEconError`, which
 retains `code`, `operation`, `path`, `name` and `native_message`. Positive native
 codes come from SQLite. Invalid or unsupported Python inputs raise
-`TypeError`/`ValueError`; writes through an explicitly read-only owner are rejected
-before calling C. No truncation or replacement mode is provided.
+`TypeError`/`ValueError`; writes, deletions, truncation and overwrites through
+an explicitly read-only owner are rejected before calling C.
 
 A native write failure may leave a partial object or unused axis; the adapter
 does not promise rollback or delete the file. A failed native close makes the
@@ -506,6 +630,19 @@ at 2024M1 and 2025M7; the Julia loader must preserve all three as dated TSeries.
 The same file contains seven Float64 scalars covering finite values, signed zero,
 NaN and infinities, and fourteen Int64 scalars including both signed endpoints
 and values around 2^53; Julia checks their types, metadata and values as well.
+It also holds 91 narrow, unsigned and complex numeric scalars (every Float16/
+Float32, Int8/16/32, UInt8..UInt64 and ComplexF32/F64 group with endpoints,
+signed zeros, NaN, infinities, subnormals and precision-loss values, plus a
+Python `complex`) that Julia must load with the same type and bits. The
+combined output also records three file-operation outcomes (an Int64 scalar
+overwritten by a string, a deleted scalar, a scalar replaced by a series),
+and an auxiliary `fileops/cpXY-fileops.daec` file is written, reopened with
+`"w"` (truncated) and refilled; Julia checks the overwrite/delete results, the
+truncated auxiliary file's content and that its object ids restarted. The
+workflow's Julia steps locate the primary output by globbing `*.daec` in the
+interchange directory and require exactly one match, so auxiliary outputs
+live in the `fileops` subdirectory; the checker refuses to leave any other
+`.daec` file at the top level, and the Julia verifier checks the same layout.
 It also contains fifteen strings (empty, ASCII, accented, CJK, emoji,
 whitespace, punctuation and long values) that Julia must load as `String`, and
 six `MIT` dates plus six `Duration` values for each of the 22 year/period

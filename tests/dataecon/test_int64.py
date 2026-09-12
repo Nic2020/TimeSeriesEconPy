@@ -48,17 +48,18 @@ NATIVE_CASES = [
 ]
 # Julia-written neighbours of Int64 that Python must refuse to coerce.
 CONTROLS = {
-    "ctl_bool_true": ValueError,
-    "ctl_int32": ValueError,
     "ctl_int128": ValueError,
-    "ctl_uint64": TypeError,
     "ctl_rational": TypeError,
 }
 # Neighbours that later slices made supported; they must never read as int.
+# Julia itself reloads a stored Bool as Int8, which Python returns as np.int8.
 SUPPORTED_CONTROLS = {
     "ctl_duration_monthly": Duration(Monthly(), 3),
     "ctl_mit_monthly": MIT(Monthly(), 24288),
     "ctl_string": "7",
+    "ctl_bool_true": np.int8(1),
+    "ctl_int32": np.int32(7),
+    "ctl_uint64": np.uint64(7),
 }
 
 
@@ -99,24 +100,18 @@ def test_int64_and_float64_kinds_are_distinct():
         True,
         False,
         np.bool_(True),
-        np.int8(7),
-        np.int16(7),
-        np.int32(7),
-        np.intc(7),
-        np.uint8(7),
-        np.uint32(7),
-        np.uint64(7),
-        np.float32(7),
         Fraction(7),
         Decimal(7),
-        7j,
         b"7",
         np.array(7),
         np.array([7]),
+        np.array(7, dtype=np.int8),
         None,
     ],
 )
 def test_int64_codec_rejects_other_representations(value):
+    # Other NumPy widths, unsigned values and complex numbers are their own
+    # scalar kinds since the width slice; see test_widths.py.
     with pytest.raises(TypeError):
         encode_scalar(value)
 
@@ -149,15 +144,25 @@ def test_int64_codec_does_not_invoke_custom_conversion():
 
 @pytest.mark.parametrize(
     "metadata",
-    [(1, 1, 14, 8), (1, 1, 16, 8), (1, 1, 192, 8), (1, 3, 0, 8), (1, 2, 0, 8), (2, 1, 0, 8)],
+    [
+        (1, 1, 14, 8),
+        (1, 1, 16, 8),
+        (1, 1, 192, 8),
+        (1, 3, 0, 8),
+        (1, 2, 32, 8),
+        (1, 7, 0, 8),
+        (2, 1, 0, 8),
+    ],
 )
 def test_int64_metadata_guard_rejects_unsupported_duration_date_unsigned_and_class(metadata):
     with pytest.raises(TypeError):
         validate_scalar_metadata(metadata)
 
 
-@pytest.mark.parametrize("nbytes", [0, 1, 2, 4, 7, 9, 16, -8, 2**62])
+@pytest.mark.parametrize("nbytes", [0, 3, 7, 9, 16, -8, 2**62])
 def test_int64_metadata_guard_rejects_other_widths(nbytes):
+    # 1, 2 and 4 bytes are Int8/Int16/Int32 since the width slice; 16 (Int128)
+    # stays rejected until a Python representation is chosen.
     with pytest.raises(ValueError, match="eight"):
         validate_scalar_metadata((1, 1, 0, nbytes))
     if 0 <= nbytes <= 16:
@@ -249,9 +254,10 @@ def test_int64_roundtrip_storage_and_shared_namespace(tmp_path):
 @pytest.mark.parametrize(
     ("kind", "payload", "error"),
     [
-        (2, bytes(8), TypeError),
+        (7, bytes(8), TypeError),
         (3, bytes(8), TypeError),
-        (1, bytes(4), ValueError),
+        (1, bytes(3), ValueError),
+        (1, bytes(16), ValueError),
         (1, b"", ValueError),
     ],
 )
@@ -271,10 +277,10 @@ def test_int64_backend_validates_kind_and_width_before_storage(tmp_path, kind, p
     ("sql", "error"),
     [
         ("UPDATE scalars SET value=NULL", ValueError),
-        ("UPDATE scalars SET value=zeroblob(4)", ValueError),
+        ("UPDATE scalars SET value=zeroblob(3)", ValueError),
         ("UPDATE scalars SET value=zeroblob(16)", ValueError),
         ("UPDATE scalars SET frequency=16", TypeError),
-        ("UPDATE objects SET type=2", TypeError),
+        ("UPDATE objects SET type=7", TypeError),
         ("UPDATE objects SET type=3", TypeError),
     ],
 )

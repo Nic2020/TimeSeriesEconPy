@@ -29,11 +29,14 @@ cdef extern from "daec.h":
     ctypedef int64_t axis_id_t
     ctypedef int64_t date_t
     ctypedef enum class_t:
+        class_catalog
         class_tseries
     ctypedef enum type_t:
         type_integer
+        type_unsigned
         type_date
         type_float
+        type_complex
         type_string
         type_tseries
     ctypedef enum frequency_t:
@@ -86,7 +89,12 @@ cdef extern from "daec.h":
     const char *de_version()
     int de_open(const char *, de_file *)
     int de_open_readonly(const char *, de_file *)
+    int de_open_memory(de_file *)
     int de_close(de_file)
+    int de_truncate(de_file)
+    int de_load_object(de_file, obj_id_t, object_t *)
+    int de_delete_object(de_file, obj_id_t)
+    int de_catalog_size(de_file, obj_id_t, int64_t *)
     int de_error(char *, size_t)
     int de_clear_error()
     int de_find_object(de_file, obj_id_t, const char *, obj_id_t *)
@@ -228,7 +236,9 @@ cdef class FileHandle:
         self.state = 0
         self.initialized = False
 
-    def __init__(self, str path, bint readonly):
+    def __init__(self, str path, bint readonly, bint memory=False):
+        # memory=True opens a private in-memory database through de_open_memory;
+        # the path is then the literal ":memory:" label and no file is touched.
         cdef bytes filename = path.encode("utf-8")
         if self.initialized:
             raise ValueError("Cannot reinitialize a native DataEcon handle.")
@@ -236,10 +246,14 @@ cdef class FileHandle:
         self.path = path
         if b"\0" in filename:
             raise ValueError("NUL is not allowed in a DataEcon path.")
+        if memory and (readonly or path != ":memory:"):
+            raise ValueError("In-memory DataEcon databases are writable and labelled ':memory:'.")
         with _lock:
             if version() != ("0.4.0", "0.4.0"):
                 raise ImportError("DataEcon requires matching 0.4.0 header and library.")
-            if readonly:
+            if memory:
+                check(de_open_memory(&self.handle), "open", path)
+            elif readonly:
                 check(de_open_readonly(filename, &self.handle), "open", path)
             else:
                 check(de_open(filename, &self.handle), "open", path)
@@ -312,7 +326,25 @@ cdef class FileHandle:
                 unpack_date(ts.axis.frequency, ts.axis.first + ts.axis.length - 1, self.path, name)
             return int(year), int(month), payload, metadata, loaded_name
 
-    def write(self, str name, frequency, year, period, bytes payload):
+    cdef void replace_existing(self, obj_id_t oid, str operation, str name) except *:
+        # Caller owns the native lock, has finished every Python/native validation
+        # of the new value, and asked for overwrite. Julia deletes whatever exists,
+        # catalogs included; Python refuses a catalog here so that recursive
+        # deletion stays an explicit request through delete(recursive=True).
+        # Delete-then-store is not transactional and nothing rolls back: after
+        # this point the original is gone, and a failed store leaves the name
+        # absent or holding a partial replacement (de_store_scalar/de_store_tseries
+        # create the object row before storing the payload row).
+        cdef object_t obj
+        memset(&obj, 0, sizeof(obj))
+        check(de_load_object(self.handle, oid, &obj), "find", self.path, name)
+        if obj.obj_class == class_catalog:
+            raise ValueError(
+                "Cannot overwrite a catalog; delete it explicitly with recursive=True first."
+            )
+        check(de_delete_object(self.handle, oid), operation, self.path, name)
+
+    def write(self, str name, frequency, year, period, bytes payload, bint overwrite=False):
         cdef bytes encoded = name.encode("utf-8")
         cdef obj_id_t oid = 0
         cdef axis_id_t axis = 0
@@ -323,6 +355,7 @@ cdef class FileHandle:
         cdef int rc
         cdef int64_t length = len(payload) // 8
         cdef const void *value = NULL
+        cdef bint existing = False
         if not encoded or b"/" in encoded or b"\0" in encoded:
             raise ValueError("Expected a nonempty root object name without '/' or NUL.")
         ppy = series_frequency(frequency).periods_per_year
@@ -340,8 +373,11 @@ cdef class FileHandle:
             self.require_open()
             rc = de_find_object(self.handle, 0, encoded, &oid)
             if rc == DE_SUCCESS:
-                raise DataEconError(DE_EXISTS, "write", self.path, "Object already exists.", name)
-            if rc != DE_OBJ_DNE:
+                if not overwrite:
+                    raise DataEconError(DE_EXISTS, "write", self.path,
+                                       "Object already exists.", name)
+                existing = True
+            elif rc != DE_OBJ_DNE:
                 check(rc, "find", self.path, name)
             de_clear_error()
             check(de_pack_year_period_date(freq, native_year, native_period, &first),
@@ -351,13 +387,17 @@ cdef class FileHandle:
             unpack_date(freq, first, self.path, name)
             if length > 0:
                 unpack_date(freq, first + length - 1, self.path, name)
+            if existing:
+                # Every validation of the new series is complete; delete only now.
+                self.replace_existing(oid, "write (overwrite)", name)
             check(de_axis_range(self.handle, length, freq, first, &axis),
                   "axis", self.path, name)
             if length > 0:
                 value = <const char *>payload
             check(de_store_tseries(self.handle, 0, encoded, type_tseries, type_float,
                                   freq_none, axis, len(payload), value, &oid),
-                  "write (partial object may remain)", self.path, name)
+                  "write (overwrite; original deleted, partial replacement may remain)"
+                  if existing else "write (partial object may remain)", self.path, name)
 
 
 
@@ -402,16 +442,19 @@ cdef class FileHandle:
                     raise TypeError("Scalar reconstruction attributes are not supported.")
             return payload, metadata, loaded_name
 
-    def write_scalar(self, str name, int kind, frequency, bytes payload):
-        # kind is the validated native scalar type code: 1 (Int64, or a Duration
-        # when frequency is nonzero), 3 (MIT date), 4 (Float64) or 6 (string).
-        # Date frequencies cover Unit (11), the calendar codes and year/period codes.
+    def write_scalar(self, str name, int kind, frequency, bytes payload, bint overwrite=False):
+        # kind is the validated native scalar type code: 1 (signed integer at a
+        # validated width, or a Duration when frequency is nonzero), 2 (unsigned
+        # integer), 3 (MIT date), 4 (float at a validated width), 5 (complex) or
+        # 6 (string). Date frequencies cover Unit (11), the calendar codes and
+        # year/period codes. validate_scalar_metadata bounds every payload width.
         cdef bytes encoded = name.encode("utf-8")
         cdef obj_id_t oid = 0
         cdef int rc
         cdef type_t native_type
         cdef frequency_t freq
         cdef int64_t code = 0
+        cdef bint existing = False
         if not encoded or b"/" in encoded or b"\0" in encoded:
             raise ValueError("Expected a nonempty root object name without '/' or NUL.")
         if type(frequency) is not int:
@@ -423,6 +466,10 @@ cdef class FileHandle:
             native_type = type_date
         elif kind == 6:
             native_type = type_string
+        elif kind == 2:
+            native_type = type_unsigned
+        elif kind == 5:
+            native_type = type_complex
         else:
             native_type = type_integer
         if kind == 3:
@@ -436,13 +483,66 @@ cdef class FileHandle:
             self.require_open()
             rc = de_find_object(self.handle, 0, encoded, &oid)
             if rc == DE_SUCCESS:
-                raise DataEconError(DE_EXISTS, "write_scalar", self.path,
-                                   "Object already exists.", name)
-            if rc != DE_OBJ_DNE:
+                if not overwrite:
+                    raise DataEconError(DE_EXISTS, "write_scalar", self.path,
+                                       "Object already exists.", name)
+                existing = True
+            elif rc != DE_OBJ_DNE:
                 check(rc, "find", self.path, name)
             de_clear_error()
             if kind == 3:
                 verify_scalar_date(freq, code, self.path, name)
+            if existing:
+                # Every validation of the new value is complete; delete only now.
+                self.replace_existing(oid, "write_scalar (overwrite)", name)
             check(de_store_scalar(self.handle, 0, encoded, native_type, freq,
                                   len(payload), <const char *>payload, &oid),
-                  "write_scalar (partial object may remain)", self.path, name)
+                  "write_scalar (overwrite; original deleted, partial replacement may remain)"
+                  if existing else "write_scalar (partial object may remain)", self.path, name)
+
+    def delete(self, str name, bint recursive=False):
+        # Delete one root object. A catalog is refused unless recursive is set:
+        # the native DELETE cascades through every nested catalog and object.
+        # A missing name is DE_OBJ_DNE from the lookup (the native delete itself
+        # would silently succeed for a stale id). Axes are not objects and stay.
+        cdef bytes encoded = name.encode("utf-8")
+        cdef obj_id_t oid = 0
+        cdef object_t obj
+        if not encoded or b"/" in encoded or b"\0" in encoded:
+            raise ValueError("Expected a nonempty root object name without '/' or NUL.")
+        with _lock:
+            self.require_open()
+            check(de_find_object(self.handle, 0, encoded, &oid), "find", self.path, name)
+            memset(&obj, 0, sizeof(obj))
+            check(de_load_object(self.handle, oid, &obj), "find", self.path, name)
+            if obj.obj_class == class_catalog and not recursive:
+                raise ValueError(
+                    "Object is a catalog; pass recursive=True to delete it and everything "
+                    "it contains."
+                )
+            check(de_delete_object(self.handle, oid), "delete", self.path, name)
+
+    def truncate(self):
+        # Reset the file to a freshly created state. The native call commits,
+        # finalizes its cached statements, VACUUMs under RESET_DATABASE and
+        # re-initializes the schema. A failure quarantines this handle exactly
+        # like a failed close: the native statement-finalization path leaves a
+        # dangling statement behind when any statement was in an error state,
+        # and a later close would be a use-after-free. Nothing native is called
+        # on a quarantined handle again; its resources remain until process exit.
+        cdef int rc
+        with _lock:
+            self.require_open()
+            rc = de_truncate(self.handle)
+            if rc != DE_SUCCESS:
+                self.state = 2
+            check(rc, "truncate", self.path)
+
+    def catalog_size(self):
+        # Number of objects directly under the root catalog (native subtracts
+        # the root's self-reference). Zero means the file is empty.
+        cdef int64_t count = 0
+        with _lock:
+            self.require_open()
+            check(de_catalog_size(self.handle, 0, &count), "catalog_size", self.path)
+            return int(count)

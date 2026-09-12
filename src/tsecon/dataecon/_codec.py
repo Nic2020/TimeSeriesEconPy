@@ -1,17 +1,18 @@
 # SPDX-License-Identifier: MIT
 """Scalar and series conversions between core objects and native DataEcon payloads.
 
-Scalars: Float64, Int64, UTF-8 strings, and MIT dates or Durations over the
-unit, daily, business-daily, weekly (every end day), monthly, quarterly,
-half-yearly and annual frequencies. Series: Float64 values over the monthly,
-quarterly, half-yearly and annual frequencies.
+Scalars: Float16/32/64, Int8/16/32/64, UInt8/16/32/64, Complex64/128, UTF-8
+strings, and MIT dates or Durations over the unit, daily, business-daily,
+weekly (every end day), monthly, quarterly, half-yearly and annual
+frequencies. Series: Float64 values over the monthly, quarterly, half-yearly
+and annual frequencies.
 """
 
 from __future__ import annotations
 
 import struct
 import sys
-from typing import TypeAlias
+from typing import Any, TypeAlias
 
 import numpy as np
 
@@ -87,20 +88,121 @@ _SCALAR_FREQUENCIES: dict[int, Frequency] = {
     **_CALENDAR_FREQUENCIES,
 }
 # Native scalar type codes: type_integer (which the header also names
-# type_signed) is 1, type_date 3, type_float 4 and type_string 6. Type 1 with a
-# supported frequency is a Duration; type 3 always carries a frequency.
+# type_signed) is 1, type_unsigned 2, type_date 3, type_float 4, type_complex 5
+# and type_string 6. Type 1 with a supported frequency is a Duration; type 3
+# always carries a frequency. Julia reloads types 1, 2, 4 and 5 by byte width
+# alone (frequency zero) and stores every width without a marker.
 KIND_INTEGER = 1
+KIND_UNSIGNED = 2
 KIND_DATE = 3
 KIND_FLOAT = 4
+KIND_COMPLEX = 5
 KIND_STRING = 6
+# Supported numeric widths per type code. Int128/UInt128 (16 bytes) and
+# ComplexF16 (4 bytes) are Julia-supported but have no NumPy scalar type; they
+# stay rejected until a representation is chosen.
+_NUMERIC_WIDTHS: dict[int, frozenset[int]] = {
+    KIND_INTEGER: frozenset({1, 2, 4, 8}),
+    KIND_UNSIGNED: frozenset({1, 2, 4, 8}),
+    KIND_FLOAT: frozenset({2, 4, 8}),
+    KIND_COMPLEX: frozenset({8, 16}),
+}
+# Read results by (type, nbytes): eight-byte Int64/Float64 and sixteen-byte
+# ComplexF64 return the exact-width built-ins; every other width returns the
+# sized NumPy scalar class (np.dtype("<i4").type is np.int32 on every platform).
+_NUMPY_RESULTS: dict[tuple[int, int], np.dtype[Any]] = {
+    (KIND_INTEGER, 1): np.dtype("<i1"),
+    (KIND_INTEGER, 2): np.dtype("<i2"),
+    (KIND_INTEGER, 4): np.dtype("<i4"),
+    (KIND_UNSIGNED, 1): np.dtype("<u1"),
+    (KIND_UNSIGNED, 2): np.dtype("<u2"),
+    (KIND_UNSIGNED, 4): np.dtype("<u4"),
+    (KIND_UNSIGNED, 8): np.dtype("<u8"),
+    (KIND_FLOAT, 2): np.dtype("<f2"),
+    (KIND_FLOAT, 4): np.dtype("<f4"),
+    (KIND_COMPLEX, 8): np.dtype("<c8"),
+}
+# Exact NumPy scalar classes accepted on write, discovered through the dtype
+# type codes (signed b/h/i/l/q/p, unsigned B/H/I/L/Q/P, float e/f/d, complex
+# F/D) rather than through attribute names: the C-named classes (intc, uintc,
+# long, ulong, longlong, ulonglong) are distinct from the sized names on some
+# platforms (Windows: intc/uintc; Linux/macOS: longlong/ulonglong) and the same
+# object on others, and NumPy 1.26 does not expose the names ``np.long`` and
+# ``np.ulong`` at all. Every supported NumPy version defines the type codes, so
+# the table is platform- and version-independent; each class maps to its
+# dtype's type code and byte width. Lookups must compare classes by identity
+# (see ``_numpy_class``): a dictionary membership test would consult the
+# candidate's metaclass ``__eq__``/``__hash__``, which a subclass can spoof.
+_DTYPE_KINDS = {"i": KIND_INTEGER, "u": KIND_UNSIGNED, "f": KIND_FLOAT, "c": KIND_COMPLEX}
+_NUMPY_TYPE_CODES = "bhilqpBHILQPefdFD"
+_NUMPY_CLASSES: dict[type, tuple[int, int]] = {
+    np.dtype(code).type: (_DTYPE_KINDS[np.dtype(code).kind], np.dtype(code).itemsize)
+    for code in _NUMPY_TYPE_CODES
+}
+_NUMPY_CLASSES_BY_ID: dict[int, tuple[type, tuple[int, int]]] = {
+    id(cls): (cls, entry) for cls, entry in _NUMPY_CLASSES.items()
+}
+if any(width not in _NUMERIC_WIDTHS[kind] for kind, width in _NUMPY_CLASSES.values()):
+    raise ImportError("NumPy defines a scalar width outside the DataEcon width table.")
+
+
+def _numpy_class(cls: type) -> tuple[int, int] | None:
+    """Return the (type code, width) of an accepted NumPy scalar class, by identity only."""
+    entry = _NUMPY_CLASSES_BY_ID.get(id(cls))
+    if entry is None or entry[0] is not cls:
+        return None
+    return entry[1]
+
+
 Metadata: TypeAlias = tuple[int, int, int, int, int, int, int, int, int]
 ScalarMetadata: TypeAlias = tuple[int, int, int, int]
-ScalarValue: TypeAlias = float | np.float64 | int | np.int64 | str | MIT | Duration
-ScalarResult: TypeAlias = float | int | str | MIT | Duration
+ScalarValue: TypeAlias = (
+    float
+    | np.float64
+    | np.float32
+    | np.float16
+    | int
+    | np.int64
+    | np.int32
+    | np.int16
+    | np.int8
+    | np.longlong
+    | np.intc
+    | np.uint64
+    | np.uint32
+    | np.uint16
+    | np.uint8
+    | np.ulonglong
+    | np.uintc
+    | complex
+    | np.complex128
+    | np.complex64
+    | str
+    | MIT
+    | Duration
+)
+ScalarResult: TypeAlias = (
+    float
+    | np.float32
+    | np.float16
+    | int
+    | np.int32
+    | np.int16
+    | np.int8
+    | np.uint64
+    | np.uint32
+    | np.uint16
+    | np.uint8
+    | complex
+    | np.complex64
+    | str
+    | MIT
+    | Duration
+)
 _SCALAR_SUPPORT = (
-    "DataEcon scalar support covers Float64, Int64, strings, and MIT dates or Durations "
-    "over the Unit, Daily, BDaily, Weekly, Monthly, Quarterly, HalfYearly and Yearly "
-    "frequencies."
+    "DataEcon scalar support covers Float16/32/64, Int8/16/32/64, UInt8/16/32/64, "
+    "Complex64/128, strings, and MIT dates or Durations over the Unit, Daily, BDaily, "
+    "Weekly, Monthly, Quarterly, HalfYearly and Yearly frequencies."
 )
 
 
@@ -163,18 +265,21 @@ def validate_scalar_metadata(metadata: ScalarMetadata) -> None:
                 "DataEcon string scalars require a NUL-terminated payload within the size limit."
             )
         return
-    if kind == KIND_FLOAT:
-        if frequency != 0:
-            raise TypeError("DataEcon Float64 scalars carry no frequency.")
-    elif kind == KIND_INTEGER:
-        if frequency != 0:
-            scalar_frequency(frequency)
-    elif kind == KIND_DATE:
+    if kind == KIND_DATE or (kind == KIND_INTEGER and frequency != 0):
         scalar_frequency(frequency)
-    else:
+        if nbytes != 8:
+            raise ValueError("DataEcon date and duration scalars require exactly eight bytes.")
+        return
+    if kind not in _NUMERIC_WIDTHS:
         raise TypeError(_SCALAR_SUPPORT)
-    if nbytes != 8:
-        raise ValueError("DataEcon numeric, date and duration scalars require exactly eight bytes.")
+    if frequency != 0:
+        raise TypeError("DataEcon numeric scalars carry no frequency.")
+    if nbytes not in _NUMERIC_WIDTHS[kind]:
+        raise ValueError(
+            "DataEcon numeric scalar payload width is not supported for its type; "
+            "supported widths are eight bytes for Int64/Float64, 1/2/4 for narrower "
+            "integers, 2/4 for narrower floats and 8/16 for complex values."
+        )
 
 
 def _encode_text(value: str) -> bytes:
@@ -196,13 +301,19 @@ def _encode_text(value: str) -> bytes:
 def encode_scalar(value: ScalarValue) -> tuple[int, int, bytes]:
     """Return the native type code, frequency code and an owned payload snapshot.
 
-    Only exact Python float/NumPy float64, Python int/NumPy int64, Python str,
-    core MIT and core Duration values are accepted. Integers and durations never
-    pass through floating point; strings are UTF-8 plus a NUL terminator; dates
-    must lie inside the reliable native range of their frequency (Unit dates are
-    unbounded 64-bit codes). Subclasses, other widths, bytes, bool and every
-    other type are rejected without conversion.
+    Accepted by exact class: Python float/NumPy float64 (Float64), NumPy
+    float32/float16, Python int (range-checked)/NumPy int64 (Int64), NumPy
+    int8/int16/int32, NumPy uint8/uint16/uint32/uint64, Python complex/NumPy
+    complex128 (ComplexF64), NumPy complex64, Python str, core MIT and core
+    Duration. NumPy scalars are stored at their own width from their own
+    little-endian bytes, so nothing is widened and integers never pass through
+    floating point; strings are UTF-8 plus a NUL terminator; dates must lie
+    inside the reliable native range of their frequency (Unit dates are
+    unbounded 64-bit codes). Subclasses, arrays, bytes, bool and every other
+    type are rejected without conversion.
     """
+    if sys.byteorder != "little":
+        raise RuntimeError("DataEcon interchange requires a little-endian host.")
     if type(value) is float or type(value) is np.float64:
         kind, frequency, packed = KIND_FLOAT, 0, struct.pack("<d", value)
     elif type(value) is int or type(value) is np.int64:
@@ -210,6 +321,15 @@ def encode_scalar(value: ScalarValue) -> tuple[int, int, bytes]:
         if not MIN_INT64 <= number <= MAX_INT64:
             raise ValueError("write_scalar integers must fit the signed 64-bit range.")
         kind, frequency, packed = KIND_INTEGER, 0, struct.pack("<q", number)
+    elif type(value) is complex or type(value) is np.complex128:
+        kind, frequency, packed = KIND_COMPLEX, 0, struct.pack("<dd", value.real, value.imag)
+    elif isinstance(value, np.generic) and (numpy_class := _numpy_class(type(value))):
+        # Identity lookup: a subclass whose metaclass compares equal to an
+        # accepted class is rejected below without calling its tobytes().
+        kind, width = numpy_class
+        frequency, packed = 0, value.tobytes()
+        if len(packed) != width:
+            raise ValueError("NumPy scalar bytes do not match its declared width.")
     elif type(value) is str:
         kind, frequency, packed = KIND_STRING, 0, _encode_text(value)
     elif type(value) is MIT:
@@ -223,11 +343,10 @@ def encode_scalar(value: ScalarValue) -> tuple[int, int, bytes]:
         kind, packed = KIND_INTEGER, struct.pack("<q", value.value)
     else:
         raise TypeError(
-            "write_scalar requires a Python float, NumPy float64, Python int, NumPy int64, "
-            "str, MIT or Duration."
+            "write_scalar requires a Python float, int, complex or str, an exact NumPy "
+            "float16/32/64, int8/16/32/64, uint8/16/32/64 or complex64/128 scalar, "
+            "an MIT or a Duration."
         )
-    if sys.byteorder != "little":
-        raise RuntimeError("DataEcon interchange requires a little-endian host.")
     return kind, frequency, packed
 
 
@@ -243,8 +362,9 @@ def decode_scalar(kind: int, frequency: int, payload: bytes) -> ScalarResult:
             return payload[:-1].decode("utf-8")
         except UnicodeDecodeError:
             raise ValueError("DataEcon string payload is not valid UTF-8.") from None
-    if kind == KIND_FLOAT:
-        return float(struct.unpack("<d", payload)[0])
+    if (frequency == 0 and kind != KIND_INTEGER) or len(payload) != 8:
+        # Float, complex and every narrow width; Int64 and dates/durations follow.
+        return _decode_numeric(kind, payload)
     number = int(struct.unpack("<q", payload)[0])
     if frequency == 0:
         return number
@@ -252,6 +372,18 @@ def decode_scalar(kind: int, frequency: int, payload: bytes) -> ScalarResult:
         validate_date_code(frequency, number)
         return MIT(scalar_frequency(frequency), number)
     return Duration(scalar_frequency(frequency), number)
+
+
+def _decode_numeric(kind: int, payload: bytes) -> ScalarResult:
+    """Decode a validated frequency-free numeric payload other than Int64."""
+    if kind == KIND_FLOAT and len(payload) == 8:
+        return float(struct.unpack("<d", payload)[0])
+    if kind == KIND_COMPLEX and len(payload) == 16:
+        real, imag = struct.unpack("<dd", payload)
+        return complex(real, imag)
+    # The NumPy scalar copies its bytes out of the payload snapshot.
+    result: np.generic = np.frombuffer(payload, dtype=_NUMPY_RESULTS[(kind, len(payload))])[0]
+    return result  # type: ignore[return-value]
 
 
 def validate_metadata(metadata: Metadata) -> None:

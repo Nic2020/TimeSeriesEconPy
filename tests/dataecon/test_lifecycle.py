@@ -92,7 +92,9 @@ def test_copy_failure_still_closes(owner, monkeypatch):
 @pytest.mark.parametrize(
     ("path", "mode", "exception"),
     [
-        ("file", "w", ValueError),
+        ("file", "x", ValueError),
+        ("file", "rw", ValueError),
+        (":memory:", "a", ValueError),
         ("", "r", ValueError),
         ("bad\0file", "r", ValueError),
         (b"file", "r", TypeError),

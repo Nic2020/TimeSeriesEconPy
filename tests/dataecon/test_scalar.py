@@ -60,17 +60,17 @@ def test_scalar_codec(name, value, constructor):
     "value",
     [
         True,
-        np.int32(1),
-        np.float32(1.25),
+        np.bool_(False),
         Decimal("1.25"),
-        1.25 + 0j,
         np.array(1.25),
         np.array([1.25]),
+        np.array(1.25, dtype=np.float32),
         b"1.25",
         None,
     ],
 )
 def test_scalar_codec_rejects_implicit_coercion(value):
+    # np.float32/np.int32/complex are their own exact-width kinds; see test_widths.py.
     with pytest.raises(TypeError):
         encode_scalar(value)
 
@@ -99,13 +99,14 @@ def test_scalar_codec_uses_type_identity_not_custom_equality():
         encode_scalar(Value())
 
 
-@pytest.mark.parametrize("length", [-1, 0, 4, 7, 9, 2**62])
+@pytest.mark.parametrize("length", [-1, 0, 1, 3, 7, 9, 16, 2**62])
 def test_scalar_size_guard(length):
+    # 2 and 4 bytes are Float16/Float32 since the width slice.
     with pytest.raises(ValueError):
         validate_scalar_metadata((1, 4, 0, length))
 
 
-@pytest.mark.parametrize("metadata", [(2, 4, 0, 8), (1, 2, 0, 8), (1, 3, 0, 8), (1, 4, 32, 8)])
+@pytest.mark.parametrize("metadata", [(2, 4, 0, 8), (1, 7, 0, 8), (1, 3, 0, 8), (1, 4, 32, 8)])
 def test_scalar_type_guard(metadata):
     with pytest.raises(TypeError):
         validate_scalar_metadata(metadata)
@@ -140,8 +141,11 @@ def test_julia_scalar_fixture_and_abi():
     assert hashlib.sha256(fixture.read_bytes()).hexdigest() == provenance["fixture_sha256"]
     with open_dataecon(fixture) as db:
         results = [(db.read_scalar(name), value) for name, value in CASES]
-        with pytest.raises(ValueError):
-            db.read_scalar("scalar_float32")
+        # The Float32 control is a supported width since the width slice: it must
+        # come back as an exact NumPy float32, never widened to a Python float.
+        narrow = db.read_scalar("scalar_float32")
+        assert type(narrow) is np.float32
+        assert narrow == np.float32(1.25)
         # The Int64 control is a supported representation since Int64 support landed.
         integer = db.read_scalar("scalar_integer")
         assert type(integer) is int
@@ -204,9 +208,9 @@ def test_scalar_roundtrip_metadata_and_owner_guards(tmp_path):
         ("UPDATE scalars SET value=zeroblob(7)", ValueError),
         ("UPDATE scalars SET value=zeroblob(9)", ValueError),
         ("UPDATE scalars SET frequency=32", TypeError),
-        # Type 1 would read the same bytes as an Int64: the format cannot tell
-        # a retyped Float64 apart. Unsigned and date codes are rejected.
-        ("UPDATE objects SET type=2 WHERE class=1", TypeError),
+        # Types 1 and 2 would read the same eight bytes as Int64/UInt64: the
+        # format cannot tell a retyped Float64 apart. Type 7 and date codes fail.
+        ("UPDATE objects SET type=7 WHERE class=1", TypeError),
         ("UPDATE objects SET type=3 WHERE class=1", TypeError),
     ],
 )

@@ -187,3 +187,57 @@ window (Julia reloads it unchanged) and an Int32-wrapped daily code.
 
 `verify-wheel` additionally checks the 193 Python-written unit and calendar
 objects in the combined interchange file.
+
+## Numeric width scalar fixture
+
+`julia_numeric_widths.daec` contains 90 Julia-written `w_<group>_<case>`
+objects covering Float16/Float32 (13 each: zero, signed zero, typical, 0.1,
+both extremes, smallest normal and subnormal, NaN, infinities, a
+precision-loss value and pi), Int8/Int16/Int32 (8 each including both
+endpoints and their neighbours), UInt8..UInt64 (6 each including the maximum
+and the high bit) and ComplexF32/ComplexF64 (8 each with signed-zero, NaN,
+infinite, extreme and subnormal components); fifteen `wn_*` objects written
+directly through the C ABI with the same metadata; and controls `wctl_*`:
+Int128/UInt128 (7 and the maxima), ComplexF16, `true`/`false` (stored as
+`(1,1,0,1)`, byte-identical to the `Int8` twins, reloaded by Julia as
+`Int8`), `8 + 3im` (ComplexF64 plus `jtype = "Complex{Int64}"`) and
+`wctl_marker_true` (an Int8 byte with a hand-set `jtype = "Bool"` that Julia
+reloads as `true`; Julia never writes that marker itself). Every supported
+object has metadata `(1,type,0,sizeof)` with type 1/2/4/5 and no attributes.
+
+```text
+julia --startup-file=no --project=<isolated-project> tests/dataecon/fixtures/interchange.jl generate-widths <new-file.daec> <absolute-source-checkout>
+julia --startup-file=no --project=<isolated-project> tests/dataecon/fixtures/interchange.jl verify-widths <widths-fixture.daec> <absolute-source-checkout>
+```
+
+`verify-wheel` also checks the Python-written `w_*` objects (plus
+`w_pyc_plain`, a Python `complex` stored as ComplexF64) for the same type and
+bits.
+
+## File operations fixture
+
+`julia_file_operations.daec` records Julia's delete, overwrite and truncate
+behavior. Julia wrote two objects, truncated the file (so ids restart at 1),
+then wrote catalog `keep` (`/keep/z` = 4, `/keep/inner/w` = 5), scalars `a`
+(Int64 1), `b` ("text"), `r` (`1//2`, with a `jtype` attribute), series `s`
+and `s2` (2024M1, `[1.0, 2.0, 3.0]`, sharing one axis), catalog
+`deleted_catalog` with nested content, and scalar `overwritten_series`
+(Int64 1); deleted `b`, `s`, `r` and `deleted_catalog` (recursively); then
+reopened with `overwrite=true` and replaced `a` by the string `"replaced"`
+and `overwritten_series` by the series. The final root holds `keep`, `a`,
+`s2` and `overwritten_series`; no attribute other than `DE_VERSION` remains;
+the single axis row survived the deletion of `s`. Python tests use copies of
+this fixture for recursive catalog deletion and overwrite refusals.
+
+```text
+julia --startup-file=no --project=<isolated-project> tests/dataecon/fixtures/interchange.jl generate-fileops <new-file.daec> <absolute-source-checkout>
+julia --startup-file=no --project=<isolated-project> tests/dataecon/fixtures/interchange.jl verify-fileops <fileops-fixture.daec> <absolute-source-checkout>
+```
+
+`verify-wheel` also checks the Python-written `fo_overwritten` (string
+`"two"`), the absence of `fo_deleted`, `fo_series_overwritten` (a series),
+and the auxiliary `fileops/<output>-fileops.daec` file that Python populated,
+truncated with mode `"w"` and refilled (`after_truncate` = 42 with id 1, plus
+a series). Auxiliary outputs sit in the `fileops` subdirectory so that the
+workflow's `*.daec` glob over the interchange directory still finds exactly
+one primary file; `verify-wheel` asserts that layout.

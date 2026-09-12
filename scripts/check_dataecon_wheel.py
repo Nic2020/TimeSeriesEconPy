@@ -12,6 +12,7 @@ import ctypes
 import hashlib
 import importlib.util
 import json
+import math
 import os
 import re
 import subprocess
@@ -142,6 +143,90 @@ INT64_CASES = {
     "int_min_plus_one": -(2**63) + 1,
     "int_max_minus_one": 2**63 - 2,
 }
+
+
+def _width_cases() -> dict:
+    """Exact NumPy widths mirroring the Julia verifier's `width_cases` names and values."""
+    nan, inf = float("nan"), float("inf")
+    cases: dict = {}
+
+    def signed(prefix, cls):
+        info = np.iinfo(cls)
+        for suffix, value in (
+            ("zero", 0),
+            ("one", 1),
+            ("negative_one", -1),
+            ("seven", 7),
+            ("min", info.min),
+            ("max", info.max),
+            ("min_plus_one", info.min + 1),
+            ("max_minus_one", info.max - 1),
+        ):
+            cases[f"w_{prefix}_{suffix}"] = cls(value)
+
+    def unsigned(prefix, cls):
+        info = np.iinfo(cls)
+        for suffix, value in (
+            ("zero", 0),
+            ("one", 1),
+            ("seven", 7),
+            ("max", info.max),
+            ("max_minus_one", info.max - 1),
+            ("high_bit", info.max // 2 + 1),
+        ):
+            cases[f"w_{prefix}_{suffix}"] = cls(value)
+
+    def floats(prefix, cls):
+        info = np.finfo(cls)
+        half = cls is np.float16
+        for suffix, value in (
+            ("zero", 0.0),
+            ("negative_zero", -0.0),
+            ("one_and_half" if half else "one_quarter", 1.5 if half else 1.25),
+            ("tenth", 0.1),
+            ("max", info.max),
+            ("negative_max", -info.max),
+            ("min_normal", info.tiny),
+            ("min_subnormal", info.smallest_subnormal),
+            ("nan", nan),
+            ("inf", inf),
+            ("negative_inf", -inf),
+            ("two_pow_11_plus_one" if half else "two_pow_24_plus_one", 2049 if half else 16777217),
+            ("pi", math.pi),
+        ):
+            cases[f"w_{prefix}_{suffix}"] = cls(value)
+
+    def complexes(prefix, cls):
+        info = np.finfo(np.float32 if cls is np.complex64 else np.float64)
+        for suffix, value in (
+            ("plain", complex(1.5, -2.25)),
+            ("negative_zero_real", complex(-0.0, 0.0)),
+            ("negative_zero_imag", complex(0.0, -0.0)),
+            ("nan_real", complex(nan, 1.0)),
+            ("inf_imag", complex(1.0, -inf)),
+            ("max_min", complex(float(info.max), float(info.tiny))),
+            ("subnormal", complex(float(info.smallest_subnormal), 0.0)),
+            ("tenths", complex(0.1, 0.2)),
+        ):
+            cases[f"w_{prefix}_{suffix}"] = cls(value)
+
+    floats("f16", np.float16)
+    floats("f32", np.float32)
+    signed("i8", np.int8)
+    signed("i16", np.int16)
+    signed("i32", np.int32)
+    unsigned("u8", np.uint8)
+    unsigned("u16", np.uint16)
+    unsigned("u32", np.uint32)
+    unsigned("u64", np.uint64)
+    complexes("c32", np.complex64)
+    complexes("c64", np.complex128)
+    cases["w_pyc_plain"] = complex(8.0, 3.0)  # Python complex is stored as ComplexF64
+    return cases
+
+
+# Narrow, unsigned and complex widths; Julia must load each at its own width.
+WIDTH_CASES = _width_cases()
 
 
 # UTF-8 strings stored with a NUL terminator; Julia must load each as a String.
@@ -355,7 +440,7 @@ def date_codes(frequency) -> tuple[tuple[str, int], ...]:
 
 def scalar_cases() -> dict:
     """All scalar objects written to the interchange output, keyed by name."""
-    cases = {**SCALAR_CASES, **INT64_CASES, **STRING_CASES}
+    cases = {**SCALAR_CASES, **INT64_CASES, **WIDTH_CASES, **STRING_CASES}
     for label, frequency in DATE_FAMILIES:
         for suffix, code in date_codes(frequency):
             cases[f"mit_{label}_{suffix}"] = MIT(frequency, code)
@@ -425,11 +510,118 @@ def check_scalar_value(actual: object, expected: object) -> None:
         if type(actual) is not type(expected) or actual != expected:
             raise TypeError(f"Scalar read returned {actual!r} instead of {expected!r}.")
         return
+    if type(expected) in (complex, np.complex128):
+        # ComplexF64 (written as complex or np.complex128) returns a built-in
+        # complex; compare component bits so NaN payloads and -0.0 count.
+        if (
+            type(actual) is not complex
+            or np.complex128(actual).tobytes() != np.complex128(expected).tobytes()
+        ):
+            raise TypeError(f"Scalar read returned {actual!r} instead of {expected!r}.")
+        return
+    if isinstance(expected, np.generic):
+        # Narrow/unsigned/complex64 widths return the exact NumPy class with identical bits.
+        if type(actual) is not type(expected) or actual.tobytes() != expected.tobytes():
+            raise TypeError(f"Scalar read returned {actual!r} instead of {expected!r}.")
+        return
     if type(actual) is not float:
         raise TypeError("Scalar read did not return a Python float.")
     np.testing.assert_equal(actual, expected)
     if expected == 0.0 and np.signbit(actual) != np.signbit(expected):
         raise ValueError("Scalar read changed the sign of zero.")
+
+
+FILEOPS_SERIES = tsecon.TSeries(mm(2024, 1), np.array([1.0, 2.0, 3.0]))
+
+
+def write_file_operation_objects(db: de.DataEconFile) -> None:
+    """Overwrite (Int64 -> string), delete, and replace a scalar by a series; Julia verifies."""
+    db.write_scalar("fo_overwritten", 1)
+    db.write_scalar("fo_overwritten", "two", overwrite=True)
+    db.write_scalar("fo_deleted", 1.5)
+    db.delete("fo_deleted")
+    db.write_scalar("fo_series_overwritten", 1)
+    db.write_series("fo_series_overwritten", FILEOPS_SERIES, overwrite=True)
+    if db.is_empty():
+        raise ValueError("Combined output reported an empty root catalog.")
+
+
+def check_file_operation_objects(db: de.DataEconFile) -> None:
+    """Re-read the file-operation outcomes through a read-only owner."""
+    if db.read_scalar("fo_overwritten") != "two" or db.is_empty():
+        raise ValueError("Overwrite did not replace the scalar in the combined output.")
+    try:
+        db.read_scalar("fo_deleted")
+    except de.DataEconError as error:
+        if error.code != -989:
+            raise
+    else:
+        raise ValueError("Deleted object is still readable.")
+    np.testing.assert_array_equal(
+        db.read_series("fo_series_overwritten").values, FILEOPS_SERIES.values
+    )
+
+
+PRIMARY_OUTPUT = re.compile(r"cp\d+\.daec")
+
+
+def file_operations_output(output: Path) -> Path:
+    """Auxiliary file-operations output for a primary interchange output.
+
+    The workflow's Julia steps discover the primary output by globbing
+    ``*.daec`` in the interchange directory and require exactly one match, so
+    every auxiliary file lives in the ``fileops`` subdirectory, which that
+    glob does not descend into. The Julia verifier derives the same path.
+    """
+    return output.parent / "fileops" / f"{output.stem}-fileops.daec"
+
+
+def check_discovery_contract(output_dir: Path) -> None:
+    """Require that only primary ``cpXYZ.daec`` outputs sit in the discovery directory."""
+    others = sorted(
+        p.name for p in output_dir.glob("*.daec") if not PRIMARY_OUTPUT.fullmatch(p.name)
+    )
+    if others:
+        raise ValueError(f"Non-primary outputs would break Julia output discovery: {others}")
+
+
+def write_file_operations(output: Path) -> Path:
+    """Exercise truncation and in-memory databases; Julia verifies the auxiliary file."""
+    sibling = file_operations_output(output)
+    if sibling.exists():
+        raise FileExistsError(f"Use a fresh interchange output directory: {sibling}")
+    sibling.parent.mkdir(parents=True, exist_ok=True)
+    with de.open_dataecon(sibling, "a") as db:
+        db.write_scalar("junk", 1)
+        db.write_series("junk_series", FILEOPS_SERIES)
+        if db.is_empty():
+            raise ValueError("Populated file reported an empty root catalog.")
+    with de.open_dataecon(sibling, "w") as db:  # "w" truncates the existing file
+        if not db.is_empty():
+            raise ValueError("Mode 'w' did not truncate the existing file.")
+        db.write_scalar("after_truncate", 42)
+        db.write_series("after_truncate_series", FILEOPS_SERIES)
+    with de.open_dataecon(sibling) as db:
+        if db.is_empty() or db.read_scalar("after_truncate") != 42:
+            raise ValueError("Truncated file lost its new content.")
+        try:
+            db.read_scalar("junk")
+        except de.DataEconError as error:
+            if error.code != -989:
+                raise
+        else:
+            raise ValueError("Truncation left the old content in place.")
+    with de.open_dataecon_memory() as memory:
+        memory.write_scalar("m", 1.5)
+        memory.write_scalar("m", 2.5, overwrite=True)
+        memory.truncate()
+        if not memory.is_empty() or memory.path != ":memory:":
+            raise ValueError("In-memory database did not behave as an empty scratch file.")
+        memory.write_scalar("m", np.uint8(7))
+        check_scalar_value(memory.read_scalar("m"), np.uint8(7))
+    if output.with_name(":memory:").exists() or Path(":memory:").exists():
+        raise ValueError("An in-memory database created a file on disk.")
+    return sibling
 
 
 def write_interchange(output_dir: Path, series: tsecon.TSeries) -> Path:
@@ -453,8 +645,12 @@ def write_interchange(output_dir: Path, series: tsecon.TSeries) -> Path:
                             MIT(frequency(anchor), code), np.array(values, dtype=np.float64)
                         ),
                     )
+        write_file_operation_objects(db)
+    write_file_operations(output)
+    check_discovery_contract(output_dir)
     with de.open_dataecon(output) as db:
         np.testing.assert_array_equal(db.read_series("sample").values, series.values)
+        check_file_operation_objects(db)
         empties = [
             (db.read_series(name), anchor)
             for name, anchor in (("empty", mm(2024, 1)), ("empty_later", mm(2025, 7)))

@@ -1027,6 +1027,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#narrow-unsigned-and-complex-numeric-scalars" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Narrow, unsigned and complex numeric scalars
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#string-scalars" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1053,6 +1064,17 @@
     <span class="md-ellipsis">
       
         Unit and calendar date scalars
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#deleting-overwriting-truncating-and-in-memory-files" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Deleting, overwriting, truncating and in-memory files
       
     </span>
   </a>
@@ -1527,6 +1549,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#narrow-unsigned-and-complex-numeric-scalars" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Narrow, unsigned and complex numeric scalars
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#string-scalars" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1553,6 +1586,17 @@
     <span class="md-ellipsis">
       
         Unit and calendar date scalars
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#deleting-overwriting-truncating-and-in-memory-files" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Deleting, overwriting, truncating and in-memory files
       
     </span>
   </a>
@@ -1641,13 +1685,15 @@
 
 
 <h1 id="dataecon-interchange">DataEcon interchange<a class="headerlink" href="#dataecon-interchange" title="Permanent link">&para;</a></h1>
-<p><code>tsecon.dataecon</code> reads and writes <strong>Float64, Int64, string, MIT date and Duration
-scalars, and monthly, quarterly, half-yearly or annual float64 TSeries, including
-empty series</strong>, through the DataEcon 0.4.0 C library. Date and duration scalars
-cover every core frequency: <code>Unit</code>, <code>Daily</code>, <code>BDaily</code>, <code>Weekly</code> with any end day,
-<code>Monthly</code>, <code>Quarterly</code>, <code>HalfYearly</code> and <code>Yearly</code>. Other scalar types, series over
-calendar or unit frequencies, other series dtypes, catalogs, workspaces and
-general attributes are not supported yet. Existing JSON I/O is unchanged.</p>
+<p><code>tsecon.dataecon</code> reads and writes <strong>numeric scalars at every Julia width
+(Float16/32/64, Int8/16/32/64, UInt8/16/32/64, Complex64/128), string, MIT date
+and Duration scalars, and monthly, quarterly, half-yearly or annual float64
+TSeries, including empty series</strong>, through the DataEcon 0.4.0 C library. Date
+and duration scalars cover every core frequency: <code>Unit</code>, <code>Daily</code>, <code>BDaily</code>,
+<code>Weekly</code> with any end day, <code>Monthly</code>, <code>Quarterly</code>, <code>HalfYearly</code> and <code>Yearly</code>.
+Int128/UInt128/ComplexF16 scalars, marker-reconstructed Julia types, series
+over calendar or unit frequencies, other series dtypes, catalogs, workspaces
+and general attributes are not supported yet. Existing JSON I/O is unchanged.</p>
 <p>Native DataEcon support is configured in the wheel workflow for CPython 3.11–3.13:
 Windows x86-64, Linux x86-64 and macOS arm64. Native wheel builds and Julia
 monthly, empty and scalar interchange checks have passed on all three platforms.
@@ -1809,27 +1855,67 @@ conversion. Reads return an independent Python <code>float</code> or <code>int</
 the stored type. NaN, infinities and the sign of zero are preserved; arbitrary
 signaling-NaN states or payload bits are not an interchange guarantee.</p>
 <p>Julia writes <code>Int64</code> values with the same metadata and reads them back as
-<code>Int64</code>. Unsigned integers, other widths and <code>Bool</code> (which Julia itself reloads
-as <code>Int8</code>) are rejected on read with <code>TypeError</code> or <code>ValueError</code> rather than
-being coerced. Strings, dates and durations are separate scalar kinds below.</p>
+<code>Int64</code>. Strings, dates and durations are separate scalar kinds below; the
+narrower, unsigned and complex numeric widths follow next.</p>
 <p>Scalars share the root namespace with series: existing names are never
 overwritten, and wrong-class reads raise <code>DataEconError</code>. Scalar <code>jtype</code> and
 <code>jeltype</code> attributes are always rejected, including the literals <code>Float64</code>
 and <code>Int64</code>. The empty-series attribute exception does not apply to scalars.
 Numeric scalar payloads must be exactly eight bytes with no frequency metadata.</p>
+<h2 id="narrow-unsigned-and-complex-numeric-scalars">Narrow, unsigned and complex numeric scalars<a class="headerlink" href="#narrow-unsigned-and-complex-numeric-scalars" title="Permanent link">&para;</a></h2>
+<p>Julia stores <code>Float16</code>/<code>Float32</code>, <code>Int8</code>/<code>Int16</code>/<code>Int32</code>, <code>UInt8</code>..<code>UInt64</code>
+and <code>ComplexF32</code>/<code>ComplexF64</code> at their own byte width with no marker and reloads
+them by type and width. Python mirrors that with exact NumPy scalar classes:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="k">with</span> <span class="n">open_dataecon</span><span class="p">(</span><span class="s2">&quot;width-example.daec&quot;</span><span class="p">,</span> <span class="s2">&quot;a&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">db</span><span class="p">:</span>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>    <span class="n">db</span><span class="o">.</span><span class="n">write_scalar</span><span class="p">(</span><span class="s2">&quot;half&quot;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">float16</span><span class="p">(</span><span class="mf">0.1</span><span class="p">))</span>
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>    <span class="n">db</span><span class="o">.</span><span class="n">write_scalar</span><span class="p">(</span><span class="s2">&quot;mask&quot;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">uint64</span><span class="p">(</span><span class="mi">2</span><span class="o">**</span><span class="mi">64</span> <span class="o">-</span> <span class="mi">1</span><span class="p">))</span>
+<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>    <span class="n">db</span><span class="o">.</span><span class="n">write_scalar</span><span class="p">(</span><span class="s2">&quot;small&quot;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">int8</span><span class="p">(</span><span class="o">-</span><span class="mi">128</span><span class="p">))</span>
+<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>    <span class="n">db</span><span class="o">.</span><span class="n">write_scalar</span><span class="p">(</span><span class="s2">&quot;z32&quot;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">complex64</span><span class="p">(</span><span class="mf">1.5</span> <span class="o">-</span> <span class="mf">2.25</span><span class="n">j</span><span class="p">))</span>
+<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>    <span class="n">db</span><span class="o">.</span><span class="n">write_scalar</span><span class="p">(</span><span class="s2">&quot;z&quot;</span><span class="p">,</span> <span class="mi">8</span> <span class="o">+</span> <span class="mi">3</span><span class="n">j</span><span class="p">)</span>
+<a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a><span class="k">with</span> <span class="n">open_dataecon</span><span class="p">(</span><span class="s2">&quot;width-example.daec&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">db</span><span class="p">:</span>
+<a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a>    <span class="n">half</span><span class="p">,</span> <span class="n">mask</span><span class="p">,</span> <span class="n">small</span><span class="p">,</span> <span class="n">z32</span><span class="p">,</span> <span class="n">z</span> <span class="o">=</span> <span class="p">(</span><span class="n">db</span><span class="o">.</span><span class="n">read_scalar</span><span class="p">(</span><span class="n">n</span><span class="p">)</span> <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;half&quot;</span><span class="p">,</span> <span class="s2">&quot;mask&quot;</span><span class="p">,</span> <span class="s2">&quot;small&quot;</span><span class="p">,</span> <span class="s2">&quot;z32&quot;</span><span class="p">,</span> <span class="s2">&quot;z&quot;</span><span class="p">))</span>
+<a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a><span class="k">assert</span> <span class="nb">type</span><span class="p">(</span><span class="n">half</span><span class="p">)</span> <span class="ow">is</span> <span class="n">np</span><span class="o">.</span><span class="n">float16</span> <span class="ow">and</span> <span class="n">half</span><span class="o">.</span><span class="n">tobytes</span><span class="p">()</span> <span class="o">==</span> <span class="sa">b</span><span class="s2">&quot;</span><span class="se">\x66\x2e</span><span class="s2">&quot;</span>
+<a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a><span class="k">assert</span> <span class="nb">type</span><span class="p">(</span><span class="n">mask</span><span class="p">)</span> <span class="ow">is</span> <span class="n">np</span><span class="o">.</span><span class="n">uint64</span> <span class="ow">and</span> <span class="n">mask</span> <span class="o">==</span> <span class="mi">2</span><span class="o">**</span><span class="mi">64</span> <span class="o">-</span> <span class="mi">1</span>
+<a id="__codelineno-6-13" name="__codelineno-6-13" href="#__codelineno-6-13"></a><span class="k">assert</span> <span class="nb">type</span><span class="p">(</span><span class="n">small</span><span class="p">)</span> <span class="ow">is</span> <span class="n">np</span><span class="o">.</span><span class="n">int8</span> <span class="ow">and</span> <span class="n">small</span> <span class="o">==</span> <span class="o">-</span><span class="mi">128</span>
+<a id="__codelineno-6-14" name="__codelineno-6-14" href="#__codelineno-6-14"></a><span class="k">assert</span> <span class="nb">type</span><span class="p">(</span><span class="n">z32</span><span class="p">)</span> <span class="ow">is</span> <span class="n">np</span><span class="o">.</span><span class="n">complex64</span>
+<a id="__codelineno-6-15" name="__codelineno-6-15" href="#__codelineno-6-15"></a><span class="k">assert</span> <span class="nb">type</span><span class="p">(</span><span class="n">z</span><span class="p">)</span> <span class="ow">is</span> <span class="nb">complex</span> <span class="ow">and</span> <span class="n">z</span> <span class="o">==</span> <span class="mi">8</span> <span class="o">+</span> <span class="mi">3</span><span class="n">j</span>
+</code></pre></div>
+<p><code>write_scalar</code> accepts <code>np.float16</code>, <code>np.float32</code>, <code>np.int8</code>, <code>np.int16</code>,
+<code>np.int32</code>, <code>np.uint8</code>, <code>np.uint16</code>, <code>np.uint32</code>, <code>np.uint64</code>, <code>np.complex64</code>,
+<code>np.complex128</code> and Python <code>complex</code> (stored as <code>ComplexF64</code>, like Julia's
+<code>8.0 + 3.0im</code>). Each NumPy value is stored from its own bytes, so NaN payloads,
+signed zeros and subnormals survive and nothing is widened: precision is
+whatever the caller chose when it built the value (<code>np.float16(2049)</code> is
+already <code>2048</code>). The C-named NumPy classes (<code>np.intc</code>, <code>np.uintc</code>,
+<code>np.longlong</code>, <code>np.ulonglong</code>, and NumPy 2's <code>np.long</code>, <code>np.ulong</code>) are
+accepted by their width on every platform and every supported NumPy version:
+the accepted classes are discovered through the dtype type codes, not through
+attribute names, and are matched by class identity. Python <code>int</code>/<code>float</code> and
+<code>np.int64</code>/<code>np.float64</code> keep their Int64/Float64 behavior.</p>
+<p>Reads return the sized NumPy class of the stored width, except the eight-byte
+Int64/Float64 and sixteen-byte ComplexF64 encodings, which return Python
+<code>int</code>, <code>float</code> and <code>complex</code>. A Julia <code>Bool</code> is byte-identical to <code>Int8</code> in the
+file (Julia itself reloads it as <code>Int8</code>), so it reads as <code>np.int8</code>; writing a
+Python <code>bool</code> is still rejected rather than silently stored as an integer.
+<code>Int128</code>, <code>UInt128</code> and <code>ComplexF16</code> objects, which Julia can write, have no
+NumPy scalar type and raise <code>ValueError</code> on read; there is no write path for
+them yet. Any other width, a frequency on a numeric type, and scalar <code>jtype</code>
+or <code>jeltype</code> attributes are rejected without coercion or evaluation.</p>
 <h2 id="string-scalars">String scalars<a class="headerlink" href="#string-scalars" title="Permanent link">&para;</a></h2>
 <p>Python <code>str</code> values are stored as the native string type: UTF-8 bytes followed
 by one NUL terminator, with no frequency and no attributes. Reads return an
 independent <code>str</code>.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="k">with</span> <span class="n">open_dataecon</span><span class="p">(</span><span class="s2">&quot;string-example.daec&quot;</span><span class="p">,</span> <span class="s2">&quot;a&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">db</span><span class="p">:</span>
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>    <span class="n">db</span><span class="o">.</span><span class="n">write_scalar</span><span class="p">(</span><span class="s2">&quot;label&quot;</span><span class="p">,</span> <span class="s2">&quot;héllo wörld&quot;</span><span class="p">)</span>
-<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>    <span class="n">db</span><span class="o">.</span><span class="n">write_scalar</span><span class="p">(</span><span class="s2">&quot;note&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
-<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="k">with</span> <span class="n">open_dataecon</span><span class="p">(</span><span class="s2">&quot;string-example.daec&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">db</span><span class="p">:</span>
-<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>    <span class="n">label</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">read_scalar</span><span class="p">(</span><span class="s2">&quot;label&quot;</span><span class="p">)</span>
-<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>    <span class="n">note</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">read_scalar</span><span class="p">(</span><span class="s2">&quot;note&quot;</span><span class="p">)</span>
-<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="k">assert</span> <span class="nb">type</span><span class="p">(</span><span class="n">label</span><span class="p">)</span> <span class="ow">is</span> <span class="nb">str</span>
-<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="k">assert</span> <span class="n">label</span> <span class="o">==</span> <span class="s2">&quot;héllo wörld&quot;</span>
-<a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a><span class="k">assert</span> <span class="n">note</span> <span class="o">==</span> <span class="s2">&quot;&quot;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="k">with</span> <span class="n">open_dataecon</span><span class="p">(</span><span class="s2">&quot;string-example.daec&quot;</span><span class="p">,</span> <span class="s2">&quot;a&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">db</span><span class="p">:</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>    <span class="n">db</span><span class="o">.</span><span class="n">write_scalar</span><span class="p">(</span><span class="s2">&quot;label&quot;</span><span class="p">,</span> <span class="s2">&quot;héllo wörld&quot;</span><span class="p">)</span>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>    <span class="n">db</span><span class="o">.</span><span class="n">write_scalar</span><span class="p">(</span><span class="s2">&quot;note&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="k">with</span> <span class="n">open_dataecon</span><span class="p">(</span><span class="s2">&quot;string-example.daec&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">db</span><span class="p">:</span>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>    <span class="n">label</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">read_scalar</span><span class="p">(</span><span class="s2">&quot;label&quot;</span><span class="p">)</span>
+<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>    <span class="n">note</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">read_scalar</span><span class="p">(</span><span class="s2">&quot;note&quot;</span><span class="p">)</span>
+<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="k">assert</span> <span class="nb">type</span><span class="p">(</span><span class="n">label</span><span class="p">)</span> <span class="ow">is</span> <span class="nb">str</span>
+<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="k">assert</span> <span class="n">label</span> <span class="o">==</span> <span class="s2">&quot;héllo wörld&quot;</span>
+<a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="k">assert</span> <span class="n">note</span> <span class="o">==</span> <span class="s2">&quot;&quot;</span>
 </code></pre></div>
 <p>Only exact <code>str</code> is accepted: <code>bytes</code>, <code>bytearray</code>, <code>str</code> subclasses and other
 types raise <code>TypeError</code>. A string containing NUL or a lone surrogate raises
@@ -1856,21 +1942,21 @@ Julia symbols are not read as strings. Julia <code>SubString</code> values carry
 code. Both cover <code>Monthly</code>, all three <code>Quarterly</code> anchors, all six <code>HalfYearly</code>
 endings and all twelve <code>Yearly</code> endings, plus <code>Unit</code>, <code>Daily</code>, <code>BDaily</code> and
 <code>Weekly</code> with every end day (see the next section).</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">tsecon</span><span class="w"> </span><span class="kn">import</span> <span class="n">Duration</span>
-<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>
-<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="n">start</span> <span class="o">=</span> <span class="n">MIT</span><span class="o">.</span><span class="n">from_yp</span><span class="p">(</span><span class="n">Quarterly</span><span class="p">(</span><span class="n">end_month</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span> <span class="mi">2024</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span>
-<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="k">with</span> <span class="n">open_dataecon</span><span class="p">(</span><span class="s2">&quot;date-example.daec&quot;</span><span class="p">,</span> <span class="s2">&quot;a&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">db</span><span class="p">:</span>
-<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>    <span class="n">db</span><span class="o">.</span><span class="n">write_scalar</span><span class="p">(</span><span class="s2">&quot;start&quot;</span><span class="p">,</span> <span class="n">start</span><span class="p">)</span>
-<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>    <span class="n">db</span><span class="o">.</span><span class="n">write_scalar</span><span class="p">(</span><span class="s2">&quot;horizon&quot;</span><span class="p">,</span> <span class="n">Duration</span><span class="p">(</span><span class="n">Quarterly</span><span class="p">(</span><span class="n">end_month</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span> <span class="mi">8</span><span class="p">))</span>
-<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>    <span class="n">db</span><span class="o">.</span><span class="n">write_scalar</span><span class="p">(</span><span class="s2">&quot;lag&quot;</span><span class="p">,</span> <span class="n">Duration</span><span class="p">(</span><span class="n">Yearly</span><span class="p">(),</span> <span class="o">-</span><span class="mi">1</span><span class="p">))</span>
-<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="k">with</span> <span class="n">open_dataecon</span><span class="p">(</span><span class="s2">&quot;date-example.daec&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">db</span><span class="p">:</span>
-<a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a>    <span class="n">restored_start</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">read_scalar</span><span class="p">(</span><span class="s2">&quot;start&quot;</span><span class="p">)</span>
-<a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a>    <span class="n">horizon</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">read_scalar</span><span class="p">(</span><span class="s2">&quot;horizon&quot;</span><span class="p">)</span>
-<a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a>    <span class="n">lag</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">read_scalar</span><span class="p">(</span><span class="s2">&quot;lag&quot;</span><span class="p">)</span>
-<a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a><span class="k">assert</span> <span class="nb">type</span><span class="p">(</span><span class="n">restored_start</span><span class="p">)</span> <span class="ow">is</span> <span class="n">MIT</span> <span class="ow">and</span> <span class="n">restored_start</span> <span class="o">==</span> <span class="n">start</span>
-<a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a><span class="k">assert</span> <span class="nb">type</span><span class="p">(</span><span class="n">horizon</span><span class="p">)</span> <span class="ow">is</span> <span class="n">Duration</span> <span class="ow">and</span> <span class="n">horizon</span><span class="o">.</span><span class="n">value</span> <span class="o">==</span> <span class="mi">8</span>
-<a id="__codelineno-7-14" name="__codelineno-7-14" href="#__codelineno-7-14"></a><span class="k">assert</span> <span class="n">horizon</span><span class="o">.</span><span class="n">frequency</span> <span class="o">==</span> <span class="n">Quarterly</span><span class="p">(</span><span class="n">end_month</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-<a id="__codelineno-7-15" name="__codelineno-7-15" href="#__codelineno-7-15"></a><span class="k">assert</span> <span class="n">lag</span> <span class="o">==</span> <span class="n">Duration</span><span class="p">(</span><span class="n">Yearly</span><span class="p">(),</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">tsecon</span><span class="w"> </span><span class="kn">import</span> <span class="n">Duration</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="n">start</span> <span class="o">=</span> <span class="n">MIT</span><span class="o">.</span><span class="n">from_yp</span><span class="p">(</span><span class="n">Quarterly</span><span class="p">(</span><span class="n">end_month</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span> <span class="mi">2024</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span>
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="k">with</span> <span class="n">open_dataecon</span><span class="p">(</span><span class="s2">&quot;date-example.daec&quot;</span><span class="p">,</span> <span class="s2">&quot;a&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">db</span><span class="p">:</span>
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>    <span class="n">db</span><span class="o">.</span><span class="n">write_scalar</span><span class="p">(</span><span class="s2">&quot;start&quot;</span><span class="p">,</span> <span class="n">start</span><span class="p">)</span>
+<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>    <span class="n">db</span><span class="o">.</span><span class="n">write_scalar</span><span class="p">(</span><span class="s2">&quot;horizon&quot;</span><span class="p">,</span> <span class="n">Duration</span><span class="p">(</span><span class="n">Quarterly</span><span class="p">(</span><span class="n">end_month</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span> <span class="mi">8</span><span class="p">))</span>
+<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>    <span class="n">db</span><span class="o">.</span><span class="n">write_scalar</span><span class="p">(</span><span class="s2">&quot;lag&quot;</span><span class="p">,</span> <span class="n">Duration</span><span class="p">(</span><span class="n">Yearly</span><span class="p">(),</span> <span class="o">-</span><span class="mi">1</span><span class="p">))</span>
+<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="k">with</span> <span class="n">open_dataecon</span><span class="p">(</span><span class="s2">&quot;date-example.daec&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">db</span><span class="p">:</span>
+<a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a>    <span class="n">restored_start</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">read_scalar</span><span class="p">(</span><span class="s2">&quot;start&quot;</span><span class="p">)</span>
+<a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a>    <span class="n">horizon</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">read_scalar</span><span class="p">(</span><span class="s2">&quot;horizon&quot;</span><span class="p">)</span>
+<a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a>    <span class="n">lag</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">read_scalar</span><span class="p">(</span><span class="s2">&quot;lag&quot;</span><span class="p">)</span>
+<a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a><span class="k">assert</span> <span class="nb">type</span><span class="p">(</span><span class="n">restored_start</span><span class="p">)</span> <span class="ow">is</span> <span class="n">MIT</span> <span class="ow">and</span> <span class="n">restored_start</span> <span class="o">==</span> <span class="n">start</span>
+<a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a><span class="k">assert</span> <span class="nb">type</span><span class="p">(</span><span class="n">horizon</span><span class="p">)</span> <span class="ow">is</span> <span class="n">Duration</span> <span class="ow">and</span> <span class="n">horizon</span><span class="o">.</span><span class="n">value</span> <span class="o">==</span> <span class="mi">8</span>
+<a id="__codelineno-8-14" name="__codelineno-8-14" href="#__codelineno-8-14"></a><span class="k">assert</span> <span class="n">horizon</span><span class="o">.</span><span class="n">frequency</span> <span class="o">==</span> <span class="n">Quarterly</span><span class="p">(</span><span class="n">end_month</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<a id="__codelineno-8-15" name="__codelineno-8-15" href="#__codelineno-8-15"></a><span class="k">assert</span> <span class="n">lag</span> <span class="o">==</span> <span class="n">Duration</span><span class="p">(</span><span class="n">Yearly</span><span class="p">(),</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
 </code></pre></div>
 <p>A date is validated as a date. Its integer code must lie within the reliable
 native range of its frequency, checked before any C call and confirmed by the
@@ -1912,22 +1998,22 @@ a warning and then reloads a different date (daily, business daily) or the
 same one by coincidence (weekly). Python rejects those stored codes instead.
 Julia's loader also reads a natively written code just above the maximum
 unchanged, although its own writer cannot produce one; Python rejects it.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">tsecon</span><span class="w"> </span><span class="kn">import</span> <span class="n">BDaily</span><span class="p">,</span> <span class="n">Daily</span><span class="p">,</span> <span class="n">Unit</span><span class="p">,</span> <span class="n">Weekly</span><span class="p">,</span> <span class="n">bdaily</span><span class="p">,</span> <span class="n">daily</span><span class="p">,</span> <span class="n">weekly</span>
-<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>
-<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="k">with</span> <span class="n">open_dataecon</span><span class="p">(</span><span class="s2">&quot;calendar-example.daec&quot;</span><span class="p">,</span> <span class="s2">&quot;a&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">db</span><span class="p">:</span>
-<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>    <span class="n">db</span><span class="o">.</span><span class="n">write_scalar</span><span class="p">(</span><span class="s2">&quot;day&quot;</span><span class="p">,</span> <span class="n">daily</span><span class="p">(</span><span class="s2">&quot;2024-01-15&quot;</span><span class="p">))</span>
-<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>    <span class="n">db</span><span class="o">.</span><span class="n">write_scalar</span><span class="p">(</span><span class="s2">&quot;business_day&quot;</span><span class="p">,</span> <span class="n">bdaily</span><span class="p">(</span><span class="s2">&quot;2024-01-15&quot;</span><span class="p">))</span>
-<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>    <span class="n">db</span><span class="o">.</span><span class="n">write_scalar</span><span class="p">(</span><span class="s2">&quot;week&quot;</span><span class="p">,</span> <span class="n">weekly</span><span class="p">(</span><span class="s2">&quot;2024-01-17&quot;</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span>
-<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>    <span class="n">db</span><span class="o">.</span><span class="n">write_scalar</span><span class="p">(</span><span class="s2">&quot;far_future&quot;</span><span class="p">,</span> <span class="n">MIT</span><span class="p">(</span><span class="n">Daily</span><span class="p">(),</span> <span class="mi">3652062</span><span class="p">))</span>  <span class="c1"># 3 January 10000</span>
-<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a>    <span class="n">db</span><span class="o">.</span><span class="n">write_scalar</span><span class="p">(</span><span class="s2">&quot;step&quot;</span><span class="p">,</span> <span class="n">MIT</span><span class="p">(</span><span class="n">Unit</span><span class="p">(),</span> <span class="mi">2</span><span class="o">**</span><span class="mi">40</span><span class="p">))</span>
-<a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a>    <span class="n">db</span><span class="o">.</span><span class="n">write_scalar</span><span class="p">(</span><span class="s2">&quot;horizon&quot;</span><span class="p">,</span> <span class="n">Duration</span><span class="p">(</span><span class="n">BDaily</span><span class="p">(),</span> <span class="mi">20</span><span class="p">))</span>
-<a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a><span class="k">with</span> <span class="n">open_dataecon</span><span class="p">(</span><span class="s2">&quot;calendar-example.daec&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">db</span><span class="p">:</span>
-<a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a>    <span class="k">assert</span> <span class="n">db</span><span class="o">.</span><span class="n">read_scalar</span><span class="p">(</span><span class="s2">&quot;day&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="n">daily</span><span class="p">(</span><span class="s2">&quot;2024-01-15&quot;</span><span class="p">)</span>
-<a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a>    <span class="k">assert</span> <span class="n">db</span><span class="o">.</span><span class="n">read_scalar</span><span class="p">(</span><span class="s2">&quot;business_day&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="n">bdaily</span><span class="p">(</span><span class="s2">&quot;2024-01-15&quot;</span><span class="p">)</span>
-<a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a>    <span class="k">assert</span> <span class="n">db</span><span class="o">.</span><span class="n">read_scalar</span><span class="p">(</span><span class="s2">&quot;week&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="n">MIT</span><span class="p">(</span><span class="n">Weekly</span><span class="p">(</span><span class="mi">3</span><span class="p">),</span> <span class="mi">105558</span><span class="p">)</span>
-<a id="__codelineno-8-14" name="__codelineno-8-14" href="#__codelineno-8-14"></a>    <span class="k">assert</span> <span class="n">db</span><span class="o">.</span><span class="n">read_scalar</span><span class="p">(</span><span class="s2">&quot;far_future&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="n">MIT</span><span class="p">(</span><span class="n">Daily</span><span class="p">(),</span> <span class="mi">3652062</span><span class="p">)</span>
-<a id="__codelineno-8-15" name="__codelineno-8-15" href="#__codelineno-8-15"></a>    <span class="k">assert</span> <span class="n">db</span><span class="o">.</span><span class="n">read_scalar</span><span class="p">(</span><span class="s2">&quot;step&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="n">MIT</span><span class="p">(</span><span class="n">Unit</span><span class="p">(),</span> <span class="mi">2</span><span class="o">**</span><span class="mi">40</span><span class="p">)</span>
-<a id="__codelineno-8-16" name="__codelineno-8-16" href="#__codelineno-8-16"></a>    <span class="k">assert</span> <span class="n">db</span><span class="o">.</span><span class="n">read_scalar</span><span class="p">(</span><span class="s2">&quot;horizon&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="n">Duration</span><span class="p">(</span><span class="n">BDaily</span><span class="p">(),</span> <span class="mi">20</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">tsecon</span><span class="w"> </span><span class="kn">import</span> <span class="n">BDaily</span><span class="p">,</span> <span class="n">Daily</span><span class="p">,</span> <span class="n">Unit</span><span class="p">,</span> <span class="n">Weekly</span><span class="p">,</span> <span class="n">bdaily</span><span class="p">,</span> <span class="n">daily</span><span class="p">,</span> <span class="n">weekly</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="k">with</span> <span class="n">open_dataecon</span><span class="p">(</span><span class="s2">&quot;calendar-example.daec&quot;</span><span class="p">,</span> <span class="s2">&quot;a&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">db</span><span class="p">:</span>
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>    <span class="n">db</span><span class="o">.</span><span class="n">write_scalar</span><span class="p">(</span><span class="s2">&quot;day&quot;</span><span class="p">,</span> <span class="n">daily</span><span class="p">(</span><span class="s2">&quot;2024-01-15&quot;</span><span class="p">))</span>
+<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>    <span class="n">db</span><span class="o">.</span><span class="n">write_scalar</span><span class="p">(</span><span class="s2">&quot;business_day&quot;</span><span class="p">,</span> <span class="n">bdaily</span><span class="p">(</span><span class="s2">&quot;2024-01-15&quot;</span><span class="p">))</span>
+<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>    <span class="n">db</span><span class="o">.</span><span class="n">write_scalar</span><span class="p">(</span><span class="s2">&quot;week&quot;</span><span class="p">,</span> <span class="n">weekly</span><span class="p">(</span><span class="s2">&quot;2024-01-17&quot;</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span>
+<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a>    <span class="n">db</span><span class="o">.</span><span class="n">write_scalar</span><span class="p">(</span><span class="s2">&quot;far_future&quot;</span><span class="p">,</span> <span class="n">MIT</span><span class="p">(</span><span class="n">Daily</span><span class="p">(),</span> <span class="mi">3652062</span><span class="p">))</span>  <span class="c1"># 3 January 10000</span>
+<a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a>    <span class="n">db</span><span class="o">.</span><span class="n">write_scalar</span><span class="p">(</span><span class="s2">&quot;step&quot;</span><span class="p">,</span> <span class="n">MIT</span><span class="p">(</span><span class="n">Unit</span><span class="p">(),</span> <span class="mi">2</span><span class="o">**</span><span class="mi">40</span><span class="p">))</span>
+<a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a>    <span class="n">db</span><span class="o">.</span><span class="n">write_scalar</span><span class="p">(</span><span class="s2">&quot;horizon&quot;</span><span class="p">,</span> <span class="n">Duration</span><span class="p">(</span><span class="n">BDaily</span><span class="p">(),</span> <span class="mi">20</span><span class="p">))</span>
+<a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a><span class="k">with</span> <span class="n">open_dataecon</span><span class="p">(</span><span class="s2">&quot;calendar-example.daec&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">db</span><span class="p">:</span>
+<a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a>    <span class="k">assert</span> <span class="n">db</span><span class="o">.</span><span class="n">read_scalar</span><span class="p">(</span><span class="s2">&quot;day&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="n">daily</span><span class="p">(</span><span class="s2">&quot;2024-01-15&quot;</span><span class="p">)</span>
+<a id="__codelineno-9-12" name="__codelineno-9-12" href="#__codelineno-9-12"></a>    <span class="k">assert</span> <span class="n">db</span><span class="o">.</span><span class="n">read_scalar</span><span class="p">(</span><span class="s2">&quot;business_day&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="n">bdaily</span><span class="p">(</span><span class="s2">&quot;2024-01-15&quot;</span><span class="p">)</span>
+<a id="__codelineno-9-13" name="__codelineno-9-13" href="#__codelineno-9-13"></a>    <span class="k">assert</span> <span class="n">db</span><span class="o">.</span><span class="n">read_scalar</span><span class="p">(</span><span class="s2">&quot;week&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="n">MIT</span><span class="p">(</span><span class="n">Weekly</span><span class="p">(</span><span class="mi">3</span><span class="p">),</span> <span class="mi">105558</span><span class="p">)</span>
+<a id="__codelineno-9-14" name="__codelineno-9-14" href="#__codelineno-9-14"></a>    <span class="k">assert</span> <span class="n">db</span><span class="o">.</span><span class="n">read_scalar</span><span class="p">(</span><span class="s2">&quot;far_future&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="n">MIT</span><span class="p">(</span><span class="n">Daily</span><span class="p">(),</span> <span class="mi">3652062</span><span class="p">)</span>
+<a id="__codelineno-9-15" name="__codelineno-9-15" href="#__codelineno-9-15"></a>    <span class="k">assert</span> <span class="n">db</span><span class="o">.</span><span class="n">read_scalar</span><span class="p">(</span><span class="s2">&quot;step&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="n">MIT</span><span class="p">(</span><span class="n">Unit</span><span class="p">(),</span> <span class="mi">2</span><span class="o">**</span><span class="mi">40</span><span class="p">)</span>
+<a id="__codelineno-9-16" name="__codelineno-9-16" href="#__codelineno-9-16"></a>    <span class="k">assert</span> <span class="n">db</span><span class="o">.</span><span class="n">read_scalar</span><span class="p">(</span><span class="s2">&quot;horizon&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="n">Duration</span><span class="p">(</span><span class="n">BDaily</span><span class="p">(),</span> <span class="mi">20</span><span class="p">)</span>
 </code></pre></div>
 <p>Business daily means Monday to Friday on both sides; neither Julia nor Python
 applies a holiday calendar. Every business-daily code identifies a weekday, so
@@ -1936,13 +2022,80 @@ part of the frequency code, so <code>Weekly(1)</code> and <code>Weekly(7)</code>
 integer stay distinct. Julia anchors beyond 1..7 collapse on write (<code>Weekly{8}</code>
 is stored as <code>Weekly{1}</code>). The Sunday alias 16, the unused codes 14 and 15 and
 weekly codes 24 through 31, which Julia never writes, are rejected.</p>
+<h2 id="deleting-overwriting-truncating-and-in-memory-files">Deleting, overwriting, truncating and in-memory files<a class="headerlink" href="#deleting-overwriting-truncating-and-in-memory-files" title="Permanent link">&para;</a></h2>
+<p>The defaults are unchanged: <code>open_dataecon(path)</code> is read-only and <code>"a"</code>
+appends without ever replacing an object. The Julia file operations are
+available as explicit calls:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">tsecon</span><span class="w"> </span><span class="kn">import</span> <span class="n">TSeries</span><span class="p">,</span> <span class="n">mm</span>
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">tsecon.dataecon</span><span class="w"> </span><span class="kn">import</span> <span class="n">open_dataecon</span><span class="p">,</span> <span class="n">open_dataecon_memory</span>
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>
+<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="k">with</span> <span class="n">open_dataecon</span><span class="p">(</span><span class="s2">&quot;fileops-example.daec&quot;</span><span class="p">,</span> <span class="s2">&quot;a&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">db</span><span class="p">:</span>
+<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a>    <span class="n">db</span><span class="o">.</span><span class="n">write_scalar</span><span class="p">(</span><span class="s2">&quot;rate&quot;</span><span class="p">,</span> <span class="mf">1.25</span><span class="p">)</span>
+<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a>    <span class="n">db</span><span class="o">.</span><span class="n">write_scalar</span><span class="p">(</span><span class="s2">&quot;rate&quot;</span><span class="p">,</span> <span class="s2">&quot;revised&quot;</span><span class="p">,</span> <span class="n">overwrite</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>  <span class="c1"># delete-then-store</span>
+<a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a>    <span class="n">db</span><span class="o">.</span><span class="n">write_scalar</span><span class="p">(</span><span class="s2">&quot;temporary&quot;</span><span class="p">,</span> <span class="mi">7</span><span class="p">)</span>
+<a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a>    <span class="n">db</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="s2">&quot;temporary&quot;</span><span class="p">)</span>
+<a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a>    <span class="k">assert</span> <span class="n">db</span><span class="o">.</span><span class="n">read_scalar</span><span class="p">(</span><span class="s2">&quot;rate&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="s2">&quot;revised&quot;</span>
+<a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a>    <span class="k">assert</span> <span class="ow">not</span> <span class="n">db</span><span class="o">.</span><span class="n">is_empty</span><span class="p">()</span>
+<a id="__codelineno-10-12" name="__codelineno-10-12" href="#__codelineno-10-12"></a>
+<a id="__codelineno-10-13" name="__codelineno-10-13" href="#__codelineno-10-13"></a><span class="k">with</span> <span class="n">open_dataecon</span><span class="p">(</span><span class="s2">&quot;fileops-example.daec&quot;</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">db</span><span class="p">:</span>  <span class="c1"># &quot;w&quot; truncates on open</span>
+<a id="__codelineno-10-14" name="__codelineno-10-14" href="#__codelineno-10-14"></a>    <span class="k">assert</span> <span class="n">db</span><span class="o">.</span><span class="n">is_empty</span><span class="p">()</span>
+<a id="__codelineno-10-15" name="__codelineno-10-15" href="#__codelineno-10-15"></a>    <span class="n">db</span><span class="o">.</span><span class="n">write_series</span><span class="p">(</span><span class="s2">&quot;fresh&quot;</span><span class="p">,</span> <span class="n">TSeries</span><span class="p">(</span><span class="n">mm</span><span class="p">(</span><span class="mi">2024</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">])))</span>
+<a id="__codelineno-10-16" name="__codelineno-10-16" href="#__codelineno-10-16"></a>    <span class="n">db</span><span class="o">.</span><span class="n">truncate</span><span class="p">()</span>  <span class="c1"># same as Julia&#39;s empty!(de); the owner stays usable</span>
+<a id="__codelineno-10-17" name="__codelineno-10-17" href="#__codelineno-10-17"></a>    <span class="k">assert</span> <span class="n">db</span><span class="o">.</span><span class="n">is_empty</span><span class="p">()</span>
+<a id="__codelineno-10-18" name="__codelineno-10-18" href="#__codelineno-10-18"></a>    <span class="n">db</span><span class="o">.</span><span class="n">write_scalar</span><span class="p">(</span><span class="s2">&quot;after&quot;</span><span class="p">,</span> <span class="mi">42</span><span class="p">)</span>
+<a id="__codelineno-10-19" name="__codelineno-10-19" href="#__codelineno-10-19"></a>
+<a id="__codelineno-10-20" name="__codelineno-10-20" href="#__codelineno-10-20"></a><span class="k">with</span> <span class="n">open_dataecon_memory</span><span class="p">()</span> <span class="k">as</span> <span class="n">scratch</span><span class="p">:</span>  <span class="c1"># Julia&#39;s opendaecmem()</span>
+<a id="__codelineno-10-21" name="__codelineno-10-21" href="#__codelineno-10-21"></a>    <span class="n">scratch</span><span class="o">.</span><span class="n">write_scalar</span><span class="p">(</span><span class="s2">&quot;x&quot;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">(</span><span class="mf">0.1</span><span class="p">))</span>
+<a id="__codelineno-10-22" name="__codelineno-10-22" href="#__codelineno-10-22"></a>    <span class="k">assert</span> <span class="n">scratch</span><span class="o">.</span><span class="n">read_scalar</span><span class="p">(</span><span class="s2">&quot;x&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">(</span><span class="mf">0.1</span><span class="p">)</span>
+<a id="__codelineno-10-23" name="__codelineno-10-23" href="#__codelineno-10-23"></a>    <span class="k">assert</span> <span class="n">scratch</span><span class="o">.</span><span class="n">path</span> <span class="o">==</span> <span class="s2">&quot;:memory:&quot;</span>
+</code></pre></div>
+<p><code>delete(name)</code> removes one root object with its payload and attributes. A
+missing name raises <code>DataEconError</code> (code -989) and the owner stays usable.
+A root <strong>catalog</strong> (written by Julia) is refused unless you pass
+<code>recursive=True</code>, in which case every nested catalog and object under it is
+deleted, exactly as Julia's <code>delete_object</code> does without asking. Deleting a
+series leaves its shared axis row in the file (axes are not objects), and
+values returned by earlier reads remain valid because reads copy.</p>
+<p><code>overwrite=True</code> on <code>write_scalar</code>/<code>write_series</code> is Julia's
+<code>opendaec(...; overwrite=true)</code> behavior for that one call: the existing root
+scalar or series of that name is deleted and the new object stored, whatever
+its class. Python validates the new value completely <em>before</em> deleting, so a
+rejected value leaves the old object intact (Julia deletes first and then
+fails). The operation is <strong>not atomic</strong> and nothing rolls back: once the
+delete has run the original value is gone, and a native store failure after
+it leaves the name either absent or holding a partial, unreadable replacement
+(the native library creates the object row before it stores the payload, so
+a failure in between leaves an object without a value; reading it raises
+<code>DataEconError</code>). Such a failure is reported with the operation label
+<code>write_scalar (overwrite; original deleted, partial replacement may remain)</code>
+(or <code>write (...)</code> for series). An existing catalog is never overwritten
+implicitly; delete it explicitly with <code>recursive=True</code>.</p>
+<p><code>truncate()</code> (Julia's <code>truncatedaec</code>/<code>empty!</code>) commits pending writes, resets
+the file to a freshly created state, restarts object ids and leaves the owner
+open; <code>open_dataecon(path, "w")</code> does the same immediately after opening
+(Julia's <code>truncate=true</code>) and creates the file when it does not exist.
+<code>is_empty()</code> is Julia's <code>isempty(de)</code>: true when the root catalog holds no
+objects. Read-only owners reject <code>delete</code>, <code>truncate</code> and <code>overwrite=True</code>
+with <code>ValueError</code> before any native call. Note that writes made through an
+open owner are committed only when it closes (or truncates); another
+connection opened in the meantime does not see them.</p>
+<p><code>open_dataecon_memory()</code> opens a private, writable, empty in-memory database
+that is discarded on close; it cannot be reopened or shared with Julia, and
+no file named <code>:memory:</code> is created. Passing the literal <code>":memory:"</code> to
+<code>open_dataecon</code> raises <code>ValueError</code> rather than turning it into a disk path.</p>
+<p>A native truncate failure quarantines the owner the same way a failed close
+does: it cannot be used or closed again and native resources may remain until
+process exit. This is deliberate: the native library's statement-finalization
+path is unsafe once a statement has failed, so the adapter never makes a second
+native call on such a handle.</p>
 <h2 id="closing-and-errors">Closing and errors<a class="headerlink" href="#closing-and-errors" title="Permanent link">&para;</a></h2>
 <p>Use a context manager or call <code>close()</code> explicitly. Successful close is
 idempotent. Missing objects and duplicate names raise <code>DataEconError</code>, which
 retains <code>code</code>, <code>operation</code>, <code>path</code>, <code>name</code> and <code>native_message</code>. Positive native
 codes come from SQLite. Invalid or unsupported Python inputs raise
-<code>TypeError</code>/<code>ValueError</code>; writes through an explicitly read-only owner are rejected
-before calling C. No truncation or replacement mode is provided.</p>
+<code>TypeError</code>/<code>ValueError</code>; writes, deletions, truncation and overwrites through
+an explicitly read-only owner are rejected before calling C.</p>
 <p>A native write failure may leave a partial object or unused axis; the adapter
 does not promise rollback or delete the file. A failed native close makes the
 owner unusable and is not retried: upstream statement-finalization retry safety
@@ -1964,9 +2117,9 @@ to <code>downloads/dataecon-source.zip</code>. Its SHA-256 is
 <code>d2b48df3a47d173c43354fe033438253bb46d878ae6c3824c6224fbd4e6a2d71</code>.
 The helper verifies this hash before extracting or compiling. Use a new output
 directory for each build; an existing one is never overwritten.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="n">python</span> <span class="n">scripts</span><span class="p">/</span><span class="n">build_dataecon_windows</span><span class="p">.</span><span class="n">py</span> <span class="n">downloads</span><span class="p">/</span><span class="n">dataecon-source</span><span class="p">.</span><span class="n">zip</span> <span class="p">-</span><span class="n">-output</span> <span class="n">build</span><span class="p">/</span><span class="n">dataecon-source</span>
-<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="nv">$env:TSECON_DATAECON_ROOT</span> <span class="p">=</span> <span class="p">(</span><span class="nb">Resolve-Path</span> <span class="n">build</span><span class="p">/</span><span class="n">dataecon-source</span><span class="p">).</span><span class="n">Path</span>
-<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="n">python</span> <span class="n">-m</span> <span class="n">build</span> <span class="p">-</span><span class="n">-wheel</span> <span class="p">-</span><span class="n">-no-isolation</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="n">python</span> <span class="n">scripts</span><span class="p">/</span><span class="n">build_dataecon_windows</span><span class="p">.</span><span class="n">py</span> <span class="n">downloads</span><span class="p">/</span><span class="n">dataecon-source</span><span class="p">.</span><span class="n">zip</span> <span class="p">-</span><span class="n">-output</span> <span class="n">build</span><span class="p">/</span><span class="n">dataecon-source</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="nv">$env:TSECON_DATAECON_ROOT</span> <span class="p">=</span> <span class="p">(</span><span class="nb">Resolve-Path</span> <span class="n">build</span><span class="p">/</span><span class="n">dataecon-source</span><span class="p">).</span><span class="n">Path</span>
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="n">python</span> <span class="n">-m</span> <span class="n">build</span> <span class="p">-</span><span class="n">-wheel</span> <span class="p">-</span><span class="n">-no-isolation</span>
 </code></pre></div>
 <p>The helper compiles the 13 DataEcon C files and bundled SQLite 3.50.2 amalgamation,
 links <code>bin/libdaec.dll</code>, and generates <code>lib/daec.lib</code>. This <strong>import library</strong> is
@@ -1996,9 +2149,9 @@ The archive <code>DataEcon.v0.4.0.x86_64-w64-mingw32.tar.gz</code> has SHA-256
 <code>c4d965008d46ab204fa35bbaee3238f3a15393850f0993e1d3cda52dba9af465</code>.
 Verify it and extract it to a local directory. An already installed matching
 Julia artifact can also supply these build inputs.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="n">python</span> <span class="n">scripts</span><span class="p">/</span><span class="n">prepare_dataecon_windows</span><span class="p">.</span><span class="n">py</span> <span class="p">&lt;</span><span class="n">extracted-artifact-directory</span><span class="p">&gt;</span>
-<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="nv">$env:TSECON_DATAECON_ROOT</span> <span class="p">=</span> <span class="p">(</span><span class="nb">Resolve-Path</span> <span class="n">build</span><span class="p">/</span><span class="n">dataecon</span><span class="p">).</span><span class="n">Path</span>
-<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="n">python</span> <span class="n">-m</span> <span class="n">build</span> <span class="p">-</span><span class="n">-wheel</span> <span class="p">-</span><span class="n">-no-isolation</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="n">python</span> <span class="n">scripts</span><span class="p">/</span><span class="n">prepare_dataecon_windows</span><span class="p">.</span><span class="n">py</span> <span class="p">&lt;</span><span class="n">extracted-artifact-directory</span><span class="p">&gt;</span>
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="nv">$env:TSECON_DATAECON_ROOT</span> <span class="p">=</span> <span class="p">(</span><span class="nb">Resolve-Path</span> <span class="n">build</span><span class="p">/</span><span class="n">dataecon</span><span class="p">).</span><span class="n">Path</span>
+<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="n">python</span> <span class="n">-m</span> <span class="n">build</span> <span class="p">-</span><span class="n">-wheel</span> <span class="p">-</span><span class="n">-no-isolation</span>
 </code></pre></div>
 <p>The preparation script checks the header and DLL hashes and generates an MSVC
 <strong>import library</strong>, the linker's description of the DLL's exported functions.
@@ -2023,10 +2176,10 @@ incorporates that code into the Cython extension; no separate DataEcon shared
 library or runtime search path is needed. Native symbols have hidden visibility
 to isolate this SQLite copy from other extensions in the process. Windows retains
 its verified DLL/import-library route; both routes use the same Cython binding.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="c1"># macOS arm64 only: export MACOSX_DEPLOYMENT_TARGET=11.0</span>
-<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>python<span class="w"> </span>scripts/build_dataecon_unix.py<span class="w"> </span>downloads/dataecon-source.zip<span class="w"> </span>--output<span class="w"> </span>build/dataecon-native
-<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="nb">export</span><span class="w"> </span><span class="nv">TSECON_DATAECON_ROOT</span><span class="o">=</span><span class="s2">&quot;</span><span class="nv">$PWD</span><span class="s2">/build/dataecon-native&quot;</span>
-<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a>python<span class="w"> </span>-m<span class="w"> </span>build<span class="w"> </span>--wheel
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="c1"># macOS arm64 only: export MACOSX_DEPLOYMENT_TARGET=11.0</span>
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>python<span class="w"> </span>scripts/build_dataecon_unix.py<span class="w"> </span>downloads/dataecon-source.zip<span class="w"> </span>--output<span class="w"> </span>build/dataecon-native
+<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="nb">export</span><span class="w"> </span><span class="nv">TSECON_DATAECON_ROOT</span><span class="o">=</span><span class="s2">&quot;</span><span class="nv">$PWD</span><span class="s2">/build/dataecon-native&quot;</span>
+<a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a>python<span class="w"> </span>-m<span class="w"> </span>build<span class="w"> </span>--wheel
 </code></pre></div>
 <p>The native helper needs a C compiler and <code>ar</code>. Its manifest records the compiler,
 flags, source/header hashes, portability patch and static archive hash. The build
@@ -2065,6 +2218,19 @@ at 2024M1 and 2025M7; the Julia loader must preserve all three as dated TSeries.
 The same file contains seven Float64 scalars covering finite values, signed zero,
 NaN and infinities, and fourteen Int64 scalars including both signed endpoints
 and values around 2^53; Julia checks their types, metadata and values as well.
+It also holds 91 narrow, unsigned and complex numeric scalars (every Float16/
+Float32, Int8/16/32, UInt8..UInt64 and ComplexF32/F64 group with endpoints,
+signed zeros, NaN, infinities, subnormals and precision-loss values, plus a
+Python <code>complex</code>) that Julia must load with the same type and bits. The
+combined output also records three file-operation outcomes (an Int64 scalar
+overwritten by a string, a deleted scalar, a scalar replaced by a series),
+and an auxiliary <code>fileops/cpXY-fileops.daec</code> file is written, reopened with
+<code>"w"</code> (truncated) and refilled; Julia checks the overwrite/delete results, the
+truncated auxiliary file's content and that its object ids restarted. The
+workflow's Julia steps locate the primary output by globbing <code>*.daec</code> in the
+interchange directory and require exactly one match, so auxiliary outputs
+live in the <code>fileops</code> subdirectory; the checker refuses to leave any other
+<code>.daec</code> file at the top level, and the Julia verifier checks the same layout.
 It also contains fifteen strings (empty, ASCII, accented, CJK, emoji,
 whitespace, punctuation and long values) that Julia must load as <code>String</code>, and
 six <code>MIT</code> dates plus six <code>Duration</code> values for each of the 22 year/period
@@ -2082,8 +2248,8 @@ checks, including both signed 32-bit year limits. Half-yearly objects cover
 all six endings with the same nonempty/empty and limit cases.</p>
 <p>For a local installed-wheel check, use a fresh output directory and the installed
 environment's Python from outside the source package:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="nv">$env:TSECON_REQUIRE_DATAECON</span> <span class="p">=</span> <span class="s1">&#39;1&#39;</span>
-<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="n">python</span> <span class="n">scripts</span><span class="p">/</span><span class="n">check_dataecon_wheel</span><span class="p">.</span><span class="n">py</span> <span class="p">-</span><span class="n">-fixture</span> <span class="n">tests</span><span class="p">/</span><span class="n">dataecon</span><span class="p">/</span><span class="n">fixtures</span><span class="p">/</span><span class="n">julia_monthly</span><span class="p">.</span><span class="n">daec</span> <span class="p">-</span><span class="n">-output-dir</span> <span class="n">build</span><span class="p">/</span><span class="n">interchange-output</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="nv">$env:TSECON_REQUIRE_DATAECON</span> <span class="p">=</span> <span class="s1">&#39;1&#39;</span>
+<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="n">python</span> <span class="n">scripts</span><span class="p">/</span><span class="n">check_dataecon_wheel</span><span class="p">.</span><span class="n">py</span> <span class="p">-</span><span class="n">-fixture</span> <span class="n">tests</span><span class="p">/</span><span class="n">dataecon</span><span class="p">/</span><span class="n">fixtures</span><span class="p">/</span><span class="n">julia_monthly</span><span class="p">.</span><span class="n">daec</span> <span class="p">-</span><span class="n">-output-dir</span> <span class="n">build</span><span class="p">/</span><span class="n">interchange-output</span>
 </code></pre></div>
 <p>Use an absolute path to the script/fixture when running outside the checkout.
 Without <code>--output-dir</code>, the checker uses <code>TSECON_DATAECON_OUTPUT_DIR</code> when set,

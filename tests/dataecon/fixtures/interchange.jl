@@ -319,7 +319,64 @@ end
 
 
 
-if action == "generate"
+# Numeric/Boolean series actions share cases with the installed verifier.
+function series_element_values(T)
+    T <: Signed && return T[typemin(T), -1, 0, typemax(T)]
+    T <: Unsigned && return T[0, 1, typemax(T)]
+    T == Bool && return Bool[false, true, false]
+    T == Float16 && return collect(reinterpret(T, UInt16[0x8000,1,0x3d00,0x7e55,0x7c00]))
+    T == Float32 && return collect(reinterpret(T, UInt32[0x80000000,1,0x3fa00000,0x7fc00055,0x7f800000]))
+    T == Float64 && return collect(reinterpret(T, UInt64[0x8000000000000000,1,0x3ff4000000000000,0x7ff8000000000055,0x7ff0000000000000]))
+    return T[complex(-0.0,1.25), complex(2.5,-3.0)]
+end
+const series_element_types = (Int8,Int16,Int32,Int64,UInt8,UInt16,UInt32,UInt64,
+    Float16,Float32,Float64,ComplexF32,ComplexF64,Bool)
+function series_element_cases()
+    cases = Any[]
+    for T in series_element_types
+        push!(cases, ("es_$(T)",2024M11,series_element_values(T)))
+        push!(cases, ("es_$(T)_empty",2024M11,T[]))
+    end
+    families = Any[(Monthly,32),(Daily,12),(BDaily,13)]
+    append!(families,[(Weekly{d},16+d) for d in 1:7])
+    append!(families,[(Quarterly{m},64+m) for m in 1:3])
+    append!(families,[(HalfYearly{m},128+m) for m in 1:6])
+    append!(families,[(Yearly{m},256+m) for m in 1:12])
+    for (F,code) in families
+        push!(cases,("es_axis_$(code)",convert(MIT{F},Int64(100)),Int16[-7,0,23]))
+    end
+    for (F,code,maximum) in Any[(Daily,12,11979954),(BDaily,13,8557110),
+            [(Weekly{d},16+d,1711422) for d in 1:7]...]
+        push!(cases,("es_trailing_$(code)",convert(MIT{F},Int64(maximum)),Int8[-1,1]))
+    end
+    return cases
+end
+
+if action == "generate-series-elements"
+    ispath(filename) && error("Use a fresh fixture path")
+    DE.opendaec(filename; readonly=false) do db
+        for (name,first,values) in series_element_cases()
+            DE.store_tseries(db,name,TSeries(first,values))
+        end
+        for T in series_element_types
+            axis = Ref{C.axis_id_t}()
+            DE.I._check(C.de_axis_range(db,0,C.freq_monthly,Int(2024M11),axis))
+            id = Ref{C.obj_id_t}()
+            DE.I._check(C.de_store_tseries(db,0,"es_$(T)_unmarked",C.type_tseries,
+                DE.I._to_de_scalar_type(T),C.freq_none,axis[],0,C_NULL,id))
+        end
+        for T in (Int128,UInt128,ComplexF16)
+            DE.store_tseries(db,"unsupported_$(T)",TSeries(2024M11,T[1,2]))
+            DE.store_tseries(db,"unsupported_$(T)_empty",TSeries(2024M11,T[]))
+        end
+        for (name,values,token) in (("bad_bool",Int8[2],"Bool"),
+                ("foreign_bool",Int64[1],"Bool"),("unknown_marker",Float64[],"Unknown"),
+                ("wrong_marker",Float64[],"Int8"))
+            id = DE.store_tseries(db,name,TSeries(2024M11,values))
+            DE.set_attribute(db,id,"jeltype",token)
+        end
+    end
+elseif action == "generate"
     ispath(filename) && error("Output already exists; use a fresh fixture path.")
     DE.opendaec(filename; write=true) do db
         DE.store_tseries(db, DE.root_id, "sample", expected)
@@ -553,7 +610,7 @@ elseif action == "generate-calendar-series"
         end
         DE.store_tseries(db, DE.root_id, "ctl_empty_float32_daily", TSeries(daily("2024-01-15"), Float32[]))
     end
-elseif !(action in ("verify", "verify-empty", "verify-scalars", "verify-quarterly", "verify-annual", "verify-halfyearly", "verify-int64", "verify-strings", "verify-dates", "verify-calendar", "verify-widths", "verify-fileops", "verify-calendar-series", "verify-wheel"))
+elseif !(action in ("verify", "verify-empty", "verify-scalars", "verify-quarterly", "verify-annual", "verify-halfyearly", "verify-int64", "verify-strings", "verify-dates", "verify-calendar", "verify-widths", "verify-fileops", "verify-calendar-series", "verify-series-elements", "generate-series-elements", "verify-wheel"))
     error("Unknown action; use generate/verify, generate-empty/verify-empty, generate-scalars/verify-scalars, generate-quarterly/verify-quarterly, generate-annual/verify-annual, generate-halfyearly/verify-halfyearly, generate-int64/verify-int64, generate-strings/verify-strings, generate-dates/verify-dates, generate-calendar/verify-calendar, generate-widths/verify-widths, generate-fileops/verify-fileops, generate-calendar-series/verify-calendar-series or verify-wheel.")
 end
 
@@ -1072,6 +1129,40 @@ if action in ("generate-calendar-series", "verify-calendar-series", "verify-whee
     end
 end
 
+if action in ("generate-series-elements", "verify-series-elements", "verify-wheel")
+    @testset "DataEcon numeric and Boolean series interchange" begin
+        reference_fixture = action != "verify-wheel"
+        DE.opendaec(filename) do db
+            for (name,first,values) in series_element_cases()
+                T = eltype(values)
+                id = DE.find_object(db,0,name)
+                ref = Ref{C.tseries_t}()
+                @test C.de_load_tseries(db,id,ref) == 0
+                a = ref[]
+                metadata = Int.((a.object.obj_class,a.object.obj_type,a.eltype,a.elfreq,
+                    a.axis.ax_type,a.axis.length,a.axis.frequency,a.axis.first,a.nbytes))
+                bytes = a.nbytes == 0 ? UInt8[] : copy(unsafe_wrap(Vector{UInt8},Ptr{UInt8}(a.value),a.nbytes))
+                @test metadata == (2,12,Int(DE.I._to_de_scalar_type(T)),0,1,length(values),
+                    Int(DE.I._to_de_scalar_freq(frequencyof(first))),Int(first),sizeof(values))
+                @test bytes == collect(reinterpret(UInt8,values))
+                needs_marker = T == Bool || (isempty(values) && (reference_fixture || !(T in (Int64,UInt64,Float64,ComplexF64))))
+                attrs = DE.get_all_attributes(db,id)
+                @test attrs == (needs_marker ? Dict("jeltype"=>string(T)) : Dict{String,String}())
+                loaded = DE.load_tseries(db,id)
+                @test eltype(loaded) == T
+                @test (loaded isa TSeries) == (!isempty(values) || !needs_marker)
+                if loaded isa TSeries
+                    @test firstdate(loaded) == first
+                    @test loaded.values == values || isequal(loaded.values,values)
+                    @test collect(reinterpret(UInt8,loaded.values)) == bytes
+                else
+                    @test isempty(loaded)
+                end
+            end
+        end
+    end
+end
+
 if action == "verify-wheel"
     @testset "DataEcon Boolean scalar interchange" begin
         DE.opendaec(filename) do db
@@ -1090,7 +1181,7 @@ if action == "verify-wheel"
     end
 end
 
-if action in ("generate", "generate-empty", "generate-scalars", "generate-quarterly", "generate-annual", "generate-halfyearly", "generate-int64", "generate-strings", "generate-dates", "generate-calendar", "generate-widths", "generate-fileops", "generate-calendar-series")
+if action in ("generate", "generate-empty", "generate-scalars", "generate-quarterly", "generate-annual", "generate-halfyearly", "generate-int64", "generate-strings", "generate-dates", "generate-calendar", "generate-widths", "generate-fileops", "generate-calendar-series", "generate-series-elements")
     layout = Dict{String,Any}(
         "enums" => sizeof.([C.class_t, C.type_t, C.frequency_t, C.axis_type_t]),
     )

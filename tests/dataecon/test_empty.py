@@ -75,7 +75,7 @@ def test_empty_write_uses_canonical_metadata_and_preserves_guards(tmp_path, anch
 @pytest.mark.parametrize(
     ("key", "marker"),
     [
-        ("jeltype", "Float32"),
+        ("jeltype", "Float128"),
         ("jeltype", "Base.Float64"),
         ("jeltype", " Float64"),
         ("jeltype", "error(123)"),
@@ -130,8 +130,8 @@ def test_empty_bad_date_rejected_before_storage(tmp_path):
 
 
 def test_julia_empty_float32_is_not_silently_promoted():
-    with (
-        open_dataecon(FIXTURES / "julia_empty_monthly.daec") as db,
-        pytest.raises(TypeError, match="reconstruction"),
-    ):
-        db.read_series("empty_float32")
+    with open_dataecon(FIXTURES / "julia_empty_monthly.daec") as db:
+        result = db.read_series("empty_float32")
+    assert result.values.dtype == np.float32
+    assert result.values.size == 0
+    assert result.values.flags.owndata

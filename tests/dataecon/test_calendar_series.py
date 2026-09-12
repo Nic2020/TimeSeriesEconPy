@@ -145,7 +145,7 @@ def test_window_bounds_precede_encoding(label, frequency, code):
         validate_metadata((2, 12, 4, 0, 1, limit + 1, code, hi, 8 * (limit + 1)))
 
 
-@pytest.mark.parametrize("dtype", [np.float32, np.int64, np.complex128, ">f8"])
+@pytest.mark.parametrize("dtype", [object, "S4", "U4", ">f8"])
 @pytest.mark.parametrize("length", [0, 2])
 def test_calendar_dtype_is_not_coerced(dtype, length):
     with pytest.raises(TypeError):
@@ -231,8 +231,10 @@ def test_julia_fixture_controls():
         for name in ("native_axis_weekly16", "native_axis_weekly24", "native_axis_freq14"):
             with pytest.raises(TypeError):
                 db.read_series(name)
-        with pytest.raises(TypeError, match="reconstruction"):
-            db.read_series("ctl_empty_float32_daily")
+        result = db.read_series("ctl_empty_float32_daily")
+        assert result.values.dtype == np.float32
+        assert result.values.size == 0
+        assert result.frequency == Daily()
     with closing(sqlite3.connect(FIXTURES / "julia_calendar_series.daec")) as conn:
         # Julia marks its own empty series; Python writes no marker (checked above).
         assert conn.execute(
@@ -294,7 +296,7 @@ AXIS = "UPDATE axes SET {} WHERE id=(SELECT axis_id FROM tseries WHERE id=:id)"
         (AXIS.format("frequency=11"), TypeError),
         (AXIS.format("frequency=14"), TypeError),
         (AXIS.format("ax_type=0"), TypeError),
-        ("UPDATE tseries SET eltype=1 WHERE id=:id", TypeError),
+        ("UPDATE tseries SET eltype=6 WHERE id=:id", TypeError),
         ("UPDATE tseries SET value=zeroblob(24) WHERE id=:id", ValueError),
         ("INSERT INTO attributes VALUES(:id,'jtype','TSeries')", TypeError),
         ("INSERT INTO attributes VALUES(:id,'jeltype','Float64')", TypeError),
@@ -321,7 +323,7 @@ def test_empty_calendar_series_accept_only_the_exact_marker(tmp_path):
     shutil.copyfile(FIXTURES / "julia_calendar_series.daec", path)
     with closing(sqlite3.connect(path)) as conn, conn:
         conn.execute(
-            "UPDATE attributes SET value='Float32' WHERE id=(SELECT id FROM objects "
+            "UPDATE attributes SET value='Float128' WHERE id=(SELECT id FROM objects "
             "WHERE name='cs_w7_empty')"
         )
     with open_dataecon(path) as db:

@@ -6,9 +6,17 @@ def abi_layout() -> dict[str, tuple[int, ...] | tuple[int, tuple[int, ...]]]: ..
 class FileHandle:
     def __init__(self, path: str, readonly: bool, memory: bool = False) -> None: ...
     def close(self) -> None: ...
-    def read(self, name: str) -> tuple[bytes, Metadata, str]: ...
+    def read(self, name: str) -> tuple[bytes, Metadata, str, str | None]: ...
     def write(
-        self, name: str, frequency: int, first: int, payload: bytes, overwrite: bool = False
+        self,
+        name: str,
+        frequency: int,
+        first: int,
+        payload: bytes,
+        overwrite: bool = False,
+        element: int = 4,
+        length: int | None = None,
+        marker: str | None = None,
     ) -> None: ...
     def read_scalar(self, name: str) -> tuple[bytes, ScalarMetadata, str]: ...
     def write_scalar(

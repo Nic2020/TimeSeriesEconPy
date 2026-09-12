@@ -47,10 +47,10 @@ def assert_series(actual, anchor, code, values):
 def test_codec_preserves_anchor_and_snapshots_strides(anchor):
     values = np.arange(8, dtype=np.float64)
     source = TSeries(MIT(Quarterly(anchor), 8099), values[::2])
-    freq, first, payload = encode_series(source)
+    freq, first, payload, element, length, marker = encode_series(source)
     assert (freq, first) == (64 + anchor, 8099)
     values[:] = -1
-    result = decode_series(freq, first, payload)
+    result = decode_series(freq, first, payload, element, length, marker)
     assert_series(result, anchor, 8099, [0, 2, 4, 6])
     result.values[0] = 99
     assert np.frombuffer(payload, dtype=np.float64)[0] == 0
@@ -71,7 +71,7 @@ def test_quarterly_bounds_precede_encoding(anchor, code, length):
         encode_series(TSeries(MIT(Quarterly(anchor), code), np.ones(length)))
 
 
-@pytest.mark.parametrize("dtype", [np.float32, np.int64, np.complex128, ">f8"])
+@pytest.mark.parametrize("dtype", [object, "S4", "U4", ">f8"])
 @pytest.mark.parametrize("length", [0, 2])
 def test_quarterly_dtype_is_not_coerced(dtype, length):
     with pytest.raises(TypeError):
@@ -240,7 +240,7 @@ def test_malformed_native_records_do_not_poison_other_objects(tmp_path, sql, exc
 @pytest.mark.parametrize(
     ("suffix", "key", "marker"),
     [
-        ("empty", "jeltype", "Float32"),
+        ("empty", "jeltype", "Float128"),
         ("empty", "jeltype", None),
         ("empty", "jtype", "TSeries"),
         ("empty", "jtype", None),

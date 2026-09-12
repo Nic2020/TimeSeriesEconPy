@@ -701,6 +701,90 @@ def write_file_operations(output: Path) -> Path:
     return sibling
 
 
+def series_element_cases() -> list[tuple[str, MIT, np.ndarray]]:
+    """Exact dtype, empty-marker and axis cases for the Julia series verifier."""
+    cases = []
+    names = (
+        "Int8",
+        "Int16",
+        "Int32",
+        "Int64",
+        "UInt8",
+        "UInt16",
+        "UInt32",
+        "UInt64",
+        "Float16",
+        "Float32",
+        "Float64",
+        "ComplexF32",
+        "ComplexF64",
+        "Bool",
+    )
+    dtypes = ("i1", "i2", "i4", "i8", "u1", "u2", "u4", "u8", "f2", "f4", "f8", "c8", "c16", "?")
+    for name, dtype in zip(names, dtypes, strict=True):
+        values = series_element_values(np.dtype(dtype))
+        cases.extend(
+            ((f"es_{name}", mm(2024, 11), values), (f"es_{name}_empty", mm(2024, 11), values[:0]))
+        )
+    families = [
+        (32, tsecon.Monthly()),
+        (12, tsecon.Daily()),
+        (13, tsecon.BDaily()),
+        *[(16 + d, tsecon.Weekly(d)) for d in range(1, 8)],
+        *[(64 + m, tsecon.Quarterly(m)) for m in range(1, 4)],
+        *[(128 + m, tsecon.HalfYearly(m)) for m in range(1, 7)],
+        *[(256 + m, tsecon.Yearly(m)) for m in range(1, 13)],
+    ]
+    for code, frequency in families:
+        cases.append(
+            (f"es_axis_{code}", MIT(frequency, 100), np.array([-7, 0, 23], dtype=np.int16))
+        )
+        maximum = {12: 11979954, 13: 8557110}.get(code, 1711422 if 17 <= code <= 23 else None)
+        if maximum is not None:
+            cases.append(
+                (f"es_trailing_{code}", MIT(frequency, maximum), np.array([-1, 1], dtype=np.int8))
+            )
+    return cases
+
+
+def series_element_values(dtype: np.dtype) -> np.ndarray:
+    """Build independent integer extrema and floating-point bit patterns."""
+    if dtype.kind in "iu":
+        info = np.iinfo(dtype)
+        return np.array(
+            [info.min, -1, 0, info.max] if dtype.kind == "i" else [0, 1, info.max], dtype=dtype
+        )
+    if dtype.kind == "b":
+        return np.array([False, True, False])
+    if dtype.kind == "c":
+        return np.array([complex(-0.0, 1.25), complex(2.5, -3)], dtype=dtype)
+    bits = {
+        2: [0x8000, 1, 0x3D00, 0x7E55, 0x7C00],
+        4: [0x80000000, 1, 0x3FA00000, 0x7FC00055, 0x7F800000],
+        8: [0x8000000000000000, 1, 0x3FF4000000000000, 0x7FF8000000000055, 0x7FF0000000000000],
+    }
+    return np.array(bits[dtype.itemsize], dtype=f"u{dtype.itemsize}").view(dtype)
+
+
+def check_series_elements(db: de.DataEconFile) -> None:
+    """Check exact bytes, dtype, axis and ownership in the installed wheel."""
+    for name, first, expected in series_element_cases():
+        result = db.read_series(name)
+        if (
+            result.firstdate != first
+            or result.values.dtype != expected.dtype
+            or result.values.tobytes() != expected.tobytes()
+            or not result.values.flags.owndata
+        ):
+            raise ValueError(f"Numeric/Boolean series interchange changed {name}.")
+
+
+def write_series_elements(db: de.DataEconFile) -> None:
+    """Write typed series into the primary interchange file."""
+    for name, first, values in series_element_cases():
+        db.write_series(name, tsecon.TSeries(first, values))
+
+
 def write_interchange(output_dir: Path, series: tsecon.TSeries) -> Path:
     """Write and reopen series and scalars for separate Julia verification."""
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -709,6 +793,7 @@ def write_interchange(output_dir: Path, series: tsecon.TSeries) -> Path:
         raise FileExistsError(f"Use a fresh interchange output directory: {output}")
     with de.open_dataecon(output, "a") as db:
         db.write_series("sample", series)
+        write_series_elements(db)
         for name, value in (
             ("bool_false", False),
             ("bool_true", True),
@@ -726,6 +811,7 @@ def write_interchange(output_dir: Path, series: tsecon.TSeries) -> Path:
     write_file_operations(output)
     check_discovery_contract(output_dir)
     with de.open_dataecon(output) as db:
+        check_series_elements(db)
         np.testing.assert_array_equal(db.read_series("sample").values, series.values)
         for name, expected in (
             ("bool_false", 0),

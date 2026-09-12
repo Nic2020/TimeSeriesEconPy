@@ -62,7 +62,7 @@ def test_halfyearly_frequency_allowlist(code):
         validate_metadata((2, 12, 4, 0, 1, 1, code, 4048, 8))
 
 
-@pytest.mark.parametrize("dtype", [np.float32, np.int64, np.complex128, ">f8"])
+@pytest.mark.parametrize("dtype", [object, "S4", "U4", ">f8"])
 @pytest.mark.parametrize("length", [0, 2])
 def test_halfyearly_dtype_is_not_coerced(dtype, length):
     with pytest.raises(TypeError):
@@ -268,7 +268,7 @@ def test_halfyearly_malformed_payload_rejected(tmp_path, payload):
 @pytest.mark.parametrize(
     ("suffix", "key", "marker"),
     [
-        ("empty", "jeltype", "Float32"),
+        ("empty", "jeltype", "Float128"),
         ("empty", "jeltype", None),
         ("empty", "jtype", "TSeries"),
         ("empty", "jtype", None),

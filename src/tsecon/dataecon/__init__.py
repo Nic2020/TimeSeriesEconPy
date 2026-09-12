@@ -1,10 +1,11 @@
 # SPDX-License-Identifier: MIT
-"""Read and write DataEcon scalars and Float64 series over every core frequency but Unit.
+"""Read and write DataEcon scalars and numeric or Boolean series.
 
 Scalars cover every Julia numeric width with a NumPy scalar type (Float16/32/64,
 Int8/16/32/64, UInt8/16/32/64, Complex64/128), strings, and MIT dates or
 Durations over every core frequency (Unit, Daily, BDaily, Weekly with any end
-day, Monthly, Quarterly, HalfYearly and Yearly); series carry Float64 values
+day, Monthly, Quarterly, HalfYearly and Yearly); series carry supported numeric
+NumPy dtypes or Boolean values
 over the monthly, quarterly, half-yearly, annual, daily, business-daily and
 weekly frequencies. Files open read-only by default, append without
 overwriting with ``"a"``, or truncate with ``"w"``; explicit
@@ -165,13 +166,16 @@ class DataEconFile:
         with self._lock:
             self._require_open()
             _validate_name(name)
-            payload, metadata, _ = self._handle.read(name)
-            return decode_series(metadata[6], metadata[7], payload)
+            payload, metadata, _, marker = self._handle.read(name)
+            return decode_series(
+                metadata[6], metadata[7], payload, metadata[2], metadata[5], marker
+            )
 
     def write_series(self, name: str, series: TSeries, *, overwrite: bool = False) -> None:
         """Write a root series; by default an existing name fails and is never replaced.
 
-        Accepted series carry native-endian float64 values over the Monthly,
+        Accepted series carry native-endian signed/unsigned integers through
+        64 bits, float16/32/64, complex64/128 or Boolean values over the Monthly,
         Quarterly, HalfYearly, Yearly, Daily, BDaily or Weekly frequency (any
         fiscal anchor or week end day). The first date must lie inside the
         reliable native range of the frequency and reproduce through the
@@ -189,13 +193,31 @@ class DataEconFile:
         partial, unreadable replacement (the native store creates the object
         before its payload). A native write failure may also leave an unused
         axis. No transaction/rollback or automatic file deletion is promised.
+        A failed reconstruction-marker write can leave a readable object with
+        a different dtype: Bool becomes Int8 and narrow empties use the native
+        wide default. The error is reported; no implicit cleanup delete is attempted.
+        After a native store or marker failure, close may also fail and quarantine
+        the owner. Do not retry that close; reopen the file to inspect the residue.
+
+        Boolean series carry Julia's Bool marker. Empty narrow/Boolean series
+        need a marker to preserve dtype; Julia reloads these as plain vectors,
+        while Python preserves their stored date in an owning TSeries.
         """
         with self._lock:
             self._require_open()
             _validate_name(name)
-            frequency, first, payload = encode_series(series)
+            encoded = encode_series(series)
             self._require_writable()
-            self._handle.write(name, frequency, first, payload, bool(overwrite))
+            self._handle.write(
+                name,
+                encoded.frequency,
+                encoded.first,
+                encoded.payload,
+                bool(overwrite),
+                encoded.element,
+                encoded.length,
+                encoded.marker,
+            )
 
     def read_scalar(self, name: str) -> ScalarResult:
         """Read a root scalar as an exact-width Python or NumPy value.

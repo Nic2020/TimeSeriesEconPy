@@ -1,14 +1,14 @@
 # DataEcon interchange
 
-`tsecon.dataecon` reads and writes **numeric scalars at every Julia width
+`tsecon.dataecon` reads and writes **supported numeric scalars
 (Float16/32/64, Int8/16/32/64, UInt8/16/32/64, Complex64/128), string, MIT date
-and Duration scalars, and float64 TSeries over the monthly, quarterly,
+and Duration scalars, and numeric/Boolean TSeries over the monthly, quarterly,
 half-yearly, annual, daily, business-daily and weekly frequencies, including
 empty series**, through the DataEcon 0.4.0 C library. Date and duration
 scalars cover every core frequency: `Unit`, `Daily`, `BDaily`, `Weekly` with
 any end day, `Monthly`, `Quarterly`, `HalfYearly` and `Yearly`.
 Int128/UInt128/ComplexF16 scalars, marker-reconstructed Julia types,
-Unit-frequency series, other series dtypes, catalogs, workspaces and general
+Unit-frequency series, MIT/Duration and missing-width series elements, catalogs, workspaces and general
 attributes are not supported yet. Existing JSON I/O is unchanged.
 
 Native DataEcon support is configured in the wheel workflow for CPython 3.11–3.13:
@@ -53,7 +53,7 @@ The payload limit is 128 MiB per series. Dates must fit the native encoding;
 extreme boundary years can also be rejected before native date arithmetic.
 Only little-endian hosts are currently supported. Julia reconstruction attributes
 are never evaluated. `jtype` is rejected; `jeltype` is accepted only when its
-value is exactly `Float64` on an empty supported float series. Custom attributes
+value is an exact supported empty-element token or the canonical Bool marker. Custom attributes
 are outside this API's interchange contract.
 
 ## Quarterly series and fiscal anchors
@@ -185,7 +185,7 @@ otherwise `ValueError` is raised before anything is stored. Only the first
 date is stored and packed, on both sides: later observations are consecutive
 codes, so a series may run past 31 December 32800 exactly as Julia writes and
 reloads it (for example two daily values from code `11979954`, or a thousand
-values straddling the maximum). The 128 MiB payload limit bounds a series at
+values straddling the maximum). The 128 MiB payload limit bounds a float64 series at
 16,777,216 values, so a trailing code never exceeds the window maximum plus
 16,777,215 and stays inside the signed 32-bit range the adapter checks. A
 stored first date below the window, which Julia writes with a warning and
@@ -216,13 +216,56 @@ The last date follows the core empty-range convention: one period before the
 first date. It does not identify a stored observation. Empty inputs retain the
 same read-only, closed-file, duplicate-name and native date-range checks.
 
-The pinned TimeSeriesEcon.jl 0.7.4 writer stores `jeltype="Float64"` for an empty
-series. Its loader reconstructs a plain vector when that marker is present,
-although the file retains the dated axis. Python reads that exact marker and
-preserves the TSeries. Python writes omit the redundant marker so the pinned
-Julia loader also returns a dated Float64 TSeries. Explicitly different markers,
-including `Float32`, are rejected. Without a marker, the zero-byte native float
-representation defaults to float64, as it does in Julia.
+The pinned Julia writer marks every empty series with its element type. Julia
+reloads these marked empties as plain typed vectors, losing the dated wrapper;
+Python retains their stored anchor. Empty int64, uint64, float64 and complex128
+writes omit the redundant marker, so Julia preserves their dated wrapper too.
+Other empty dtypes require a marker to preserve their width; Julia reads these
+as plain vectors, while Python returns the anchored TSeries. Unmarked empties
+default to int64, uint64, float64 or complex128 according to their native kind.
+Unknown or contradictory reconstruction tokens are rejected without evaluation.
+
+## Numeric and Boolean series
+
+`write_series` preserves the native-endian NumPy dtype: int8/16/32/64,
+uint8/16/32/64, float16/32/64, complex64/128 or bool. These values use the same
+supported date axes described above. Reads own their writable NumPy storage;
+strided writes snapshot logical values without changing width. Floating-point
+NaN payloads, signed zeros and subnormals are copied without numeric conversion.
+NumPy `longdouble` and `clongdouble` are rejected consistently, including when
+their platform representation matches float64 or complex128.
+
+```python
+counts = TSeries(mm(2024, 11), np.array([-32768, -1, 0, 32767], dtype=np.int16))
+flags = TSeries(mm(2024, 11), np.array([False, True, False], dtype=bool))
+with open_dataecon("typed-series-example.daec", "a") as db:
+    db.write_series("counts", counts)
+    db.write_series("flags", flags)
+with open_dataecon("typed-series-example.daec") as db:
+    restored_counts = db.read_series("counts")
+    restored_flags = db.read_series("flags")
+assert restored_counts.values.dtype == np.int16
+assert restored_counts.lastdate == mm(2025, 2)
+assert restored_flags.values.dtype == np.bool_
+np.testing.assert_array_equal(restored_counts.values, counts.values)
+np.testing.assert_array_equal(restored_flags.values, flags.values)
+```
+
+Boolean series use Julia's `jeltype="Bool"` marker and canonical zero/one bytes.
+Boolean scalar writes instead store unmarked Int8. Series reads accept the Bool
+encoding Julia writes: signed one-byte elements with that marker and only 00/01
+bytes. Other Bool-marked numeric kinds/widths in foreign files remain unsupported,
+even when Julia could convert their values. Unmarked Int8 never becomes Bool.
+
+Required markers are written after the payload. If a marker write fails, the
+operation raises but can leave a readable object of the wrong dtype: nonempty
+Bool becomes Int8, and a narrow empty array takes the native wide default.
+An overwrite has already deleted the original. There is no rollback or implicit
+cleanup delete; the error identifies the failed marker operation. Handle the
+failure before trusting subsequent reads of that name.
+After a native store or marker failure, the later close may also fail and
+quarantine the owner. Do not retry that close; reopen the file to inspect what
+was stored.
 
 ## Float64 and Int64 scalars
 

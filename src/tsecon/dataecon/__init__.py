@@ -232,15 +232,17 @@ class DataEconFile:
         name either absent or holding a partial, unreadable replacement (the
         native store creates the object before its payload).
 
-        Accepted exactly by type: Python float / NumPy float64 (Float64),
+        Accepted exactly by type: Python bool / NumPy bool_ (stored as Int8),
+        Python float / NumPy float64 (Float64),
         NumPy float32 / float16, Python int / NumPy int64 (Int64), NumPy
         int8 / int16 / int32, NumPy uint8 / uint16 / uint32 / uint64, Python
         complex / NumPy complex128 (ComplexF64), NumPy complex64, str (UTF-8
         string), MIT (date) and Duration over the Unit, Daily, BDaily, Weekly,
         Monthly, Quarterly, HalfYearly or Yearly frequencies. Each NumPy
         scalar is stored at its own width from its own bytes, so precision is
-        whatever the caller already chose and nothing is widened. Booleans,
-        arrays, bytes, Decimal, Fraction, subclasses and other types are
+        whatever the caller already chose and nothing is widened. Booleans are
+        normalized to Int8 zero/one without a marker, like Julia, and read
+        back as np.int8. Arrays, bytes, Decimal, Fraction, subclasses and other types are
         rejected without implicit conversion. Out-of-range integers or
         durations, dates outside the reliable native range of their frequency,
         and strings containing NUL or lone surrogates raise ValueError. Native

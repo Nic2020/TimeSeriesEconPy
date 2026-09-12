@@ -59,8 +59,6 @@ def test_scalar_codec(name, value, constructor):
 @pytest.mark.parametrize(
     "value",
     [
-        True,
-        np.bool_(False),
         Decimal("1.25"),
         np.array(1.25),
         np.array([1.25]),
@@ -177,7 +175,7 @@ def test_scalar_roundtrip_metadata_and_owner_guards(tmp_path):
         with pytest.raises(DataEconError):
             db.read_series("scalar_finite")
         with pytest.raises(TypeError):
-            db.write_scalar("invalid", True)
+            db.write_scalar("invalid", np.array(True))
         with pytest.raises(DataEconError) as caught:
             db.read_scalar("invalid")
         assert caught.value.code == -989

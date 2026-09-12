@@ -293,9 +293,6 @@ class _Sub32(np.float32):
 @pytest.mark.parametrize(
     "value",
     [
-        True,
-        False,
-        np.bool_(True),
         _Sub32(1.5),
         np.array(np.float16(1.5)),
         np.array([np.int8(1)]),
@@ -523,7 +520,7 @@ def test_width_roundtrip_storage_and_shared_namespace(tmp_path):
         with pytest.raises(DataEconError):
             db.read_series("w_u64_max")
         with pytest.raises(TypeError):
-            db.write_scalar("flag", True)
+            db.write_scalar("flag", np.array(True))
         with pytest.raises(DataEconError) as caught:
             db.read_scalar("flag")
         assert caught.value.code == -989

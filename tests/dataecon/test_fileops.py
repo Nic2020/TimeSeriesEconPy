@@ -302,7 +302,7 @@ def test_overwrite_validates_before_deleting(tmp_path):
     with open_dataecon(path, "a") as db:
         db.write_scalar("keep_me", 1)
         db.write_series("keep_series", SERIES)
-        for bad in (True, b"x", np.array([1.0]), object()):
+        for bad in (np.array(True), b"x", np.array([1.0]), object()):
             with pytest.raises(TypeError):
                 db.write_scalar("keep_me", bad, overwrite=True)
         with pytest.raises(ValueError):

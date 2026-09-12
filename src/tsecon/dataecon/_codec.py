@@ -160,7 +160,9 @@ def _numpy_class(cls: type) -> tuple[int, int] | None:
 Metadata: TypeAlias = tuple[int, int, int, int, int, int, int, int, int]
 ScalarMetadata: TypeAlias = tuple[int, int, int, int]
 ScalarValue: TypeAlias = (
-    float
+    bool
+    | np.bool_
+    | float
     | np.float64
     | np.float32
     | np.float16
@@ -204,7 +206,8 @@ ScalarResult: TypeAlias = (
 )
 _SCALAR_SUPPORT = (
     "DataEcon scalar support covers Float16/32/64, Int8/16/32/64, UInt8/16/32/64, "
-    "Complex64/128, strings, and MIT dates or Durations over the Unit, Daily, BDaily, "
+    "Complex64/128, Booleans stored as Int8, strings, and MIT dates or Durations "
+    "over the Unit, Daily, BDaily, "
     "Weekly, Monthly, Quarterly, HalfYearly and Yearly frequencies."
 )
 _SERIES_SUPPORT = (
@@ -303,6 +306,12 @@ def _encode_text(value: str) -> bytes:
     return encoded + b"\0"
 
 
+def _encode_int64(value: int) -> bytes:
+    if not MIN_INT64 <= value <= MAX_INT64:
+        raise ValueError("write_scalar integers must fit the signed 64-bit range.")
+    return struct.pack("<q", value)
+
+
 def encode_scalar(value: ScalarValue) -> tuple[int, int, bytes]:
     """Return the native type code, frequency code and an owned payload snapshot.
 
@@ -314,18 +323,19 @@ def encode_scalar(value: ScalarValue) -> tuple[int, int, bytes]:
     little-endian bytes, so nothing is widened and integers never pass through
     floating point; strings are UTF-8 plus a NUL terminator; dates must lie
     inside the reliable native range of their frequency (Unit dates are
-    unbounded 64-bit codes). Subclasses, arrays, bytes, bool and every other
+    unbounded 64-bit codes). Exact Python/NumPy Booleans store canonical Int8
+    zero or one, like Julia, and read back as np.int8. Subclasses, arrays, bytes and every other
     type are rejected without conversion.
     """
     if sys.byteorder != "little":
         raise RuntimeError("DataEcon interchange requires a little-endian host.")
-    if type(value) is float or type(value) is np.float64:
+    if type(value) is bool or type(value) is np.bool_:
+        # Store the truth value as Julia's canonical Int8 zero or one.
+        kind, frequency, packed = KIND_INTEGER, 0, b"\x01" if value else b"\x00"
+    elif type(value) is float or type(value) is np.float64:
         kind, frequency, packed = KIND_FLOAT, 0, struct.pack("<d", value)
     elif type(value) is int or type(value) is np.int64:
-        number = int(value)
-        if not MIN_INT64 <= number <= MAX_INT64:
-            raise ValueError("write_scalar integers must fit the signed 64-bit range.")
-        kind, frequency, packed = KIND_INTEGER, 0, struct.pack("<q", number)
+        kind, frequency, packed = KIND_INTEGER, 0, _encode_int64(int(value))
     elif type(value) is complex or type(value) is np.complex128:
         kind, frequency, packed = KIND_COMPLEX, 0, struct.pack("<dd", value.real, value.imag)
     elif isinstance(value, np.generic) and (numpy_class := _numpy_class(type(value))):
@@ -348,7 +358,8 @@ def encode_scalar(value: ScalarValue) -> tuple[int, int, bytes]:
         kind, packed = KIND_INTEGER, struct.pack("<q", value.value)
     else:
         raise TypeError(
-            "write_scalar requires a Python float, int, complex or str, an exact NumPy "
+            "write_scalar requires a Python bool, float, int, complex or str, "
+            "an exact NumPy bool_, "
             "float16/32/64, int8/16/32/64, uint8/16/32/64 or complex64/128 scalar, "
             "an MIT or a Duration."
         )

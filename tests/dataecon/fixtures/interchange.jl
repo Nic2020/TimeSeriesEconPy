@@ -1072,6 +1072,24 @@ if action in ("generate-calendar-series", "verify-calendar-series", "verify-whee
     end
 end
 
+if action == "verify-wheel"
+    @testset "DataEcon Boolean scalar interchange" begin
+        DE.opendaec(filename) do db
+            for (name, expected) in (("bool_false", Int8(0)), ("bool_true", Int8(1)),
+                                     ("bool_numpy_false", Int8(0)), ("bool_numpy_true", Int8(1)))
+                id = DE.find_object(db, DE.root_id, name)
+                scalar = Ref{C.scalar_t}()
+                @test C.de_load_scalar(db, id, scalar) == 0
+                v = scalar[]
+                @test Int.((v.object.obj_class, v.object.obj_type, v.frequency, v.nbytes)) == (1,1,0,1)
+                @test unsafe_load(Ptr{Int8}(v.value)) === expected
+                @test isempty(DE.get_all_attributes(db, id))
+                @test DE.load_scalar(db, id) === expected
+            end
+        end
+    end
+end
+
 if action in ("generate", "generate-empty", "generate-scalars", "generate-quarterly", "generate-annual", "generate-halfyearly", "generate-int64", "generate-strings", "generate-dates", "generate-calendar", "generate-widths", "generate-fileops", "generate-calendar-series")
     layout = Dict{String,Any}(
         "enums" => sizeof.([C.class_t, C.type_t, C.frequency_t, C.axis_type_t]),

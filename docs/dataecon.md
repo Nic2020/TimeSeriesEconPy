@@ -246,10 +246,10 @@ assert count == 9007199254740993
 as Float64, and exact Python `int` and NumPy `int64` values, stored as Int64.
 Integers are packed as signed 64-bit two's complement and never pass through
 floating point, so values beyond 2^53 and both signed endpoints round-trip
-exactly; a Python `int` outside that range raises `ValueError`. Booleans,
-other NumPy integer widths, unsigned integers, Float32, Decimal, Fraction,
-complex numbers, scalar subclasses and arrays are rejected without implicit
-conversion. Reads return an independent Python `float` or `int` according to
+exactly; a Python `int` outside that range raises `ValueError`. Other supported
+numeric widths and Booleans are described below. Decimal, Fraction, scalar
+subclasses and arrays are rejected without implicit conversion. Float64 and
+Int64 reads return an independent Python `float` or `int` according to
 the stored type. NaN, infinities and the sign of zero are preserved; arbitrary
 signaling-NaN states or payload bits are not an interchange guarantee.
 
@@ -303,8 +303,21 @@ attribute names, and are matched by class identity. Python `int`/`float` and
 Reads return the sized NumPy class of the stored width, except the eight-byte
 Int64/Float64 and sixteen-byte ComplexF64 encodings, which return Python
 `int`, `float` and `complex`. A Julia `Bool` is byte-identical to `Int8` in the
-file (Julia itself reloads it as `Int8`), so it reads as `np.int8`; writing a
-Python `bool` is still rejected rather than silently stored as an integer.
+file (Julia itself reloads it as `Int8`). Exact Python `bool` and NumPy
+`bool_` scalars follow this convention: false stores one zero byte, true stores
+one byte equal to one, with no Boolean marker. Reads return `np.int8(0)` or
+`np.int8(1)`, not a Boolean. Rewriting that result preserves the stored type.
+Arrays and arbitrary truth-convertible objects are not accepted as Boolean
+scalars.
+
+```python
+with open_dataecon("bool-example.daec", "a") as db:
+    db.write_scalar("enabled", True)
+    enabled = db.read_scalar("enabled")
+assert type(enabled) is np.int8
+assert enabled == 1
+```
+
 `Int128`, `UInt128` and `ComplexF16` objects, which Julia can write, have no
 NumPy scalar type and raise `ValueError` on read; there is no write path for
 them yet. Any other width, a frequency on a numeric type, and scalar `jtype`

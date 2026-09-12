@@ -709,6 +709,13 @@ def write_interchange(output_dir: Path, series: tsecon.TSeries) -> Path:
         raise FileExistsError(f"Use a fresh interchange output directory: {output}")
     with de.open_dataecon(output, "a") as db:
         db.write_series("sample", series)
+        for name, value in (
+            ("bool_false", False),
+            ("bool_true", True),
+            ("bool_numpy_false", np.bool_(False)),
+            ("bool_numpy_true", np.bool_(True)),
+        ):
+            db.write_scalar(name, value)
         for name, value in scalar_cases().items():
             db.write_scalar(name, value)
         for name, anchor in (("empty", mm(2024, 1)), ("empty_later", mm(2025, 7))):
@@ -720,6 +727,15 @@ def write_interchange(output_dir: Path, series: tsecon.TSeries) -> Path:
     check_discovery_contract(output_dir)
     with de.open_dataecon(output) as db:
         np.testing.assert_array_equal(db.read_series("sample").values, series.values)
+        for name, expected in (
+            ("bool_false", 0),
+            ("bool_true", 1),
+            ("bool_numpy_false", 0),
+            ("bool_numpy_true", 1),
+        ):
+            actual = db.read_scalar(name)
+            if type(actual) is not np.int8 or actual != expected:
+                raise ValueError("Boolean scalar storage must read back as Int8 zero/one.")
         check_file_operation_objects(db)
         empties = [
             (db.read_series(name), anchor)

@@ -97,9 +97,6 @@ def test_int64_and_float64_kinds_are_distinct():
 @pytest.mark.parametrize(
     "value",
     [
-        True,
-        False,
-        np.bool_(True),
         Fraction(7),
         Decimal(7),
         b"7",

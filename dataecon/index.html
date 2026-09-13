@@ -1164,6 +1164,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#represented-series-elements" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Represented series elements
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1708,6 +1719,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#represented-series-elements" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Represented series elements
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1737,8 +1759,9 @@ empty series</strong>, through the DataEcon 0.4.0 C library. Date and duration
 scalars cover every core frequency: <code>Unit</code>, <code>Daily</code>, <code>BDaily</code>, <code>Weekly</code> with
 any end day, <code>Monthly</code>, <code>Quarterly</code>, <code>HalfYearly</code> and <code>Yearly</code>.
 Int128/UInt128/ComplexF16 scalars, marker-reconstructed Julia types,
-Unit-frequency series, MIT/Duration and missing-width series elements, catalogs, workspaces and general
-attributes are not supported yet. Existing JSON I/O is unchanged.</p>
+Unit-frequency series, catalogs, workspaces and general attributes are not supported yet.
+Represented date/duration, Int128/UInt128 and ComplexF16 series elements are
+available through <code>StoredSeries</code>. Existing JSON I/O is unchanged.</p>
 <p>Native DataEcon support is configured in the wheel workflow for CPython 3.11–3.13:
 Windows x86-64, Linux x86-64 and macOS arm64. Native wheel builds and Julia
 monthly, empty and scalar interchange checks have passed on all three platforms.
@@ -2404,6 +2427,47 @@ not automatically available to the later Julia step on the host.</p>
 <p>The output is named for the CPython version tag (for example <code>cp311.daec</code>), and an existing
 output is not overwritten. CI builds and artifact checks do not publish to PyPI;
 publication remains a separate release workflow.</p>
+<h2 id="represented-series-elements">Represented series elements<a class="headerlink" href="#represented-series-elements" title="Permanent link">&para;</a></h2>
+<p><code>StoredSeries</code> keeps a dated anchor, an owning NumPy carrier buffer and a
+<code>StoredElement</code> descriptor. Date/duration elements use Int64 codes with their
+own frequency. Int128/UInt128 use low/high UInt64 fields; ComplexF16 uses
+real/imaginary Float16 fields. Reads preserve the stored type and bytes.
+<code>read_series</code> returns <code>TSeries | StoredSeries</code>; ordinary series are unchanged.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">tsecon.dataecon</span><span class="w"> </span><span class="kn">import</span> <span class="n">INT128</span><span class="p">,</span> <span class="n">StoredSeries</span><span class="p">,</span> <span class="n">open_dataecon</span>
+<a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">tsecon</span><span class="w"> </span><span class="kn">import</span> <span class="n">mm</span>
+<a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a>
+<a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a><span class="n">wide</span> <span class="o">=</span> <span class="n">StoredSeries</span><span class="o">.</span><span class="n">from_list</span><span class="p">(</span><span class="n">mm</span><span class="p">(</span><span class="mi">2024</span><span class="p">,</span> <span class="mi">11</span><span class="p">),</span> <span class="n">INT128</span><span class="p">,</span> <span class="p">[</span><span class="o">-</span><span class="p">(</span><span class="mi">2</span><span class="o">**</span><span class="mi">127</span><span class="p">),</span> <span class="mi">2</span><span class="o">**</span><span class="mi">64</span><span class="p">,</span> <span class="mi">2</span><span class="o">**</span><span class="mi">127</span> <span class="o">-</span> <span class="mi">1</span><span class="p">])</span>
+<a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a><span class="k">with</span> <span class="n">open_dataecon</span><span class="p">(</span><span class="s2">&quot;represented.daec&quot;</span><span class="p">,</span> <span class="s2">&quot;a&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">db</span><span class="p">:</span>
+<a id="__codelineno-18-6" name="__codelineno-18-6" href="#__codelineno-18-6"></a>    <span class="n">db</span><span class="o">.</span><span class="n">write_series</span><span class="p">(</span><span class="s2">&quot;wide&quot;</span><span class="p">,</span> <span class="n">wide</span><span class="p">)</span>
+<a id="__codelineno-18-7" name="__codelineno-18-7" href="#__codelineno-18-7"></a>    <span class="n">restored</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">read_series</span><span class="p">(</span><span class="s2">&quot;wide&quot;</span><span class="p">)</span>
+<a id="__codelineno-18-8" name="__codelineno-18-8" href="#__codelineno-18-8"></a><span class="k">assert</span> <span class="n">restored</span><span class="o">.</span><span class="n">element</span> <span class="o">==</span> <span class="n">INT128</span>
+<a id="__codelineno-18-9" name="__codelineno-18-9" href="#__codelineno-18-9"></a><span class="k">assert</span> <span class="n">restored</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">tobytes</span><span class="p">()</span> <span class="o">==</span> <span class="n">wide</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">tobytes</span><span class="p">()</span>
+<a id="__codelineno-18-10" name="__codelineno-18-10" href="#__codelineno-18-10"></a><span class="k">assert</span> <span class="n">restored</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span> <span class="o">==</span> <span class="p">[</span><span class="o">-</span><span class="p">(</span><span class="mi">2</span><span class="o">**</span><span class="mi">127</span><span class="p">),</span> <span class="mi">2</span><span class="o">**</span><span class="mi">64</span><span class="p">,</span> <span class="mi">2</span><span class="o">**</span><span class="mi">127</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span>
+</code></pre></div>
+<p>Construction copies by default. Explicit <code>copy=False</code> shares only a compatible
+writable contiguous ndarray; strided or read-only compatible input is copied.
+The live carrier may be edited, and writes revalidate it before deleting any
+existing object. <code>from_list</code> and <code>tolist</code> are explicit object conversions;
+<code>to_complex64</code> widens ComplexF16. Python complex input must have exactly
+representable Float16 finite components: inexact narrowing or overflow raises
+<code>ValueError</code>. Float16 pairs or carrier buffers preserve NaN payloads; conversion
+through Python complex does not promise that preservation.</p>
+<p>A Bool marker on a nonempty Int128/UInt128/ComplexF16 carrier stays with its
+stored bytes; <code>to_bool()</code> explicitly converts validated zeros/ones to a Boolean
+<code>TSeries</code>. Ordinary numeric carriers with that marker return Boolean values.
+Empty frequency-zero numeric payloads with the Bool marker have no recoverable
+width and return empty Boolean series. Wide marked containers cannot be empty.
+Other foreign marker conversions, including Bool on date/duration elements,
+remain unsupported. No marker text is evaluated.</p>
+<p>Empty wide carriers require their type marker. Empty date/duration carriers
+also write Julia's exact marker; Python reads marked or unmarked forms, while
+the pinned Julia loader fails on either. Dates/durations inside a series keep
+full Int64 codes, independent of axis bounds. Only canonical element-frequency
+codes are accepted: noncanonical encodings such as 16, 24-31, 64, 128 and 256
+are refused even though Julia loads some as noncanonical frequency types.</p>
+<p>Marker writes remain separate native operations with no rollback. Failure can
+leave unmarked wide values, or an empty wide object reading as the native default
+width. Close may subsequently fail and quarantine the owner; do not retry it.</p>
 
 
 

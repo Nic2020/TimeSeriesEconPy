@@ -785,6 +785,145 @@ def write_series_elements(db: de.DataEconFile) -> None:
         db.write_series(name, tsecon.TSeries(first, values))
 
 
+# Represented series elements: the Julia verifier's `represented_cases` (MIT and
+# Duration elements over all 32 element frequencies with both Int64 endpoints,
+# the two cross-axis cases, Int128/UInt128/ComplexF16 endpoints, word and bit
+# cases and marked empties), written from StoredSeries containers.
+REPRESENTED_ANCHOR = mm(2024, 11)
+REPRESENTED_CODES = np.array([-(2**63), -1, 0, 2**63 - 1], dtype="<i8")
+ELEMENT_FAMILIES = (
+    [(11, Unit()), (12, Daily()), (13, BDaily()), (32, Monthly())]
+    + [(16 + d, Weekly(d)) for d in range(1, 8)]
+    + [(64 + m, Quarterly(m)) for m in range(1, 4)]
+    + [(128 + m, HalfYearly(m)) for m in range(1, 7)]
+    + [(256 + m, Yearly(m)) for m in range(1, 13)]
+)
+REPRESENTED_REWRITES = ("rs_mit_32", "rs_int128_words", "rs_complexf16_bits")
+# Wide carriers with a preserved Bool marker and their explicit conversions.
+REPRESENTED_BOOL = (
+    ("rs_bool_int128", de.INT128, [0, 1]),
+    ("rs_bool_uint128", de.UINT128, [0, 1]),
+    ("rs_bool_complexf16", de.COMPLEXF16, [0j, 1 + 0j]),
+)
+
+
+def _float16_pairs(real_bits, imag_bits):
+    return [
+        (np.array([r], dtype="<u2").view("<f2")[0], np.array([i], dtype="<u2").view("<f2")[0])
+        for r, i in zip(real_bits, imag_bits, strict=True)
+    ]
+
+
+def represented_cases() -> list[tuple[str, de.StoredSeries]]:
+    """Every represented series written to the interchange output, keyed by name."""
+    cases: list[tuple[str, de.StoredSeries]] = []
+    for code, frequency in ELEMENT_FAMILIES:
+        for tag, kind in (("mit", "date"), ("dur", "duration")):
+            element = de.StoredElement(kind, frequency)
+            cases.append(
+                (
+                    f"rs_{tag}_{code}",
+                    de.StoredSeries(REPRESENTED_ANCHOR, REPRESENTED_CODES, element),
+                )
+            )
+            cases.append(
+                (
+                    f"rs_{tag}_{code}_empty",
+                    de.StoredSeries(REPRESENTED_ANCHOR, REPRESENTED_CODES[:0], element),
+                )
+            )
+    cases.append(
+        (
+            "rs_mit_268_on_daily",
+            de.StoredSeries.from_list(
+                daily(dt.date(2024, 11, 1)),
+                de.StoredElement.date(Yearly(12)),
+                [MIT(Yearly(12), 2024), MIT(Yearly(12), 2025)],
+            ),
+        )
+    )
+    cases.append(
+        (
+            "rs_dur_12_on_yearly",
+            de.StoredSeries.from_list(
+                MIT(Yearly(12), 2024),
+                de.StoredElement.duration(Daily()),
+                [Duration(Daily(), -5), Duration(Daily(), 0), Duration(Daily(), 7)],
+            ),
+        )
+    )
+    int128_words = [
+        2**64,
+        -(2**64) - 1,
+        (0x0123456789ABCDEF << 64) | 0x0FEDCBA987654321,
+        -(2**127) + 1,
+        2**127 - 2,
+    ]
+    for name, element, items in (
+        ("rs_int128_endpoints", de.INT128, [-(2**127), -1, 0, 2**127 - 1]),
+        ("rs_int128_words", de.INT128, int128_words),
+        ("rs_uint128_endpoints", de.UINT128, [0, 2**64, 2**128 - 1]),
+        ("rs_uint128_words", de.UINT128, [2**64, 2**127, 2**128 - 2]),
+        (
+            "rs_complexf16_bits",
+            de.COMPLEXF16,
+            _float16_pairs(
+                [0x8000, 0x0001, 0x7E55, 0x7C00, 0xFC00, 0x7BFF],
+                [0x3D00, 0x8001, 0x7E00, 0x0000, 0x7BFF, 0xFBFF],
+            ),
+        ),
+        ("rs_Int128_empty", de.INT128, []),
+        ("rs_UInt128_empty", de.UINT128, []),
+        ("rs_ComplexF16_empty", de.COMPLEXF16, []),
+    ):
+        cases.append((name, de.StoredSeries.from_list(REPRESENTED_ANCHOR, element, items)))
+    return cases
+
+
+def write_represented_series(db: de.DataEconFile) -> None:
+    """Write represented containers, rewrite read results and convert wide Bool carriers."""
+    for name, series in represented_cases():
+        db.write_series(name, series)
+    for name in REPRESENTED_REWRITES:
+        db.write_series(f"{name}_rewrite", db.read_series(name))
+    for name, element, items in REPRESENTED_BOOL:
+        marked = de.StoredSeries.from_list(REPRESENTED_ANCHOR, element.with_bool_marker(), items)
+        db.write_series(name, marked)
+        preserved = db.read_series(name)
+        if preserved != marked:
+            raise ValueError(f"Wide Bool carrier {name} did not round-trip its bytes and marker.")
+        db.write_series(f"{name}_converted", preserved.to_bool())
+
+
+def check_represented_series(db: de.DataEconFile) -> None:
+    """Re-read the represented objects: exact container equality and ownership."""
+    expected = dict(represented_cases())
+    expected.update({f"{name}_rewrite": expected[name] for name in REPRESENTED_REWRITES})
+    for name, series in expected.items():
+        result = db.read_series(name)
+        if (
+            not isinstance(result, de.StoredSeries)
+            or result != series
+            or result.values.tobytes() != series.values.tobytes()
+            or not result.values.flags.owndata
+            or not result.values.flags.writeable
+        ):
+            raise ValueError(f"Represented series interchange changed {name}.")
+    for name, element, items in REPRESENTED_BOOL:
+        result = db.read_series(name)
+        converted = db.read_series(f"{name}_converted")
+        if (
+            not isinstance(result, de.StoredSeries)
+            or result.element != element.with_bool_marker()
+            or result.tolist() != items
+            or result.to_bool().values.tolist() != [False, True]
+            or not isinstance(converted, tsecon.TSeries)
+            or converted.values.dtype != np.dtype(bool)
+            or converted.values.tolist() != [False, True]
+        ):
+            raise ValueError(f"Wide Bool interchange changed {name}.")
+
+
 def write_interchange(output_dir: Path, series: tsecon.TSeries) -> Path:
     """Write and reopen series and scalars for separate Julia verification."""
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -794,6 +933,7 @@ def write_interchange(output_dir: Path, series: tsecon.TSeries) -> Path:
     with de.open_dataecon(output, "a") as db:
         db.write_series("sample", series)
         write_series_elements(db)
+        write_represented_series(db)
         for name, value in (
             ("bool_false", False),
             ("bool_true", True),
@@ -812,6 +952,7 @@ def write_interchange(output_dir: Path, series: tsecon.TSeries) -> Path:
     check_discovery_contract(output_dir)
     with de.open_dataecon(output) as db:
         check_series_elements(db)
+        check_represented_series(db)
         np.testing.assert_array_equal(db.read_series("sample").values, series.values)
         for name, expected in (
             ("bool_false", 0),

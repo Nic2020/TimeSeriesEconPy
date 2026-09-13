@@ -7,10 +7,11 @@ half-yearly, annual, daily, business-daily and weekly frequencies, including
 empty series**, through the DataEcon 0.4.0 C library. Date and duration
 scalars cover every core frequency: `Unit`, `Daily`, `BDaily`, `Weekly` with
 any end day, `Monthly`, `Quarterly`, `HalfYearly` and `Yearly`.
-Int128/UInt128/ComplexF16 scalars, marker-reconstructed Julia types,
+Series may also hold date, duration, Int128/UInt128 and ComplexF16 elements
+through `StoredSeries` (see [Represented series elements](#represented-series-elements)).
+Int128/UInt128/ComplexF16 scalars, other marker-reconstructed Julia types,
 Unit-frequency series, catalogs, workspaces and general attributes are not supported yet.
-Represented date/duration, Int128/UInt128 and ComplexF16 series elements are
-available through `StoredSeries`. Existing JSON I/O is unchanged.
+Existing JSON I/O is unchanged.
 
 Native DataEcon support is configured in the wheel workflow for CPython 3.11–3.13:
 Windows x86-64, Linux x86-64 and macOS arm64. Native wheel builds and Julia
@@ -255,8 +256,14 @@ np.testing.assert_array_equal(restored_flags.values, flags.values)
 Boolean series use Julia's `jeltype="Bool"` marker and canonical zero/one bytes.
 Boolean scalar writes instead store unmarked Int8. Series reads accept the Bool
 encoding Julia writes: signed one-byte elements with that marker and only 00/01
-bytes. Other Bool-marked numeric kinds/widths in foreign files remain unsupported,
-even when Julia could convert their values. Unmarked Int8 never becomes Bool.
+bytes. A Bool marker on another ordinary numeric kind or width, which Julia's
+loader converts, is converted the same way: every value must be exactly zero or
+one (imaginary part zero, signed zero allowed) and the result is a Boolean
+`TSeries`; any other value raises `ValueError`, as Julia raises `InexactError`.
+Rewriting such a series stores the canonical one-byte encoding, as Julia's
+rewrite does. A Bool marker on an Int128, UInt128 or ComplexF16 payload is
+preserved instead (see [Represented series elements](#represented-series-elements)).
+Unmarked Int8 never becomes Bool.
 
 Required markers are written after the payload. If a marker write fails, the
 operation raises but can leave a readable object of the wrong dtype: nonempty
@@ -742,7 +749,16 @@ and values around 2^53; Julia checks their types, metadata and values as well.
 It also holds 91 narrow, unsigned and complex numeric scalars (every Float16/
 Float32, Int8/16/32, UInt8..UInt64 and ComplexF32/F64 group with endpoints,
 signed zeros, NaN, infinities, subnormals and precision-loss values, plus a
-Python `complex`) that Julia must load with the same type and bits. The
+Python `complex`) that Julia must load with the same type and bits. It holds
+147 represented series objects written from `StoredSeries` containers: both
+Int64 endpoints as dates and as durations for all 32 element frequencies, each
+with its marked empty; annual dates on a daily axis and daily durations on an
+annual axis; Int128/UInt128 endpoints and word-boundary values, the ComplexF16
+bit patterns and the three marked wide empties; three rewrites of read results;
+and three Bool-marked wide carriers with their explicit Boolean conversions.
+Julia checks their metadata, bytes, markers and loaded values, expects its own
+loader's failure on the empty date/duration series, and loads the marked wide
+carriers and their conversions as Boolean series. The
 combined output also records three file-operation outcomes (an Int64 scalar
 overwritten by a string, a deleted scalar, a scalar replaced by a series),
 and an auxiliary `fileops/cpXY-fileops.daec` file is written, reopened with
@@ -795,49 +811,226 @@ publication remains a separate release workflow.
 
 ## Represented series elements
 
-`StoredSeries` keeps a dated anchor, an owning NumPy carrier buffer and a
-`StoredElement` descriptor. Date/duration elements use Int64 codes with their
-own frequency. Int128/UInt128 use low/high UInt64 fields; ComplexF16 uses
-real/imaginary Float16 fields. Reads preserve the stored type and bytes.
-`read_series` returns `TSeries | StoredSeries`; ordinary series are unchanged.
+Julia's dated `TSeries` can hold element types NumPy has no scalar type for:
+`MIT{F}` dates and `Duration{F}` spans (stored as Int64 codes with their own
+element frequency), `Int128`/`UInt128` and `ComplexF16`. `read_series`
+returns a `TSeries` for every ordinary numeric or Boolean element type and a
+`StoredSeries` for these families, so its result type is
+`TSeries | StoredSeries` (exported as `SeriesValue`). A `StoredSeries` keeps
+three things: the dated anchor, an owning NumPy carrier array holding the exact
+stored bytes, and a `StoredElement` descriptor naming the family, the element
+frequency of a date or duration element, and any preserved marker. Dates and
+durations use an `<i8` carrier; Int128/UInt128 use the structured dtype
+`[("lo", "<u8"), ("hi", "<u8")]` (low word first, as stored); ComplexF16 uses
+`[("real", "<f2"), ("imag", "<f2")]`. `write_series` accepts either container.
+
+### Axis frequency versus element frequency
+
+A series has one axis frequency, taken from its first date, and its elements
+carry an independent element frequency. Julia stores both; Python keeps them
+apart: `frequency` and `firstdate`/`lastdate` describe the axis, while
+`element.frequency` describes the stored dates or durations. The two may
+differ, as in daily durations on an annual axis or annual dates on a daily
+axis.
 
 ```python
-from tsecon.dataecon import INT128, StoredSeries, open_dataecon
-from tsecon import mm
+import numpy as np
+from tsecon import MIT, Daily, Duration, Monthly, Yearly, mm
+from tsecon.dataecon import StoredElement, StoredSeries, open_dataecon
 
-wide = StoredSeries.from_list(mm(2024, 11), INT128, [-(2**127), 2**64, 2**127 - 1])
-with open_dataecon("represented.daec", "a") as db:
-    db.write_series("wide", wide)
-    restored = db.read_series("wide")
-assert restored.element == INT128
-assert restored.values.tobytes() == wide.values.tobytes()
-assert restored.tolist() == [-(2**127), 2**64, 2**127 - 1]
+dates = StoredSeries.from_list(
+    mm(2024, 11), StoredElement.date(Monthly()), [mm(2024, 11), mm(2024, 12)]
+)
+spans = StoredSeries(
+    MIT(Yearly(12), 2024), np.array([-5, 0, 7], dtype="<i8"), StoredElement.duration(Daily())
+)
+with open_dataecon("dates-example.daec", "a") as db:
+    db.write_series("dates", dates)
+    db.write_series("spans", spans)
+with open_dataecon("dates-example.daec") as db:
+    restored_dates = db.read_series("dates")
+    restored_spans = db.read_series("spans")
+assert isinstance(restored_dates, StoredSeries)
+assert restored_dates.element == StoredElement.date(Monthly())
+assert restored_dates.values.tobytes().hex() == "ea5e000000000000eb5e000000000000"
+assert restored_dates.tolist() == [mm(2024, 11), mm(2024, 12)]
+assert restored_spans.frequency == Yearly(12)  # the axis
+assert restored_spans.element.frequency == Daily()  # the elements
+assert restored_spans.lastdate == MIT(Yearly(12), 2026)
+assert restored_spans.tolist() == [Duration(Daily(), -5), Duration(Daily(), 0), Duration(Daily(), 7)]
 ```
 
-Construction copies by default. Explicit `copy=False` shares only a compatible
-writable contiguous ndarray; strided or read-only compatible input is copied.
-The live carrier may be edited, and writes revalidate it before deleting any
-existing object. `from_list` and `tolist` are explicit object conversions;
-`to_complex64` widens ComplexF16. Python complex input must have exactly
-representable Float16 finite components: inexact narrowing or overflow raises
-`ValueError`. Float16 pairs or carrier buffers preserve NaN payloads; conversion
-through Python complex does not promise that preservation.
+Element codes are never validated against date windows and never packed:
+every signed 64-bit code round-trips for all 32 element frequencies (`Unit`,
+`Daily`, `BDaily`, `Weekly` with any end day, `Monthly`, `Quarterly`,
+`HalfYearly` and `Yearly` with any anchor), exactly as Julia stores them. Only
+the axis follows the date rules of the earlier sections. `tolist()` returns
+core `MIT` or `Duration` objects with the element frequency, and `from_list`
+accepts only such objects of exactly that frequency.
 
-A Bool marker on a nonempty Int128/UInt128/ComplexF16 carrier stays with its
-stored bytes; `to_bool()` explicitly converts validated zeros/ones to a Boolean
-`TSeries`. Ordinary numeric carriers with that marker return Boolean values.
-Empty frequency-zero numeric payloads with the Bool marker have no recoverable
-width and return empty Boolean series. Wide marked containers cannot be empty.
-Other foreign marker conversions, including Bool on date/duration elements,
-remain unsupported. No marker text is evaluated.
+### 128-bit integers and half-precision complex values
 
-Empty wide carriers require their type marker. Empty date/duration carriers
-also write Julia's exact marker; Python reads marked or unmarked forms, while
-the pinned Julia loader fails on either. Dates/durations inside a series keep
-full Int64 codes, independent of axis bounds. Only canonical element-frequency
-codes are accepted: noncanonical encodings such as 16, 24-31, 64, 128 and 256
-are refused even though Julia loads some as noncanonical frequency types.
+```python
+from tsecon.dataecon import COMPLEXF16, INT128, UINT128
 
-Marker writes remain separate native operations with no rollback. Failure can
-leave unmarked wide values, or an empty wide object reading as the native default
-width. Close may subsequently fail and quarantine the owner; do not retry it.
+wide = StoredSeries.from_list(mm(2024, 11), INT128, [-(2**127), -1, 0, 2**127 - 1])
+assert wide.values.dtype == np.dtype([("lo", "<u8"), ("hi", "<u8")])
+assert wide.values.tobytes()[:16].hex() == "00000000000000000000000000000080"
+words = StoredSeries.from_list(mm(2024, 11), UINT128, [2**64])
+assert words.values.tobytes().hex() == "00000000000000000100000000000000"
+halves = StoredSeries.from_list(
+    mm(2024, 11), COMPLEXF16, [complex(-0.0, 1.25), complex(float("inf"), 0.0), complex(65504.0, -65504.0)]
+)
+assert halves.values["real"].view("<u2").tolist() == [0x8000, 0x7C00, 0x7BFF]
+with open_dataecon("wide-example.daec", "a") as db:
+    db.write_series("wide", wide)
+    db.write_series("halves", halves)
+with open_dataecon("wide-example.daec") as db:
+    restored_wide = db.read_series("wide")
+    restored_halves = db.read_series("halves")
+assert restored_wide == wide
+assert restored_wide.tolist() == [-(2**127), -1, 0, 2**127 - 1]
+assert restored_halves.tolist()[0] == complex(-0.0, 1.25)
+widened = restored_halves.to_complex64()
+assert widened.values.dtype == np.complex64
+assert np.signbit(widened.values[0].real)
+```
+
+Julia stores these values with the same bytes and reloads them as `Int128`,
+`UInt128` and `ComplexF16` series; `2**64` is eight zero bytes followed by a
+one, and `-2**127` is fifteen zero bytes followed by `0x80`. An empty
+Int128/UInt128/ComplexF16 series writes Julia's type marker (`"Int128"` and so
+on), because an unmarked empty payload of those native kinds reads as
+int64/uint64/complex128 on both sides.
+
+**ComplexF16 input is exact.** `from_list` accepts a Python `complex` only
+when both finite components are exactly representable as float16 (largest
+finite value 65504, signed zero preserved); infinities map to float16
+infinities and NaN components to the canonical quiet NaN. Inexact narrowing or
+overflow raises `ValueError`; nothing is rounded. `(np.float16, np.float16)`
+pairs and carrier buffers built with the exact dtype are the bit-preserving
+route, including NaN payloads, which conversion through Python `complex` does
+not preserve.
+
+```python
+for inexact in (complex(0.1, 0.0), complex(70000.0, 0.0), complex(2049.0, 0.0)):
+    try:
+        StoredSeries.from_list(mm(2024, 11), COMPLEXF16, [inexact])
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("inexact ComplexF16 input must be refused")
+payload = np.array([0x7E55], dtype="<u2").view("<f2")[0]  # a NaN with a payload
+bits = StoredSeries.from_list(mm(2024, 11), COMPLEXF16, [(np.float16(1.0), payload)])
+assert bits.values["imag"].view("<u2").tolist() == [0x7E55]
+again = StoredSeries.from_list(mm(2024, 11), COMPLEXF16, bits.tolist())
+assert again.values["imag"].view("<u2").tolist() == [0x7E00]  # canonical quiet NaN
+```
+
+### Storage-preserving operations versus explicit conversions
+
+Reading, editing the carrier in place and writing preserve the stored kind,
+width, element frequency, bytes and marker; rewriting a read result reproduces
+the stored metadata and payload exactly, as Julia's own rewrite does. The
+conversions are explicit and never change what is stored: `tolist()`
+(`MIT`/`Duration`, Python `int` or `complex`), `from_list()` (its strict
+inverse), `to_complex64()` (ComplexF16 widened into a `complex64` `TSeries`)
+and `to_bool()` (below). Nothing converts on read or write.
+
+Construction copies by default, so a container never aliases the caller's
+array. Explicit `copy=False` shares only a one-dimensional, C-contiguous,
+writable ndarray of exactly the carrier dtype; strided or read-only input is
+copied even then, and an array of another dtype is refused rather than
+converted (an int64 array is never silently reinterpreted as dates of the
+wrong kind). `values` is the live carrier: its contents may be edited, but a
+change of its shape, dtype or strides is detected and refused by `validate()`,
+by every query and before any write.
+
+### Wide Bool markers and empty-width ambiguity
+
+A file may carry Julia's `"Bool"` marker on an Int128, UInt128 or ComplexF16
+payload. Julia's writer never produces this, but its loader converts such a
+series to `Bool` when every value is exactly zero or one, and its rewrite
+stores the canonical one-byte encoding. Python preserves the stored width
+instead: the read result is a `StoredSeries` whose descriptor carries the
+marker, its bytes are kept, and every value is validated as exactly zero or
+one (a zero imaginary part and either signed zero count as zero); other
+values raise `ValueError`, as Julia raises `InexactError`. `to_bool()` is the
+explicit conversion; writing its result stores Julia's canonical encoding.
+
+```python
+flags = StoredSeries.from_list(mm(2024, 11), INT128.with_bool_marker(), [1, 0])
+with open_dataecon("wide-bool-example.daec", "a") as db:
+    db.write_series("flags", flags)
+    preserved = db.read_series("flags")
+    db.write_series("flags_bool", preserved.to_bool())  # canonical one-byte Bool
+    restored_bool = db.read_series("flags_bool")
+assert preserved == flags
+assert preserved.element.marker == "Bool"
+assert preserved.tolist() == [1, 0]  # the stored values, not Booleans
+assert preserved.to_bool().values.tolist() == [True, False]
+assert restored_bool.values.dtype == np.bool_
+preserved.values["hi"][1] = 1  # 2**64 is not a Boolean value
+try:
+    preserved.validate()
+except ValueError:
+    pass
+else:
+    raise AssertionError("an invalid marked carrier must be refused")
+assert preserved.element.marker == "Bool"  # nothing is normalized or stripped
+plain = StoredSeries(preserved.firstdate, preserved.values, INT128)  # explicit: drop the marker
+assert plain.tolist() == [1, 2**64]
+```
+
+An **empty** payload with the Bool marker has no width in the file: kind 1, 2
+or 5 with zero bytes is the same record whether it came from Int8, Int128 or
+ComplexF16. Python therefore reads it as an empty Boolean `TSeries` (Julia
+gives `Bool[]`) and never fabricates a wide container; a marked wide
+container cannot be empty, and emptying one in place is refused before any
+write. Rewriting such an empty series stores the canonical empty Bool
+encoding, as Julia does.
+
+### Ownership, overwrite and marker-write failure residue
+
+Reads always return an owning, writable carrier copied out of the native
+payload, whatever `copy` setting the writer used; the result outlives file
+closure. `StoredSeries` holds no native resource.
+
+With `overwrite=True` the live carrier and its marker are validated, the
+bytes are snapshotted and the snapshot is checked against the container's
+descriptor before the existing object is deleted, so a rejected container
+leaves the old object intact. The file lock does not serialize a caller's
+own array mutations: a carrier resized or edited by another thread between
+validation and the snapshot is detected and refused, but no atomic snapshot
+of a concurrently mutated array is promised. Overwrite itself remains
+delete-then-store without rollback, as for every other series.
+
+Marker writes are separate native operations after the store. If the marker
+write fails for an empty Int128/UInt128/ComplexF16 series, the residue is an
+unmarked empty object that reads back as int64, uint64 or complex128; for a
+Bool-marked wide carrier the residue reads as a plain unmarked carrier with
+the same bytes; for an empty date or duration series the residue reads
+identically in Python (the element frequency is stored separately) and stays
+unloadable by the pinned Julia loader either way. Nonempty represented series
+carry no marker and have no residue. The error names the failed marker
+operation; there is no rollback or implicit cleanup delete, and a later close
+may fail and quarantine the owner. Do not retry that close; reopen the file
+to inspect what was stored.
+
+### Compatibility restrictions and remaining unsupported capabilities
+
+- Only canonical element-frequency codes are accepted. Julia's own writer
+  emits only these; the noncanonical encodings 14, 15, 16, 24 through 31, 33,
+  64, 128 and 256 are refused with `TypeError`, although Julia loads some of
+  them as frequency types such as `Weekly{0}`, `Weekly{8}` or `Quarterly{0}`.
+- Empty date and duration series write Julia's exact marker and read with or
+  without it; the pinned Julia loader fails on either form.
+- A Bool marker on date or duration elements, and every other foreign marker
+  (for example `Int64` on Int16 payloads or `MIT{Monthly}` on Int64 payloads),
+  is refused with `TypeError`. Julia converts some of these case by case;
+  supporting them is planned parity work, not an approved exclusion.
+- Int128, UInt128 and ComplexF16 scalars, Unit-frequency series axes and
+  wider-than-64-bit element widths other than these three families remain
+  unsupported.
+- Marker text is never evaluated: markers are compared with a finite table of
+  tokens.

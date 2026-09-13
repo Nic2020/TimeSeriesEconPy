@@ -15,6 +15,11 @@
 # output, kept out of the workflow's single-file "*.daec" discovery directory).
 # Calendar series actions: generate-calendar-series/verify-calendar-series (also checked
 # by verify-wheel): Daily, BDaily and Weekly{1..7} Float64 TSeries.
+# Numeric/Boolean series actions: generate-series-elements/verify-series-elements (also
+# checked by verify-wheel).
+# Represented series actions: generate-represented-elements/verify-represented-elements
+# (also checked by verify-wheel): MIT/Duration elements over all 32 element frequencies,
+# Int128/UInt128, ComplexF16, marked empties, wide Bool markers and reference controls.
 using TimeSeriesEcon
 using Test, SHA, TOML, Pkg, Dates
 
@@ -352,6 +357,256 @@ function series_element_cases()
     return cases
 end
 
+# Represented series elements (also checked by verify-wheel): MIT/Duration elements
+# with their own element frequency over all 32 canonical codes, Int128/UInt128 and
+# ComplexF16 carriers, marked empties and Julia rewrites. The fixture additionally
+# holds reference-only controls written through the C ABI: malformed widths/kinds/
+# frequencies, noncanonical element codes, contradictory markers, the foreign Bool
+# rows, the wide-Bool rows and other foreign markers, each with its recorded Julia
+# load outcome. Actions: generate-represented-elements/verify-represented-elements.
+const represented_anchor = 2024M11   # code 24298
+const represented_codes = Int64[typemin(Int64), -1, 0, typemax(Int64)]
+represented_families = Any[(Unit, 11), (Daily, 12), (BDaily, 13), (Monthly, 32)]
+append!(represented_families, [(Weekly{d}, 16 + d) for d in 1:7])
+append!(represented_families, [(Quarterly{m}, 64 + m) for m in 1:3])
+append!(represented_families, [(HalfYearly{m}, 128 + m) for m in 1:6])
+append!(represented_families, [(Yearly{m}, 256 + m) for m in 1:12])
+# Function barrier: F is chosen at runtime.
+function represented_date_cases!(cases, ::Type{F}, code) where {F}
+    push!(cases, ("rs_mit_$(code)", represented_anchor, collect(reinterpret(MIT{F}, represented_codes))))
+    push!(cases, ("rs_mit_$(code)_empty", represented_anchor, MIT{F}[]))
+    push!(cases, ("rs_dur_$(code)", represented_anchor, collect(reinterpret(Duration{F}, represented_codes))))
+    push!(cases, ("rs_dur_$(code)_empty", represented_anchor, Duration{F}[]))
+end
+represented_int128_words = Int128[Int128(2)^64, -(Int128(2)^64) - 1,
+    Int128(0x0123456789abcdef) << 64 | 0x0fedcba987654321, typemin(Int128) + 1, typemax(Int128) - 1]
+represented_uint128_words = UInt128[UInt128(2)^64, UInt128(2)^127, typemax(UInt128) - 1]
+represented_c16_real = UInt16[0x8000, 0x0001, 0x7e55, 0x7c00, 0xfc00, 0x7bff]
+represented_c16_imag = UInt16[0x3d00, 0x8001, 0x7e00, 0x0000, 0x7bff, 0xfbff]
+represented_complexf16 = [ComplexF16(reinterpret(Float16, r), reinterpret(Float16, i))
+    for (r, i) in zip(represented_c16_real, represented_c16_imag)]
+# Shared with the installed verifier: (name, first date, values). Python writes the
+# same objects from StoredSeries containers into the primary interchange output.
+function represented_cases()
+    cases = Any[]
+    for (F, code) in represented_families
+        represented_date_cases!(cases, F, code)
+    end
+    push!(cases, ("rs_mit_268_on_daily", MIT{Daily}(Date(2024, 11, 1)),
+        MIT{Yearly{12}}[MIT{Yearly{12}}(2024), MIT{Yearly{12}}(2025)]))
+    push!(cases, ("rs_dur_12_on_yearly", MIT{Yearly{12}}(2024),
+        Duration{Daily}[Duration{Daily}(-5), Duration{Daily}(0), Duration{Daily}(7)]))
+    push!(cases, ("rs_int128_endpoints", represented_anchor, Int128[typemin(Int128), -1, 0, typemax(Int128)]))
+    push!(cases, ("rs_int128_words", represented_anchor, represented_int128_words))
+    push!(cases, ("rs_uint128_endpoints", represented_anchor, UInt128[0, UInt128(2)^64, typemax(UInt128)]))
+    push!(cases, ("rs_uint128_words", represented_anchor, represented_uint128_words))
+    push!(cases, ("rs_complexf16_bits", represented_anchor, represented_complexf16))
+    for T in (Int128, UInt128, ComplexF16)
+        push!(cases, ("rs_$(T)_empty", represented_anchor, T[]))
+    end
+    return cases
+end
+# Julia rewrites of loaded represented values must preserve metadata, bytes and markers.
+represented_rewrites = ("rs_mit_32", "rs_int128_words", "rs_complexf16_bits")
+# Wide carriers with a Bool marker: Python writes preserved StoredSeries containers
+# (kinds 1, 2 and 5 at their own width) and their explicit to_bool() conversions;
+# the fixture stores the same bytes through the C ABI. Julia loads both as Bool.
+represented_bool_cases = [("rs_bool_int128", 1, collect(reinterpret(UInt8, Int128[0, 1]))),
+    ("rs_bool_uint128", 2, collect(reinterpret(UInt8, UInt128[0, 1]))),
+    ("rs_bool_complexf16", 5, collect(reinterpret(UInt8, ComplexF16[0, 1])))]
+# Julia's rewrite of a Bool-converted foreign or wide carrier stores the canonical
+# one-byte encoding with the marker; it never preserves the foreign width.
+represented_bool_rewrites = (("fb_int16_01", UInt8[0, 1, 0]), ("fb_float64_01", UInt8[0, 1]),
+    ("wb_uint128_01", UInt8[0, 1]), ("wb_int128_010", UInt8[0, 1, 0]),
+    ("wb_complexf16_01_negzero_imag", UInt8[0, 1]))
+# Reference-only controls: (name, kind, element frequency, payload, length, marker,
+# expected load). The expectation is an exception type for a failed load, otherwise
+# the loaded element type (a Vector of it for an empty payload).
+function represented_controls()
+    i64(v...) = collect(reinterpret(UInt8, Int64[v...]))
+    c16(r, i) = ComplexF16(reinterpret(Float16, UInt16(r)), reinterpret(Float16, UInt16(i)))
+    bytesof(v) = collect(reinterpret(UInt8, v))
+    controls = Any[
+        # Empty date/duration elements: the pinned loader has no zero-width method,
+        # with or without the marker Julia's own writer stores (rs_*_empty rows).
+        ("ctl_mit_32_empty_unmarked", 3, 32, UInt8[], 0, nothing, MethodError),
+        ("ctl_dur_32_empty_unmarked", 1, 32, UInt8[], 0, nothing, MethodError),
+        # Element widths and kinds Julia never writes with an element frequency.
+        ("ctl_dur_32_width4", 1, 32, bytesof(Int32[1, 2]), 2, nothing, MethodError),
+        ("ctl_mit_32_width16", 3, 32, bytesof(Int128[1, 2]), 2, nothing, MethodError),
+        ("ctl_unsigned_elfreq_32", 2, 32, bytesof(UInt64[1, 2]), 2, nothing, MethodError),
+        ("ctl_float_elfreq_32", 4, 32, bytesof(Float64[1, 2]), 2, nothing, MethodError),
+        ("ctl_complex_elfreq_32", 5, 32, bytesof(ComplexF64[1, 2]), 2, nothing, MethodError),
+        # A matching marker on nonempty dates is an identity conversion; contradictory
+        # markers convert or fail case by case through Julia's generic loader.
+        ("ctl_mit_32_marked_nonempty", 3, 32, i64(24298, 24299), 2, "MIT{Monthly}", MIT{Monthly}),
+        ("ctl_mit_32_marker_quarterly", 3, 32, i64(0, 1), 2, "MIT{Quarterly{3}}", MethodError),
+        ("ctl_mit_32_marker_int64", 3, 32, i64(0, 1), 2, "Int64", Int64),
+        ("ctl_mit_32_marker_float64", 3, 32, i64(0, 1), 2, "Float64", Float64),
+        ("ctl_mit_32_marker_bool", 3, 32, i64(0, 1), 2, "Bool", Bool),
+        ("ctl_dur_32_marker_bool", 1, 32, i64(0, 1), 2, "Bool", Bool),
+        ("ctl_dur_32_marker_int64", 1, 32, i64(0, 1), 2, "Int64", Int64),
+        ("ctl_int128_marker_uint128", 1, 0, bytesof(Int128[1]), 1, "UInt128", UInt128),
+        ("ctl_int128_marker_float64", 1, 0, bytesof(Int128[1]), 1, "Float64", Float64),
+        ("ctl_uint128_marker_int128", 2, 0, bytesof(UInt128[1]), 1, "Int128", Int128),
+        ("ctl_complexf16_marker_float16", 5, 0, bytesof(ComplexF16[1]), 1, "Float16", Float16),
+        # Empty payloads whose wide marker contradicts the native kind.
+        ("ctl_kind1_empty_marker_uint128", 1, 0, UInt8[], 0, "UInt128", UInt128),
+        ("ctl_kind1_empty_marker_complexf16", 1, 0, UInt8[], 0, "ComplexF16", ComplexF16),
+        ("ctl_kind5_empty_marker_int128", 5, 0, UInt8[], 0, "Int128", Int128),
+    ]
+    # Noncanonical element frequency codes with valid Int64 codes: 14, 15 and the
+    # monthly alias 33 fail in Julia (the element loader dispatches on the enum value,
+    # unlike the scalar path); the weekly aliases 16 and 24..31 and the bare family
+    # codes 64/128/256 load as frequency types Julia's writer never emits.
+    for code in (14, 15, 33)
+        push!(controls, ("ctl_mit_elfreq_$(code)", 3, code, i64(0, 1), 2, nothing, ErrorException))
+    end
+    push!(controls, ("ctl_dur_elfreq_14", 1, 14, i64(0, 1), 2, nothing, ErrorException))
+    noncanonical = Any[(16, Weekly{0}), (64, Quarterly{0}), (128, HalfYearly{0}), (256, Yearly{0})]
+    append!(noncanonical, [(16 + d, Weekly{d}) for d in 8:15])
+    for (code, F) in noncanonical
+        push!(controls, ("ctl_mit_elfreq_$(code)", 3, code, i64(0, 1), 2, nothing, MIT{F}))
+    end
+    for (code, F) in ((16, Weekly{0}), (24, Weekly{8}), (64, Quarterly{0}))
+        push!(controls, ("ctl_dur_elfreq_$(code)", 1, code, i64(0, 1), 2, nothing, Duration{F}))
+    end
+    # Foreign Bool markers on ordinary numeric carriers: exact 0/1 values load as
+    # Bool (signed zero included), anything else is an InexactError, empties are Bool[].
+    foreign_bool = Any[
+        ("fb_int16_01", 1, bytesof(Int16[0, 1, 0]), 3, Bool),
+        ("fb_int16_2", 1, bytesof(Int16[2]), 1, InexactError),
+        ("fb_int16_neg1", 1, bytesof(Int16[-1]), 1, InexactError),
+        ("fb_int64_01", 1, bytesof(Int64[0, 1]), 2, Bool),
+        ("fb_int128_01", 1, bytesof(Int128[1, 0]), 2, Bool),
+        ("fb_uint8_01", 2, UInt8[0, 1, 1], 3, Bool),
+        ("fb_uint8_2", 2, UInt8[2], 1, InexactError),
+        ("fb_uint64_1", 2, bytesof(UInt64[1]), 1, Bool),
+        ("fb_float16_01", 4, bytesof(Float16[0, 1]), 2, Bool),
+        ("fb_float32_half", 4, bytesof(Float32[0.5]), 1, InexactError),
+        ("fb_float64_01", 4, bytesof(Float64[0.0, 1.0]), 2, Bool),
+        ("fb_float64_negzero", 4, bytesof(Float64[-0.0]), 1, Bool),
+        ("fb_float64_nan", 4, bytesof(Float64[NaN]), 1, InexactError),
+        ("fb_float64_two", 4, bytesof(Float64[2.0]), 1, InexactError),
+        ("fb_complexf64_10", 5, bytesof(ComplexF64[1 + 0im, 0 + 0im]), 2, Bool),
+        ("fb_complexf64_0i", 5, bytesof(ComplexF64[0 + 1im]), 1, InexactError),
+        ("fb_complexf16_1", 5, bytesof(ComplexF16[1 + 0im]), 1, Bool),
+        ("fb_int16_empty", 1, UInt8[], 0, Bool),
+        ("fb_uint8_empty", 2, UInt8[], 0, Bool),
+        ("fb_float64_empty", 4, UInt8[], 0, Bool),
+        ("fb_complex_empty", 5, UInt8[], 0, Bool),
+        # Wide carriers with a Bool marker: the same 0/1 rule at 16 or 4 bytes.
+        ("wb_uint128_01", 2, bytesof(UInt128[0, 1]), 2, Bool),
+        ("wb_uint128_2", 2, bytesof(UInt128[2]), 1, InexactError),
+        ("wb_uint128_hiword", 2, bytesof(UInt128[UInt128(2)^64]), 1, InexactError),
+        ("wb_uint128_max", 2, bytesof(UInt128[typemax(UInt128)]), 1, InexactError),
+        ("wb_int128_hiword", 1, bytesof(Int128[Int128(2)^64]), 1, InexactError),
+        ("wb_int128_neg1", 1, bytesof(Int128[-1]), 1, InexactError),
+        ("wb_int128_010", 1, bytesof(Int128[0, 1, 0]), 3, Bool),
+        ("wb_complexf16_negzero", 5, bytesof([c16(0x8000, 0x0000)]), 1, Bool),
+        ("wb_complexf16_01_negzero_imag", 5, bytesof([c16(0x0000, 0x0000), c16(0x3c00, 0x8000)]), 2, Bool),
+        ("wb_complexf16_imag_one", 5, bytesof([c16(0x0000, 0x3c00)]), 1, InexactError),
+        ("wb_complexf16_nan", 5, bytesof([c16(0x7e00, 0x0000)]), 1, InexactError),
+        ("wb_complexf16_nan_payload_imag", 5, bytesof([c16(0x3c00, 0x7e55)]), 1, InexactError),
+        ("wb_complexf16_inf", 5, bytesof([c16(0x7c00, 0x0000)]), 1, InexactError),
+        ("wb_complexf16_two", 5, bytesof([c16(0x4000, 0x0000)]), 1, InexactError),
+        ("wb_complexf16_subnormal", 5, bytesof([c16(0x0001, 0x0000)]), 1, InexactError),
+        # Empty Bool-marked payloads of kinds 1, 2 and 5 carry no width: all give Bool[].
+        ("wb_kind1_empty", 1, UInt8[], 0, Bool),
+        ("wb_kind2_empty", 2, UInt8[], 0, Bool),
+        ("wb_kind5_empty", 5, UInt8[], 0, Bool),
+    ]
+    for (name, kind, payload, len, expect) in foreign_bool
+        push!(controls, (name, kind, 0, payload, len, "Bool", expect))
+    end
+    # Other foreign markers Julia's generic loader honours, fails on, or cannot resolve.
+    foreign_markers = Any[
+        ("fm_int16_as_int64", 1, bytesof(Int16[-1, 7]), 2, "Int64", Int64),
+        ("fm_int64_as_float64", 1, bytesof(Int64[3]), 1, "Float64", Float64),
+        ("fm_float64_as_int8", 4, bytesof(Float64[3.0, 2.5]), 2, "Int8", InexactError),
+        ("fm_int64_as_int128", 1, bytesof(Int64[3]), 1, "Int128", Int128),
+        ("fm_int64_as_complexf16", 1, bytesof(Int64[3]), 1, "ComplexF16", ComplexF16),
+        ("fm_int64_as_mit", 1, bytesof(Int64[24298]), 1, "MIT{Monthly}", MIT{Monthly}),
+        ("fm_int64_unknown", 1, bytesof(Int64[3]), 1, "NotAType", UndefVarError),
+    ]
+    for (name, kind, payload, len, marker, expect) in foreign_markers
+        push!(controls, (name, kind, 0, payload, len, marker, expect))
+    end
+    return controls
+end
+function store_native_element_series!(db, name, kind, elfreq, payload::Vector{UInt8}, len, marker)
+    axis = Ref{C.axis_id_t}()
+    id = Ref{C.obj_id_t}()
+    @test C.de_axis_range(db, len, C.freq_monthly, Int(represented_anchor), axis) == 0
+    GC.@preserve payload begin
+        ptr = isempty(payload) ? C_NULL : pointer(payload)
+        @test C.de_store_tseries(db, DE.root_id, name, C.type_tseries, C.type_t(kind),
+            C.frequency_t(elfreq), axis[], length(payload), ptr, id) == 0
+    end
+    marker === nothing || DE.set_attribute(db, id[], "jeltype", marker)
+    return id[]
+end
+function raw_series(db, id)
+    arr = Ref{C.tseries_t}()
+    @test C.de_load_tseries(db, id, arr) == 0
+    ts = arr[]
+    metadata = Int.((ts.object.obj_class, ts.object.obj_type, ts.eltype, ts.elfreq,
+        ts.axis.ax_type, ts.axis.length, ts.axis.frequency, ts.axis.first, ts.nbytes))
+    bytes = ts.nbytes == 0 ? UInt8[] : copy(unsafe_wrap(Vector{UInt8}, Ptr{UInt8}(ts.value), ts.nbytes))
+    attrs = Dict(string(k) => string(v) for (k, v) in DE.get_all_attributes(db, id))
+    return metadata, bytes, attrs
+end
+function verify_represented_case(db, name, first, values)
+    T = eltype(values)
+    id = DE.find_object(db, DE.root_id, name)
+    metadata, bytes, attrs = raw_series(db, id)
+    element = DE.I._eltypefreq(T)
+    @test metadata == (2, 12, Int(element.eltype), Int(element.elfreq), 1, length(values),
+        Int(DE.I._to_de_scalar_freq(frequencyof(first))), Int(first), sizeof(values))
+    @test bytes == collect(reinterpret(UInt8, values))
+    # Every writer marks an empty series with the exact type token; nonempty
+    # represented series carry no marker.
+    @test attrs == (isempty(values) ? Dict("jeltype" => string(T)) : Dict{String,String}())
+    if isempty(values) && element.elfreq != C.freq_none
+        # The pinned loader has no zero-width method for date/duration elements.
+        @test_throws MethodError DE.load_tseries(db, id)
+    elseif isempty(values)
+        loaded = DE.load_tseries(db, id)
+        @test loaded isa Vector{T} && isempty(loaded)
+    else
+        loaded = DE.load_tseries(db, id)
+        @test loaded isa TSeries{frequencyof(first),T}
+        @test firstdate(loaded) == first
+        @test collect(reinterpret(UInt8, loaded.values)) == bytes
+    end
+end
+function verify_represented_control(db, name, kind, elfreq, payload, len, marker, expect)
+    id = DE.find_object(db, DE.root_id, name)
+    metadata, bytes, attrs = raw_series(db, id)
+    @test metadata == (2, 12, kind, elfreq, 1, len, 32, Int(represented_anchor), length(payload))
+    @test bytes == payload
+    @test attrs == (marker === nothing ? Dict{String,String}() : Dict("jeltype" => marker))
+    if expect <: Exception
+        @test_throws expect DE.load_tseries(db, id)
+    elseif len == 0
+        loaded = DE.load_tseries(db, id)
+        @test loaded isa Vector{expect} && isempty(loaded)
+    else
+        loaded = DE.load_tseries(db, id)
+        @test loaded isa TSeries{Monthly,expect}
+        @test firstdate(loaded) == represented_anchor
+    end
+end
+function verify_canonical_bool(db, name, expected::Vector{UInt8})
+    id = DE.find_object(db, DE.root_id, name)
+    metadata, bytes, attrs = raw_series(db, id)
+    @test metadata == (2, 12, 1, 0, 1, length(expected), 32, Int(represented_anchor), length(expected))
+    @test bytes == expected
+    @test attrs == Dict("jeltype" => "Bool")
+    loaded = DE.load_tseries(db, id)
+    @test loaded isa TSeries{Monthly,Bool} && loaded.values == Bool.(expected)
+end
+
 if action == "generate-series-elements"
     ispath(filename) && error("Use a fresh fixture path")
     DE.opendaec(filename; readonly=false) do db
@@ -610,8 +865,40 @@ elseif action == "generate-calendar-series"
         end
         DE.store_tseries(db, DE.root_id, "ctl_empty_float32_daily", TSeries(daily("2024-01-15"), Float32[]))
     end
-elseif !(action in ("verify", "verify-empty", "verify-scalars", "verify-quarterly", "verify-annual", "verify-halfyearly", "verify-int64", "verify-strings", "verify-dates", "verify-calendar", "verify-widths", "verify-fileops", "verify-calendar-series", "verify-series-elements", "generate-series-elements", "verify-wheel"))
-    error("Unknown action; use generate/verify, generate-empty/verify-empty, generate-scalars/verify-scalars, generate-quarterly/verify-quarterly, generate-annual/verify-annual, generate-halfyearly/verify-halfyearly, generate-int64/verify-int64, generate-strings/verify-strings, generate-dates/verify-dates, generate-calendar/verify-calendar, generate-widths/verify-widths, generate-fileops/verify-fileops, generate-calendar-series/verify-calendar-series or verify-wheel.")
+elseif action == "generate-represented-elements"
+    ispath(filename) && error("Output already exists; use a fresh fixture path.")
+    DE.opendaec(filename; write=true) do db
+        for (name, first, values) in represented_cases()
+            DE.store_tseries(db, DE.root_id, name, TSeries(first, values))
+        end
+        for name in represented_rewrites
+            DE.store_tseries(db, DE.root_id, "$(name)_rewrite", DE.load_tseries(db, DE.find_object(db, DE.root_id, name)))
+        end
+        for (name, kind, elfreq, payload, len, marker, _) in represented_controls()
+            store_native_element_series!(db, name, kind, elfreq, payload, len, marker)
+        end
+        for (name, kind, payload) in represented_bool_cases
+            store_native_element_series!(db, name, kind, 0, payload, 2, "Bool")
+        end
+        for (name, _) in represented_bool_rewrites
+            DE.store_tseries(db, DE.root_id, "$(name)_rewrite", DE.load_tseries(db, DE.find_object(db, DE.root_id, name)))
+        end
+        for (name, _, _) in represented_bool_cases
+            DE.store_tseries(db, DE.root_id, "$(name)_converted", DE.load_tseries(db, DE.find_object(db, DE.root_id, name)))
+        end
+        # A date element type without an element frequency is refused by the native
+        # library before any object is created (DE_BAD_ELTYPE_DATE).
+        axis = Ref{C.axis_id_t}()
+        id = Ref{C.obj_id_t}()
+        @test C.de_axis_range(db, 2, C.freq_monthly, Int(represented_anchor), axis) == 0
+        payload = collect(reinterpret(UInt8, Int64[1, 2]))
+        rc = GC.@preserve payload C.de_store_tseries(db, DE.root_id, "ctl_date_elfreq_none",
+            C.type_tseries, C.type_date, C.freq_none, axis[], length(payload), pointer(payload), id)
+        @test rc == Int(C.DE_BAD_ELTYPE_DATE)
+        C.de_clear_error()
+    end
+elseif !(action in ("verify", "verify-empty", "verify-scalars", "verify-quarterly", "verify-annual", "verify-halfyearly", "verify-int64", "verify-strings", "verify-dates", "verify-calendar", "verify-widths", "verify-fileops", "verify-calendar-series", "verify-series-elements", "generate-series-elements", "verify-represented-elements", "verify-wheel"))
+    error("Unknown action; use generate/verify, generate-empty/verify-empty, generate-scalars/verify-scalars, generate-quarterly/verify-quarterly, generate-annual/verify-annual, generate-halfyearly/verify-halfyearly, generate-int64/verify-int64, generate-strings/verify-strings, generate-dates/verify-dates, generate-calendar/verify-calendar, generate-widths/verify-widths, generate-fileops/verify-fileops, generate-calendar-series/verify-calendar-series, generate-series-elements/verify-series-elements, generate-represented-elements/verify-represented-elements or verify-wheel.")
 end
 
 if action in ("generate", "verify", "verify-wheel")
@@ -1163,6 +1450,34 @@ if action in ("generate-series-elements", "verify-series-elements", "verify-whee
     end
 end
 
+if action in ("generate-represented-elements", "verify-represented-elements", "verify-wheel")
+    @testset "DataEcon represented series interchange" begin
+        reference_fixture = action != "verify-wheel"
+        DE.opendaec(filename) do db
+            for (name, first, values) in represented_cases()
+                verify_represented_case(db, name, first, values)
+            end
+            for name in represented_rewrites
+                original = raw_series(db, DE.find_object(db, DE.root_id, name))
+                @test raw_series(db, DE.find_object(db, DE.root_id, "$(name)_rewrite")) == original
+            end
+            for (name, kind, payload) in represented_bool_cases
+                verify_represented_control(db, name, kind, 0, payload, 2, "Bool", Bool)
+                verify_canonical_bool(db, "$(name)_converted", UInt8[0, 1])
+            end
+            if reference_fixture
+                for (name, kind, elfreq, payload, len, marker, expect) in represented_controls()
+                    verify_represented_control(db, name, kind, elfreq, payload, len, marker, expect)
+                end
+                for (name, expected) in represented_bool_rewrites
+                    verify_canonical_bool(db, "$(name)_rewrite", expected)
+                end
+                @test DE.find_object(db, DE.root_id, "ctl_date_elfreq_none", false) === missing
+            end
+        end
+    end
+end
+
 if action == "verify-wheel"
     @testset "DataEcon Boolean scalar interchange" begin
         DE.opendaec(filename) do db
@@ -1181,7 +1496,7 @@ if action == "verify-wheel"
     end
 end
 
-if action in ("generate", "generate-empty", "generate-scalars", "generate-quarterly", "generate-annual", "generate-halfyearly", "generate-int64", "generate-strings", "generate-dates", "generate-calendar", "generate-widths", "generate-fileops", "generate-calendar-series", "generate-series-elements")
+if action in ("generate", "generate-empty", "generate-scalars", "generate-quarterly", "generate-annual", "generate-halfyearly", "generate-int64", "generate-strings", "generate-dates", "generate-calendar", "generate-widths", "generate-fileops", "generate-calendar-series", "generate-series-elements", "generate-represented-elements")
     layout = Dict{String,Any}(
         "enums" => sizeof.([C.class_t, C.type_t, C.frequency_t, C.axis_type_t]),
     )

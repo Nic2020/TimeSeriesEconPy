@@ -71,6 +71,26 @@ def carrier(hex_payload, dtype):
     return np.frombuffer(bytes.fromhex(hex_payload), dtype=dtype).copy()
 
 
+def reassign_in_place(array, attribute, value):
+    """Mutate a live array through a NumPy attribute setter and require the mutation.
+
+    NumPy 2.5 deprecates assigning ``shape``, ``dtype`` and ``strides`` in place;
+    the deprecation is recorded locally (never suppressed globally) and any other
+    warning category fails the test. Once a setter is removed there is no in-place
+    route left to exercise, so the test is skipped rather than passed vacuously.
+    """
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        try:
+            setattr(array, attribute, value)
+        except AttributeError:
+            pytest.skip(f"NumPy removed in-place `{attribute}` assignment; no mutation to test.")
+    assert all(issubclass(w.category, DeprecationWarning) for w in caught), [
+        str(w.message) for w in caught
+    ]
+    assert getattr(array, attribute) == value
+
+
 def bits(array, field):
     return array[field].view("<u2").tolist()
 
@@ -259,7 +279,9 @@ class TestAxis:
 class TestRevalidation:
     def test_in_place_shape_change_is_detected(self):
         series = StoredSeries(ANCHOR, np.zeros(4, dtype=CODE_DTYPE), StoredElement.date(Monthly()))
-        series.values.shape = (2, 2)
+        # resize is the supported in-place reshape; the setter is deprecated in NumPy 2.5.
+        series.values.resize((2, 2), refcheck=False)
+        assert series.values.shape == (2, 2)
         with pytest.raises(ValueError, match="one-dimensional"):
             len(series)
         with pytest.raises(ValueError):
@@ -269,7 +291,8 @@ class TestRevalidation:
 
     def test_in_place_dtype_change_is_detected(self):
         series = StoredSeries(ANCHOR, carrier(INT128_ENDPOINTS_HEX, INT128_DTYPE), INT128)
-        series.values.dtype = np.dtype([("a", "<u8"), ("b", "<u8")])
+        # No non-deprecated in-place dtype mutation exists; see reassign_in_place.
+        reassign_in_place(series.values, "dtype", np.dtype([("a", "<u8"), ("b", "<u8")]))
         with pytest.raises(TypeError, match="carrier dtype"):
             series.tolist()
         with pytest.raises(TypeError):
@@ -280,10 +303,7 @@ class TestRevalidation:
 
     def test_in_place_stride_change_is_detected(self):
         series = StoredSeries.from_list(ANCHOR, INT128, [0, 1])
-        with warnings.catch_warnings():
-            # NumPy 2.x deprecates assigning strides; the mutation still happens.
-            warnings.simplefilter("ignore", DeprecationWarning)
-            series.values.strides = (0,)
+        reassign_in_place(series.values, "strides", (0,))
         assert not series.values.flags.c_contiguous
         with pytest.raises(ValueError, match="C-contiguous"):
             series.validate()

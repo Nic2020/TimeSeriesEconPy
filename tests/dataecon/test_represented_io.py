@@ -6,22 +6,25 @@ import sqlite3
 import struct
 import subprocess
 import sys
+import warnings
 from contextlib import closing
 from pathlib import Path
 
 import numpy as np
 import pytest
 
+import tsecon.dataecon._codec as codec
 from tsecon import MIT, TSeries, mm
 from tsecon.dataecon import (
     COMPLEXF16,
     INT128,
     UINT128,
+    DataEconError,
     StoredElement,
     StoredSeries,
     open_dataecon,
 )
-from tsecon.dataecon._codec import decode_series, encode_series, validate_metadata
+from tsecon.dataecon._codec import MAX_BYTES, decode_series, encode_series, validate_metadata
 from tsecon.frequencies import BDaily, Daily, HalfYearly, Monthly, Quarterly, Unit, Weekly, Yearly
 
 NATIVE = pytest.mark.skipif(
@@ -263,3 +266,237 @@ def test_empty_wide_marker_failure_residue_and_close(tmp_path, kind, dtype):
         timeout=120,
     )
     assert json.loads(run.stdout) == [19, dtype, 0, 19, True]
+
+
+# ---- Ownership, mutation, the snapshot guard, capacity and axis families ----
+
+AXES = [f for f in FREQUENCIES if f != Unit()]
+
+
+def absent(db, name):
+    with pytest.raises(DataEconError) as info:
+        db.read_series(name)
+    return info.value.code == -989
+
+
+@NATIVE
+@pytest.mark.parametrize("copy", [True, False])
+def test_read_results_own_their_storage_after_close_regardless_of_copy(tmp_path, copy):
+    source = np.array([-(1 << 63), 7], dtype="<i8")
+    series = StoredSeries(mm(2024, 11), source, StoredElement.duration(Weekly(7)), copy=copy)
+    assert np.shares_memory(series.values, source) is not copy
+    with open_dataecon(tmp_path / "own.daec", "a") as db:
+        db.write_series("s", series)
+        result = db.read_series("s")
+    source[...] = 0
+    series.values[...] = 1
+    assert result.values.tolist() == [-(1 << 63), 7]
+    assert result.values.flags.owndata
+    assert result.values.flags.writeable
+    assert result.values.flags.c_contiguous
+    assert not np.shares_memory(result.values, series.values)
+    result.values[0] = 3  # writable after the file is closed
+
+
+@NATIVE
+def test_edit_in_place_rewrite_and_reread(tmp_path):
+    path = tmp_path / "edit.daec"
+    with open_dataecon(path, "a") as db:
+        db.write_series("s", StoredSeries.from_list(mm(2024, 11), INT128, [1, 2, 3]))
+        edited = db.read_series("s")
+        edited.values["hi"][1] = 1  # 2 + 2**64, without any conversion
+        edited.values["lo"][2] = (1 << 64) - 1
+        db.write_series("s", edited, overwrite=True)
+    with open_dataecon(path) as db:
+        again = db.read_series("s")
+    assert again == edited
+    assert again.tolist() == [1, 2 + (1 << 64), (1 << 64) - 1]
+
+
+@NATIVE
+@pytest.mark.parametrize("mutation", ["shape", "dtype", "strides"])
+def test_in_place_shape_dtype_or_layout_change_is_refused_before_any_native_call(
+    tmp_path, mutation
+):
+    series = StoredSeries.from_list(mm(2024, 11), INT128, [1, 2, 3, 4])
+    if mutation == "shape":
+        series.values.resize((2, 2), refcheck=False)
+        expected = ValueError
+    elif mutation == "strides":
+        expected = ValueError
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            try:
+                series.values.strides = (0,)
+            except AttributeError:
+                pytest.skip("NumPy removed in-place strides assignment.")
+        assert all(issubclass(w.category, DeprecationWarning) for w in caught)
+    else:
+        expected = TypeError
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            try:
+                series.values.dtype = np.dtype([("a", "<u8"), ("b", "<u8")])
+            except AttributeError:
+                pytest.skip("NumPy removed in-place dtype assignment.")
+        assert all(issubclass(w.category, DeprecationWarning) for w in caught)
+    with open_dataecon(tmp_path / "mutated.daec", "a") as db:
+        db.write_scalar("keep", 1)
+        with pytest.raises(expected):
+            db.write_series("s", series)
+        with pytest.raises(expected):
+            db.write_series("keep", series, overwrite=True)
+        assert absent(db, "s")
+        assert db.read_scalar("keep") == 1
+
+
+@NATIVE
+def test_wrong_dtype_containers_are_refused_before_any_native_call(tmp_path):
+    with open_dataecon(tmp_path / "dtype.daec", "a") as db:
+        with pytest.raises(TypeError):
+            db.write_series("s", TSeries(mm(2024, 11), np.zeros(2, dtype=INT128.dtype)))
+        with pytest.raises(TypeError):
+            db.write_series("s", TSeries(mm(2024, 11), np.zeros(2, dtype=COMPLEXF16.dtype)))
+        with pytest.raises(TypeError):
+            db.write_series("s", TSeries(mm(2024, 11), np.zeros(2, dtype=object)))
+        with pytest.raises(TypeError):
+            StoredSeries(mm(2024, 11), np.zeros(2, dtype="<i8"), INT128)
+        assert absent(db, "s")
+
+
+class EmptiedAfterValidation(StoredSeries):
+    """Deterministic interleaving: the carrier is emptied right after validate()."""
+
+    __slots__ = ()
+
+    def validate(self):
+        super().validate()
+        self.values.resize((0,), refcheck=False)
+
+
+class CorruptedAfterValidation(StoredSeries):
+    """Deterministic interleaving: a marked carrier turns invalid after validate()."""
+
+    __slots__ = ()
+
+    def validate(self):
+        super().validate()
+        if self.element.kind == "complexf16":
+            self.values["imag"][0] = np.float16(1)
+        else:
+            self.values["hi"][0] = 1
+
+
+def marked_items(element):
+    return [0j, 1 + 0j] if element == COMPLEXF16 else [0, 1]
+
+
+@NATIVE
+@pytest.mark.parametrize("element", WIDE)
+def test_carrier_emptied_between_validation_and_snapshot_is_refused(tmp_path, element):
+    # Without a descriptor-aware recheck an emptied "Bool"-marked wide carrier
+    # would resolve to the ambiguous empty Boolean encoding and lose its width.
+    series = EmptiedAfterValidation.from_list(
+        mm(2024, 11), element.with_bool_marker(), marked_items(element)
+    )
+    with pytest.raises(ValueError, match="nothing was written"):
+        encode_series(series)
+    assert len(series) == 0
+    assert series.element.marker == "Bool"
+    with open_dataecon(tmp_path / "race.daec", "a") as db:
+        db.write_scalar("keep", 1)
+        series = EmptiedAfterValidation.from_list(
+            mm(2024, 11), element.with_bool_marker(), marked_items(element)
+        )
+        with pytest.raises(ValueError, match="nothing was written"):
+            db.write_series("keep", series, overwrite=True)
+        assert db.read_scalar("keep") == 1
+    # An unmarked carrier emptied at the same point is a valid empty series of
+    # its own width: the descriptor still names the element and its marker.
+    plain = EmptiedAfterValidation.from_list(mm(2024, 11), element, marked_items(element))
+    encoded = encode_series(plain)
+    assert (encoded.length, encoded.marker, encoded.payload) == (0, element.julia_name, b"")
+
+
+@NATIVE
+@pytest.mark.parametrize("element", WIDE)
+def test_carrier_corrupted_between_validation_and_snapshot_is_refused(element):
+    series = CorruptedAfterValidation.from_list(
+        mm(2024, 11), element.with_bool_marker(), marked_items(element)
+    )
+    with pytest.raises(ValueError, match="exact zeros and ones"):
+        encode_series(series)
+
+
+@pytest.mark.parametrize("element", WIDE)
+def test_carrier_resized_between_length_capture_and_snapshot_is_refused(monkeypatch, element):
+    series = StoredSeries.from_list(mm(2024, 11), element.with_bool_marker(), marked_items(element))
+    original = codec.validate_metadata
+
+    def resize_then_validate(metadata):
+        series.values.resize((0,), refcheck=False)
+        return original(metadata)
+
+    monkeypatch.setattr(codec, "validate_metadata", resize_then_validate)
+    with pytest.raises(ValueError, match="changed size"):
+        encode_series(series)
+    monkeypatch.setattr(codec, "validate_metadata", original)
+    grown = StoredSeries.from_list(mm(2024, 11), element.with_bool_marker(), marked_items(element))
+
+    def grow_then_validate(metadata):
+        grown.values.resize((3,), refcheck=False)
+        return original(metadata)
+
+    monkeypatch.setattr(codec, "validate_metadata", grow_then_validate)
+    with pytest.raises(ValueError, match="changed size"):
+        encode_series(grown)
+
+
+@NATIVE
+def test_invalid_marked_mutation_keeps_the_original_on_overwrite(tmp_path):
+    with open_dataecon(tmp_path / "keep.daec", "a") as db:
+        db.write_series("keep", StoredSeries.from_list(mm(2024, 11), UINT128, [5]))
+        source = StoredSeries.from_list(mm(2024, 11), UINT128.with_bool_marker(), [0, 1])
+        source.values["lo"][1] = 2
+        with pytest.raises(ValueError, match="observation 1"):
+            db.write_series("keep", source, overwrite=True)
+        assert db.read_series("keep").tolist() == [5]
+        assert source.element.marker == "Bool"
+        assert source.tolist() == [0, 2]
+
+
+@pytest.mark.parametrize(
+    ("element", "frequency", "width"),
+    [(1, 0, 16), (2, 0, 16), (5, 0, 4), (3, 32, 8), (1, 12, 8)],
+)
+def test_capacity_per_represented_width_without_allocation(element, frequency, width):
+    length = MAX_BYTES // width
+    validate_metadata((2, 12, element, frequency, 1, length, 12, 11979954, MAX_BYTES))
+    with pytest.raises(ValueError):
+        validate_metadata(
+            (2, 12, element, frequency, 1, length + 1, 12, 11979954, MAX_BYTES + width)
+        )
+    with pytest.raises(ValueError):
+        validate_metadata((2, 12, element, frequency, 1, length, 12, 11979954, MAX_BYTES - 1))
+    with pytest.raises(ValueError):
+        validate_metadata((2, 12, element, frequency, 1, 2, 268, 2**31 - 1, 2 * width))
+
+
+@NATIVE
+@pytest.mark.parametrize("frequency", AXES)
+@pytest.mark.parametrize("element", [StoredElement.date(Quarterly(2)), INT128])
+def test_represented_elements_over_every_axis_family(tmp_path, frequency, element):
+    first = MIT(frequency, 100)
+    if element.is_wide:
+        values = np.frombuffer(bytes.fromhex("ff" * 16 + "00" * 16), dtype=element.dtype).copy()
+    else:
+        values = np.array([-(1 << 63), 8099], dtype="<i8")
+    with open_dataecon(tmp_path / "axis.daec", "a") as db:
+        for empty in (False, True):
+            source = StoredSeries(first, values[:0] if empty else values, element)
+            db.write_series("s", source, overwrite=True)
+            actual = db.read_series("s")
+            assert actual == source
+            assert actual.firstdate == first
+            assert actual.frequency == frequency
+            assert actual.lastdate == MIT(frequency, 100 + len(source) - 1)

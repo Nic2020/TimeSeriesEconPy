@@ -557,15 +557,25 @@ def encode_series(series: SeriesValue) -> SeriesPayload:
     else:
         element, marker, values = _numeric_series_values(series)
         element_frequency = 0
-    length, first = len(values), series.firstdate.value
-    validate_metadata((2, 12, element, element_frequency, 1, length, code, first, values.nbytes))
+    length, first, nbytes = len(values), series.firstdate.value, values.nbytes
+    validate_metadata((2, 12, element, element_frequency, 1, length, code, first, nbytes))
     # Capacity/date checks precede the Boolean normalization allocation too.
     if values.dtype.kind == "b":
         values = values.astype(np.int8)
     payload = values.tobytes(order="C")
-    # Recheck the owned payload's interpretation. This is not an atomic snapshot
-    # of an array concurrently resized or edited by its caller.
-    validate_series_payload(element, element_frequency, length, payload, marker)
+    # Recheck the owned snapshot against the metadata captured above. The file
+    # lock does not serialize a caller's own array mutations: an array resized
+    # or edited by another thread between validation and the snapshot is
+    # detected here and refused, but no atomic snapshot is promised.
+    if len(payload) != nbytes:
+        raise ValueError("The series values changed size during the snapshot; nothing was written.")
+    resolved = validate_series_payload(element, element_frequency, length, payload, marker)
+    if isinstance(series, StoredSeries) and resolved != series.element:
+        # An emptied "Bool"-marked wide carrier would otherwise resolve to the
+        # ambiguous empty Boolean encoding and lose its stored width.
+        raise ValueError(
+            "The snapshot no longer matches the container's stored element; nothing was written."
+        )
     return SeriesPayload(code, first, payload, element, element_frequency, length, marker)
 
 

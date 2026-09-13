@@ -23,6 +23,9 @@
 # Foreign marker actions: generate-foreign-markers/verify-foreign-markers (also checked
 # by verify-wheel): jeltype/jtype reconstruction markers on numeric, wide and
 # date/duration sources, with Julia's own loaded values materialized as siblings.
+# Plain-array/Unit-series actions: generate-arrays-unit/verify-arrays-unit (also
+# checked by verify-wheel): ordinary one-dimensional vectors, lossless ranges,
+# and Unit-frequency numeric/Boolean TSeries.
 using TimeSeriesEcon
 using Test, SHA, TOML, Pkg, Dates
 
@@ -1110,8 +1113,8 @@ elseif action == "generate-foreign-markers"
             store_foreign_case!(db, name, values, marker, outer)
         end
     end
-elseif !(action in ("verify", "verify-empty", "verify-scalars", "verify-quarterly", "verify-annual", "verify-halfyearly", "verify-int64", "verify-strings", "verify-dates", "verify-calendar", "verify-widths", "verify-fileops", "verify-calendar-series", "verify-series-elements", "generate-series-elements", "verify-represented-elements", "verify-foreign-markers", "verify-wheel"))
-    error("Unknown action; use generate/verify, generate-empty/verify-empty, generate-scalars/verify-scalars, generate-quarterly/verify-quarterly, generate-annual/verify-annual, generate-halfyearly/verify-halfyearly, generate-int64/verify-int64, generate-strings/verify-strings, generate-dates/verify-dates, generate-calendar/verify-calendar, generate-widths/verify-widths, generate-fileops/verify-fileops, generate-calendar-series/verify-calendar-series, generate-series-elements/verify-series-elements, generate-represented-elements/verify-represented-elements, generate-foreign-markers/verify-foreign-markers or verify-wheel.")
+elseif !(action in ("verify", "verify-empty", "verify-scalars", "verify-quarterly", "verify-annual", "verify-halfyearly", "verify-int64", "verify-strings", "verify-dates", "verify-calendar", "verify-widths", "verify-fileops", "verify-calendar-series", "verify-series-elements", "generate-series-elements", "verify-represented-elements", "verify-foreign-markers", "generate-arrays-unit", "verify-arrays-unit", "verify-wheel"))
+    error("Unknown fixture action.")
 end
 
 if action in ("generate", "verify", "verify-wheel")
@@ -1708,6 +1711,156 @@ if action in ("generate-foreign-markers", "verify-foreign-markers", "verify-whee
     end
 end
 
+function array_unit_values(T)
+    T <: Signed && return T[typemin(T), -1, 0, typemax(T)]
+    T <: Unsigned && return T[0, 1, typemax(T)]
+    T === Bool && return Bool[false, true, false]
+    T === Float16 && return reinterpret(Float16, UInt16[0x8000, 0x0001, 0x3d00, 0x7e55, 0x7c00])
+    T === Float32 && return reinterpret(Float32, UInt32[0x80000000, 1, 0x3fa00000, 0x7fc00055, 0x7f800000])
+    T === Float64 && return reinterpret(Float64, UInt64[0x8000000000000000, 1, 0x3ff4000000000000, 0x7ff8000000000055, 0x7ff0000000000000])
+    T === ComplexF32 && return ComplexF32[complex(-0.0f0, 1.25f0), complex(2.5f0, -3.0f0)]
+    T === ComplexF64 && return ComplexF64[complex(-0.0, 1.25), complex(2.5, -3.0)]
+    error("unsupported array/Unit fixture type")
+end
+const array_unit_types = [Int8, Int16, Int32, Int64, UInt8, UInt16, UInt32, UInt64,
+    Float16, Float32, Float64, ComplexF32, ComplexF64, Bool]
+
+if action == "generate-arrays-unit"
+    DE.opendaec(filename; readonly=false) do db
+        for T in array_unit_types
+            DE.store_tseries(db, "array_$(T)", collect(array_unit_values(T)))
+            DE.store_tseries(db, "array_$(T)_empty", T[])
+            DE.store_tseries(db, "unit_$(T)", TSeries(MIT{Unit}(-2), collect(array_unit_values(T))))
+            DE.store_tseries(db, "unit_$(T)_empty", TSeries(MIT{Unit}(-2), T[]))
+        end
+        DE.store_tseries(db, "range_int", 1:5)
+        DE.store_tseries(db, "range_int_empty", 1:0)
+        DE.store_tseries(db, "range_monthly", MIT{Monthly}(-3):MIT{Monthly}(1))
+        DE.store_tseries(db, "range_unit", MIT{Unit}(-3):MIT{Unit}(1))
+        DE.store_tseries(db, "range_unit_empty", MIT{Unit}(5):MIT{Unit}(4))
+        for (label, F, code, _, minimum) in date_families
+            DE.store_tseries(db, "range_all_$(label)", MIT{F}(0):MIT{F}(1))
+            DE.store_tseries(db, "range_min_$(label)", MIT{F}(minimum):MIT{F}(minimum))
+            DE.store_tseries(db, "range_max_$(label)", MIT{F}(typemax(Int32)):MIT{F}(typemax(Int32)))
+        end
+        for (label, F, code, _) in calendar_families
+            minimum, maximum = calendar_windows[code]
+            DE.store_tseries(db, "range_all_$(label)", MIT{F}(0):MIT{F}(1))
+            DE.store_tseries(db, "range_min_$(label)", MIT{F}(minimum):MIT{F}(minimum))
+            DE.store_tseries(db, "range_max_$(label)", MIT{F}(maximum):MIT{F}(maximum))
+        end
+        DE.store_tseries(db, "range_all_u", MIT{Unit}(0):MIT{Unit}(1))
+        DE.store_tseries(db, "range_min_u", MIT{Unit}(typemin(Int64)):MIT{Unit}(typemin(Int64)))
+        DE.store_tseries(db, "range_max_u", MIT{Unit}(typemax(Int64)):MIT{Unit}(typemax(Int64)))
+        DE.store_tseries(db, "unit_min", TSeries(MIT{Unit}(typemin(Int64)), Float64[1]))
+        DE.store_tseries(db, "unit_max", TSeries(MIT{Unit}(typemax(Int64)), Float64[1]))
+        DE.store_tseries(db, "unit_max_span", TSeries(MIT{Unit}(typemax(Int64)-1), Float64[1, 2]))
+        DE.store_tseries(db, "unit_mit_monthly",
+            TSeries(MIT{Unit}(-2), MIT{Monthly}[MIT{Monthly}(-1), MIT{Monthly}(0)]))
+        DE.store_tseries(db, "unit_int128",
+            TSeries(MIT{Unit}(-2), Int128[typemin(Int128), typemax(Int128)]))
+        DE.store_tseries(db, "unit_complexf16",
+            TSeries(MIT{Unit}(-2), ComplexF16[complex(Float16(-0.0), Float16(1.25))]))
+    end
+end
+
+if action in ("generate-arrays-unit", "verify-arrays-unit", "verify-wheel")
+    @testset "DataEcon arrays and Unit series interchange" begin
+        reference_fixture = action != "verify-wheel"
+        DE.opendaec(filename) do db
+            for T in array_unit_types, empty in (false, true)
+                expected = empty ? T[] : collect(array_unit_values(T))
+                for (prefix, objtype, axis, freq, first) in
+                    (("array", 10, 0, 0, 0), ("unit", 12, 1, 11, -2))
+                    name = "$(prefix)_$(T)$(empty ? "_empty" : "")"
+                    id = DE.find_object(db, DE.root_id, name)
+                    raw = Ref{C.tseries_t}()
+                    @test C.de_load_tseries(db, id, raw) == 0
+                    a = raw[]
+                    @test (Int(a.object.obj_type), Int(a.axis.ax_type), Int(a.axis.length),
+                        Int(a.axis.frequency), Int(a.axis.first), Int(a.nbytes)) ==
+                        (objtype, axis, length(expected), freq, first, sizeof(expected))
+                    attrs = Dict(string(k)=>string(v) for (k,v) in DE.get_all_attributes(db, id))
+                    value = DE.load_tseries(db, id)
+                    actual = value isa TSeries ? value.values : value
+                    @test eltype(actual) === T
+                    @test isequal(actual, expected)
+                    if !empty
+                        @test attrs == (T === Bool ? Dict("jeltype"=>"Bool") : Dict())
+                    elseif reference_fixture
+                        @test attrs == Dict("jeltype"=>string(T))
+                    end
+                end
+            end
+            for (name, expected, meta) in (
+                ("range_int", 1:5, (11, 0, 5, 0, 0)),
+                ("range_monthly", MIT{Monthly}(-3):MIT{Monthly}(1), (11, 1, 5, 32, -3)),
+                ("range_unit", MIT{Unit}(-3):MIT{Unit}(1), (11, 1, 5, 11, -3)),
+            )
+                id = DE.find_object(db, DE.root_id, name)
+                raw = Ref{C.tseries_t}()
+                @test C.de_load_tseries(db, id, raw) == 0
+                a = raw[]
+                @test (Int(a.object.obj_type), Int(a.axis.ax_type), Int(a.axis.length),
+                    Int(a.axis.frequency), Int(a.axis.first)) == meta
+                @test DE.load_tseries(db, id) == expected
+            end
+            all_ranges = Any[("u", Unit, 11, typemin(Int64), typemax(Int64))]
+            append!(all_ranges, [(label, F, code, minimum, typemax(Int32))
+                                 for (label, F, code, _, minimum) in date_families])
+            append!(all_ranges, [(label, F, code, calendar_windows[code]...)
+                                 for (label, F, code, _) in calendar_families])
+            for (label, F, code, minimum, maximum) in all_ranges,
+                (part, first, len) in (("all", 0, 2), ("min", minimum, 1), ("max", maximum, 1))
+                name = "range_$(part)_$(label)"
+                id = DE.find_object(db, DE.root_id, name)
+                raw = Ref{C.tseries_t}()
+                @test C.de_load_tseries(db, id, raw) == 0
+                a = raw[]
+                @test (Int(a.object.obj_type), Int(a.axis.ax_type), Int(a.axis.length),
+                    Int(a.axis.frequency), Int(a.axis.first), Int(a.nbytes)) ==
+                    (11, 1, len, code, first, 0)
+                value = DE.load_tseries(db, id)
+                @test value == MIT{F}(first):MIT{F}(first + len - 1)
+            end
+            empty_id = DE.find_object(db, DE.root_id, "range_unit_empty")
+            empty_raw = Ref{C.tseries_t}()
+            @test C.de_load_tseries(db, empty_id, empty_raw) == 0
+            @test (Int(empty_raw[].object.obj_type), Int(empty_raw[].axis.ax_type),
+                Int(empty_raw[].axis.length), Int(empty_raw[].axis.frequency),
+                Int(empty_raw[].axis.first), Int(empty_raw[].nbytes)) == (11, 1, 0, 11, 5, 0)
+            @test DE.get_attribute(db, empty_id, "jeltype") == "MIT{Unit}"
+            @test isempty(DE.load_tseries(db, empty_id))
+            int_empty_id = DE.find_object(db, DE.root_id, "range_int_empty")
+            int_empty_raw = Ref{C.tseries_t}()
+            @test C.de_load_tseries(db, int_empty_id, int_empty_raw) == 0
+            @test (Int(int_empty_raw[].object.obj_type), Int(int_empty_raw[].axis.ax_type),
+                Int(int_empty_raw[].axis.length), Int(int_empty_raw[].axis.frequency),
+                Int(int_empty_raw[].axis.first), Int(int_empty_raw[].nbytes)) == (11, 0, 0, 0, 0, 0)
+            @test DE.get_attribute(db, int_empty_id, "jeltype") == "Int64"
+            @test isempty(DE.load_tseries(db, int_empty_id))
+            for (name, first, values) in (("unit_min", typemin(Int64), [1.0]),
+                                         ("unit_max", typemax(Int64), [1.0]),
+                                         ("unit_max_span", typemax(Int64)-1, [1.0, 2.0]))
+                value = DE.load_tseries(db, name)
+                @test value isa TSeries{Unit}
+                @test Int(firstdate(value)) == first
+                @test value.values == values
+            end
+            for (name, T, expected) in (
+                ("unit_mit_monthly", MIT{Monthly}, MIT{Monthly}[MIT{Monthly}(-1), MIT{Monthly}(0)]),
+                ("unit_int128", Int128, Int128[typemin(Int128), typemax(Int128)]),
+                ("unit_complexf16", ComplexF16, ComplexF16[complex(Float16(-0.0), Float16(1.25))]),
+            )
+                value = DE.load_tseries(db, name)
+                @test value isa TSeries{Unit}
+                @test eltype(value) === T
+                @test isequal(value.values, expected)
+            end
+        end
+    end
+end
+
 if action == "verify-wheel"
     @testset "DataEcon Boolean scalar interchange" begin
         DE.opendaec(filename) do db
@@ -1726,7 +1879,7 @@ if action == "verify-wheel"
     end
 end
 
-if action in ("generate", "generate-empty", "generate-scalars", "generate-quarterly", "generate-annual", "generate-halfyearly", "generate-int64", "generate-strings", "generate-dates", "generate-calendar", "generate-widths", "generate-fileops", "generate-calendar-series", "generate-series-elements", "generate-represented-elements", "generate-foreign-markers")
+if action in ("generate", "generate-empty", "generate-scalars", "generate-quarterly", "generate-annual", "generate-halfyearly", "generate-int64", "generate-strings", "generate-dates", "generate-calendar", "generate-widths", "generate-fileops", "generate-calendar-series", "generate-series-elements", "generate-represented-elements", "generate-foreign-markers", "generate-arrays-unit")
     layout = Dict{String,Any}(
         "enums" => sizeof.([C.class_t, C.type_t, C.frequency_t, C.axis_type_t]),
     )

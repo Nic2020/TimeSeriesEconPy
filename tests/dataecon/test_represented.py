@@ -239,12 +239,12 @@ class TestConstructionAndOwnership:
         with pytest.raises(TypeError, match="no implicit conversion"):
             StoredSeries(ANCHOR, values, descriptor, copy=copy)
 
-    def test_anchor_must_be_a_supported_series_axis(self):
+    def test_anchor_must_be_an_mit_on_a_supported_series_axis(self):
         values = np.zeros(1, dtype=CODE_DTYPE)
         with pytest.raises(TypeError):
             StoredSeries(24298, values, StoredElement.date(Monthly()))
-        with pytest.raises(TypeError):
-            StoredSeries(MIT(Unit(), 3), values, StoredElement.date(Monthly()))
+        unit = StoredSeries(MIT(Unit(), 3), values, StoredElement.date(Monthly()))
+        assert unit.frequency == Unit()
         series = StoredSeries(MIT(Daily(), 739191), values, StoredElement.date(Yearly(12)))
         assert series.frequency == Daily()
         assert series.element.frequency == Yearly(12)

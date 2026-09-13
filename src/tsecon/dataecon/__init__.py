@@ -7,14 +7,15 @@ Durations over every core frequency (Unit, Daily, BDaily, Weekly with any end
 day, Monthly, Quarterly, HalfYearly and Yearly); series carry supported numeric
 NumPy dtypes, Boolean values, or StoredSeries carriers for MIT/Duration,
 Int128/UInt128 and ComplexF16 elements over the monthly, quarterly, half-yearly,
-annual, daily, business-daily and weekly frequencies. Files open read-only by
+annual, daily, business-daily, weekly and Unit frequencies. Plain one-dimensional
+numeric/Boolean NumPy arrays and lossless integer/MIT ranges use
+``write_array``/``read_array``. Files open read-only by
 default, append without overwriting with ``"a"``, or truncate with ``"w"``; explicit
 ``overwrite=True`` writes, ``delete``, ``truncate``, ``is_empty`` and
 in-memory databases (``open_dataecon_memory``) mirror the Julia file
 operations. Use ``open_dataecon`` as a context manager. The native extension
 loads on first use; importing the core package does not require it. Other
-data types, Unit-frequency series, catalogs and general attributes are not
-supported yet.
+data types, catalogs and general attributes are not supported yet.
 """
 
 from __future__ import annotations
@@ -28,11 +29,14 @@ from types import TracebackType
 from typing import TYPE_CHECKING, Literal
 
 from ._codec import (
+    ArrayValue,
     ScalarResult,
     ScalarValue,
     SeriesValue,
+    decode_array,
     decode_scalar,
     decode_series,
+    encode_array,
     encode_scalar,
     encode_series,
 )
@@ -46,6 +50,7 @@ __all__ = [
     "COMPLEXF16",
     "INT128",
     "UINT128",
+    "ArrayValue",
     "DataEconError",
     "DataEconFile",
     "ScalarResult",
@@ -214,13 +219,14 @@ class DataEconFile:
 
         Ordinary series carry native-endian signed/unsigned integers through
         64 bits, float16/32/64, complex64/128 or Boolean values over the Monthly,
-        Quarterly, HalfYearly, Yearly, Daily, BDaily or Weekly frequency (any
-        fiscal anchor or week end day). The first date must lie inside the
+        Quarterly, HalfYearly, Yearly, Daily, BDaily, Weekly or Unit frequency
+        (any fiscal anchor or week end day). The first date must lie inside the
         reliable native range of the frequency and reproduce through the
         native codec before anything is stored; year/period series also check
         their last date, and calendar series may run past the window like
-        Julia's (``ValueError`` otherwise; ``TypeError`` for other dtypes,
-        Unit series or non-series input).
+        Julia's; Unit codes use the full signed-64-bit range without a native
+        date codec (``ValueError`` otherwise; ``TypeError`` for other dtypes or
+        non-series input).
 
         With ``overwrite=True`` an existing root scalar or series of that name
         is deleted after the new series has been fully validated and just
@@ -252,6 +258,55 @@ class DataEconFile:
             self._require_writable()
             self._handle.write(
                 name,
+                encoded.frequency,
+                encoded.first,
+                encoded.payload,
+                bool(overwrite),
+                encoded.element,
+                encoded.element_frequency,
+                encoded.length,
+                encoded.marker,
+                encoded.object_marker,
+            )
+
+    def read_array(self, name: str) -> ArrayValue:
+        """Read a plain one-dimensional vector or unit-step range.
+
+        Ordinary numeric and Boolean vectors return owning, writable NumPy
+        arrays. Integer ranges return Python ``range`` values and MIT ranges
+        return ``MITRange``. Reconstruction text is matched against a finite
+        table and never evaluated; represented and string vectors remain
+        unsupported until their separate contracts are complete.
+        """
+        with self._lock:
+            self._require_open()
+            _validate_name(name)
+            payload, metadata, _, marker, object_marker = self._handle.read_array(name)
+            return decode_array(metadata, payload, marker, object_marker)
+
+    def write_array(self, name: str, value: ArrayValue, *, overwrite: bool = False) -> None:
+        """Write a plain one-dimensional vector or a lossless unit-step range.
+
+        NumPy arrays retain their supported native numeric/Boolean dtype and
+        are snapshotted before any native mutation. Python integer ranges are
+        accepted only as ``range(1, stop)`` because DataEcon stores their length
+        but not their starting value. ``MITRange`` retains its frequency and
+        first code, including Unit codes, and must have step one. Empty ranges
+        keep their Python range form even though Julia's reconstruction marker
+        makes its loader return a typed empty vector.
+
+        Overwrite validates first, then deletes and stores without rollback,
+        with the same residue and close-failure rules as other writes.
+        """
+        with self._lock:
+            self._require_open()
+            _validate_name(name)
+            encoded = encode_array(value)
+            self._require_writable()
+            self._handle.write_array(
+                name,
+                encoded.object_type,
+                encoded.axis_type,
                 encoded.frequency,
                 encoded.first,
                 encoded.payload,

@@ -5,8 +5,8 @@ Scalars: Float16/32/64, Int8/16/32/64, UInt8/16/32/64, Complex64/128, UTF-8
 strings, and MIT dates or Durations over the unit, daily, business-daily,
 weekly (every end day), monthly, quarterly, half-yearly and annual
 frequencies. Series also support represented MIT/Duration, Int128/UInt128 and
-ComplexF16 elements, over the same axis frequencies except Unit (daily,
-business-daily and weekly axes use the verified calendar windows), and
+ComplexF16 elements over every core axis frequency (daily, business-daily and
+weekly axes use the verified calendar windows), and
 preserve Julia's finite reconstruction markers (``jeltype``/``jtype``) as
 stored form plus explicit interpretation. No marker text is evaluated.
 """
@@ -23,6 +23,7 @@ from tsecon.frequencies import (
     Frequency,
 )
 from tsecon.mit import MIT, Duration
+from tsecon.mitrange import MITRange
 from tsecon.tseries import TSeries
 
 from . import _interpret
@@ -51,6 +52,7 @@ from ._metadata import (
     MIN_MONTHLY_DATE,
     MIN_QUARTERLY_DATE,
     UNIT_FREQUENCY,
+    julia_frequency_name,
 )
 from ._represented import (
     COMPLEXF16,
@@ -222,6 +224,21 @@ class SeriesPayload(NamedTuple):
     object_marker: str | None
 
 
+class ArrayPayload(NamedTuple):
+    """Owned bytes and explicit storage information for a plain vector or range."""
+
+    object_type: int
+    axis_type: int
+    frequency: int
+    first: int
+    payload: bytes
+    element: int
+    element_frequency: int
+    length: int
+    marker: str | None
+    object_marker: str | None
+
+
 # Series widths include the represented families; scalar acceptance is unchanged.
 _SERIES_WIDTHS = {
     **_NUMERIC_WIDTHS,
@@ -232,6 +249,7 @@ _SERIES_WIDTHS = {
 _WIDE_ELEMENTS = {(1, 16): INT128, (2, 16): UINT128, (5, 4): COMPLEXF16}
 _WIDE_NAMES = {e.julia_name: e for e in _WIDE_ELEMENTS.values()}
 SeriesValue: TypeAlias = TSeries | StoredSeries
+ArrayValue: TypeAlias = np.ndarray[Any, Any] | range | MITRange
 
 
 def _require_token(marker: str) -> _interpret.Target:
@@ -568,7 +586,10 @@ def validate_metadata(metadata: Metadata) -> None:
         raise ValueError("Invalid or oversized DataEcon series payload.")
     if length and (nbytes % length or nbytes // length not in widths):
         raise ValueError("Invalid DataEcon series element width or payload length.")
-    if not MIN_DATE <= first <= MAX_DATE or (length and first + length - 1 > MAX_DATE):
+    if frequency == UNIT_FREQUENCY:
+        if not MIN_INT64 <= first <= MAX_INT64 or (length and first + length - 1 > MAX_INT64):
+            raise ValueError("Unit series dates must fit the signed 64-bit range.")
+    elif not MIN_DATE <= first <= MAX_DATE or (length and first + length - 1 > MAX_DATE):
         raise ValueError("DataEcon dates must fit the native signed 32-bit date range.")
     if frequency in _CALENDAR_RANGES:
         # Only the stored first date must lie inside the verified calendar
@@ -689,3 +710,161 @@ def decode_series(
     if marker == "Bool":
         return TSeries(anchor, np.array(values == 1, dtype=bool))
     return TSeries(anchor, values.copy())
+
+
+def validate_array_metadata(metadata: Metadata) -> None:
+    """Validate a plain one-dimensional vector or unit-step range."""
+    cls, obj_type, element, element_freq, axis, length, frequency, first, nbytes = metadata
+    if cls != 2 or obj_type not in (10, 11):
+        raise TypeError("DataEcon arrays support plain vectors and unit-step ranges only.")
+    if length < 0 or length > MAX_INT64:
+        raise ValueError("Invalid DataEcon array length.")
+    if obj_type == 10:
+        if (axis, frequency, first) != (0, 0, 0):
+            raise TypeError("A DataEcon vector must have one plain axis.")
+        if element_freq != 0 or element not in _NUMERIC_WIDTHS:
+            raise TypeError("DataEcon vector support covers ordinary numeric and Boolean arrays.")
+        widths = _NUMERIC_WIDTHS[element]
+        if not 0 <= nbytes <= MAX_BYTES or (not length and nbytes):
+            raise ValueError("Invalid or oversized DataEcon vector payload.")
+        if length and (nbytes % length or nbytes // length not in widths):
+            raise ValueError("Invalid DataEcon vector element width or payload length.")
+        return
+    if (element, element_freq, nbytes) != (0, 0, 0):
+        raise TypeError("A DataEcon range has no element payload.")
+    if axis == 0:
+        if (frequency, first) != (0, 0):
+            raise TypeError("An integer DataEcon range must have a plain axis.")
+        return
+    if axis != 1:
+        raise TypeError("A dated DataEcon range must have one range axis.")
+    scalar_frequency(frequency)
+    validate_date_code(frequency, first)
+    if length and first + length - 1 > MAX_INT64:
+        raise ValueError("The DataEcon range endpoint exceeds the signed 64-bit range.")
+
+
+def _array_dtype(element: int, length: int, nbytes: int, marker: str | None) -> np.dtype[Any]:
+    _interpret.check_marker_text(marker, "element")
+    if marker == "Bool" and (element != KIND_INTEGER or (length and nbytes // length != 1)):
+        raise TypeError("A plain Boolean vector requires the canonical one-byte signed encoding.")
+    resolved = (
+        _empty_series_type(element, marker)
+        if not length
+        else _nonempty_series_type(_base_element(element, length, nbytes), marker)
+    )
+    if isinstance(resolved, StoredElement):
+        raise TypeError("This DataEcon vector element representation is not supported yet.")
+    return resolved
+
+
+def validate_array_payload(
+    metadata: Metadata, payload: bytes, marker: str | None, object_marker: str | None
+) -> np.dtype[Any] | None:
+    """Validate array metadata, finite markers and Boolean bytes without constructing output."""
+    validate_array_metadata(metadata)
+    _, obj_type, element, _, _, length, _, _, _ = metadata
+    _interpret.check_marker_text(object_marker, "whole-object")
+    if object_marker is not None:
+        raise TypeError(
+            "Whole-object reconstruction markers are not supported for plain arrays yet."
+        )
+    if obj_type == 11:
+        _, _, _, _, axis, _, frequency, _, _ = metadata
+        expected = (
+            "Int64" if axis == 0 else f"MIT{{{julia_frequency_name(scalar_frequency(frequency))}}}"
+        )
+        if marker is not None and (length or marker != expected):
+            raise TypeError("Unsupported Julia reconstruction attribute for this range encoding.")
+        return None
+    dtype = _array_dtype(element, length, len(payload), marker)
+    if marker == "Bool":
+        _interpret.check_bool(np.frombuffer(payload, dtype=dtype), _interpret.numeric_target(dtype))
+    return dtype
+
+
+def encode_array(value: ArrayValue) -> ArrayPayload:
+    """Encode an ordinary one-dimensional ndarray or lossless unit-step range."""
+    if sys.byteorder != "little":
+        raise RuntimeError(
+            "DataEcon interchange is currently supported on little-endian hosts only."
+        )
+    if isinstance(value, np.ndarray):
+        if value.ndim != 1:
+            raise ValueError("write_array requires a one-dimensional NumPy array.")
+        dtype = value.dtype
+        entry = next(
+            (
+                (name, kind)
+                for name, (kind, candidate) in _SERIES_TYPES.items()
+                if candidate == dtype
+            ),
+            None,
+        )
+        if entry is None or not dtype.isnative or dtype.char in ("g", "G"):
+            raise TypeError(
+                "DataEcon vector support covers ordinary native-endian numeric and Boolean dtypes."
+            )
+        name, element = entry
+        marker = (
+            name
+            if name == "Bool" or (not len(value) and name != _SERIES_DEFAULTS[element])
+            else None
+        )
+        values = value
+        length, nbytes = len(values), values.nbytes
+        validate_array_metadata((2, 10, element, 0, 0, length, 0, 0, nbytes))
+        if values.dtype.kind == "b":
+            values = values.astype(np.int8)
+        payload = values.tobytes(order="C")
+        if len(payload) != nbytes:
+            raise ValueError("The array changed size during the snapshot; nothing was written.")
+        _array_dtype(element, length, len(payload), marker)
+        return ArrayPayload(10, 0, 0, 0, payload, element, 0, length, marker, None)
+    if type(value) is range:
+        try:
+            length = len(value)
+        except OverflowError:
+            raise ValueError(
+                "The integer range length exceeds the native signed 64-bit range."
+            ) from None
+        if value.start != 1 or value.step != 1 or (not length and value.stop != 1):
+            raise ValueError(
+                "DataEcon preserves only an integer range's length; use range(1, stop) "
+                "for a lossless write."
+            )
+        marker = "Int64" if length == 0 else None
+        return ArrayPayload(11, 0, 0, 0, b"", 0, 0, length, marker, None)
+    if isinstance(value, MITRange):
+        if value.step != 1:
+            raise ValueError("DataEcon supports only unit-step MITRange values.")
+        try:
+            length = len(value)
+        except OverflowError:
+            raise ValueError(
+                "The MITRange length exceeds the native signed 64-bit range."
+            ) from None
+        frequency = scalar_frequency_code(value.frequency)
+        first = value.start.value
+        validate_array_metadata((2, 11, 0, 0, 1, length, frequency, first, 0))
+        marker = f"MIT{{{julia_frequency_name(value.frequency)}}}" if length == 0 else None
+        return ArrayPayload(11, 1, frequency, first, b"", 0, 0, length, marker, None)
+    raise TypeError("write_array requires a one-dimensional NumPy array, range or MITRange.")
+
+
+def decode_array(
+    metadata: Metadata, payload: bytes, marker: str | None, object_marker: str | None
+) -> ArrayValue:
+    """Decode an owning plain vector or a lossless range representation."""
+    dtype = validate_array_payload(metadata, payload, marker, object_marker)
+    _, obj_type, _, _, axis, length, frequency, first, _ = metadata
+    if obj_type == 11:
+        if axis == 0:
+            return range(1, length + 1)
+        start = MIT(scalar_frequency(frequency), first)
+        return MITRange(start, MIT(start.frequency, first + length - 1))
+    assert dtype is not None
+    values = np.frombuffer(payload, dtype=dtype)
+    if marker == "Bool":
+        return np.array(values == 1, dtype=bool)
+    return values.copy()

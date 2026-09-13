@@ -18,8 +18,9 @@ from cpython.bytes cimport PyBytes_FromStringAndSize
 
 from threading import RLock
 
-from ._codec import (series_frequency, validate_date_code, validate_metadata,
-                     validate_scalar_metadata, validate_series_payload)
+from ._codec import (series_frequency, validate_array_metadata, validate_array_payload,
+                     validate_date_code, validate_metadata, validate_scalar_metadata,
+                     validate_series_payload)
 from ._errors import DataEconError
 
 cdef extern from "daec.h":
@@ -38,6 +39,8 @@ cdef extern from "daec.h":
         type_float
         type_complex
         type_string
+        type_vector
+        type_range
         type_tseries
     ctypedef enum frequency_t:
         freq_none
@@ -55,6 +58,7 @@ cdef extern from "daec.h":
         freq_yearly_jan
         freq_yearly_dec
     ctypedef enum axis_type_t:
+        axis_plain
         axis_range
     enum:
         DE_SUCCESS
@@ -105,6 +109,7 @@ cdef extern from "daec.h":
     int de_pack_calendar_date(frequency_t, int32_t, uint32_t, uint32_t, date_t *)
     int de_unpack_calendar_date(frequency_t, date_t, int32_t *, uint32_t *, uint32_t *)
     int de_axis_range(de_file, int64_t, frequency_t, int64_t, axis_id_t *)
+    int de_axis_plain(de_file, int64_t, axis_id_t *)
     int de_store_tseries(de_file, obj_id_t, const char *, type_t, type_t,
                         frequency_t, axis_id_t, int64_t, const void *, obj_id_t *)
     int de_load_tseries(de_file, obj_id_t, tseries_t *)
@@ -339,13 +344,57 @@ cdef class FileHandle:
             # first date only, like Julia (trailing codes are implicit and never
             # packed); year/period axes keep their unpack checks (monthly: first
             # only).
-            if is_calendar(ts.axis.frequency):
+            if ts.axis.frequency == freq_unit:
+                pass
+            elif is_calendar(ts.axis.frequency):
                 verify_date(ts.axis.frequency, ts.axis.first, self.path, name)
             else:
                 unpack_date(ts.axis.frequency, ts.axis.first, self.path, name)
                 if ts.axis.frequency != freq_monthly and ts.axis.length > 0:
                     unpack_date(ts.axis.frequency, ts.axis.first + ts.axis.length - 1,
                                 self.path, name)
+            return payload, metadata, loaded_name, marker, object_marker
+
+    def read_array(self, str name):
+        cdef bytes encoded = name.encode("utf-8")
+        cdef obj_id_t oid = 0
+        cdef tseries_t ts
+        cdef const char *attribute = NULL
+        cdef bytes key
+        cdef int rc
+        if not encoded or b"/" in encoded or b"\0" in encoded:
+            raise ValueError("Expected a nonempty root object name without '/' or NUL.")
+        with _lock:
+            self.require_open()
+            check(de_find_object(self.handle, 0, encoded, &oid), "find", self.path, name)
+            memset(&ts, 0, sizeof(ts))
+            check(de_load_tseries(self.handle, oid, &ts), "read array", self.path, name)
+            metadata = (int(ts.object.obj_class), int(ts.object.obj_type), int(ts.eltype),
+                        int(ts.elfreq), int(ts.axis.ax_type), int(ts.axis.length),
+                        int(ts.axis.frequency), int(ts.axis.first), int(ts.nbytes))
+            validate_array_metadata(metadata)
+            if (ts.nbytes > 0 and ts.value == NULL) or ts.object.name == NULL:
+                raise ValueError("DataEcon returned a NULL array payload or name.")
+            loaded_name = (<bytes>ts.object.name).decode("utf-8")
+            payload = b"" if ts.nbytes == 0 else PyBytes_FromStringAndSize(<const char *>ts.value, ts.nbytes)
+            marker = None
+            object_marker = None
+            for key in (b"jeltype", b"jtype"):
+                rc = de_get_attribute(self.handle, oid, key, &attribute)
+                if rc == DE_MIS_ATTR:
+                    de_clear_error()
+                else:
+                    check(rc, "array attribute", self.path, name)
+                    if attribute == NULL:
+                        raise TypeError("DataEcon returned a NULL reconstruction attribute.")
+                    text = (<bytes>attribute).decode("utf-8")
+                    if key == b"jeltype":
+                        marker = text
+                    else:
+                        object_marker = text
+            validate_array_payload(metadata, payload, marker, object_marker)
+            if ts.object.obj_type == type_range and ts.axis.ax_type == axis_range:
+                verify_date(ts.axis.frequency, ts.axis.first, self.path, name)
             return payload, metadata, loaded_name, marker, object_marker
 
     cdef void replace_existing(self, obj_id_t oid, str operation, str name) except *:
@@ -426,7 +475,7 @@ cdef class FileHandle:
                 check(rc, "find", self.path, name)
             de_clear_error()
             verify_date(freq, native_first, self.path, name)
-            if length > 0 and not is_calendar(freq):
+            if length > 0 and freq != freq_unit and not is_calendar(freq):
                 # Year/period axes also check their last date; calendar axes
                 # follow Julia and pack the first date only.
                 unpack_date(freq, native_first + length - 1, self.path, name)
@@ -452,6 +501,68 @@ cdef class FileHandle:
                       "write object marker (the element marker, if any, is now active; "
                       "no rollback)",
                       self.path, name)
+
+    def write_array(self, str name, object_type, axis_type, frequency, first,
+                    bytes payload, bint overwrite, element, element_frequency,
+                    length, marker, object_marker=None):
+        cdef bytes encoded = name.encode("utf-8")
+        cdef obj_id_t oid = 0
+        cdef axis_id_t axis = 0
+        cdef frequency_t freq
+        cdef int rc
+        cdef const void *value = NULL
+        cdef bint existing = False
+        cdef bytes encoded_marker
+        cdef bytes encoded_object_marker
+        metadata = (2, object_type, element, element_frequency, axis_type, length,
+                    frequency, first, len(payload))
+        if not encoded or b"/" in encoded or b"\0" in encoded:
+            raise ValueError("Expected a nonempty root object name without '/' or NUL.")
+        for label, item in (("object type", object_type), ("axis type", axis_type),
+                            ("frequency", frequency), ("first", first),
+                            ("element", element), ("element frequency", element_frequency),
+                            ("length", length)):
+            if type(item) is not int:
+                raise TypeError(f"Array {label} must be an integer native value.")
+        validate_array_payload(metadata, payload, marker, object_marker)
+        encoded_marker = b"" if marker is None else marker.encode("utf-8")
+        encoded_object_marker = b"" if object_marker is None else object_marker.encode("utf-8")
+        freq = <frequency_t><uint32_t>frequency
+        with _lock:
+            self.require_open()
+            rc = de_find_object(self.handle, 0, encoded, &oid)
+            if rc == DE_SUCCESS:
+                if not overwrite:
+                    raise DataEconError(DE_EXISTS, "write array", self.path,
+                                       "Object already exists.", name)
+                existing = True
+            elif rc != DE_OBJ_DNE:
+                check(rc, "find", self.path, name)
+            de_clear_error()
+            if object_type == type_range and axis_type == axis_range:
+                verify_date(freq, first, self.path, name)
+            if existing:
+                self.replace_existing(oid, "write array (overwrite)", name)
+            if object_type == type_range and axis_type == axis_range:
+                check(de_axis_range(self.handle, length, freq, first, &axis),
+                      "array axis", self.path, name)
+            else:
+                check(de_axis_plain(self.handle, length, &axis), "array axis", self.path, name)
+            if len(payload) > 0:
+                value = <const char *>payload
+            check(de_store_tseries(self.handle, 0, encoded, <type_t><uint32_t>object_type,
+                                   <type_t><uint32_t>element,
+                                   <frequency_t><uint32_t>element_frequency,
+                                   axis, len(payload), value, &oid),
+                  "write array (overwrite; original deleted, partial replacement may remain)"
+                  if existing else "write array (partial object may remain)", self.path, name)
+            if marker is not None:
+                check(de_set_attribute(self.handle, oid, b"jeltype", encoded_marker),
+                      "write array marker (unmarked object may read differently; no rollback)",
+                      self.path, name)
+            if object_marker is not None:
+                check(de_set_attribute(self.handle, oid, b"jtype", encoded_object_marker),
+                      "write array object marker (no rollback)", self.path, name)
 
 
 

@@ -3,21 +3,18 @@
 import numpy as np
 import pytest
 
-from tsecon import MIT, TSeries, mm
+from tsecon import TSeries, mm
 from tsecon.dataecon._codec import MAX_BYTES, decode_series, encode_series, validate_metadata
-from tsecon.frequencies import Unit
 
 
 @pytest.mark.parametrize(
     ("series", "exception"),
     [
         (np.ones(4), TypeError),
-        (TSeries(MIT(Unit(), 4048), np.ones(4)), TypeError),
         (TSeries(mm(2024, 1), np.ones(4, dtype=object)), TypeError),
         (TSeries(mm(2024, 1), np.ones(4, dtype="S4")), TypeError),
         (TSeries(mm(2024, 1), np.ones(4, dtype=">f8")), TypeError),
         (TSeries(mm(2024, 1), np.array([], dtype=object)), TypeError),
-        (TSeries(MIT(Unit(), 4048), np.array([], dtype=np.float64)), TypeError),
     ],
 )
 def test_reject_unsupported_input(series, exception):

@@ -2,15 +2,16 @@
 
 `tsecon.dataecon` reads and writes **supported numeric scalars
 (Float16/32/64, Int8/16/32/64, UInt8/16/32/64, Complex64/128), string, MIT date
-and Duration scalars, and numeric/Boolean TSeries over the monthly, quarterly,
-half-yearly, annual, daily, business-daily and weekly frequencies, including
-empty series**, through the DataEcon 0.4.0 C library. Date and duration
+and Duration scalars, ordinary one-dimensional NumPy arrays and lossless ranges,
+and numeric/Boolean TSeries over every core frequency, including empty series**,
+through the DataEcon 0.4.0 C library. Date and duration
 scalars cover every core frequency: `Unit`, `Daily`, `BDaily`, `Weekly` with
 any end day, `Monthly`, `Quarterly`, `HalfYearly` and `Yearly`.
 Series may also hold date, duration, Int128/UInt128 and ComplexF16 elements
 through `StoredSeries` (see [Represented series elements](#represented-series-elements)).
-Int128/UInt128/ComplexF16 scalars, other marker-reconstructed Julia types,
-Unit-frequency series, catalogs, workspaces and general attributes are not supported yet.
+Int128/UInt128/ComplexF16 scalars, represented or text plain arrays, other
+marker-reconstructed Julia types, catalogs, workspaces and general attributes
+are not supported yet.
 Existing JSON I/O is unchanged.
 
 Native DataEcon support is configured in the wheel workflow for CPython 3.11–3.13:
@@ -196,7 +197,57 @@ and 24 through 31 that Julia never writes. Codes are never converted through
 `datetime`, so years outside 1..9999 round-trip; converting such an `MIT` to a
 `date` with the core's `mit_to_date` still raises. The weekly end day is part
 of the frequency code, so `Weekly(1)` and `Weekly(7)` series with equal codes
-stay distinct. Unit-frequency series are not supported yet.
+stay distinct. Unit-frequency series instead use the raw signed-64-bit rules below.
+
+## Plain arrays, ranges and Unit-frequency series
+
+Use `write_array` and `read_array` for ordinary one-dimensional NumPy arrays;
+they are deliberately separate from dated `TSeries`. Supported dtypes are signed
+and unsigned integers through 64 bits, Float16/32/64, Complex64/128 and Boolean.
+Reads return an owning, writable array with the stored dtype and bytes. Views and
+negative-stride inputs are snapshotted in logical order.
+
+```python
+import numpy as np
+from tsecon import MIT, MITRange, TSeries, Unit, mm
+from tsecon.dataecon import open_dataecon
+
+with open_dataecon("arrays.daec", "w") as db:
+    db.write_array("counts", np.array([3, -1, 7], dtype=np.int16))
+    db.write_array("periods", MITRange(mm(2024, 11), mm(2025, 2)))
+    db.write_array("positions", range(1, 6))
+    db.write_series("steps", TSeries(MIT(Unit(), -2), [1.25, -2.5, 0.0]))
+
+with open_dataecon("arrays.daec") as db:
+    counts = db.read_array("counts")
+    periods = db.read_array("periods")
+    positions = db.read_array("positions")
+    steps = db.read_series("steps")
+
+assert counts.dtype == np.int16 and counts.tolist() == [3, -1, 7]
+assert periods == MITRange(mm(2024, 11), mm(2025, 2))
+assert positions == range(1, 6)
+assert steps.firstdate == MIT(Unit(), -2)
+```
+
+DataEcon stores an integer range's length but not its start, so only the
+lossless spelling `range(1, stop)` is accepted. For example, Julia stores both
+`1:5` and `3:7` identically and reloads either as `1:5`; Python refuses
+`range(3, 8)` before any native call. `MITRange` retains its first value and
+frequency, including full signed-64-bit Unit codes, but must have step one.
+Empty ranges keep their range object in Python even though the pinned Julia
+loader reconstructs its own marked empty range as a typed vector.
+
+Unit-frequency series use raw signed-64-bit axis codes and never pass through a
+native date codec. Their ordinary and represented elements have the same rules
+as other supported `TSeries`; the element frequency remains independent of the
+Unit axis. The first implicit code and `first + length - 1` must both fit signed
+64 bits.
+
+String and Symbol vectors are not accepted yet. The pinned Julia writer sizes
+their buffer by characters while the native packer sizes UTF-8 bytes, so
+multibyte text can fail; exceptional strings and lossless Symbol-marker retention
+need their explicit array contract. Matrices and tensors use later APIs.
 
 ## Empty series
 
@@ -1036,9 +1087,8 @@ to inspect what was stored.
   than the exact `TSeries` and empty `Vector` forms) are refused with
   `TypeError`. Julia loads several of them; supporting them is planned parity
   work, not an approved exclusion.
-- Int128, UInt128 and ComplexF16 scalars, Unit-frequency series axes and
-  wider-than-64-bit element widths other than these three families remain
-  unsupported.
+- Int128, UInt128 and ComplexF16 scalars and wider-than-64-bit element widths
+  other than these three represented series families remain unsupported.
 - Marker text is never evaluated: markers are compared with a finite table of
   tokens.
 

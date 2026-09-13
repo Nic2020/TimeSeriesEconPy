@@ -42,6 +42,7 @@ from tsecon import (
     mm,
     weekly,
 )
+from tsecon.frequencies import Frequency
 
 
 def validate_provenance(package: Path) -> dict:
@@ -1058,6 +1059,167 @@ def write_foreign_markers(db: de.DataEconFile) -> None:
         db.write_series(f"{name}_interpreted", interpreted)
 
 
+ARRAY_DTYPES = (
+    np.dtype("i1"),
+    np.dtype("<i2"),
+    np.dtype("<i4"),
+    np.dtype("<i8"),
+    np.dtype("u1"),
+    np.dtype("<u2"),
+    np.dtype("<u4"),
+    np.dtype("<u8"),
+    np.dtype("<f2"),
+    np.dtype("<f4"),
+    np.dtype("<f8"),
+    np.dtype("<c8"),
+    np.dtype("<c16"),
+    np.dtype("?"),
+)
+
+
+def array_token(dtype: np.dtype) -> str:
+    """Return the exact Julia spelling used by the installed verifier."""
+    if dtype.kind == "b":
+        return "Bool"
+    if dtype.kind == "c":
+        return "ComplexF32" if dtype.itemsize == 8 else "ComplexF64"
+    return dtype.name.title().replace("Uint", "UInt")
+
+
+def array_values(dtype: np.dtype) -> np.ndarray:  # noqa: PLR0911 - finite dtype table
+    """Representative values including exact floating bit patterns."""
+    if dtype.kind == "i":
+        info = np.iinfo(dtype)
+        return np.array([info.min, -1, 0, info.max], dtype=dtype)
+    if dtype.kind == "u":
+        info = np.iinfo(dtype)
+        return np.array([0, 1, info.max], dtype=dtype)
+    if dtype == np.dtype("<f2"):
+        return np.array([0x8000, 1, 0x3D00, 0x7E55, 0x7C00], dtype="<u2").view(dtype)
+    if dtype == np.dtype("<f4"):
+        return np.array([0x80000000, 1, 0x3FA00000, 0x7FC00055, 0x7F800000], dtype="<u4").view(
+            dtype
+        )
+    if dtype == np.dtype("<f8"):
+        return np.array(
+            [0x8000000000000000, 1, 0x3FF4000000000000, 0x7FF8000000000055, 0x7FF0000000000000],
+            dtype="<u8",
+        ).view(dtype)
+    if dtype.kind == "c":
+        return np.array([complex(-0.0, 1.25), complex(2.5, -3.0)], dtype=dtype)
+    return np.array([False, True, False], dtype=bool)
+
+
+def range_families() -> list[tuple[str, Frequency, int, int]]:
+    """Every canonical MIT frequency with its reliable first-code window."""
+    families: list[tuple[str, Frequency, int, int]] = [
+        ("u", Unit(), -(2**63), 2**63 - 1),
+        ("d", Daily(), -11980259, 11979954),
+        ("b", BDaily(), -8557114, 8557110),
+        ("m", Monthly(), -393600, 2**31 - 1),
+    ]
+    families.extend((f"w{day}", Weekly(day), -1711422, 1711422) for day in range(1, 8))
+    families.extend((f"q{month}", Quarterly(month), -131200, 2**31 - 1) for month in range(1, 4))
+    families.extend((f"h{month}", HalfYearly(month), -65600, 2**31 - 1) for month in range(1, 7))
+    families.extend((f"y{month}", Yearly(month), -(2**31), 2**31 - 1) for month in range(1, 13))
+    return families
+
+
+def write_arrays_unit(db: de.DataEconFile) -> None:
+    """Write every supported plain vector dtype, lossless ranges and Unit series."""
+    for dtype in ARRAY_DTYPES:
+        token = array_token(dtype)
+        values = array_values(dtype)
+        db.write_array(f"array_{token}", values)
+        db.write_array(f"array_{token}_empty", np.empty(0, dtype=dtype))
+        db.write_series(f"unit_{token}", tsecon.TSeries(MIT(Unit(), -2), values))
+        db.write_series(
+            f"unit_{token}_empty", tsecon.TSeries(MIT(Unit(), -2), np.empty(0, dtype=dtype))
+        )
+    db.write_array("range_int", range(1, 6))
+    db.write_array("range_int_empty", range(1, 1))
+    db.write_array("range_monthly", tsecon.MITRange(MIT(Monthly(), -3), MIT(Monthly(), 1)))
+    db.write_array("range_unit", tsecon.MITRange(MIT(Unit(), -3), MIT(Unit(), 1)))
+    db.write_array("range_unit_empty", tsecon.MITRange(MIT(Unit(), 5), MIT(Unit(), 4)))
+    for label, frequency, minimum, maximum in range_families():
+        db.write_array(f"range_all_{label}", tsecon.MITRange(MIT(frequency, 0), MIT(frequency, 1)))
+        db.write_array(
+            f"range_min_{label}", tsecon.MITRange(MIT(frequency, minimum), MIT(frequency, minimum))
+        )
+        db.write_array(
+            f"range_max_{label}", tsecon.MITRange(MIT(frequency, maximum), MIT(frequency, maximum))
+        )
+    db.write_series("unit_min", tsecon.TSeries(MIT(Unit(), -(2**63)), [1.0]))
+    db.write_series("unit_max", tsecon.TSeries(MIT(Unit(), 2**63 - 1), [1.0]))
+    db.write_series("unit_max_span", tsecon.TSeries(MIT(Unit(), 2**63 - 2), [1.0, 2.0]))
+    db.write_series(
+        "unit_mit_monthly",
+        de.StoredSeries.from_list(
+            MIT(Unit(), -2),
+            de.StoredElement.date(Monthly()),
+            [MIT(Monthly(), -1), MIT(Monthly(), 0)],
+        ),
+    )
+    db.write_series(
+        "unit_int128",
+        de.StoredSeries.from_list(MIT(Unit(), -2), de.INT128, [-(2**127), 2**127 - 1]),
+    )
+    db.write_series(
+        "unit_complexf16",
+        de.StoredSeries.from_list(MIT(Unit(), -2), de.COMPLEXF16, [complex(-0.0, 1.25)]),
+    )
+
+
+def check_arrays_unit(db: de.DataEconFile) -> None:  # noqa: PLR0912 - finite ABI matrix
+    """Check owning byte-exact reads before Julia independently verifies the file."""
+    for dtype in ARRAY_DTYPES:
+        token = array_token(dtype)
+        for suffix, expected in (("", array_values(dtype)), ("_empty", np.empty(0, dtype=dtype))):
+            values = db.read_array(f"array_{token}{suffix}")
+            if values.dtype != dtype or values.tobytes() != expected.tobytes():
+                raise ValueError(f"Plain array {token}{suffix} changed dtype or bytes.")
+            if not values.flags.owndata or not values.flags.writeable:
+                raise ValueError(f"Plain array {token}{suffix} is not owning and writable.")
+            series = db.read_series(f"unit_{token}{suffix}")
+            if (
+                series.firstdate != MIT(Unit(), -2)
+                or series.values.dtype != dtype
+                or series.values.tobytes() != expected.tobytes()
+                or not series.values.flags.owndata
+            ):
+                raise ValueError(f"Unit series {token}{suffix} changed its representation.")
+    expected_ranges = {
+        "range_int": range(1, 6),
+        "range_int_empty": range(1, 1),
+        "range_monthly": tsecon.MITRange(MIT(Monthly(), -3), MIT(Monthly(), 1)),
+        "range_unit": tsecon.MITRange(MIT(Unit(), -3), MIT(Unit(), 1)),
+        "range_unit_empty": tsecon.MITRange(MIT(Unit(), 5), MIT(Unit(), 4)),
+    }
+    for name, expected in expected_ranges.items():
+        if db.read_array(name) != expected:
+            raise ValueError(f"Range {name} changed its values.")
+    for label, frequency, minimum, maximum in range_families():
+        for part, first, length in (("all", 0, 2), ("min", minimum, 1), ("max", maximum, 1)):
+            expected = tsecon.MITRange(MIT(frequency, first), MIT(frequency, first + length - 1))
+            if db.read_array(f"range_{part}_{label}") != expected:
+                raise ValueError(f"MIT range {part}/{label} changed its frequency or codes.")
+    represented = {
+        "unit_mit_monthly": [MIT(Monthly(), -1), MIT(Monthly(), 0)],
+        "unit_int128": [-(2**127), 2**127 - 1],
+        "unit_complexf16": [complex(-0.0, 1.25)],
+    }
+    for name, expected in represented.items():
+        value = db.read_series(name)
+        if not isinstance(value, de.StoredSeries) or value.firstdate != MIT(Unit(), -2):
+            raise ValueError(f"Represented Unit series {name} lost its stored form.")
+        actual = value.tolist()
+        if name == "unit_complexf16":
+            if actual[0].imag != 1.25 or not np.signbit(actual[0].real):
+                raise ValueError("ComplexF16 Unit series lost a component or signed zero.")
+        elif actual != expected:
+            raise ValueError(f"Represented Unit series {name} changed values.")
+
+
 def check_foreign_markers(db: de.DataEconFile) -> None:
     """Re-read the preserved objects: exact equality, ownership, unchanged interpretation."""
     for name, series in foreign_cases():
@@ -1099,6 +1261,7 @@ def write_interchange(output_dir: Path, series: tsecon.TSeries) -> Path:
         write_series_elements(db)
         write_represented_series(db)
         write_foreign_markers(db)
+        write_arrays_unit(db)
         for name, value in (
             ("bool_false", False),
             ("bool_true", True),
@@ -1119,6 +1282,7 @@ def write_interchange(output_dir: Path, series: tsecon.TSeries) -> Path:
         check_series_elements(db)
         check_represented_series(db)
         check_foreign_markers(db)
+        check_arrays_unit(db)
         np.testing.assert_array_equal(db.read_series("sample").values, series.values)
         for name, expected in (
             ("bool_false", 0),

@@ -84,11 +84,12 @@ def assert_series(actual, frequency, first, values):
 
 
 def test_series_frequency_table():
+    assert series_frequency(11) == Unit()
     assert series_frequency(12) == Daily()
     assert series_frequency(13) == BDaily()
     for day in range(1, 8):
         assert series_frequency(16 + day) == Weekly(day)
-    for code in (11, 14, 15, 16, 24, 31, 0, -1, 2**40):
+    for code in (14, 15, 16, 24, 31, 0, -1, 2**40):
         with pytest.raises(TypeError):
             series_frequency(code)
         with pytest.raises(TypeError):
@@ -152,10 +153,17 @@ def test_calendar_dtype_is_not_coerced(dtype, length):
         encode_series(TSeries(MIT(Daily(), 738900), np.ones(length, dtype=dtype)))
 
 
-@pytest.mark.parametrize("length", [0, 2])
-def test_unit_series_remain_rejected(length):
-    with pytest.raises(TypeError):
-        encode_series(TSeries(MIT(Unit(), 5), np.ones(length)))
+@pytest.mark.parametrize(
+    ("first", "length"), [(-(2**63), 0), (-(2**63), 1), (5, 2), (2**63 - 1, 1)]
+)
+def test_unit_series_use_signed_int64_axis_codes(first, length):
+    encoded = encode_series(TSeries(MIT(Unit(), first), np.ones(length)))
+    assert (encoded.frequency, encoded.first, encoded.length) == (11, first, length)
+
+
+def test_unit_series_endpoint_overflow_is_rejected():
+    with pytest.raises(ValueError, match="signed 64-bit"):
+        encode_series(TSeries(MIT(Unit(), 2**63 - 1), np.ones(2)))
 
 
 @NATIVE
@@ -248,7 +256,6 @@ def test_julia_fixture_controls():
 @pytest.mark.parametrize(
     ("frequency", "first", "payload", "exception"),
     [
-        (11, 5, bytes(8), TypeError),
         (14, 738900, b"", TypeError),
         (16, 105557, b"", TypeError),
         (24, 105557, b"", TypeError),
@@ -293,7 +300,6 @@ AXIS = "UPDATE axes SET {} WHERE id=(SELECT axis_id FROM tseries WHERE id=:id)"
         (AXIS.format("data=4295706196"), ValueError),
         (AXIS.format("length=5"), ValueError),
         (AXIS.format("frequency=16"), TypeError),
-        (AXIS.format("frequency=11"), TypeError),
         (AXIS.format("frequency=14"), TypeError),
         (AXIS.format("ax_type=0"), TypeError),
         ("UPDATE tseries SET eltype=6 WHERE id=:id", TypeError),

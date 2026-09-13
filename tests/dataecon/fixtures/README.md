@@ -192,6 +192,15 @@ writes: the Sunday alias 16 (Julia loads `Weekly{0}`), the unused code 14, the
 weekly anchor 24, a four-byte unit payload, the first daily code above the
 window (Julia reloads it unchanged) and an Int32-wrapped daily code.
 
+`julia_arrays_unit.daec` and its TOML provenance are generated with
+`generate-arrays-unit` and checked with `verify-arrays-unit`. The fixture maps
+every ordinary one-dimensional numeric/Boolean dtype, both empty and
+represented cases, lossless integer/Monthly/Unit ranges, signed-64-bit Unit
+axis boundaries, and represented MIT/Int128/ComplexF16 values on a Unit axis.
+The verifier checks raw object/axis metadata, exact element bytes and Julia's
+materialized result; `verify-wheel` applies the same set to Python-written
+objects in the one primary interchange file.
+
 `verify-wheel` additionally checks the 193 Python-written unit and calendar
 objects in the combined interchange file.
 

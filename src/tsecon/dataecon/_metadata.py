@@ -69,9 +69,13 @@ _CALENDAR_RANGES: dict[int, tuple[int, int]] = {
     13: (-8557114, 8557110),
     **dict.fromkeys(range(17, 24), (-1711422, 1711422)),
 }
-# Series axes: the year/period families plus the calendar families. Unit series
-# (code 11) are not yet supported; Julia writes them as a plain Int64 axis.
-_SERIES_FREQUENCIES: dict[int, Frequency] = {**_FREQUENCIES, **_CALENDAR_FREQUENCIES}
+# Series axes: Unit is a raw signed-64-bit period code; the other families use
+# the established year/period or calendar validation paths.
+_SERIES_FREQUENCIES: dict[int, Frequency] = {
+    **_FREQUENCIES,
+    UNIT_FREQUENCY: Unit(),
+    **_CALENDAR_FREQUENCIES,
+}
 _SCALAR_FREQUENCIES: dict[int, Frequency] = {
     **_FREQUENCIES,
     UNIT_FREQUENCY: Unit(),

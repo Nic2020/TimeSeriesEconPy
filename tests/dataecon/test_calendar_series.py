@@ -271,7 +271,7 @@ def test_backend_validates_before_storage(tmp_path, frequency, first, payload, e
     path = tmp_path / "invalid.daec"
     with open_dataecon(path, "a") as db:
         with pytest.raises(exception):
-            db._handle.write("bad", frequency, first, payload)
+            db._handle.write("bad", frequency, first, payload, False, 4, 0, len(payload) // 8, None)
         with pytest.raises(DataEconError) as caught:
             db.read_series("bad")
         assert caught.value.code == -989

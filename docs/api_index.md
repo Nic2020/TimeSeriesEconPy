@@ -10,3 +10,9 @@ order they appear in `tsecon/__init__.py`.
       show_root_toc_entry: false
       filters: ["!^_"]
       heading_level: 2
+
+## DataEcon represented values
+
+::: tsecon.dataecon.StoredElement
+
+::: tsecon.dataecon.StoredSeries

@@ -239,7 +239,7 @@ import sys
 from tsecon.dataecon import open_dataecon, DataEconError
 db = open_dataecon(sys.argv[1])
 try:
-    db._handle.write('readonly_fault', 32, 24288, bytes(32))
+    db._handle.write('readonly_fault', 32, 24288, bytes(32), False, 4, 0, 4, None)
 except DataEconError as error:
     assert error.code > 0
 else:

@@ -54,10 +54,10 @@ def test_validate_before_pointer_read(position, value, exception):
 def test_strided_snapshot_and_owning_decode():
     source = np.arange(8, dtype=np.float64)
     series = TSeries(mm(2024, 1), source[::2])
-    frequency, first, payload, element, length, marker = encode_series(series)
+    frequency, first, payload, element, element_frequency, length, marker = encode_series(series)
     assert (frequency, first) == (32, 24288)
     source[:] = -1
-    result = decode_series(frequency, first, payload, element, length, marker)
+    result = decode_series(frequency, first, payload, element, element_frequency, length, marker)
     assert result.firstdate == mm(2024, 1)
     assert result.values.flags.owndata
     np.testing.assert_array_equal(result.values, [0.0, 2.0, 4.0, 6.0])
@@ -68,10 +68,10 @@ def test_strided_snapshot_and_owning_decode():
 @pytest.mark.parametrize("anchor", [mm(2024, 1), mm(2025, 7)])
 def test_empty_codec_preserves_anchor_and_owns_values(anchor):
     source = TSeries(anchor, np.empty(0, dtype=np.float64))
-    frequency, first, payload, element, length, marker = encode_series(source)
+    frequency, first, payload, element, element_frequency, length, marker = encode_series(source)
     assert payload == b""
     assert first == anchor.value
-    result = decode_series(frequency, first, payload, element, length, marker)
+    result = decode_series(frequency, first, payload, element, element_frequency, length, marker)
     assert result.firstdate == anchor
     assert result.lastdate == anchor - 1
     assert result.values.shape == (0,)

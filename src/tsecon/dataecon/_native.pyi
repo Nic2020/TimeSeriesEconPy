@@ -13,10 +13,11 @@ class FileHandle:
         frequency: int,
         first: int,
         payload: bytes,
-        overwrite: bool = False,
-        element: int = 4,
-        length: int | None = None,
-        marker: str | None = None,
+        overwrite: bool,
+        element: int,
+        element_frequency: int,
+        length: int,
+        marker: str | None,
     ) -> None: ...
     def read_scalar(self, name: str) -> tuple[bytes, ScalarMetadata, str]: ...
     def write_scalar(

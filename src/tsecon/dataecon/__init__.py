@@ -5,10 +5,10 @@ Scalars cover every Julia numeric width with a NumPy scalar type (Float16/32/64,
 Int8/16/32/64, UInt8/16/32/64, Complex64/128), strings, and MIT dates or
 Durations over every core frequency (Unit, Daily, BDaily, Weekly with any end
 day, Monthly, Quarterly, HalfYearly and Yearly); series carry supported numeric
-NumPy dtypes or Boolean values
-over the monthly, quarterly, half-yearly, annual, daily, business-daily and
-weekly frequencies. Files open read-only by default, append without
-overwriting with ``"a"``, or truncate with ``"w"``; explicit
+NumPy dtypes, Boolean values, or StoredSeries carriers for MIT/Duration,
+Int128/UInt128 and ComplexF16 elements over the monthly, quarterly, half-yearly,
+annual, daily, business-daily and weekly frequencies. Files open read-only by
+default, append without overwriting with ``"a"``, or truncate with ``"w"``; explicit
 ``overwrite=True`` writes, ``delete``, ``truncate``, ``is_empty`` and
 in-memory databases (``open_dataecon_memory``) mirror the Julia file
 operations. Use ``open_dataecon`` as a context manager. The native extension
@@ -27,26 +27,32 @@ from threading import RLock
 from types import TracebackType
 from typing import TYPE_CHECKING, Literal
 
-from tsecon.tseries import TSeries
-
 from ._codec import (
     ScalarResult,
     ScalarValue,
+    SeriesValue,
     decode_scalar,
     decode_series,
     encode_scalar,
     encode_series,
 )
 from ._errors import DataEconError
+from ._represented import COMPLEXF16, INT128, UINT128, StoredElement, StoredSeries
 
 if TYPE_CHECKING:
     from . import _native
 
 __all__ = [
+    "COMPLEXF16",
+    "INT128",
+    "UINT128",
     "DataEconError",
     "DataEconFile",
     "ScalarResult",
     "ScalarValue",
+    "SeriesValue",
+    "StoredElement",
+    "StoredSeries",
     "open_dataecon",
     "open_dataecon_memory",
 ]
@@ -147,8 +153,14 @@ class DataEconFile:
         if self._mode == "r":
             raise ValueError("Cannot write through a read-only DataEcon file.")
 
-    def read_series(self, name: str) -> TSeries:
+    def read_series(self, name: str) -> SeriesValue:
         """Read one root series into owning storage that survives file closure.
+
+        Ordinary numeric and Boolean elements return ``TSeries``. Dates,
+        durations, Int128/UInt128 and ComplexF16 elements return ``StoredSeries``
+        with their exact carrier bytes and separate element frequency. A Bool
+        marker on a nonempty wide carrier is preserved; explicit ``to_bool()``
+        converts it. On ordinary carriers it produces Boolean values directly.
 
         The stored axis must carry a supported frequency code and a first date
         inside the reliable native range of that frequency; quarterly,
@@ -168,13 +180,24 @@ class DataEconFile:
             _validate_name(name)
             payload, metadata, _, marker = self._handle.read(name)
             return decode_series(
-                metadata[6], metadata[7], payload, metadata[2], metadata[5], marker
+                metadata[6], metadata[7], payload, metadata[2], metadata[3], metadata[5], marker
             )
 
-    def write_series(self, name: str, series: TSeries, *, overwrite: bool = False) -> None:
+    def write_series(self, name: str, series: SeriesValue, *, overwrite: bool = False) -> None:
         """Write a root series; by default an existing name fails and is never replaced.
 
-        Accepted series carry native-endian signed/unsigned integers through
+        ``StoredSeries`` additionally carries full-Int64 date/duration element
+        codes (without scalar date packing), Int128/UInt128 or ComplexF16 bytes.
+        Its element frequency is independent of the dated axis. Live carrier
+        and marker validation precede snapshotting and any overwrite deletion.
+        Empty wide carriers need a type marker; empty date/duration series
+        retain Julia's marker but remain unloadable by the pinned Julia loader.
+        Nonempty Bool-marked wide carriers preserve bytes, type and marker;
+        marker failure leaves unmarked wide values. A wide Bool-marked empty
+        cannot preserve its width and is refused. Other foreign markers remain
+        unsupported.
+
+        Ordinary series carry native-endian signed/unsigned integers through
         64 bits, float16/32/64, complex64/128 or Boolean values over the Monthly,
         Quarterly, HalfYearly, Yearly, Daily, BDaily or Weekly frequency (any
         fiscal anchor or week end day). The first date must lie inside the
@@ -215,6 +238,7 @@ class DataEconFile:
                 encoded.payload,
                 bool(overwrite),
                 encoded.element,
+                encoded.element_frequency,
                 encoded.length,
                 encoded.marker,
             )

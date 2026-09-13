@@ -47,10 +47,10 @@ def assert_series(actual, anchor, code, values):
 def test_codec_preserves_anchor_and_snapshots_strides(anchor):
     values = np.arange(8, dtype=np.float64)
     source = TSeries(MIT(Quarterly(anchor), 8099), values[::2])
-    freq, first, payload, element, length, marker = encode_series(source)
+    freq, first, payload, element, element_frequency, length, marker = encode_series(source)
     assert (freq, first) == (64 + anchor, 8099)
     values[:] = -1
-    result = decode_series(freq, first, payload, element, length, marker)
+    result = decode_series(freq, first, payload, element, element_frequency, length, marker)
     assert_series(result, anchor, 8099, [0, 2, 4, 6])
     result.values[0] = 99
     assert np.frombuffer(payload, dtype=np.float64)[0] == 0
@@ -175,7 +175,7 @@ def test_native_input_guards_leave_no_partial_axis(tmp_path, frequency, first, p
     path = tmp_path / "invalid.daec"
     with open_dataecon(path, "a") as db:
         with pytest.raises(exception):
-            db._handle.write("bad", frequency, first, payload)
+            db._handle.write("bad", frequency, first, payload, False, 4, 0, len(payload) // 8, None)
         with pytest.raises(DataEconError) as caught:
             db.read_series("bad")
         assert caught.value.code == -989

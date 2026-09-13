@@ -4,8 +4,9 @@
 Scalars: Float16/32/64, Int8/16/32/64, UInt8/16/32/64, Complex64/128, UTF-8
 strings, and MIT dates or Durations over the unit, daily, business-daily,
 weekly (every end day), monthly, quarterly, half-yearly and annual
-frequencies. Series: supported numeric widths and Bool over the same frequencies except Unit
-(daily, business-daily and weekly axes use the verified calendar windows).
+frequencies. Series also support represented MIT/Duration, Int128/UInt128 and
+ComplexF16 elements, over the same axis frequencies except Unit (daily,
+business-daily and weekly axes use the verified calendar windows).
 """
 
 from __future__ import annotations
@@ -17,93 +18,72 @@ from typing import Any, NamedTuple, TypeAlias
 import numpy as np
 
 from tsecon.frequencies import (
-    BDaily,
-    Daily,
     Frequency,
-    HalfYearly,
-    Monthly,
-    Quarterly,
-    Unit,
-    Weekly,
-    Yearly,
 )
 from tsecon.mit import MIT, Duration
 from tsecon.tseries import TSeries
 
-# Native sqlite3_bind_blob takes a C int despite daec.h accepting int64_t.
-# Bound both allocations and integer conversions well below that limit.
-MAX_BYTES = 128 * 1024 * 1024
-MIN_DATE = -(2**31)
-MAX_DATE = 2**31 - 1
-MIN_MONTHLY_DATE = -393600
-MIN_QUARTERLY_DATE = -131200
-MIN_HALFYEARLY_DATE = -65600
-_FREQUENCIES: dict[int, Monthly | Quarterly | HalfYearly | Yearly] = {
-    32: Monthly(),
-    65: Quarterly(1),
-    66: Quarterly(2),
-    67: Quarterly(3),
-    **{128 + month: HalfYearly(month) for month in range(1, 7)},
-    **{256 + month: Yearly(month) for month in range(1, 13)},
-}
-# The native decoder adds EPOCH_L * periods_per_year in uint32 arithmetic and
-# then divides; below these codes the wrapped sum decodes to a different year.
-# Annual (division by one) preserves the whole signed 32-bit range. Series
-# writes already reject monthly codes below -393600 through the native
-# round-trip check; scalar dates apply the explicit table before any C call.
-_MIN_DATES: dict[int, tuple[int, str]] = {
-    **dict.fromkeys((65, 66, 67), (MIN_QUARTERLY_DATE, "quarterly")),
-    **dict.fromkeys(range(129, 135), (MIN_HALFYEARLY_DATE, "half-yearly")),
-}
-_SCALAR_MIN_DATES: dict[int, int] = {
-    32: MIN_MONTHLY_DATE,
-    **{code: minimum for code, (minimum, _) in _MIN_DATES.items()},
-    **dict.fromkeys(range(257, 269), MIN_DATE),
-}
-MIN_INT64 = -(2**63)
-MAX_INT64 = 2**63 - 1
-# Scalar-only frequencies. Unit (11) is Julia's generic pass-through: the code
-# is a plain signed 64-bit integer and no native codec applies. Daily (12),
-# business daily (13) and weekly (16 + ISO end day, 17..23) use the native
-# calendar codec, whose encoder accepts years in [-32800, 32800] and whose
-# decoders shift by fixed uint32 constants. The exact round-trip windows below
-# were verified natively on every code: daily from 1 March -32800, business
-# daily and weekly from the last week of December -32800, all through 31
-# December 32800. Code 16 (a second Sunday alias) and 24..31 are never written
-# by Julia and decode to invalid anchors, so they are rejected like bare codes.
-UNIT_FREQUENCY = 11
-_CALENDAR_FREQUENCIES: dict[int, Daily | BDaily | Weekly] = {
-    12: Daily(),
-    13: BDaily(),
-    **{16 + day: Weekly(day) for day in range(1, 8)},
-}
-_CALENDAR_RANGES: dict[int, tuple[int, int]] = {
-    12: (-11980259, 11979954),
-    13: (-8557114, 8557110),
-    **dict.fromkeys(range(17, 24), (-1711422, 1711422)),
-}
-# Series axes: the year/period families plus the calendar families. Unit series
-# (code 11) are not yet supported; Julia writes them as a plain Int64 axis.
-_SERIES_FREQUENCIES: dict[int, Frequency] = {**_FREQUENCIES, **_CALENDAR_FREQUENCIES}
-_SCALAR_FREQUENCIES: dict[int, Frequency] = {
-    **_FREQUENCIES,
-    UNIT_FREQUENCY: Unit(),
-    **_CALENDAR_FREQUENCIES,
-}
-# Native scalar type codes: type_integer (which the header also names
-# type_signed) is 1, type_unsigned 2, type_date 3, type_float 4, type_complex 5
-# and type_string 6. Type 1 with a supported frequency is a Duration; type 3
-# always carries a frequency. Julia reloads types 1, 2, 4 and 5 by byte width
-# alone (frequency zero) and stores every width without a marker.
-KIND_INTEGER = 1
-KIND_UNSIGNED = 2
-KIND_DATE = 3
-KIND_FLOAT = 4
-KIND_COMPLEX = 5
-KIND_STRING = 6
-# Supported numeric widths per type code. Int128/UInt128 (16 bytes) and
-# ComplexF16 (4 bytes) are Julia-supported but have no NumPy scalar type; they
-# stay rejected until a representation is chosen.
+from ._metadata import (
+    _CALENDAR_FREQUENCIES,
+    _CALENDAR_RANGES,
+    _FREQUENCIES,
+    _MIN_DATES,
+    _SCALAR_FREQUENCIES,
+    _SCALAR_MIN_DATES,
+    _SERIES_FREQUENCIES,
+    KIND_COMPLEX,
+    KIND_DATE,
+    KIND_FLOAT,
+    KIND_INTEGER,
+    KIND_STRING,
+    KIND_UNSIGNED,
+    MAX_BYTES,
+    MAX_DATE,
+    MAX_INT64,
+    MIN_DATE,
+    MIN_HALFYEARLY_DATE,
+    MIN_INT64,
+    MIN_MONTHLY_DATE,
+    MIN_QUARTERLY_DATE,
+    UNIT_FREQUENCY,
+)
+from ._represented import (
+    COMPLEXF16,
+    INT128,
+    UINT128,
+    StoredElement,
+    StoredSeries,
+    _check_bool_interpretation,
+)
+
+__all__ = [
+    "KIND_COMPLEX",
+    "KIND_DATE",
+    "KIND_FLOAT",
+    "KIND_INTEGER",
+    "KIND_STRING",
+    "KIND_UNSIGNED",
+    "MAX_BYTES",
+    "MAX_DATE",
+    "MAX_INT64",
+    "MIN_DATE",
+    "MIN_HALFYEARLY_DATE",
+    "MIN_INT64",
+    "MIN_MONTHLY_DATE",
+    "MIN_QUARTERLY_DATE",
+    "UNIT_FREQUENCY",
+    "_CALENDAR_FREQUENCIES",
+    "_CALENDAR_RANGES",
+    "_FREQUENCIES",
+    "_MIN_DATES",
+    "_SCALAR_FREQUENCIES",
+    "_SCALAR_MIN_DATES",
+    "_SERIES_FREQUENCIES",
+]
+
+# Scalar numeric widths per type code. Int128/UInt128 (16 bytes) and
+# ComplexF16 (4 bytes) remain unsupported for scalars; represented series
+# accept them through the separate _SERIES_WIDTHS table below.
 _NUMERIC_WIDTHS: dict[int, frozenset[int]] = {
     KIND_INTEGER: frozenset({1, 2, 4, 8}),
     KIND_UNSIGNED: frozenset({1, 2, 4, 8}),
@@ -212,7 +192,7 @@ _SCALAR_SUPPORT = (
 )
 _SERIES_SUPPORT = (
     "DataEcon supports only monthly, quarterly, half-yearly, annual, daily, "
-    "business-daily or weekly numeric or Boolean TSeries."
+    "business-daily or weekly numeric/Boolean TSeries or represented StoredSeries."
 )
 
 # Empty payloads have no byte width; only an exact reconstruction token or the
@@ -246,32 +226,86 @@ class SeriesPayload(NamedTuple):
     first: int
     payload: bytes
     element: int
+    element_frequency: int
     length: int
     marker: str | None
 
 
-def series_dtype(element: int, length: int, nbytes: int, marker: str | None) -> np.dtype[Any]:
-    """Resolve an already structurally validated series without evaluating markers."""
-    if marker is not None:
-        if type(marker) is not str or marker not in _SERIES_TYPES:
-            raise TypeError("Unsupported Julia reconstruction attribute.")
-        kind, dtype = _SERIES_TYPES[marker]
-        if kind != element or (length and (marker != "Bool" or nbytes != length)):
-            raise TypeError("Unsupported Julia reconstruction attribute for this element encoding.")
-        return dtype
+# Series widths include the represented families; scalar acceptance is unchanged.
+_SERIES_WIDTHS = {
+    **_NUMERIC_WIDTHS,
+    KIND_INTEGER: _NUMERIC_WIDTHS[KIND_INTEGER] | {16},
+    KIND_UNSIGNED: _NUMERIC_WIDTHS[KIND_UNSIGNED] | {16},
+    KIND_COMPLEX: _NUMERIC_WIDTHS[KIND_COMPLEX] | {4},
+}
+_WIDE_ELEMENTS = {(1, 16): INT128, (2, 16): UINT128, (5, 4): COMPLEXF16}
+_WIDE_NAMES = {e.julia_name: e for e in _WIDE_ELEMENTS.values()}
+SeriesValue: TypeAlias = TSeries | StoredSeries
+
+
+def series_dtype(
+    element: int, element_frequency: int, length: int, nbytes: int, marker: str | None
+) -> np.dtype[Any] | StoredElement:
+    """Resolve structurally validated metadata using finite marker comparisons."""
+    if marker is not None and type(marker) is not str:
+        raise TypeError("Unsupported Julia reconstruction attribute.")
+    if element_frequency:
+        descriptor = StoredElement(
+            "date" if element == KIND_DATE else "duration", scalar_frequency(element_frequency)
+        )
+        if marker not in (None, descriptor.julia_name):
+            raise TypeError(
+                "Unsupported Julia reconstruction attribute for date/duration elements."
+            )
+        return descriptor
     if not length:
+        return _empty_series_type(element, marker)
+    width = nbytes // length
+    wide = _WIDE_ELEMENTS.get((element, width))
+    if wide is not None:
+        if marker == "Bool":
+            return wide.with_bool_marker()
+        if marker not in (None, wide.julia_name):
+            raise TypeError("Unsupported Julia reconstruction attribute for this element encoding.")
+        return wide
+    if marker not in (None, "Bool"):
+        raise TypeError("Unsupported Julia reconstruction attribute for this element encoding.")
+    # Keep the carrier dtype until Bool values have been checked without casting.
+    return _SERIES_DTYPES[element, width]
+
+
+def _empty_series_type(element: int, marker: str | None) -> np.dtype[Any] | StoredElement:
+    if marker == "Bool":
+        return np.dtype("?")
+    if marker in _WIDE_NAMES:
+        descriptor = _WIDE_NAMES[marker]
+        if descriptor.native_kind != element:
+            raise TypeError("Unsupported Julia reconstruction attribute for this element encoding.")
+        return descriptor
+    return _empty_series_dtype(element, marker)
+
+
+def _empty_series_dtype(element: int, marker: str | None) -> np.dtype[Any]:
+    if marker is None:
         return _SERIES_TYPES[_SERIES_DEFAULTS[element]][1]
-    return _SERIES_DTYPES[element, nbytes // length]
+    if marker not in _SERIES_TYPES or _SERIES_TYPES[marker][0] != element:
+        raise TypeError("Unsupported Julia reconstruction attribute for this element encoding.")
+    return _SERIES_TYPES[marker][1]
 
 
 def validate_series_payload(
-    element: int, length: int, payload: bytes, marker: str | None
-) -> np.dtype[Any]:
-    """Check owned payload interpretation after structural metadata validation."""
-    dtype = series_dtype(element, length, len(payload), marker)
-    if dtype.kind == "b" and np.any(np.frombuffer(payload, dtype=np.uint8) > 1):
-        raise ValueError("Boolean series payload must contain only zero and one bytes.")
-    return dtype
+    element: int, element_frequency: int, length: int, payload: bytes, marker: str | None
+) -> np.dtype[Any] | StoredElement:
+    """Validate interpretation of an owned, structurally checked payload."""
+    resolved = series_dtype(element, element_frequency, length, len(payload), marker)
+    if isinstance(resolved, StoredElement):
+        if resolved.marker is not None:
+            _check_bool_interpretation(np.frombuffer(payload, dtype=resolved.dtype), resolved)
+    elif marker == "Bool":
+        values = np.frombuffer(payload, dtype=resolved)
+        if not np.all((values == 0) | (values == 1)):
+            raise ValueError("Boolean series payload must contain only zero and one values.")
+    return resolved
 
 
 def series_frequency(code: int) -> Frequency:
@@ -464,13 +498,14 @@ def validate_metadata(metadata: Metadata) -> None:
     """Validate native metadata before the wrapper dereferences a value pointer."""
     cls, kind, element, element_freq, axis, length, frequency, first, nbytes = metadata
     series_frequency(frequency)
-    if (cls, kind, element_freq, axis) != (2, 12, 0, 1) or element not in _NUMERIC_WIDTHS:
+    if (cls, kind, axis) != (2, 12, 1):
         raise TypeError(_SERIES_SUPPORT)
+    widths = _series_widths(element, element_freq)
     if length < 0:
         raise ValueError("Invalid negative DataEcon series length.")
     if not 0 <= nbytes <= MAX_BYTES or (not length and nbytes):
         raise ValueError("Invalid or oversized DataEcon series payload.")
-    if length and (nbytes % length or nbytes // length not in _NUMERIC_WIDTHS[element]):
+    if length and (nbytes % length or nbytes // length not in widths):
         raise ValueError("Invalid DataEcon series element width or payload length.")
     if not MIN_DATE <= first <= MAX_DATE or (length and first + length - 1 > MAX_DATE):
         raise ValueError("DataEcon dates must fit the native signed 32-bit date range.")
@@ -490,10 +525,20 @@ def validate_metadata(metadata: Metadata) -> None:
         )
 
 
-def encode_series(series: TSeries) -> SeriesPayload:
-    """Return an independent snapshot with its exact element encoding."""
-    if not isinstance(series, TSeries):
-        raise TypeError("write_series requires a TSeries.")
+def _series_widths(element: int, element_frequency: int) -> frozenset[int]:
+    if element_frequency:
+        if element not in (KIND_INTEGER, KIND_DATE) or element_frequency not in _SCALAR_FREQUENCIES:
+            raise TypeError("Unsupported DataEcon series element frequency or kind.")
+        return frozenset({8})
+    if element not in _SERIES_WIDTHS:
+        raise TypeError(_SERIES_SUPPORT)
+    return _SERIES_WIDTHS[element]
+
+
+def encode_series(series: SeriesValue) -> SeriesPayload:
+    """Return an independent snapshot with explicit element kind/frequency/length."""
+    if not isinstance(series, (TSeries, StoredSeries)):
+        raise TypeError("write_series requires a TSeries or StoredSeries.")
     if sys.byteorder != "little":
         raise RuntimeError(
             "DataEcon interchange is currently supported on little-endian hosts only."
@@ -501,37 +546,65 @@ def encode_series(series: TSeries) -> SeriesPayload:
     code = next(
         (code for code, freq in _SERIES_FREQUENCIES.items() if freq == series.frequency), None
     )
+    if code is None:
+        raise TypeError(_SERIES_SUPPORT)
+    if isinstance(series, StoredSeries):
+        series.validate()
+        descriptor = series.element
+        element, element_frequency = descriptor.native_kind, descriptor.native_frequency
+        marker = descriptor.written_marker(len(series))
+        values = series.values
+    else:
+        element, marker, values = _numeric_series_values(series)
+        element_frequency = 0
+    length, first = len(values), series.firstdate.value
+    validate_metadata((2, 12, element, element_frequency, 1, length, code, first, values.nbytes))
+    # Capacity/date checks precede the Boolean normalization allocation too.
+    if values.dtype.kind == "b":
+        values = values.astype(np.int8)
+    payload = values.tobytes(order="C")
+    # Recheck the owned payload's interpretation. This is not an atomic snapshot
+    # of an array concurrently resized or edited by its caller.
+    validate_series_payload(element, element_frequency, length, payload, marker)
+    return SeriesPayload(code, first, payload, element, element_frequency, length, marker)
+
+
+def _numeric_series_values(series: TSeries) -> tuple[int, str | None, np.ndarray[Any, Any]]:
     dtype = series.values.dtype
     entry = next(((name, kind) for name, (kind, dt) in _SERIES_TYPES.items() if dt == dtype), None)
-    # Windows long double may compare equal to float64 (likewise clongdouble
-    # and complex128); its type character still identifies the unsupported input.
-    if code is None or entry is None or not dtype.isnative or dtype.char in ("g", "G"):
+    # Windows longdouble can compare equal to float64; preserve the explicit rejection.
+    if entry is None or not dtype.isnative or dtype.char in ("g", "G"):
         raise TypeError(_SERIES_SUPPORT + " Values must have a supported native-endian dtype.")
     name, element = entry
-    length = len(series.values)
-    first = series.firstdate.value
-    validate_metadata((2, 12, element, 0, 1, length, code, first, length * dtype.itemsize))
-    marker = name if name == "Bool" or (not length and name != _SERIES_DEFAULTS[element]) else None
-    values = series.values.astype(np.int8) if dtype.kind == "b" else series.values
-    return SeriesPayload(code, first, values.tobytes(order="C"), element, length, marker)
+    marker = (
+        name
+        if name == "Bool" or (not len(series.values) and name != _SERIES_DEFAULTS[element])
+        else None
+    )
+    return element, marker, series.values
 
 
 def decode_series(
     code: int,
     first: int,
     payload: bytes,
-    element: int = 4,
-    length: int | None = None,
-    marker: str | None = None,
-) -> TSeries:
-    """Construct an owning core series; no native storage escapes the adapter."""
+    element: int,
+    element_frequency: int,
+    length: int,
+    marker: str | None,
+) -> SeriesValue:
+    """Construct owning values; native storage never escapes the adapter."""
     if sys.byteorder != "little":
         raise RuntimeError(
             "DataEcon interchange is currently supported on little-endian hosts only."
         )
-    if length is None:
-        length = len(payload) // 8
-    validate_metadata((2, 12, element, 0, 1, length, code, first, len(payload)))
-    dtype = validate_series_payload(element, length, payload, marker)
-    values = np.frombuffer(payload, dtype=dtype).copy()
-    return TSeries(MIT(series_frequency(code), first), values)
+    validate_metadata((2, 12, element, element_frequency, 1, length, code, first, len(payload)))
+    resolved = validate_series_payload(element, element_frequency, length, payload, marker)
+    anchor = MIT(series_frequency(code), first)
+    if isinstance(resolved, StoredElement):
+        values = np.frombuffer(payload, dtype=resolved.dtype).copy()
+        return StoredSeries(anchor, values, resolved, copy=False)
+    values = np.frombuffer(payload, dtype=resolved)
+    if marker == "Bool":
+        return TSeries(anchor, np.array(values == 1, dtype=bool))
+    return TSeries(anchor, values.copy())

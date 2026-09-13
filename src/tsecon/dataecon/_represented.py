@@ -10,8 +10,8 @@ bytes, and a :class:`StoredElement` describing the element family. Explicit
 conversions (``tolist``, ``from_list``, ``to_complex64``, ``to_bool``) are the
 only paths to ordinary Python or NumPy values.
 
-This module is a representation layer only. It holds no native resource and
-is not yet connected to DataEcon file reads or writes.
+This module holds no native resource. File codecs preserve these carrier
+bytes and their validated metadata without implicit value conversion.
 """
 
 from __future__ import annotations
@@ -23,7 +23,7 @@ from typing import Any, Literal
 
 import numpy as np
 
-from tsecon.dataecon._codec import (
+from tsecon.dataecon._metadata import (
     _SCALAR_FREQUENCIES,
     _SERIES_FREQUENCIES,
     KIND_COMPLEX,

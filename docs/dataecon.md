@@ -8,8 +8,9 @@ empty series**, through the DataEcon 0.4.0 C library. Date and duration
 scalars cover every core frequency: `Unit`, `Daily`, `BDaily`, `Weekly` with
 any end day, `Monthly`, `Quarterly`, `HalfYearly` and `Yearly`.
 Int128/UInt128/ComplexF16 scalars, marker-reconstructed Julia types,
-Unit-frequency series, MIT/Duration and missing-width series elements, catalogs, workspaces and general
-attributes are not supported yet. Existing JSON I/O is unchanged.
+Unit-frequency series, catalogs, workspaces and general attributes are not supported yet.
+Represented date/duration, Int128/UInt128 and ComplexF16 series elements are
+available through `StoredSeries`. Existing JSON I/O is unchanged.
 
 Native DataEcon support is configured in the wheel workflow for CPython 3.11–3.13:
 Windows x86-64, Linux x86-64 and macOS arm64. Native wheel builds and Julia
@@ -791,3 +792,52 @@ not automatically available to the later Julia step on the host.
 The output is named for the CPython version tag (for example `cp311.daec`), and an existing
 output is not overwritten. CI builds and artifact checks do not publish to PyPI;
 publication remains a separate release workflow.
+
+## Represented series elements
+
+`StoredSeries` keeps a dated anchor, an owning NumPy carrier buffer and a
+`StoredElement` descriptor. Date/duration elements use Int64 codes with their
+own frequency. Int128/UInt128 use low/high UInt64 fields; ComplexF16 uses
+real/imaginary Float16 fields. Reads preserve the stored type and bytes.
+`read_series` returns `TSeries | StoredSeries`; ordinary series are unchanged.
+
+```python
+from tsecon.dataecon import INT128, StoredSeries, open_dataecon
+from tsecon import mm
+
+wide = StoredSeries.from_list(mm(2024, 11), INT128, [-(2**127), 2**64, 2**127 - 1])
+with open_dataecon("represented.daec", "a") as db:
+    db.write_series("wide", wide)
+    restored = db.read_series("wide")
+assert restored.element == INT128
+assert restored.values.tobytes() == wide.values.tobytes()
+assert restored.tolist() == [-(2**127), 2**64, 2**127 - 1]
+```
+
+Construction copies by default. Explicit `copy=False` shares only a compatible
+writable contiguous ndarray; strided or read-only compatible input is copied.
+The live carrier may be edited, and writes revalidate it before deleting any
+existing object. `from_list` and `tolist` are explicit object conversions;
+`to_complex64` widens ComplexF16. Python complex input must have exactly
+representable Float16 finite components: inexact narrowing or overflow raises
+`ValueError`. Float16 pairs or carrier buffers preserve NaN payloads; conversion
+through Python complex does not promise that preservation.
+
+A Bool marker on a nonempty Int128/UInt128/ComplexF16 carrier stays with its
+stored bytes; `to_bool()` explicitly converts validated zeros/ones to a Boolean
+`TSeries`. Ordinary numeric carriers with that marker return Boolean values.
+Empty frequency-zero numeric payloads with the Bool marker have no recoverable
+width and return empty Boolean series. Wide marked containers cannot be empty.
+Other foreign marker conversions, including Bool on date/duration elements,
+remain unsupported. No marker text is evaluated.
+
+Empty wide carriers require their type marker. Empty date/duration carriers
+also write Julia's exact marker; Python reads marked or unmarked forms, while
+the pinned Julia loader fails on either. Dates/durations inside a series keep
+full Int64 codes, independent of axis bounds. Only canonical element-frequency
+codes are accepted: noncanonical encodings such as 16, 24-31, 64, 128 and 256
+are refused even though Julia loads some as noncanonical frequency types.
+
+Marker writes remain separate native operations with no rollback. Failure can
+leave unmarked wide values, or an empty wide object reading as the native default
+width. Close may subsequently fail and quarantine the owner; do not retry it.

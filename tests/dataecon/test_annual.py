@@ -166,7 +166,7 @@ def test_native_validation_creates_no_partial_axis(tmp_path, frequency, first, p
     with open_dataecon(path, "a") as db:
         db.write_series("good", TSeries(MIT(Yearly(6), 2024), np.ones(1)))
         with pytest.raises(exception):
-            db._handle.write("bad", frequency, first, payload)
+            db._handle.write("bad", frequency, first, payload, False, 4, 0, len(payload) // 8, None)
         with pytest.raises(DataEconError) as caught:
             db.read_series("bad")
         assert caught.value.code == -989

@@ -327,7 +327,7 @@ cdef class FileHandle:
                     if key != b"jeltype":
                         raise TypeError("Unsupported Julia reconstruction attribute.")
                     marker = (<bytes>attribute).decode("utf-8")
-            validate_series_payload(int(ts.eltype), int(ts.axis.length), payload, marker)
+            validate_series_payload(int(ts.eltype), int(ts.elfreq), int(ts.axis.length), payload, marker)
             # validate_metadata bounded first and length, so the last code cannot
             # overflow. Calendar axes take the calendar round trip on the stored
             # first date only, like Julia (trailing codes are implicit and never
@@ -360,8 +360,8 @@ cdef class FileHandle:
             )
         check(de_delete_object(self.handle, oid), operation, self.path, name)
 
-    def write(self, str name, frequency, first, bytes payload, bint overwrite=False,
-              element=4, length=None, marker=None):
+    def write(self, str name, frequency, first, bytes payload, bint overwrite,
+              element, element_frequency, length, marker):
         # first is the native date code of the first observation (the axis
         # anchor for an empty series). validate_metadata bounds it to the
         # reliable range of its frequency before it is narrowed to date_t.
@@ -373,6 +373,7 @@ cdef class FileHandle:
         cdef int rc
         cdef int64_t native_length
         cdef type_t native_element
+        cdef frequency_t native_element_frequency
         cdef bytes encoded_marker
         cdef const void *value = NULL
         cdef bint existing = False
@@ -384,12 +385,12 @@ cdef class FileHandle:
             raise ValueError("Expected an integer first date code.")
         if type(element) is not int:
             raise TypeError("Series element must be an integer native code.")
-        if length is None:
-            length = len(payload) // 8
+        if type(element_frequency) is not int:
+            raise TypeError("Series element frequency must be an integer native code.")
         if type(length) is not int:
             raise ValueError("Expected an integer series length.")
-        validate_metadata((2, 12, element, 0, 1, length, frequency, first, len(payload)))
-        validate_series_payload(element, length, payload, marker)
+        validate_metadata((2, 12, element, element_frequency, 1, length, frequency, first, len(payload)))
+        validate_series_payload(element, element_frequency, length, payload, marker)
         encoded_marker = b"" if marker is None else marker.encode("ascii")
         if frequency == 32 and not -178956970 <= first // 12 <= 178956969:
             # Historical monthly series-write guard: the last eight signed
@@ -401,6 +402,7 @@ cdef class FileHandle:
         native_first = first
         native_length = length
         native_element = <type_t><uint32_t>element
+        native_element_frequency = <frequency_t><uint32_t>element_frequency
         with _lock:
             self.require_open()
             rc = de_find_object(self.handle, 0, encoded, &oid)
@@ -425,7 +427,7 @@ cdef class FileHandle:
             if length > 0:
                 value = <const char *>payload
             check(de_store_tseries(self.handle, 0, encoded, type_tseries, native_element,
-                                  freq_none, axis, len(payload), value, &oid),
+                                  native_element_frequency, axis, len(payload), value, &oid),
                   "write (overwrite; original deleted, partial replacement may remain)"
                   if existing else "write (partial object may remain)", self.path, name)
             if marker is not None:

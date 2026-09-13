@@ -115,17 +115,13 @@ def test_noncanonical_boolean_array_bytes_are_canonicalized_without_mutation():
     assert encoded.marker == "Bool"
     assert raw.tobytes() == b"\0\1\2\x7f\x80\xff"
     with pytest.raises(ValueError, match="zero and one"):
-        decode_series(32, 24288, b"\2", 1, 1, "Bool")
+        decode_series(32, 24288, b"\2", 1, 0, 1, "Bool")
 
 
 @pytest.mark.parametrize(
     ("element", "nbytes", "length", "marker"),
     [
-        (1, 8, 1, "Bool"),
-        (2, 1, 1, "Bool"),
         (4, 0, 0, "Int16"),
-        (1, 0, 0, "Int128"),
-        (5, 0, 0, "ComplexF16"),
         (1, 1, 1, "Int8"),
         (4, 0, 0, " Float64"),
         (4, 0, 0, "Float64()"),
@@ -133,7 +129,7 @@ def test_noncanonical_boolean_array_bytes_are_canonicalized_without_mutation():
 )
 def test_reconstruction_allowlist(element, nbytes, length, marker):
     with pytest.raises(TypeError):
-        decode_series(32, 24288, bytes(nbytes), element, length, marker)
+        decode_series(32, 24288, bytes(nbytes), element, 0, length, marker)
 
 
 @pytest.mark.parametrize(("kind", "width"), [(1, 1), (2, 2), (4, 4), (5, 16)])
@@ -211,10 +207,6 @@ def test_widths_over_all_existing_axis_families(frequency, dtype, tmp_path):
     "name",
     [
         "bad_bool",
-        "foreign_bool",
-        "unsupported_Int128",
-        "unsupported_UInt128",
-        "unsupported_ComplexF16",
         "unknown_marker",
         "wrong_marker",
     ],
@@ -230,7 +222,7 @@ def test_invalid_overwrite_keeps_original(tmp_path):
     with open_dataecon(path, "a") as db:
         db.write_scalar("keep", 7)
         with pytest.raises(ValueError, match="zero and one"):
-            db._handle.write("keep", 32, 24288, b"\2", True, 1, 1, "Bool")
+            db._handle.write("keep", 32, 24288, b"\2", True, 1, 0, 1, "Bool")
         assert db.read_scalar("keep") == 7
 
 

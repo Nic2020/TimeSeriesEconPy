@@ -1173,6 +1173,78 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Represented series elements">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#axis-frequency-versus-element-frequency" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Axis frequency versus element frequency
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#128-bit-integers-and-half-precision-complex-values" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        128-bit integers and half-precision complex values
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#storage-preserving-operations-versus-explicit-conversions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Storage-preserving operations versus explicit conversions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#wide-bool-markers-and-empty-width-ambiguity" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Wide Bool markers and empty-width ambiguity
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ownership-overwrite-and-marker-write-failure-residue" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Ownership, overwrite and marker-write failure residue
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#compatibility-restrictions-and-remaining-unsupported-capabilities" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Compatibility restrictions and remaining unsupported capabilities
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
     </ul>
@@ -1728,6 +1800,78 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Represented series elements">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#axis-frequency-versus-element-frequency" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Axis frequency versus element frequency
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#128-bit-integers-and-half-precision-complex-values" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        128-bit integers and half-precision complex values
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#storage-preserving-operations-versus-explicit-conversions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Storage-preserving operations versus explicit conversions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#wide-bool-markers-and-empty-width-ambiguity" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Wide Bool markers and empty-width ambiguity
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ownership-overwrite-and-marker-write-failure-residue" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Ownership, overwrite and marker-write failure residue
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#compatibility-restrictions-and-remaining-unsupported-capabilities" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Compatibility restrictions and remaining unsupported capabilities
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
     </ul>
@@ -1758,10 +1902,11 @@ half-yearly, annual, daily, business-daily and weekly frequencies, including
 empty series</strong>, through the DataEcon 0.4.0 C library. Date and duration
 scalars cover every core frequency: <code>Unit</code>, <code>Daily</code>, <code>BDaily</code>, <code>Weekly</code> with
 any end day, <code>Monthly</code>, <code>Quarterly</code>, <code>HalfYearly</code> and <code>Yearly</code>.
-Int128/UInt128/ComplexF16 scalars, marker-reconstructed Julia types,
+Series may also hold date, duration, Int128/UInt128 and ComplexF16 elements
+through <code>StoredSeries</code> (see <a href="#represented-series-elements">Represented series elements</a>).
+Int128/UInt128/ComplexF16 scalars, other marker-reconstructed Julia types,
 Unit-frequency series, catalogs, workspaces and general attributes are not supported yet.
-Represented date/duration, Int128/UInt128 and ComplexF16 series elements are
-available through <code>StoredSeries</code>. Existing JSON I/O is unchanged.</p>
+Existing JSON I/O is unchanged.</p>
 <p>Native DataEcon support is configured in the wheel workflow for CPython 3.11–3.13:
 Windows x86-64, Linux x86-64 and macOS arm64. Native wheel builds and Julia
 monthly, empty and scalar interchange checks have passed on all three platforms.
@@ -1970,8 +2115,14 @@ their platform representation matches float64 or complex128.</p>
 <p>Boolean series use Julia's <code>jeltype="Bool"</code> marker and canonical zero/one bytes.
 Boolean scalar writes instead store unmarked Int8. Series reads accept the Bool
 encoding Julia writes: signed one-byte elements with that marker and only 00/01
-bytes. Other Bool-marked numeric kinds/widths in foreign files remain unsupported,
-even when Julia could convert their values. Unmarked Int8 never becomes Bool.</p>
+bytes. A Bool marker on another ordinary numeric kind or width, which Julia's
+loader converts, is converted the same way: every value must be exactly zero or
+one (imaginary part zero, signed zero allowed) and the result is a Boolean
+<code>TSeries</code>; any other value raises <code>ValueError</code>, as Julia raises <code>InexactError</code>.
+Rewriting such a series stores the canonical one-byte encoding, as Julia's
+rewrite does. A Bool marker on an Int128, UInt128 or ComplexF16 payload is
+preserved instead (see <a href="#represented-series-elements">Represented series elements</a>).
+Unmarked Int8 never becomes Bool.</p>
 <p>Required markers are written after the payload. If a marker write fails, the
 operation raises but can leave a readable object of the wrong dtype: nonempty
 Bool becomes Int8, and a narrow empty array takes the native wide default.
@@ -2382,7 +2533,16 @@ and values around 2^53; Julia checks their types, metadata and values as well.
 It also holds 91 narrow, unsigned and complex numeric scalars (every Float16/
 Float32, Int8/16/32, UInt8..UInt64 and ComplexF32/F64 group with endpoints,
 signed zeros, NaN, infinities, subnormals and precision-loss values, plus a
-Python <code>complex</code>) that Julia must load with the same type and bits. The
+Python <code>complex</code>) that Julia must load with the same type and bits. It holds
+147 represented series objects written from <code>StoredSeries</code> containers: both
+Int64 endpoints as dates and as durations for all 32 element frequencies, each
+with its marked empty; annual dates on a daily axis and daily durations on an
+annual axis; Int128/UInt128 endpoints and word-boundary values, the ComplexF16
+bit patterns and the three marked wide empties; three rewrites of read results;
+and three Bool-marked wide carriers with their explicit Boolean conversions.
+Julia checks their metadata, bytes, markers and loaded values, expects its own
+loader's failure on the empty date/duration series, and loads the marked wide
+carriers and their conversions as Boolean series. The
 combined output also records three file-operation outcomes (an Int64 scalar
 overwritten by a string, a deleted scalar, a scalar replaced by a series),
 and an auxiliary <code>fileops/cpXY-fileops.daec</code> file is written, reopened with
@@ -2428,46 +2588,205 @@ not automatically available to the later Julia step on the host.</p>
 output is not overwritten. CI builds and artifact checks do not publish to PyPI;
 publication remains a separate release workflow.</p>
 <h2 id="represented-series-elements">Represented series elements<a class="headerlink" href="#represented-series-elements" title="Permanent link">&para;</a></h2>
-<p><code>StoredSeries</code> keeps a dated anchor, an owning NumPy carrier buffer and a
-<code>StoredElement</code> descriptor. Date/duration elements use Int64 codes with their
-own frequency. Int128/UInt128 use low/high UInt64 fields; ComplexF16 uses
-real/imaginary Float16 fields. Reads preserve the stored type and bytes.
-<code>read_series</code> returns <code>TSeries | StoredSeries</code>; ordinary series are unchanged.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">tsecon.dataecon</span><span class="w"> </span><span class="kn">import</span> <span class="n">INT128</span><span class="p">,</span> <span class="n">StoredSeries</span><span class="p">,</span> <span class="n">open_dataecon</span>
-<a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">tsecon</span><span class="w"> </span><span class="kn">import</span> <span class="n">mm</span>
-<a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a>
-<a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a><span class="n">wide</span> <span class="o">=</span> <span class="n">StoredSeries</span><span class="o">.</span><span class="n">from_list</span><span class="p">(</span><span class="n">mm</span><span class="p">(</span><span class="mi">2024</span><span class="p">,</span> <span class="mi">11</span><span class="p">),</span> <span class="n">INT128</span><span class="p">,</span> <span class="p">[</span><span class="o">-</span><span class="p">(</span><span class="mi">2</span><span class="o">**</span><span class="mi">127</span><span class="p">),</span> <span class="mi">2</span><span class="o">**</span><span class="mi">64</span><span class="p">,</span> <span class="mi">2</span><span class="o">**</span><span class="mi">127</span> <span class="o">-</span> <span class="mi">1</span><span class="p">])</span>
-<a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a><span class="k">with</span> <span class="n">open_dataecon</span><span class="p">(</span><span class="s2">&quot;represented.daec&quot;</span><span class="p">,</span> <span class="s2">&quot;a&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">db</span><span class="p">:</span>
-<a id="__codelineno-18-6" name="__codelineno-18-6" href="#__codelineno-18-6"></a>    <span class="n">db</span><span class="o">.</span><span class="n">write_series</span><span class="p">(</span><span class="s2">&quot;wide&quot;</span><span class="p">,</span> <span class="n">wide</span><span class="p">)</span>
-<a id="__codelineno-18-7" name="__codelineno-18-7" href="#__codelineno-18-7"></a>    <span class="n">restored</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">read_series</span><span class="p">(</span><span class="s2">&quot;wide&quot;</span><span class="p">)</span>
-<a id="__codelineno-18-8" name="__codelineno-18-8" href="#__codelineno-18-8"></a><span class="k">assert</span> <span class="n">restored</span><span class="o">.</span><span class="n">element</span> <span class="o">==</span> <span class="n">INT128</span>
-<a id="__codelineno-18-9" name="__codelineno-18-9" href="#__codelineno-18-9"></a><span class="k">assert</span> <span class="n">restored</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">tobytes</span><span class="p">()</span> <span class="o">==</span> <span class="n">wide</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">tobytes</span><span class="p">()</span>
-<a id="__codelineno-18-10" name="__codelineno-18-10" href="#__codelineno-18-10"></a><span class="k">assert</span> <span class="n">restored</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span> <span class="o">==</span> <span class="p">[</span><span class="o">-</span><span class="p">(</span><span class="mi">2</span><span class="o">**</span><span class="mi">127</span><span class="p">),</span> <span class="mi">2</span><span class="o">**</span><span class="mi">64</span><span class="p">,</span> <span class="mi">2</span><span class="o">**</span><span class="mi">127</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span>
+<p>Julia's dated <code>TSeries</code> can hold element types NumPy has no scalar type for:
+<code>MIT{F}</code> dates and <code>Duration{F}</code> spans (stored as Int64 codes with their own
+element frequency), <code>Int128</code>/<code>UInt128</code> and <code>ComplexF16</code>. <code>read_series</code>
+returns a <code>TSeries</code> for every ordinary numeric or Boolean element type and a
+<code>StoredSeries</code> for these families, so its result type is
+<code>TSeries | StoredSeries</code> (exported as <code>SeriesValue</code>). A <code>StoredSeries</code> keeps
+three things: the dated anchor, an owning NumPy carrier array holding the exact
+stored bytes, and a <code>StoredElement</code> descriptor naming the family, the element
+frequency of a date or duration element, and any preserved marker. Dates and
+durations use an <code>&lt;i8</code> carrier; Int128/UInt128 use the structured dtype
+<code>[("lo", "&lt;u8"), ("hi", "&lt;u8")]</code> (low word first, as stored); ComplexF16 uses
+<code>[("real", "&lt;f2"), ("imag", "&lt;f2")]</code>. <code>write_series</code> accepts either container.</p>
+<h3 id="axis-frequency-versus-element-frequency">Axis frequency versus element frequency<a class="headerlink" href="#axis-frequency-versus-element-frequency" title="Permanent link">&para;</a></h3>
+<p>A series has one axis frequency, taken from its first date, and its elements
+carry an independent element frequency. Julia stores both; Python keeps them
+apart: <code>frequency</code> and <code>firstdate</code>/<code>lastdate</code> describe the axis, while
+<code>element.frequency</code> describes the stored dates or durations. The two may
+differ, as in daily durations on an annual axis or annual dates on a daily
+axis.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">tsecon</span><span class="w"> </span><span class="kn">import</span> <span class="n">MIT</span><span class="p">,</span> <span class="n">Daily</span><span class="p">,</span> <span class="n">Duration</span><span class="p">,</span> <span class="n">Monthly</span><span class="p">,</span> <span class="n">Yearly</span><span class="p">,</span> <span class="n">mm</span>
+<a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">tsecon.dataecon</span><span class="w"> </span><span class="kn">import</span> <span class="n">StoredElement</span><span class="p">,</span> <span class="n">StoredSeries</span><span class="p">,</span> <span class="n">open_dataecon</span>
+<a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a>
+<a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a><span class="n">dates</span> <span class="o">=</span> <span class="n">StoredSeries</span><span class="o">.</span><span class="n">from_list</span><span class="p">(</span>
+<a id="__codelineno-18-6" name="__codelineno-18-6" href="#__codelineno-18-6"></a>    <span class="n">mm</span><span class="p">(</span><span class="mi">2024</span><span class="p">,</span> <span class="mi">11</span><span class="p">),</span> <span class="n">StoredElement</span><span class="o">.</span><span class="n">date</span><span class="p">(</span><span class="n">Monthly</span><span class="p">()),</span> <span class="p">[</span><span class="n">mm</span><span class="p">(</span><span class="mi">2024</span><span class="p">,</span> <span class="mi">11</span><span class="p">),</span> <span class="n">mm</span><span class="p">(</span><span class="mi">2024</span><span class="p">,</span> <span class="mi">12</span><span class="p">)]</span>
+<a id="__codelineno-18-7" name="__codelineno-18-7" href="#__codelineno-18-7"></a><span class="p">)</span>
+<a id="__codelineno-18-8" name="__codelineno-18-8" href="#__codelineno-18-8"></a><span class="n">spans</span> <span class="o">=</span> <span class="n">StoredSeries</span><span class="p">(</span>
+<a id="__codelineno-18-9" name="__codelineno-18-9" href="#__codelineno-18-9"></a>    <span class="n">MIT</span><span class="p">(</span><span class="n">Yearly</span><span class="p">(</span><span class="mi">12</span><span class="p">),</span> <span class="mi">2024</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="o">-</span><span class="mi">5</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">7</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="s2">&quot;&lt;i8&quot;</span><span class="p">),</span> <span class="n">StoredElement</span><span class="o">.</span><span class="n">duration</span><span class="p">(</span><span class="n">Daily</span><span class="p">())</span>
+<a id="__codelineno-18-10" name="__codelineno-18-10" href="#__codelineno-18-10"></a><span class="p">)</span>
+<a id="__codelineno-18-11" name="__codelineno-18-11" href="#__codelineno-18-11"></a><span class="k">with</span> <span class="n">open_dataecon</span><span class="p">(</span><span class="s2">&quot;dates-example.daec&quot;</span><span class="p">,</span> <span class="s2">&quot;a&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">db</span><span class="p">:</span>
+<a id="__codelineno-18-12" name="__codelineno-18-12" href="#__codelineno-18-12"></a>    <span class="n">db</span><span class="o">.</span><span class="n">write_series</span><span class="p">(</span><span class="s2">&quot;dates&quot;</span><span class="p">,</span> <span class="n">dates</span><span class="p">)</span>
+<a id="__codelineno-18-13" name="__codelineno-18-13" href="#__codelineno-18-13"></a>    <span class="n">db</span><span class="o">.</span><span class="n">write_series</span><span class="p">(</span><span class="s2">&quot;spans&quot;</span><span class="p">,</span> <span class="n">spans</span><span class="p">)</span>
+<a id="__codelineno-18-14" name="__codelineno-18-14" href="#__codelineno-18-14"></a><span class="k">with</span> <span class="n">open_dataecon</span><span class="p">(</span><span class="s2">&quot;dates-example.daec&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">db</span><span class="p">:</span>
+<a id="__codelineno-18-15" name="__codelineno-18-15" href="#__codelineno-18-15"></a>    <span class="n">restored_dates</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">read_series</span><span class="p">(</span><span class="s2">&quot;dates&quot;</span><span class="p">)</span>
+<a id="__codelineno-18-16" name="__codelineno-18-16" href="#__codelineno-18-16"></a>    <span class="n">restored_spans</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">read_series</span><span class="p">(</span><span class="s2">&quot;spans&quot;</span><span class="p">)</span>
+<a id="__codelineno-18-17" name="__codelineno-18-17" href="#__codelineno-18-17"></a><span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">restored_dates</span><span class="p">,</span> <span class="n">StoredSeries</span><span class="p">)</span>
+<a id="__codelineno-18-18" name="__codelineno-18-18" href="#__codelineno-18-18"></a><span class="k">assert</span> <span class="n">restored_dates</span><span class="o">.</span><span class="n">element</span> <span class="o">==</span> <span class="n">StoredElement</span><span class="o">.</span><span class="n">date</span><span class="p">(</span><span class="n">Monthly</span><span class="p">())</span>
+<a id="__codelineno-18-19" name="__codelineno-18-19" href="#__codelineno-18-19"></a><span class="k">assert</span> <span class="n">restored_dates</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">tobytes</span><span class="p">()</span><span class="o">.</span><span class="n">hex</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;ea5e000000000000eb5e000000000000&quot;</span>
+<a id="__codelineno-18-20" name="__codelineno-18-20" href="#__codelineno-18-20"></a><span class="k">assert</span> <span class="n">restored_dates</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span> <span class="o">==</span> <span class="p">[</span><span class="n">mm</span><span class="p">(</span><span class="mi">2024</span><span class="p">,</span> <span class="mi">11</span><span class="p">),</span> <span class="n">mm</span><span class="p">(</span><span class="mi">2024</span><span class="p">,</span> <span class="mi">12</span><span class="p">)]</span>
+<a id="__codelineno-18-21" name="__codelineno-18-21" href="#__codelineno-18-21"></a><span class="k">assert</span> <span class="n">restored_spans</span><span class="o">.</span><span class="n">frequency</span> <span class="o">==</span> <span class="n">Yearly</span><span class="p">(</span><span class="mi">12</span><span class="p">)</span>  <span class="c1"># the axis</span>
+<a id="__codelineno-18-22" name="__codelineno-18-22" href="#__codelineno-18-22"></a><span class="k">assert</span> <span class="n">restored_spans</span><span class="o">.</span><span class="n">element</span><span class="o">.</span><span class="n">frequency</span> <span class="o">==</span> <span class="n">Daily</span><span class="p">()</span>  <span class="c1"># the elements</span>
+<a id="__codelineno-18-23" name="__codelineno-18-23" href="#__codelineno-18-23"></a><span class="k">assert</span> <span class="n">restored_spans</span><span class="o">.</span><span class="n">lastdate</span> <span class="o">==</span> <span class="n">MIT</span><span class="p">(</span><span class="n">Yearly</span><span class="p">(</span><span class="mi">12</span><span class="p">),</span> <span class="mi">2026</span><span class="p">)</span>
+<a id="__codelineno-18-24" name="__codelineno-18-24" href="#__codelineno-18-24"></a><span class="k">assert</span> <span class="n">restored_spans</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span> <span class="o">==</span> <span class="p">[</span><span class="n">Duration</span><span class="p">(</span><span class="n">Daily</span><span class="p">(),</span> <span class="o">-</span><span class="mi">5</span><span class="p">),</span> <span class="n">Duration</span><span class="p">(</span><span class="n">Daily</span><span class="p">(),</span> <span class="mi">0</span><span class="p">),</span> <span class="n">Duration</span><span class="p">(</span><span class="n">Daily</span><span class="p">(),</span> <span class="mi">7</span><span class="p">)]</span>
 </code></pre></div>
-<p>Construction copies by default. Explicit <code>copy=False</code> shares only a compatible
-writable contiguous ndarray; strided or read-only compatible input is copied.
-The live carrier may be edited, and writes revalidate it before deleting any
-existing object. <code>from_list</code> and <code>tolist</code> are explicit object conversions;
-<code>to_complex64</code> widens ComplexF16. Python complex input must have exactly
-representable Float16 finite components: inexact narrowing or overflow raises
-<code>ValueError</code>. Float16 pairs or carrier buffers preserve NaN payloads; conversion
-through Python complex does not promise that preservation.</p>
-<p>A Bool marker on a nonempty Int128/UInt128/ComplexF16 carrier stays with its
-stored bytes; <code>to_bool()</code> explicitly converts validated zeros/ones to a Boolean
-<code>TSeries</code>. Ordinary numeric carriers with that marker return Boolean values.
-Empty frequency-zero numeric payloads with the Bool marker have no recoverable
-width and return empty Boolean series. Wide marked containers cannot be empty.
-Other foreign marker conversions, including Bool on date/duration elements,
-remain unsupported. No marker text is evaluated.</p>
-<p>Empty wide carriers require their type marker. Empty date/duration carriers
-also write Julia's exact marker; Python reads marked or unmarked forms, while
-the pinned Julia loader fails on either. Dates/durations inside a series keep
-full Int64 codes, independent of axis bounds. Only canonical element-frequency
-codes are accepted: noncanonical encodings such as 16, 24-31, 64, 128 and 256
-are refused even though Julia loads some as noncanonical frequency types.</p>
-<p>Marker writes remain separate native operations with no rollback. Failure can
-leave unmarked wide values, or an empty wide object reading as the native default
-width. Close may subsequently fail and quarantine the owner; do not retry it.</p>
+<p>Element codes are never validated against date windows and never packed:
+every signed 64-bit code round-trips for all 32 element frequencies (<code>Unit</code>,
+<code>Daily</code>, <code>BDaily</code>, <code>Weekly</code> with any end day, <code>Monthly</code>, <code>Quarterly</code>,
+<code>HalfYearly</code> and <code>Yearly</code> with any anchor), exactly as Julia stores them. Only
+the axis follows the date rules of the earlier sections. <code>tolist()</code> returns
+core <code>MIT</code> or <code>Duration</code> objects with the element frequency, and <code>from_list</code>
+accepts only such objects of exactly that frequency.</p>
+<h3 id="128-bit-integers-and-half-precision-complex-values">128-bit integers and half-precision complex values<a class="headerlink" href="#128-bit-integers-and-half-precision-complex-values" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">tsecon.dataecon</span><span class="w"> </span><span class="kn">import</span> <span class="n">COMPLEXF16</span><span class="p">,</span> <span class="n">INT128</span><span class="p">,</span> <span class="n">UINT128</span>
+<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>
+<a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a><span class="n">wide</span> <span class="o">=</span> <span class="n">StoredSeries</span><span class="o">.</span><span class="n">from_list</span><span class="p">(</span><span class="n">mm</span><span class="p">(</span><span class="mi">2024</span><span class="p">,</span> <span class="mi">11</span><span class="p">),</span> <span class="n">INT128</span><span class="p">,</span> <span class="p">[</span><span class="o">-</span><span class="p">(</span><span class="mi">2</span><span class="o">**</span><span class="mi">127</span><span class="p">),</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="o">**</span><span class="mi">127</span> <span class="o">-</span> <span class="mi">1</span><span class="p">])</span>
+<a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a><span class="k">assert</span> <span class="n">wide</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">([(</span><span class="s2">&quot;lo&quot;</span><span class="p">,</span> <span class="s2">&quot;&lt;u8&quot;</span><span class="p">),</span> <span class="p">(</span><span class="s2">&quot;hi&quot;</span><span class="p">,</span> <span class="s2">&quot;&lt;u8&quot;</span><span class="p">)])</span>
+<a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a><span class="k">assert</span> <span class="n">wide</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">tobytes</span><span class="p">()[:</span><span class="mi">16</span><span class="p">]</span><span class="o">.</span><span class="n">hex</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;00000000000000000000000000000080&quot;</span>
+<a id="__codelineno-19-6" name="__codelineno-19-6" href="#__codelineno-19-6"></a><span class="n">words</span> <span class="o">=</span> <span class="n">StoredSeries</span><span class="o">.</span><span class="n">from_list</span><span class="p">(</span><span class="n">mm</span><span class="p">(</span><span class="mi">2024</span><span class="p">,</span> <span class="mi">11</span><span class="p">),</span> <span class="n">UINT128</span><span class="p">,</span> <span class="p">[</span><span class="mi">2</span><span class="o">**</span><span class="mi">64</span><span class="p">])</span>
+<a id="__codelineno-19-7" name="__codelineno-19-7" href="#__codelineno-19-7"></a><span class="k">assert</span> <span class="n">words</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">tobytes</span><span class="p">()</span><span class="o">.</span><span class="n">hex</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;00000000000000000100000000000000&quot;</span>
+<a id="__codelineno-19-8" name="__codelineno-19-8" href="#__codelineno-19-8"></a><span class="n">halves</span> <span class="o">=</span> <span class="n">StoredSeries</span><span class="o">.</span><span class="n">from_list</span><span class="p">(</span>
+<a id="__codelineno-19-9" name="__codelineno-19-9" href="#__codelineno-19-9"></a>    <span class="n">mm</span><span class="p">(</span><span class="mi">2024</span><span class="p">,</span> <span class="mi">11</span><span class="p">),</span> <span class="n">COMPLEXF16</span><span class="p">,</span> <span class="p">[</span><span class="nb">complex</span><span class="p">(</span><span class="o">-</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.25</span><span class="p">),</span> <span class="nb">complex</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="s2">&quot;inf&quot;</span><span class="p">),</span> <span class="mf">0.0</span><span class="p">),</span> <span class="nb">complex</span><span class="p">(</span><span class="mf">65504.0</span><span class="p">,</span> <span class="o">-</span><span class="mf">65504.0</span><span class="p">)]</span>
+<a id="__codelineno-19-10" name="__codelineno-19-10" href="#__codelineno-19-10"></a><span class="p">)</span>
+<a id="__codelineno-19-11" name="__codelineno-19-11" href="#__codelineno-19-11"></a><span class="k">assert</span> <span class="n">halves</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="s2">&quot;real&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="s2">&quot;&lt;u2&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span> <span class="o">==</span> <span class="p">[</span><span class="mh">0x8000</span><span class="p">,</span> <span class="mh">0x7C00</span><span class="p">,</span> <span class="mh">0x7BFF</span><span class="p">]</span>
+<a id="__codelineno-19-12" name="__codelineno-19-12" href="#__codelineno-19-12"></a><span class="k">with</span> <span class="n">open_dataecon</span><span class="p">(</span><span class="s2">&quot;wide-example.daec&quot;</span><span class="p">,</span> <span class="s2">&quot;a&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">db</span><span class="p">:</span>
+<a id="__codelineno-19-13" name="__codelineno-19-13" href="#__codelineno-19-13"></a>    <span class="n">db</span><span class="o">.</span><span class="n">write_series</span><span class="p">(</span><span class="s2">&quot;wide&quot;</span><span class="p">,</span> <span class="n">wide</span><span class="p">)</span>
+<a id="__codelineno-19-14" name="__codelineno-19-14" href="#__codelineno-19-14"></a>    <span class="n">db</span><span class="o">.</span><span class="n">write_series</span><span class="p">(</span><span class="s2">&quot;halves&quot;</span><span class="p">,</span> <span class="n">halves</span><span class="p">)</span>
+<a id="__codelineno-19-15" name="__codelineno-19-15" href="#__codelineno-19-15"></a><span class="k">with</span> <span class="n">open_dataecon</span><span class="p">(</span><span class="s2">&quot;wide-example.daec&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">db</span><span class="p">:</span>
+<a id="__codelineno-19-16" name="__codelineno-19-16" href="#__codelineno-19-16"></a>    <span class="n">restored_wide</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">read_series</span><span class="p">(</span><span class="s2">&quot;wide&quot;</span><span class="p">)</span>
+<a id="__codelineno-19-17" name="__codelineno-19-17" href="#__codelineno-19-17"></a>    <span class="n">restored_halves</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">read_series</span><span class="p">(</span><span class="s2">&quot;halves&quot;</span><span class="p">)</span>
+<a id="__codelineno-19-18" name="__codelineno-19-18" href="#__codelineno-19-18"></a><span class="k">assert</span> <span class="n">restored_wide</span> <span class="o">==</span> <span class="n">wide</span>
+<a id="__codelineno-19-19" name="__codelineno-19-19" href="#__codelineno-19-19"></a><span class="k">assert</span> <span class="n">restored_wide</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span> <span class="o">==</span> <span class="p">[</span><span class="o">-</span><span class="p">(</span><span class="mi">2</span><span class="o">**</span><span class="mi">127</span><span class="p">),</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="o">**</span><span class="mi">127</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span>
+<a id="__codelineno-19-20" name="__codelineno-19-20" href="#__codelineno-19-20"></a><span class="k">assert</span> <span class="n">restored_halves</span><span class="o">.</span><span class="n">tolist</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="nb">complex</span><span class="p">(</span><span class="o">-</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.25</span><span class="p">)</span>
+<a id="__codelineno-19-21" name="__codelineno-19-21" href="#__codelineno-19-21"></a><span class="n">widened</span> <span class="o">=</span> <span class="n">restored_halves</span><span class="o">.</span><span class="n">to_complex64</span><span class="p">()</span>
+<a id="__codelineno-19-22" name="__codelineno-19-22" href="#__codelineno-19-22"></a><span class="k">assert</span> <span class="n">widened</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">complex64</span>
+<a id="__codelineno-19-23" name="__codelineno-19-23" href="#__codelineno-19-23"></a><span class="k">assert</span> <span class="n">np</span><span class="o">.</span><span class="n">signbit</span><span class="p">(</span><span class="n">widened</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">real</span><span class="p">)</span>
+</code></pre></div>
+<p>Julia stores these values with the same bytes and reloads them as <code>Int128</code>,
+<code>UInt128</code> and <code>ComplexF16</code> series; <code>2**64</code> is eight zero bytes followed by a
+one, and <code>-2**127</code> is fifteen zero bytes followed by <code>0x80</code>. An empty
+Int128/UInt128/ComplexF16 series writes Julia's type marker (<code>"Int128"</code> and so
+on), because an unmarked empty payload of those native kinds reads as
+int64/uint64/complex128 on both sides.</p>
+<p><strong>ComplexF16 input is exact.</strong> <code>from_list</code> accepts a Python <code>complex</code> only
+when both finite components are exactly representable as float16 (largest
+finite value 65504, signed zero preserved); infinities map to float16
+infinities and NaN components to the canonical quiet NaN. Inexact narrowing or
+overflow raises <code>ValueError</code>; nothing is rounded. <code>(np.float16, np.float16)</code>
+pairs and carrier buffers built with the exact dtype are the bit-preserving
+route, including NaN payloads, which conversion through Python <code>complex</code> does
+not preserve.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="k">for</span> <span class="n">inexact</span> <span class="ow">in</span> <span class="p">(</span><span class="nb">complex</span><span class="p">(</span><span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">),</span> <span class="nb">complex</span><span class="p">(</span><span class="mf">70000.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">),</span> <span class="nb">complex</span><span class="p">(</span><span class="mf">2049.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)):</span>
+<a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a>    <span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a>        <span class="n">StoredSeries</span><span class="o">.</span><span class="n">from_list</span><span class="p">(</span><span class="n">mm</span><span class="p">(</span><span class="mi">2024</span><span class="p">,</span> <span class="mi">11</span><span class="p">),</span> <span class="n">COMPLEXF16</span><span class="p">,</span> <span class="p">[</span><span class="n">inexact</span><span class="p">])</span>
+<a id="__codelineno-20-4" name="__codelineno-20-4" href="#__codelineno-20-4"></a>    <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+<a id="__codelineno-20-5" name="__codelineno-20-5" href="#__codelineno-20-5"></a>        <span class="k">pass</span>
+<a id="__codelineno-20-6" name="__codelineno-20-6" href="#__codelineno-20-6"></a>    <span class="k">else</span><span class="p">:</span>
+<a id="__codelineno-20-7" name="__codelineno-20-7" href="#__codelineno-20-7"></a>        <span class="k">raise</span> <span class="ne">AssertionError</span><span class="p">(</span><span class="s2">&quot;inexact ComplexF16 input must be refused&quot;</span><span class="p">)</span>
+<a id="__codelineno-20-8" name="__codelineno-20-8" href="#__codelineno-20-8"></a><span class="n">payload</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mh">0x7E55</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="s2">&quot;&lt;u2&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="s2">&quot;&lt;f2&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>  <span class="c1"># a NaN with a payload</span>
+<a id="__codelineno-20-9" name="__codelineno-20-9" href="#__codelineno-20-9"></a><span class="n">bits</span> <span class="o">=</span> <span class="n">StoredSeries</span><span class="o">.</span><span class="n">from_list</span><span class="p">(</span><span class="n">mm</span><span class="p">(</span><span class="mi">2024</span><span class="p">,</span> <span class="mi">11</span><span class="p">),</span> <span class="n">COMPLEXF16</span><span class="p">,</span> <span class="p">[(</span><span class="n">np</span><span class="o">.</span><span class="n">float16</span><span class="p">(</span><span class="mf">1.0</span><span class="p">),</span> <span class="n">payload</span><span class="p">)])</span>
+<a id="__codelineno-20-10" name="__codelineno-20-10" href="#__codelineno-20-10"></a><span class="k">assert</span> <span class="n">bits</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="s2">&quot;imag&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="s2">&quot;&lt;u2&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span> <span class="o">==</span> <span class="p">[</span><span class="mh">0x7E55</span><span class="p">]</span>
+<a id="__codelineno-20-11" name="__codelineno-20-11" href="#__codelineno-20-11"></a><span class="n">again</span> <span class="o">=</span> <span class="n">StoredSeries</span><span class="o">.</span><span class="n">from_list</span><span class="p">(</span><span class="n">mm</span><span class="p">(</span><span class="mi">2024</span><span class="p">,</span> <span class="mi">11</span><span class="p">),</span> <span class="n">COMPLEXF16</span><span class="p">,</span> <span class="n">bits</span><span class="o">.</span><span class="n">tolist</span><span class="p">())</span>
+<a id="__codelineno-20-12" name="__codelineno-20-12" href="#__codelineno-20-12"></a><span class="k">assert</span> <span class="n">again</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="s2">&quot;imag&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="s2">&quot;&lt;u2&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span> <span class="o">==</span> <span class="p">[</span><span class="mh">0x7E00</span><span class="p">]</span>  <span class="c1"># canonical quiet NaN</span>
+</code></pre></div>
+<h3 id="storage-preserving-operations-versus-explicit-conversions">Storage-preserving operations versus explicit conversions<a class="headerlink" href="#storage-preserving-operations-versus-explicit-conversions" title="Permanent link">&para;</a></h3>
+<p>Reading, editing the carrier in place and writing preserve the stored kind,
+width, element frequency, bytes and marker; rewriting a read result reproduces
+the stored metadata and payload exactly, as Julia's own rewrite does. The
+conversions are explicit and never change what is stored: <code>tolist()</code>
+(<code>MIT</code>/<code>Duration</code>, Python <code>int</code> or <code>complex</code>), <code>from_list()</code> (its strict
+inverse), <code>to_complex64()</code> (ComplexF16 widened into a <code>complex64</code> <code>TSeries</code>)
+and <code>to_bool()</code> (below). Nothing converts on read or write.</p>
+<p>Construction copies by default, so a container never aliases the caller's
+array. Explicit <code>copy=False</code> shares only a one-dimensional, C-contiguous,
+writable ndarray of exactly the carrier dtype; strided or read-only input is
+copied even then, and an array of another dtype is refused rather than
+converted (an int64 array is never silently reinterpreted as dates of the
+wrong kind). <code>values</code> is the live carrier: its contents may be edited, but a
+change of its shape, dtype or strides is detected and refused by <code>validate()</code>,
+by every query and before any write.</p>
+<h3 id="wide-bool-markers-and-empty-width-ambiguity">Wide Bool markers and empty-width ambiguity<a class="headerlink" href="#wide-bool-markers-and-empty-width-ambiguity" title="Permanent link">&para;</a></h3>
+<p>A file may carry Julia's <code>"Bool"</code> marker on an Int128, UInt128 or ComplexF16
+payload. Julia's writer never produces this, but its loader converts such a
+series to <code>Bool</code> when every value is exactly zero or one, and its rewrite
+stores the canonical one-byte encoding. Python preserves the stored width
+instead: the read result is a <code>StoredSeries</code> whose descriptor carries the
+marker, its bytes are kept, and every value is validated as exactly zero or
+one (a zero imaginary part and either signed zero count as zero); other
+values raise <code>ValueError</code>, as Julia raises <code>InexactError</code>. <code>to_bool()</code> is the
+explicit conversion; writing its result stores Julia's canonical encoding.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="n">flags</span> <span class="o">=</span> <span class="n">StoredSeries</span><span class="o">.</span><span class="n">from_list</span><span class="p">(</span><span class="n">mm</span><span class="p">(</span><span class="mi">2024</span><span class="p">,</span> <span class="mi">11</span><span class="p">),</span> <span class="n">INT128</span><span class="o">.</span><span class="n">with_bool_marker</span><span class="p">(),</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">])</span>
+<a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a><span class="k">with</span> <span class="n">open_dataecon</span><span class="p">(</span><span class="s2">&quot;wide-bool-example.daec&quot;</span><span class="p">,</span> <span class="s2">&quot;a&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">db</span><span class="p">:</span>
+<a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a>    <span class="n">db</span><span class="o">.</span><span class="n">write_series</span><span class="p">(</span><span class="s2">&quot;flags&quot;</span><span class="p">,</span> <span class="n">flags</span><span class="p">)</span>
+<a id="__codelineno-21-4" name="__codelineno-21-4" href="#__codelineno-21-4"></a>    <span class="n">preserved</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">read_series</span><span class="p">(</span><span class="s2">&quot;flags&quot;</span><span class="p">)</span>
+<a id="__codelineno-21-5" name="__codelineno-21-5" href="#__codelineno-21-5"></a>    <span class="n">db</span><span class="o">.</span><span class="n">write_series</span><span class="p">(</span><span class="s2">&quot;flags_bool&quot;</span><span class="p">,</span> <span class="n">preserved</span><span class="o">.</span><span class="n">to_bool</span><span class="p">())</span>  <span class="c1"># canonical one-byte Bool</span>
+<a id="__codelineno-21-6" name="__codelineno-21-6" href="#__codelineno-21-6"></a>    <span class="n">restored_bool</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">read_series</span><span class="p">(</span><span class="s2">&quot;flags_bool&quot;</span><span class="p">)</span>
+<a id="__codelineno-21-7" name="__codelineno-21-7" href="#__codelineno-21-7"></a><span class="k">assert</span> <span class="n">preserved</span> <span class="o">==</span> <span class="n">flags</span>
+<a id="__codelineno-21-8" name="__codelineno-21-8" href="#__codelineno-21-8"></a><span class="k">assert</span> <span class="n">preserved</span><span class="o">.</span><span class="n">element</span><span class="o">.</span><span class="n">marker</span> <span class="o">==</span> <span class="s2">&quot;Bool&quot;</span>
+<a id="__codelineno-21-9" name="__codelineno-21-9" href="#__codelineno-21-9"></a><span class="k">assert</span> <span class="n">preserved</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span> <span class="o">==</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span>  <span class="c1"># the stored values, not Booleans</span>
+<a id="__codelineno-21-10" name="__codelineno-21-10" href="#__codelineno-21-10"></a><span class="k">assert</span> <span class="n">preserved</span><span class="o">.</span><span class="n">to_bool</span><span class="p">()</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span> <span class="o">==</span> <span class="p">[</span><span class="kc">True</span><span class="p">,</span> <span class="kc">False</span><span class="p">]</span>
+<a id="__codelineno-21-11" name="__codelineno-21-11" href="#__codelineno-21-11"></a><span class="k">assert</span> <span class="n">restored_bool</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">bool_</span>
+<a id="__codelineno-21-12" name="__codelineno-21-12" href="#__codelineno-21-12"></a><span class="n">preserved</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="s2">&quot;hi&quot;</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>  <span class="c1"># 2**64 is not a Boolean value</span>
+<a id="__codelineno-21-13" name="__codelineno-21-13" href="#__codelineno-21-13"></a><span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-21-14" name="__codelineno-21-14" href="#__codelineno-21-14"></a>    <span class="n">preserved</span><span class="o">.</span><span class="n">validate</span><span class="p">()</span>
+<a id="__codelineno-21-15" name="__codelineno-21-15" href="#__codelineno-21-15"></a><span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+<a id="__codelineno-21-16" name="__codelineno-21-16" href="#__codelineno-21-16"></a>    <span class="k">pass</span>
+<a id="__codelineno-21-17" name="__codelineno-21-17" href="#__codelineno-21-17"></a><span class="k">else</span><span class="p">:</span>
+<a id="__codelineno-21-18" name="__codelineno-21-18" href="#__codelineno-21-18"></a>    <span class="k">raise</span> <span class="ne">AssertionError</span><span class="p">(</span><span class="s2">&quot;an invalid marked carrier must be refused&quot;</span><span class="p">)</span>
+<a id="__codelineno-21-19" name="__codelineno-21-19" href="#__codelineno-21-19"></a><span class="k">assert</span> <span class="n">preserved</span><span class="o">.</span><span class="n">element</span><span class="o">.</span><span class="n">marker</span> <span class="o">==</span> <span class="s2">&quot;Bool&quot;</span>  <span class="c1"># nothing is normalized or stripped</span>
+<a id="__codelineno-21-20" name="__codelineno-21-20" href="#__codelineno-21-20"></a><span class="n">plain</span> <span class="o">=</span> <span class="n">StoredSeries</span><span class="p">(</span><span class="n">preserved</span><span class="o">.</span><span class="n">firstdate</span><span class="p">,</span> <span class="n">preserved</span><span class="o">.</span><span class="n">values</span><span class="p">,</span> <span class="n">INT128</span><span class="p">)</span>  <span class="c1"># explicit: drop the marker</span>
+<a id="__codelineno-21-21" name="__codelineno-21-21" href="#__codelineno-21-21"></a><span class="k">assert</span> <span class="n">plain</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span> <span class="o">==</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="o">**</span><span class="mi">64</span><span class="p">]</span>
+</code></pre></div>
+<p>An <strong>empty</strong> payload with the Bool marker has no width in the file: kind 1, 2
+or 5 with zero bytes is the same record whether it came from Int8, Int128 or
+ComplexF16. Python therefore reads it as an empty Boolean <code>TSeries</code> (Julia
+gives <code>Bool[]</code>) and never fabricates a wide container; a marked wide
+container cannot be empty, and emptying one in place is refused before any
+write. Rewriting such an empty series stores the canonical empty Bool
+encoding, as Julia does.</p>
+<h3 id="ownership-overwrite-and-marker-write-failure-residue">Ownership, overwrite and marker-write failure residue<a class="headerlink" href="#ownership-overwrite-and-marker-write-failure-residue" title="Permanent link">&para;</a></h3>
+<p>Reads always return an owning, writable carrier copied out of the native
+payload, whatever <code>copy</code> setting the writer used; the result outlives file
+closure. <code>StoredSeries</code> holds no native resource.</p>
+<p>With <code>overwrite=True</code> the live carrier and its marker are validated, the
+bytes are snapshotted and the snapshot is checked against the container's
+descriptor before the existing object is deleted, so a rejected container
+leaves the old object intact. The file lock does not serialize a caller's
+own array mutations: a carrier resized or edited by another thread between
+validation and the snapshot is detected and refused, but no atomic snapshot
+of a concurrently mutated array is promised. Overwrite itself remains
+delete-then-store without rollback, as for every other series.</p>
+<p>Marker writes are separate native operations after the store. If the marker
+write fails for an empty Int128/UInt128/ComplexF16 series, the residue is an
+unmarked empty object that reads back as int64, uint64 or complex128; for a
+Bool-marked wide carrier the residue reads as a plain unmarked carrier with
+the same bytes; for an empty date or duration series the residue reads
+identically in Python (the element frequency is stored separately) and stays
+unloadable by the pinned Julia loader either way. Nonempty represented series
+carry no marker and have no residue. The error names the failed marker
+operation; there is no rollback or implicit cleanup delete, and a later close
+may fail and quarantine the owner. Do not retry that close; reopen the file
+to inspect what was stored.</p>
+<h3 id="compatibility-restrictions-and-remaining-unsupported-capabilities">Compatibility restrictions and remaining unsupported capabilities<a class="headerlink" href="#compatibility-restrictions-and-remaining-unsupported-capabilities" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Only canonical element-frequency codes are accepted. Julia's own writer
+  emits only these; the noncanonical encodings 14, 15, 16, 24 through 31, 33,
+  64, 128 and 256 are refused with <code>TypeError</code>, although Julia loads some of
+  them as frequency types such as <code>Weekly{0}</code>, <code>Weekly{8}</code> or <code>Quarterly{0}</code>.</li>
+<li>Empty date and duration series write Julia's exact marker and read with or
+  without it; the pinned Julia loader fails on either form.</li>
+<li>A Bool marker on date or duration elements, and every other foreign marker
+  (for example <code>Int64</code> on Int16 payloads or <code>MIT{Monthly}</code> on Int64 payloads),
+  is refused with <code>TypeError</code>. Julia converts some of these case by case;
+  supporting them is planned parity work, not an approved exclusion.</li>
+<li>Int128, UInt128 and ComplexF16 scalars, Unit-frequency series axes and
+  wider-than-64-bit element widths other than these three families remain
+  unsupported.</li>
+<li>Marker text is never evaluated: markers are compared with a finite table of
+  tokens.</li>
+</ul>
 
 
 

@@ -12,6 +12,7 @@ import numpy as np
 import pytest
 
 from tsecon import MIT, Duration, TSeries, mm
+from tsecon.dataecon import _represented as represented
 from tsecon.dataecon._codec import MAX_BYTES
 from tsecon.dataecon._represented import (
     CODE_DTYPE,
@@ -144,11 +145,15 @@ class TestStoredElement:
         with pytest.raises(TypeError):
             StoredElement("int128", Monthly())
         with pytest.raises(TypeError):
-            StoredElement("int128", marker="Int64")
+            StoredElement("int128", marker=b"Int64")
+        with pytest.raises(ValueError):
+            StoredElement("date", Monthly(), marker="Bool\0")
         with pytest.raises(TypeError):
-            StoredElement("date", Monthly(), marker="Bool")
+            StoredElement("int128", numeric_dtype=np.dtype("<i8"))
         with pytest.raises(TypeError):
-            StoredElement.date(Monthly()).with_bool_marker()
+            StoredElement("numeric")
+        assert StoredElement("int128", marker="Int64").marker == "Int64"
+        assert StoredElement.date(Monthly()).with_bool_marker().marker == "Bool"
 
     def test_bool_marker_and_written_marker(self):
         marked = INT128.with_bool_marker()
@@ -213,10 +218,26 @@ class TestConstructionAndOwnership:
             StoredSeries(ANCHOR, np.zeros(2, dtype="<c8"), COMPLEXF16)
         with pytest.raises(ValueError, match="one-dimensional"):
             StoredSeries(ANCHOR, np.zeros((2, 1), dtype=INT128_DTYPE), INT128)
+        with pytest.raises(ValueError, match="one-dimensional"):
+            StoredSeries(ANCHOR, np.array(1, dtype="<i8"), StoredElement.date(Monthly()))
         with pytest.raises(TypeError, match="from_list"):
             StoredSeries(ANCHOR, [24298, 24299], StoredElement.date(Monthly()))
         with pytest.raises(TypeError):
             StoredSeries(ANCHOR, np.zeros(2, dtype=INT128_DTYPE), "int128")
+
+    @pytest.mark.parametrize(
+        ("dtype", "descriptor"),
+        [
+            (np.longdouble, StoredElement.numeric("<f8", "Int64")),
+            (np.clongdouble, StoredElement.numeric("<c16", "Int64")),
+        ],
+    )
+    @pytest.mark.parametrize("copy", [True, False])
+    def test_long_double_carriers_are_rejected_in_both_copy_modes(self, dtype, descriptor, copy):
+        values = np.ones(2, dtype=dtype)
+        assert values.dtype.char in ("g", "G")
+        with pytest.raises(TypeError, match="no implicit conversion"):
+            StoredSeries(ANCHOR, values, descriptor, copy=copy)
 
     def test_anchor_must_be_a_supported_series_axis(self):
         values = np.zeros(1, dtype=CODE_DTYPE)
@@ -444,6 +465,20 @@ class TestComplexF16:
         with pytest.raises(TypeError):
             StoredSeries(ANCHOR, np.zeros(1, dtype=INT128_DTYPE), INT128).to_complex64()
 
+    def test_widening_uses_the_snapshot_checked_for_capacity(self, monkeypatch):
+        series = StoredSeries.from_list(ANCHOR, COMPLEXF16, [1 + 2j])
+        original = represented._interpret.check_output_capacity
+
+        def mutate_live_after_snapshot(length, target):
+            original(length, target)
+            series.values["real"][0] = np.float16(3)
+
+        monkeypatch.setattr(
+            represented._interpret, "check_output_capacity", mutate_live_after_snapshot
+        )
+        assert series.to_complex64().values.tolist() == [1 + 2j]
+        assert series.tolist() == [3 + 2j]
+
     def test_from_complex_exact_representability_rules(self):
         series = StoredSeries.from_list(
             ANCHOR,
@@ -533,7 +568,7 @@ class TestBoolMarkerPreservation:
         ],
     )
     def test_invalid_marked_values_are_refused_at_construction(self, hex_payload, element):
-        with pytest.raises(ValueError, match="exact zeros and ones"):
+        with pytest.raises(ValueError, match="zero or one"):
             StoredSeries(ANCHOR, carrier(hex_payload, element.dtype), element.with_bool_marker())
         with pytest.raises(ValueError):
             StoredSeries.from_list(
@@ -557,6 +592,19 @@ class TestBoolMarkerPreservation:
         assert series.values.tobytes() == bytes.fromhex(
             "01" + "00" * 15 + "00" * 8 + "01" + "00" * 7
         )
+
+    def test_bool_conversion_uses_the_snapshot_it_validated(self, monkeypatch):
+        series = StoredSeries.from_list(ANCHOR, INT128.with_bool_marker(), [0, 1])
+        original = represented.resolve_interpretation
+
+        def mutate_live_after_snapshot(values, element, object_marker, axis):
+            result = original(values, element, object_marker, axis)
+            series.values["lo"][0] = 2
+            return result
+
+        monkeypatch.setattr(represented, "resolve_interpretation", mutate_live_after_snapshot)
+        assert series.to_bool().values.tolist() == [False, True]
+        assert series.tolist() == [2, 1]
 
     @pytest.mark.parametrize(
         ("element", "items"),

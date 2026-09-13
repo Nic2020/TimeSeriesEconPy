@@ -314,8 +314,12 @@ cdef class FileHandle:
             loaded_name = (<bytes>ts.object.name).decode("utf-8")
             payload = b"" if ts.nbytes == 0 else PyBytes_FromStringAndSize(<const char *>ts.value, ts.nbytes)
             marker = None
+            object_marker = None
             # All borrowed data is now owned by Python, before further C calls.
-            for key in (b"jtype", b"jeltype"):
+            # Both reserved attributes are copied out as NUL-terminated C
+            # strings (the ABI carries no length); each is owned before the
+            # next native call. Precedence and validation happen in Python.
+            for key in (b"jeltype", b"jtype"):
                 rc = de_get_attribute(self.handle, oid, key, &attribute)
                 if rc == DE_MIS_ATTR:
                     de_clear_error()
@@ -323,11 +327,13 @@ cdef class FileHandle:
                     check(rc, "attribute", self.path, name)
                     if attribute == NULL:
                         raise TypeError("DataEcon returned a NULL reconstruction attribute.")
-                    # Copy the borrowed C string before any subsequent native call.
-                    if key != b"jeltype":
-                        raise TypeError("Unsupported Julia reconstruction attribute.")
-                    marker = (<bytes>attribute).decode("utf-8")
-            validate_series_payload(int(ts.eltype), int(ts.elfreq), int(ts.axis.length), payload, marker)
+                    text = (<bytes>attribute).decode("utf-8")
+                    if key == b"jeltype":
+                        marker = text
+                    else:
+                        object_marker = text
+            validate_series_payload(int(ts.axis.frequency), int(ts.eltype), int(ts.elfreq),
+                                    int(ts.axis.length), payload, marker, object_marker)
             # validate_metadata bounded first and length, so the last code cannot
             # overflow. Calendar axes take the calendar round trip on the stored
             # first date only, like Julia (trailing codes are implicit and never
@@ -340,7 +346,7 @@ cdef class FileHandle:
                 if ts.axis.frequency != freq_monthly and ts.axis.length > 0:
                     unpack_date(ts.axis.frequency, ts.axis.first + ts.axis.length - 1,
                                 self.path, name)
-            return payload, metadata, loaded_name, marker
+            return payload, metadata, loaded_name, marker, object_marker
 
     cdef void replace_existing(self, obj_id_t oid, str operation, str name) except *:
         # Caller owns the native lock, has finished every Python/native validation
@@ -361,7 +367,7 @@ cdef class FileHandle:
         check(de_delete_object(self.handle, oid), operation, self.path, name)
 
     def write(self, str name, frequency, first, bytes payload, bint overwrite,
-              element, element_frequency, length, marker):
+              element, element_frequency, length, marker, object_marker=None):
         # first is the native date code of the first observation (the axis
         # anchor for an empty series). validate_metadata bounds it to the
         # reliable range of its frequency before it is narrowed to date_t.
@@ -375,6 +381,7 @@ cdef class FileHandle:
         cdef type_t native_element
         cdef frequency_t native_element_frequency
         cdef bytes encoded_marker
+        cdef bytes encoded_object_marker
         cdef const void *value = NULL
         cdef bint existing = False
         if not encoded or b"/" in encoded or b"\0" in encoded:
@@ -390,8 +397,12 @@ cdef class FileHandle:
         if type(length) is not int:
             raise ValueError("Expected an integer series length.")
         validate_metadata((2, 12, element, element_frequency, 1, length, frequency, first, len(payload)))
-        validate_series_payload(element, element_frequency, length, payload, marker)
-        encoded_marker = b"" if marker is None else marker.encode("ascii")
+        validate_series_payload(frequency, element, element_frequency, length, payload, marker,
+                                object_marker)
+        # Marker text was checked in Python (str, NUL-free); tokens and any
+        # inactive text under a whole-object marker are stored verbatim.
+        encoded_marker = b"" if marker is None else marker.encode("utf-8")
+        encoded_object_marker = b"" if object_marker is None else object_marker.encode("utf-8")
         if frequency == 32 and not -178956970 <= first // 12 <= 178956969:
             # Historical monthly series-write guard: the last eight signed
             # 32-bit monthly codes (year 178956970) stay rejected on write.
@@ -430,9 +441,16 @@ cdef class FileHandle:
                                   native_element_frequency, axis, len(payload), value, &oid),
                   "write (overwrite; original deleted, partial replacement may remain)"
                   if existing else "write (partial object may remain)", self.path, name)
+            # Julia's order: the element marker first, then the whole-object
+            # marker. Each is a separate native statement with no rollback.
             if marker is not None:
                 check(de_set_attribute(self.handle, oid, b"jeltype", encoded_marker),
                       "write marker (unmarked object may read as a different dtype; no rollback)",
+                      self.path, name)
+            if object_marker is not None:
+                check(de_set_attribute(self.handle, oid, b"jtype", encoded_object_marker),
+                      "write object marker (the element marker, if any, is now active; "
+                      "no rollback)",
                       self.path, name)
 
 

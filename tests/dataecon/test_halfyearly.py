@@ -270,9 +270,9 @@ def test_halfyearly_malformed_payload_rejected(tmp_path, payload):
     [
         ("empty", "jeltype", "Float128"),
         ("empty", "jeltype", None),
-        ("empty", "jtype", "TSeries"),
+        ("empty", "jtype", "Vector{Int64}"),
         ("empty", "jtype", None),
-        ("cross_year", "jeltype", "Float64"),
+        ("cross_year", "jeltype", "Symbol"),
         ("empty", "jeltype", "error(123)"),
     ],
 )

@@ -298,8 +298,8 @@ AXIS = "UPDATE axes SET {} WHERE id=(SELECT axis_id FROM tseries WHERE id=:id)"
         (AXIS.format("ax_type=0"), TypeError),
         ("UPDATE tseries SET eltype=6 WHERE id=:id", TypeError),
         ("UPDATE tseries SET value=zeroblob(24) WHERE id=:id", ValueError),
-        ("INSERT INTO attributes VALUES(:id,'jtype','TSeries')", TypeError),
-        ("INSERT INTO attributes VALUES(:id,'jeltype','Float64')", TypeError),
+        ("INSERT INTO attributes VALUES(:id,'jtype','MVTSeries')", TypeError),
+        ("INSERT INTO attributes VALUES(:id,'jeltype','Rational{Int64}')", TypeError),
     ],
 )
 def test_malformed_storage_rejected_before_pointer_use(tmp_path, sql, error):

@@ -924,6 +924,170 @@ def check_represented_series(db: de.DataEconFile) -> None:
             raise ValueError(f"Wide Bool interchange changed {name}.")
 
 
+# Foreign reconstruction markers: the Julia verifier's `foreign_shared_cases`, written
+# from preserved StoredSeries containers (stored kind, bytes and exact marker text)
+# together with their explicit interpretation as "<name>_interpreted".
+def _numeric(dtype, values, marker, object_marker=None):
+    return de.StoredSeries(
+        REPRESENTED_ANCHOR,
+        np.array(values, dtype=dtype),
+        de.StoredElement.numeric(dtype, marker),
+        object_marker=object_marker,
+    )
+
+
+def _dated(kind, frequency, codes, marker, object_marker=None):
+    return de.StoredSeries(
+        REPRESENTED_ANCHOR,
+        np.array(codes, dtype="<i8"),
+        de.StoredElement(kind, frequency, marker),
+        object_marker=object_marker,
+    )
+
+
+def foreign_cases() -> list[tuple[str, de.StoredSeries]]:
+    """Every preserved foreign-marker container written to the interchange output."""
+    int128 = de.INT128
+    return [
+        ("fx_int16_as_int64", _numeric("<i2", [1, 2], "Int64")),
+        ("fx_int64_precision_as_float64", _numeric("<i8", [2**53 + 1], "Float64")),
+        (
+            "fx_int128_as_float64",
+            de.StoredSeries.from_list(
+                REPRESENTED_ANCHOR, int128.with_marker("Float64"), [2**100 + 1]
+            ),
+        ),
+        ("fx_mit_monthly_as_bool", _dated("date", Monthly(), [0, 1], "Bool")),
+        ("fx_duration_monthly_as_bool", _dated("duration", Monthly(), [0, 1], "Bool")),
+        ("fx_int64_as_mit_monthly", _numeric("<i8", [1, 2], "MIT{Monthly}")),
+        ("fx_int64_as_duration_daily", _numeric("<i8", [-5, 7], "Duration{Daily}")),
+        ("fx_float64_as_complexf16", _numeric("<f8", [1.1, 65520.0], "ComplexF16")),
+        (
+            "fx_float64_as_float16",
+            _numeric("<f8", [-0.0, 5e-8, 65504.0, 65520.0, 2.0**-25, 3.0 * 2.0**-25], "Float16"),
+        ),
+        (
+            "fx_int64_midpoints_as_float32",
+            _numeric("<i8", [2**54 + 2**30 + 1, 2**54 + 2**30 - 1], "Float32"),
+        ),
+        (
+            "fx_uint64_midpoints_as_float64",
+            _numeric("<u8", [2**63 + 2**10 + 1, 2**63 + 2**10 - 1, 2**64 - 1], "Float64"),
+        ),
+        (
+            "fx_int128_midpoints_as_float32",
+            de.StoredSeries.from_list(
+                REPRESENTED_ANCHOR,
+                int128.with_marker("Float32"),
+                [2**100 + 2**76 + 1, 2**100 + 2**76 - 1],
+            ),
+        ),
+        (
+            "fx_uint128_max_as_float32",
+            de.StoredSeries.from_list(
+                REPRESENTED_ANCHOR, de.UINT128.with_marker("Float32"), [2**128 - 1, 2**127]
+            ),
+        ),
+        (
+            "fx_mit_monthly_as_float64",
+            _dated("date", Monthly(), [-1, -13, -(2**63)], "Float64"),
+        ),
+        ("fx_duration_monthly_as_float64", _dated("duration", Monthly(), [-1, -13], "Float64")),
+        ("fx_mit_daily_as_float32", _dated("date", Daily(), [2**54 + 2**30 + 1, -1], "Float32")),
+        ("fx_mit_quarterly_as_complexf32", _dated("date", Quarterly(3), [-1, 7], "ComplexF32")),
+        ("fx_duration_yearly_as_int64", _dated("duration", Yearly(12), [-(2**63), 3], "Int64")),
+        (
+            "fx_complexf64_negzero_as_int8",
+            _numeric("<c16", [complex(1.0, -0.0), complex(0.0, -0.0)], "Int8"),
+        ),
+        (
+            "fx_complexf16_as_int64",
+            de.StoredSeries.from_list(
+                REPRESENTED_ANCHOR, de.COMPLEXF16.with_marker("Int64"), [1 + 0j, 2 + 0j]
+            ),
+        ),
+        (
+            "fx_uint128_as_int128",
+            de.StoredSeries.from_list(
+                REPRESENTED_ANCHOR, de.UINT128.with_marker("Int128"), [2**127 - 1, 0]
+            ),
+        ),
+        ("fx_int64_as_uint128", _numeric("<i8", [2**63 - 1, 0], "UInt128")),
+        ("fx_int16_alias_as_int", _numeric("<i2", [3, 4], "Int")),
+        ("fx_float64_empty_as_int16", _numeric("<f8", [], "Int16")),
+        ("fx_int64_empty_as_mit_monthly", _numeric("<i8", [], "MIT{Monthly}")),
+        ("fx_complexf64_empty_as_uint128", _numeric("<c16", [], "UInt128")),
+        (
+            "fx_outer_tseries_inactive_eltype",
+            _numeric("<i2", [1, 2], "NoSuchElement", "TSeries"),
+        ),
+        (
+            "fx_outer_tseries_bypasses_bool",
+            _numeric("i1", [0, 1], "Bool", "TSeries{Monthly, Int8}"),
+        ),
+        (
+            "fx_outer_identity_int128",
+            de.StoredSeries(
+                REPRESENTED_ANCHOR,
+                de.StoredSeries.from_list(REPRESENTED_ANCHOR, int128, [2**100]).values,
+                int128,
+                object_marker="TSeries{Monthly, Int128, Vector{Int128}}",
+            ),
+        ),
+        (
+            "fx_outer_identity_mit",
+            _dated("date", Monthly(), [1], "Bool", "TSeries{Monthly, MIT{Monthly}}"),
+        ),
+        ("fx_outer_vector_empty", _numeric("<f8", [], "Int16", "Vector")),
+        ("fx_outer_vector_float64_empty", _numeric("<i8", [], None, "Vector{Float64}")),
+    ]
+
+
+def write_foreign_markers(db: de.DataEconFile) -> None:
+    """Write each preserved container and its explicit interpretation."""
+    for name, series in foreign_cases():
+        db.write_series(name, series)
+        result = db.read_series(name)
+        if result != series:
+            raise ValueError(f"Foreign marker {name} did not round-trip its storage and markers.")
+        interpreted = result.to_interpreted()
+        if isinstance(interpreted, np.ndarray):
+            # The Vector object markers interpret to an empty array; Julia's own
+            # writer stores such a value as an empty typed series.
+            interpreted = tsecon.TSeries(series.firstdate, interpreted)
+        db.write_series(f"{name}_interpreted", interpreted)
+
+
+def check_foreign_markers(db: de.DataEconFile) -> None:
+    """Re-read the preserved objects: exact equality, ownership, unchanged interpretation."""
+    for name, series in foreign_cases():
+        result = db.read_series(name)
+        if (
+            not isinstance(result, de.StoredSeries)
+            or result != series
+            or result.values.tobytes() != series.values.tobytes()
+            or result.element.marker != series.element.marker
+            or result.object_marker != series.object_marker
+            or not result.values.flags.owndata
+            or not result.values.flags.writeable
+        ):
+            raise ValueError(f"Foreign marker interchange changed {name}.")
+        interpreted = result.to_interpreted()
+        again = db.read_series(f"{name}_interpreted")
+        if isinstance(interpreted, np.ndarray):
+            expected_dtype = interpreted.dtype
+            if not isinstance(again, tsecon.TSeries) or again.values.dtype != expected_dtype:
+                raise ValueError(f"Vector interpretation of {name} changed.")
+            continue
+        if type(again) is not type(interpreted) or again.values.dtype != interpreted.values.dtype:
+            raise ValueError(f"Interpretation of {name} changed its type.")
+        if isinstance(interpreted, de.StoredSeries):
+            if again != interpreted:
+                raise ValueError(f"Interpretation of {name} changed its stored value.")
+        elif again.values.tobytes() != interpreted.values.tobytes():
+            raise ValueError(f"Interpretation of {name} changed its values.")
+
+
 def write_interchange(output_dir: Path, series: tsecon.TSeries) -> Path:
     """Write and reopen series and scalars for separate Julia verification."""
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -934,6 +1098,7 @@ def write_interchange(output_dir: Path, series: tsecon.TSeries) -> Path:
         db.write_series("sample", series)
         write_series_elements(db)
         write_represented_series(db)
+        write_foreign_markers(db)
         for name, value in (
             ("bool_false", False),
             ("bool_true", True),
@@ -953,6 +1118,7 @@ def write_interchange(output_dir: Path, series: tsecon.TSeries) -> Path:
     with de.open_dataecon(output) as db:
         check_series_elements(db)
         check_represented_series(db)
+        check_foreign_markers(db)
         np.testing.assert_array_equal(db.read_series("sample").values, series.values)
         for name, expected in (
             ("bool_false", 0),

@@ -171,12 +171,30 @@ CANONICAL_BOOL = {
 }
 
 
-def marked(element, hex_payload):
+def marked(element, hex_payload, marker="Bool"):
     return StoredSeries(
         ANCHOR,
         np.frombuffer(bytes.fromhex(hex_payload), dtype=element.dtype).copy(),
-        element.with_bool_marker(),
+        element.with_marker(marker),
     )
+
+
+def preserved(element, hex_payload, marker, interpreted):
+    """A preserved foreign marker: the stored container and its explicit interpretation."""
+    return ("preserved", marked(element, hex_payload, marker), interpreted)
+
+
+def numeric(dtype, hex_payload, marker):
+    return StoredSeries(
+        ANCHOR,
+        np.frombuffer(bytes.fromhex(hex_payload), dtype=dtype).copy(),
+        StoredElement.numeric(dtype, marker),
+    )
+
+
+I64 = "0000000000000000" + "0100000000000000"
+MONTHLY = StoredElement.date(Monthly())
+DURATION = StoredElement.duration(Monthly())
 
 
 # Reference-only controls: Python outcome, then the pinned Julia loader's outcome
@@ -210,18 +228,62 @@ CONTROLS: dict[str, tuple[object, str]] = {
         "MIT{Monthly}",
     ),
     "ctl_mit_32_marker_quarterly": (TypeError, "MethodError"),
-    "ctl_mit_32_marker_int64": (TypeError, "Int64"),
-    "ctl_mit_32_marker_float64": (TypeError, "Float64"),
-    "ctl_mit_32_marker_bool": (TypeError, "Bool (temporary boundary)"),
-    "ctl_dur_32_marker_bool": (TypeError, "Bool (temporary boundary)"),
-    "ctl_dur_32_marker_int64": (TypeError, "Int64"),
-    "ctl_int128_marker_uint128": (TypeError, "UInt128"),
-    "ctl_int128_marker_float64": (TypeError, "Float64"),
-    "ctl_uint128_marker_int128": (TypeError, "Int128"),
-    "ctl_complexf16_marker_float16": (TypeError, "Float16"),
-    "ctl_kind1_empty_marker_uint128": (TypeError, "UInt128[]"),
-    "ctl_kind1_empty_marker_complexf16": (TypeError, "ComplexF16[]"),
-    "ctl_kind5_empty_marker_int128": (TypeError, "Int128[]"),
+    # Foreign markers Julia converts are preserved; to_interpreted() reproduces Julia.
+    "ctl_mit_32_marker_int64": (
+        preserved(MONTHLY, I64, "Int64", TSeries(ANCHOR, np.array([0, 1], dtype="<i8"))),
+        "Int64",
+    ),
+    "ctl_mit_32_marker_float64": (
+        preserved(MONTHLY, I64, "Float64", TSeries(ANCHOR, np.array([0.0, 1 / 12], dtype="<f8"))),
+        "Float64",
+    ),
+    "ctl_mit_32_marker_bool": (
+        preserved(MONTHLY, I64, "Bool", TSeries(ANCHOR, np.array([False, True]))),
+        "Bool",
+    ),
+    "ctl_dur_32_marker_bool": (
+        preserved(DURATION, I64, "Bool", TSeries(ANCHOR, np.array([False, True]))),
+        "Bool",
+    ),
+    "ctl_dur_32_marker_int64": (
+        preserved(DURATION, I64, "Int64", TSeries(ANCHOR, np.array([0, 1], dtype="<i8"))),
+        "Int64",
+    ),
+    "ctl_int128_marker_uint128": (
+        preserved(
+            INT128, "01" + "00" * 15, "UInt128", StoredSeries.from_list(ANCHOR, UINT128, [1])
+        ),
+        "UInt128",
+    ),
+    "ctl_int128_marker_float64": (
+        preserved(INT128, "01" + "00" * 15, "Float64", TSeries(ANCHOR, np.array([1.0]))),
+        "Float64",
+    ),
+    "ctl_uint128_marker_int128": (
+        preserved(UINT128, "01" + "00" * 15, "Int128", StoredSeries.from_list(ANCHOR, INT128, [1])),
+        "Int128",
+    ),
+    "ctl_complexf16_marker_float16": (
+        preserved(COMPLEXF16, "003c0000", "Float16", TSeries(ANCHOR, np.array([1.0], dtype="<f2"))),
+        "Float16",
+    ),
+    # Empty payloads keep the kind default carrier and the foreign token.
+    "ctl_kind1_empty_marker_uint128": (
+        ("preserved", numeric("<i8", "", "UInt128"), StoredSeries.from_list(ANCHOR, UINT128, [])),
+        "UInt128[]",
+    ),
+    "ctl_kind1_empty_marker_complexf16": (
+        (
+            "preserved",
+            numeric("<i8", "", "ComplexF16"),
+            StoredSeries.from_list(ANCHOR, COMPLEXF16, []),
+        ),
+        "ComplexF16[]",
+    ),
+    "ctl_kind5_empty_marker_int128": (
+        ("preserved", numeric("<c16", "", "Int128"), StoredSeries.from_list(ANCHOR, INT128, [])),
+        "Int128[]",
+    ),
     # Noncanonical element frequency codes: a deliberate compatibility restriction.
     "ctl_mit_elfreq_14": (TypeError, "ErrorException"),
     "ctl_mit_elfreq_15": (TypeError, "ErrorException"),
@@ -280,13 +342,49 @@ CONTROLS: dict[str, tuple[object, str]] = {
     "wb_kind1_empty": (("bool", []), "Bool[]"),
     "wb_kind2_empty": (("bool", []), "Bool[]"),
     "wb_kind5_empty": (("bool", []), "Bool[]"),
-    # Other foreign markers stay refused: planned parity work, not an exclusion.
-    "fm_int16_as_int64": (TypeError, "Int64"),
-    "fm_int64_as_float64": (TypeError, "Float64"),
-    "fm_float64_as_int8": (TypeError, "InexactError"),
-    "fm_int64_as_int128": (TypeError, "Int128"),
-    "fm_int64_as_complexf16": (TypeError, "ComplexF16"),
-    "fm_int64_as_mit": (TypeError, "MIT{Monthly}"),
+    # Other foreign markers: preserved with explicit interpretation, inexact
+    # values refused as Julia refuses them, unknown text refused unevaluated.
+    "fm_int16_as_int64": (
+        (
+            "preserved",
+            numeric("<i2", "ffff0700", "Int64"),
+            TSeries(ANCHOR, np.array([-1, 7], dtype="<i8")),
+        ),
+        "Int64",
+    ),
+    "fm_int64_as_float64": (
+        (
+            "preserved",
+            numeric("<i8", "0300000000000000", "Float64"),
+            TSeries(ANCHOR, np.array([3.0])),
+        ),
+        "Float64",
+    ),
+    "fm_float64_as_int8": (ValueError, "InexactError"),
+    "fm_int64_as_int128": (
+        (
+            "preserved",
+            numeric("<i8", "0300000000000000", "Int128"),
+            StoredSeries.from_list(ANCHOR, INT128, [3]),
+        ),
+        "Int128",
+    ),
+    "fm_int64_as_complexf16": (
+        (
+            "preserved",
+            numeric("<i8", "0300000000000000", "ComplexF16"),
+            StoredSeries.from_list(ANCHOR, COMPLEXF16, [3 + 0j]),
+        ),
+        "ComplexF16",
+    ),
+    "fm_int64_as_mit": (
+        (
+            "preserved",
+            numeric("<i8", "ea5e000000000000", "MIT{Monthly}"),
+            StoredSeries.from_list(ANCHOR, MONTHLY, [mm(2024, 11)]),
+        ),
+        "MIT{Monthly}",
+    ),
     "fm_int64_unknown": (TypeError, "UndefVarError"),
 }
 OBJECT_COUNT = len(SHARED) + len(BOOL_CASES) + len(CANONICAL_BOOL) + len(CONTROLS)
@@ -398,6 +496,21 @@ def test_control_outcomes(name):
                 db.read_series(name)
             return
         result = db.read_series(name)
+    if outcome[0] == "preserved":
+        _, expected, interpreted = outcome
+        assert isinstance(result, StoredSeries)
+        assert result == expected
+        assert result.values.tobytes() == expected.values.tobytes()
+        actual = result.to_interpreted()
+        assert type(actual) is type(interpreted)
+        if isinstance(interpreted, TSeries):
+            assert actual.values.dtype == interpreted.values.dtype
+            assert actual.values.tolist() == interpreted.values.tolist()
+            assert actual.firstdate == ANCHOR
+        else:
+            assert actual == interpreted
+        assert result == expected  # interpretation left the storage unchanged
+        return
     kind, expected = outcome
     if kind == "stored":
         assert isinstance(result, StoredSeries)

@@ -758,7 +758,11 @@ bit patterns and the three marked wide empties; three rewrites of read results;
 and three Bool-marked wide carriers with their explicit Boolean conversions.
 Julia checks their metadata, bytes, markers and loaded values, expects its own
 loader's failure on the empty date/duration series, and loads the marked wide
-carriers and their conversions as Boolean series. The
+carriers and their conversions as Boolean series. It further holds 32 foreign
+reconstruction-marker cases (`fx_*`) written from preserved `StoredSeries`
+containers next to their explicit interpretations (`fx_*_interpreted`); Julia
+checks the raw metadata, bytes and both attributes of each preserved object
+and that its own load of it equals its load of the interpreted object. The
 combined output also records three file-operation outcomes (an Int64 scalar
 overwritten by a string, a deleted scalar, a scalar replaced by a series),
 and an auxiliary `fileops/cpXY-fileops.daec` file is written, reopened with
@@ -1025,12 +1029,210 @@ to inspect what was stored.
   them as frequency types such as `Weekly{0}`, `Weekly{8}` or `Quarterly{0}`.
 - Empty date and duration series write Julia's exact marker and read with or
   without it; the pinned Julia loader fails on either form.
-- A Bool marker on date or duration elements, and every other foreign marker
-  (for example `Int64` on Int16 payloads or `MIT{Monthly}` on Int64 payloads),
-  is refused with `TypeError`. Julia converts some of these case by case;
-  supporting them is planned parity work, not an approved exclusion.
+- Reconstruction markers outside the finite table described in the next
+  section (`Rational{Int64}`, `Complex{Int64}`, `Date`, `DateTime`, `Symbol`,
+  abstract names such as `Real` or `MIT{Quarterly}` without its parameter,
+  qualified or differently spaced spellings, and whole-object tokens other
+  than the exact `TSeries` and empty `Vector` forms) are refused with
+  `TypeError`. Julia loads several of them; supporting them is planned parity
+  work, not an approved exclusion.
 - Int128, UInt128 and ComplexF16 scalars, Unit-frequency series axes and
   wider-than-64-bit element widths other than these three families remain
   unsupported.
 - Marker text is never evaluated: markers are compared with a finite table of
   tokens.
+
+## Foreign reconstruction markers: storage versus interpretation
+
+Julia's DataEcon files can carry two string attributes on a series that its
+loader uses to rebuild the value: `jeltype` names an element type every stored
+value is converted to, and `jtype` names a whole-object type. Julia's own
+writer emits only exact markers (`Bool` on Int8 payloads, the element type of an
+empty series), but its loader accepts many "foreign" combinations, for example
+an `Int64` marker on Int16 bytes or a `Float64` marker on Int64 bytes, and
+converts the values while loading. Julia evaluates the marker text; Python
+never does. Markers are compared with a finite table of tokens (the fourteen
+ordinary element names, `Int128`, `UInt128` and `ComplexF16`, the 64 exact
+`MIT{F}`/`Duration{F}` spellings, and the aliases `Int`, `UInt` and
+`Complex{Float16}`), plus the whole-object tokens `TSeries`, the exactly
+spelled `TSeries{F, T}` and `TSeries{F, T, Vector{T}}` naming the stored
+series, and `Vector`/`Vector{Float64}` on empty numeric payloads.
+
+**Reads preserve storage.** A supported foreign marker never converts on read.
+`read_series` returns a `StoredSeries` whose descriptor keeps the stored kind,
+carrier bytes and the exact marker text (`element.marker`, and `object_marker`
+for `jtype`); writing it back reproduces the same bytes and both attributes in
+Julia's order. `to_interpreted()` is the explicit conversion: it returns the
+value Julia's loader would build, as an independently owning `TSeries`,
+`StoredSeries` or (for the empty `Vector` markers) NumPy array, and leaves the
+container untouched. Established behavior is unchanged for a `Bool` marker on
+an ordinary numeric payload and for exact represented/date markers that the
+adapter already accepted before foreign-marker support. Newly accepted identity
+tokens on ordinary numeric payloads, including aliases such as `Int`, retain
+their literal marker even though Julia's own rewrite drops it.
+
+```python
+import numpy as np
+from tsecon import TSeries, mm
+from tsecon.dataecon import StoredElement, StoredSeries, open_dataecon
+
+# Int16 bytes that a Julia session marked as Int64 (Julia loads Int64 [1, 2]).
+foreign = StoredSeries(
+    mm(2024, 11), np.array([1, 2], dtype="<i2"), StoredElement.numeric("<i2", marker="Int64")
+)
+with open_dataecon("foreign-example.daec", "a") as db:
+    db.write_series("marked", foreign)
+    stored = db.read_series("marked")
+    db.write_series("interpreted", stored.to_interpreted())
+    db.write_series("again", stored)
+assert isinstance(stored, StoredSeries)
+assert stored == foreign  # kind, bytes and marker text preserved
+assert stored.values.dtype == np.dtype("<i2")
+assert stored.element.marker == "Int64"
+converted = stored.to_interpreted()
+assert isinstance(converted, TSeries)
+assert converted.values.dtype == np.dtype("<i8")
+assert converted.values.tolist() == [1, 2]
+assert stored.values.dtype == np.dtype("<i2")  # interpretation changed nothing
+with open_dataecon("foreign-example.daec") as db:
+    assert db.read_series("again") == foreign
+    assert db.read_series("interpreted").values.dtype == np.dtype("<i8")
+```
+
+**Interpretation reproduces Julia's conversions, including their losses.**
+Floating targets round to nearest-even and overflow finite values to infinity
+along the same routes Julia takes (integers up to 64 bits reach `Float16`
+through `Float32`; 128-bit integers reach it through `Float64`; `Float32`
+values of 128-bit integers use their own exact rounding, so the midpoints that
+a conversion through Python `float` would collapse are kept apart). Integer,
+Boolean and date targets are exact: a value the target cannot represent
+raises `ValueError` on read, exactly where Julia raises `InexactError`.
+This is a different operation from exact construction: `from_list` on a
+ComplexF16 carrier still refuses inexact input, while a `ComplexF16` marker on
+Float64 bytes interprets `1.1` as the nearest half-precision value and
+`65520.0` as infinity.
+
+```python
+from tsecon.dataecon import COMPLEXF16, INT128
+
+precise = StoredSeries(
+    mm(2024, 11), np.array([2**53 + 1], dtype="<i8"), StoredElement.numeric("<i8", "Float64")
+)
+assert precise.tolist() == [2**53 + 1]  # the stored value
+assert precise.to_interpreted().values.tolist() == [2.0**53]  # Julia's rounded load
+halves = StoredSeries(
+    mm(2024, 11), np.array([1.1, 65520.0]), StoredElement.numeric("<f8", "ComplexF16")
+)
+narrowed = halves.to_interpreted()
+assert narrowed.element == COMPLEXF16
+assert narrowed.values["real"].tolist() == [np.float16(1.1), np.float16("inf")]
+try:
+    StoredSeries.from_list(mm(2024, 11), COMPLEXF16, [complex(1.1, 0.0)])
+except ValueError:
+    pass  # exact construction is unchanged
+midpoints = StoredSeries(
+    mm(2024, 11), np.array([2**54 + 2**30 + 1, 2**54 + 2**30 - 1], dtype="<i8"),
+    StoredElement.numeric("<i8", "Float32"),
+)
+assert midpoints.to_interpreted().values.tolist() == [2.0**54 + 2.0**31, 2.0**54]
+inexact = StoredSeries(
+    mm(2024, 11), np.array([1, 2], dtype="<i2"), StoredElement.numeric("<i2", "Int8")
+)
+inexact.values[1] = 300
+try:
+    inexact.validate()
+except ValueError:
+    pass  # 300 is not an Int8: refused, as Julia refuses it
+wide = StoredSeries.from_list(mm(2024, 11), INT128.with_marker("Float64"), [2**100 + 1])
+assert wide.to_interpreted().values.tolist() == [2.0**100]
+```
+
+**Dates and durations.** Integer sources with an `MIT{F}` marker become date
+elements with the raw codes (any element frequency, no date window); only
+Int64 sources take a `Duration{F}` marker, as in Julia. Date and duration
+sources accept `Bool`, `Int64`, `Float32`, `Float64`, `ComplexF32` and
+`ComplexF64` markers: the Boolean and integer readings use the raw codes, the
+floating readings are Julia's plotting values (`year + (period - 1) / ppy`
+for year/period dates and `code / ppy` for year/period durations, the raw code
+for Unit and calendar frequencies), which differ in their last bits for
+negative dates and durations. A marker naming another date family or
+frequency is refused: changing element metadata is not a frequency conversion.
+
+```python
+from tsecon import MIT, Duration
+from tsecon.frequencies import Daily, Monthly
+
+flags = StoredSeries.from_list(
+    mm(2024, 11), StoredElement.date(Monthly()).with_bool_marker(), [MIT(Monthly(), 0), MIT(Monthly(), 1)]
+)
+assert flags.tolist() == [MIT(Monthly(), 0), MIT(Monthly(), 1)]
+assert flags.to_bool().values.tolist() == [False, True]
+dates = StoredSeries(
+    mm(2024, 11), np.array([1, 2], dtype="<i8"), StoredElement.numeric("<i8", "MIT{Monthly}")
+).to_interpreted()
+assert dates.element == StoredElement.date(Monthly())
+assert dates.tolist() == [MIT(Monthly(), 1), MIT(Monthly(), 2)]
+spans = StoredSeries(
+    mm(2024, 11), np.array([-5], dtype="<i8"), StoredElement.numeric("<i8", "Duration{Daily}")
+).to_interpreted()
+assert spans.tolist() == [Duration(Daily(), -5)]
+as_float = StoredSeries.from_list(
+    mm(2024, 11), StoredElement.date(Monthly()).with_marker("Float64"), [MIT(Monthly(), -1)]
+).to_interpreted()
+assert as_float.values.tolist() == [-0.08333333333333337]
+as_float = StoredSeries.from_list(
+    mm(2024, 11), StoredElement.duration(Monthly()).with_marker("Float64"), [Duration(Monthly(), -1)]
+).to_interpreted()
+assert as_float.values.tolist() == [-0.08333333333333333]
+```
+
+**Whole-object markers take precedence.** When `jtype` is present, Julia
+converts the whole loaded series and never consults `jeltype`, even if that
+text is unknown. Python does the same: the supported identity tokens preserve
+the series as a `StoredSeries` with `object_marker`, and the element marker is
+kept as inactive data and neither validated nor interpreted. Dropping the
+whole-object marker on a rewrite would activate the element text, so both
+attributes are written back. An empty `jtype` is a present, failing marker,
+not an absent one.
+
+```python
+identity = StoredSeries(
+    mm(2024, 11),
+    np.array([1, 2], dtype="<i2"),
+    StoredElement.numeric("<i2", marker="NoSuchElement"),
+    object_marker="TSeries",
+)
+assert identity.active_marker is None
+assert identity.element.marker == "NoSuchElement"  # retained, never interpreted
+assert identity.to_interpreted().values.tolist() == [1, 2]
+try:
+    StoredSeries(mm(2024, 11), identity.values, identity.element)  # no object marker
+except TypeError:
+    pass  # the unknown element text would become active: refused unevaluated
+empty = StoredSeries(
+    mm(2024, 11), np.empty(0, dtype="<f8"), StoredElement.numeric("<f8"), object_marker="Vector"
+)
+assert isinstance(empty.to_interpreted(), np.ndarray)
+```
+
+**Empty payloads.** An empty numeric payload has no stored width, so a foreign
+marker on one is kept on the native default carrier of its kind (int64,
+uint64, float64 or complex128) and `to_interpreted()` builds the marked
+target's empty value, as Julia builds an empty typed vector. Empty date and
+duration payloads accept only their own token: the pinned Julia loader cannot
+load them at all, and a foreign marker on one is refused.
+
+**Errors and residue.** Unknown text, unsupported routes (a `Float16` marker
+on dates, a `Duration` marker on Int8 bytes, a mismatched `TSeries{...}`
+spelling) raise `TypeError`; values the declared conversion cannot represent
+raise `ValueError`; an explicit conversion whose output would exceed the
+payload limit is refused before anything is allocated. The interpretation is
+revalidated against the live carrier before every write, and an overwrite
+deletes the existing object only after that check. The two attributes are
+separate native operations after the store: if the element marker fails to
+write, the residue is the plain stored value; if the whole-object marker fails
+after the element marker succeeded, that element marker is now active, and the
+residue reads as a different valid value (an Int8 payload with an inactive
+`Bool` marker becomes a Boolean series) or is refused (an inactive unknown
+text). The error names the failed stage; no cleanup delete is attempted and a
+later close may fail and quarantine the owner.

@@ -47,7 +47,7 @@ def assert_series(actual, anchor, code, values):
 def test_codec_preserves_anchor_and_snapshots_strides(anchor):
     values = np.arange(8, dtype=np.float64)
     source = TSeries(MIT(Quarterly(anchor), 8099), values[::2])
-    freq, first, payload, element, element_frequency, length, marker = encode_series(source)
+    freq, first, payload, element, element_frequency, length, marker, _outer = encode_series(source)
     assert (freq, first) == (64 + anchor, 8099)
     values[:] = -1
     result = decode_series(freq, first, payload, element, element_frequency, length, marker)
@@ -242,9 +242,9 @@ def test_malformed_native_records_do_not_poison_other_objects(tmp_path, sql, exc
     [
         ("empty", "jeltype", "Float128"),
         ("empty", "jeltype", None),
-        ("empty", "jtype", "TSeries"),
+        ("empty", "jtype", "Vector{Int64}"),
         ("empty", "jtype", None),
-        ("cross_year", "jeltype", "Float64"),
+        ("cross_year", "jeltype", "Symbol"),
         ("empty", "jeltype", "error(123)"),
     ],
 )

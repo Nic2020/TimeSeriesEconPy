@@ -1,5 +1,9 @@
 # SPDX-License-Identifier: MIT
-"""Shared native metadata constants; no codecs or native imports."""
+"""Shared native metadata constants and finite Julia naming tables; no codecs or native imports."""
+
+from typing import Any
+
+import numpy as np
 
 from tsecon.frequencies import (
     BDaily,
@@ -84,3 +88,59 @@ KIND_DATE = 3
 KIND_FLOAT = 4
 KIND_COMPLEX = 5
 KIND_STRING = 6
+# Julia's element type names for the ordinary NumPy series dtypes, with their
+# native kind. These are literal tokens compared by string equality; nothing is
+# evaluated. Bool shares kind 1 with Int8 and is distinguished by its marker.
+JULIA_NUMERIC_TYPES: dict[str, tuple[int, np.dtype[Any]]] = {
+    "Int8": (KIND_INTEGER, np.dtype("i1")),
+    "Int16": (KIND_INTEGER, np.dtype("<i2")),
+    "Int32": (KIND_INTEGER, np.dtype("<i4")),
+    "Int64": (KIND_INTEGER, np.dtype("<i8")),
+    "UInt8": (KIND_UNSIGNED, np.dtype("u1")),
+    "UInt16": (KIND_UNSIGNED, np.dtype("<u2")),
+    "UInt32": (KIND_UNSIGNED, np.dtype("<u4")),
+    "UInt64": (KIND_UNSIGNED, np.dtype("<u8")),
+    "Float16": (KIND_FLOAT, np.dtype("<f2")),
+    "Float32": (KIND_FLOAT, np.dtype("<f4")),
+    "Float64": (KIND_FLOAT, np.dtype("<f8")),
+    "ComplexF32": (KIND_COMPLEX, np.dtype("<c8")),
+    "ComplexF64": (KIND_COMPLEX, np.dtype("<c16")),
+    "Bool": (KIND_INTEGER, np.dtype("?")),
+}
+# The element type Julia assumes for an unmarked empty payload of each kind.
+JULIA_KIND_DEFAULTS: dict[int, str] = {
+    KIND_INTEGER: "Int64",
+    KIND_UNSIGNED: "UInt64",
+    KIND_FLOAT: "Float64",
+    KIND_COMPLEX: "ComplexF64",
+}
+# Carrier dtypes holding the exact little-endian stored bytes of the element
+# families NumPy has no scalar type for: Int64 codes for dates and durations;
+# Int128/UInt128 as two 64-bit words, low word first; ComplexF16 as a real
+# component followed by an imaginary one, each an IEEE binary16.
+CODE_DTYPE: np.dtype[Any] = np.dtype("<i8")
+INT128_DTYPE: np.dtype[Any] = np.dtype([("lo", "<u8"), ("hi", "<u8")])
+COMPLEXF16_DTYPE: np.dtype[Any] = np.dtype([("real", "<f2"), ("imag", "<f2")])
+_PLAIN_JULIA_FREQUENCIES: dict[type[Frequency], str] = {
+    Unit: "Unit",
+    Daily: "Daily",
+    BDaily: "BDaily",
+    Monthly: "Monthly",
+}
+_PARAMETRIC_JULIA_FREQUENCIES: dict[type[Frequency], tuple[str, str]] = {
+    Weekly: ("Weekly", "end_day"),
+    Quarterly: ("Quarterly", "end_month"),
+    HalfYearly: ("HalfYearly", "end_month"),
+    Yearly: ("Yearly", "end_month"),
+}
+
+
+def julia_frequency_name(frequency: Frequency) -> str:
+    """Return Julia's spelling of a supported frequency (``Weekly{7}``, ``Monthly``...)."""
+    cls = type(frequency)
+    if cls in _PLAIN_JULIA_FREQUENCIES:
+        return _PLAIN_JULIA_FREQUENCIES[cls]
+    if cls in _PARAMETRIC_JULIA_FREQUENCIES:
+        name, attribute = _PARAMETRIC_JULIA_FREQUENCIES[cls]
+        return f"{name}{{{getattr(frequency, attribute)}}}"
+    raise TypeError(f"Unsupported element frequency: {frequency!r}")

@@ -21,7 +21,7 @@ class FakeHandle:
             raise self.failure
 
     def read(self, name):
-        return np.ones(4).tobytes(), (2, 12, 4, 0, 1, 4, 32, 24288, 32), name, None
+        return np.ones(4).tobytes(), (2, 12, 4, 0, 1, 4, 32, 24288, 32), name, None, None
 
 
 @pytest.fixture

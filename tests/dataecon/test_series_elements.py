@@ -114,15 +114,16 @@ def test_noncanonical_boolean_array_bytes_are_canonicalized_without_mutation():
     assert encoded.payload == b"\1\1\1\1\1\0"
     assert encoded.marker == "Bool"
     assert raw.tobytes() == b"\0\1\2\x7f\x80\xff"
-    with pytest.raises(ValueError, match="zero and one"):
+    with pytest.raises(ValueError, match="zero or one"):
         decode_series(32, 24288, b"\2", 1, 0, 1, "Bool")
 
 
 @pytest.mark.parametrize(
     ("element", "nbytes", "length", "marker"),
     [
-        (4, 0, 0, "Int16"),
-        (1, 1, 1, "Int8"),
+        (4, 0, 0, "Rational{Int64}"),
+        (1, 1, 1, "Any"),
+        (1, 1, 1, "Int8 "),
         (4, 0, 0, " Float64"),
         (4, 0, 0, "Float64()"),
     ],
@@ -208,7 +209,6 @@ def test_widths_over_all_existing_axis_families(frequency, dtype, tmp_path):
     [
         "bad_bool",
         "unknown_marker",
-        "wrong_marker",
     ],
 )
 def test_fixture_rejections(name):
@@ -221,7 +221,7 @@ def test_invalid_overwrite_keeps_original(tmp_path):
     path = tmp_path / "preserve.daec"
     with open_dataecon(path, "a") as db:
         db.write_scalar("keep", 7)
-        with pytest.raises(ValueError, match="zero and one"):
+        with pytest.raises(ValueError, match="zero or one"):
             db._handle.write("keep", 32, 24288, b"\2", True, 1, 0, 1, "Bool")
         assert db.read_scalar("keep") == 7
 

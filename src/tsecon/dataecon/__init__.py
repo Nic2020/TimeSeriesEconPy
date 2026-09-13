@@ -161,6 +161,13 @@ class DataEconFile:
         with their exact carrier bytes and separate element frequency. A Bool
         marker on a nonempty wide carrier is preserved; explicit ``to_bool()``
         converts it. On ordinary carriers it produces Boolean values directly.
+        Any other supported reconstruction marker (a numeric, ``MIT{F}`` or
+        ``Duration{F}`` element token, or a whole-object ``TSeries``/``Vector``
+        token) is preserved: the result is a ``StoredSeries`` holding the stored
+        kind, bytes and exact marker text, and ``to_interpreted()`` returns the
+        value Julia's loader would build. A marker whose conversion the stored
+        values cannot satisfy raises ``ValueError``; unknown tokens raise
+        ``TypeError``. No marker text is evaluated.
 
         The stored axis must carry a supported frequency code and a first date
         inside the reliable native range of that frequency; quarterly,
@@ -178,9 +185,16 @@ class DataEconFile:
         with self._lock:
             self._require_open()
             _validate_name(name)
-            payload, metadata, _, marker = self._handle.read(name)
+            payload, metadata, _, marker, object_marker = self._handle.read(name)
             return decode_series(
-                metadata[6], metadata[7], payload, metadata[2], metadata[3], metadata[5], marker
+                metadata[6],
+                metadata[7],
+                payload,
+                metadata[2],
+                metadata[3],
+                metadata[5],
+                marker,
+                object_marker,
             )
 
     def write_series(self, name: str, series: SeriesValue, *, overwrite: bool = False) -> None:
@@ -194,8 +208,9 @@ class DataEconFile:
         retain Julia's marker but remain unloadable by the pinned Julia loader.
         Nonempty Bool-marked wide carriers preserve bytes, type and marker;
         marker failure leaves unmarked wide values. A wide Bool-marked empty
-        cannot preserve its width and is refused. Other foreign markers remain
-        unsupported.
+        cannot preserve its width and is refused. Every other preserved marker
+        is written back verbatim (``jeltype`` first, then ``jtype``), after the
+        interpretation has been validated against the snapshot.
 
         Ordinary series carry native-endian signed/unsigned integers through
         64 bits, float16/32/64, complex64/128 or Boolean values over the Monthly,
@@ -218,7 +233,11 @@ class DataEconFile:
         axis. No transaction/rollback or automatic file deletion is promised.
         A failed reconstruction-marker write can leave a readable object with
         a different dtype: Bool becomes Int8 and narrow empties use the native
-        wide default. The error is reported; no implicit cleanup delete is attempted.
+        wide default; a preserved foreign marker that fails to write leaves the
+        plain stored values, and a failed whole-object marker write after a
+        successful element marker leaves that element marker active, so the
+        object then reads as a different value or is refused. The error is
+        reported; no implicit cleanup delete is attempted.
         After a native store or marker failure, close may also fail and quarantine
         the owner. Do not retry that close; reopen the file to inspect the residue.
 
@@ -241,6 +260,7 @@ class DataEconFile:
                 encoded.element_frequency,
                 encoded.length,
                 encoded.marker,
+                encoded.object_marker,
             )
 
     def read_scalar(self, name: str) -> ScalarResult:

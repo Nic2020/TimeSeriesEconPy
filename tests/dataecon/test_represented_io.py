@@ -424,7 +424,7 @@ def test_carrier_corrupted_between_validation_and_snapshot_is_refused(element):
     series = CorruptedAfterValidation.from_list(
         mm(2024, 11), element.with_bool_marker(), marked_items(element)
     )
-    with pytest.raises(ValueError, match="exact zeros and ones"):
+    with pytest.raises(ValueError, match="zero or one"):
         encode_series(series)
 
 
@@ -500,3 +500,333 @@ def test_represented_elements_over_every_axis_family(tmp_path, frequency, elemen
             assert actual.firstdate == first
             assert actual.frequency == frequency
             assert actual.lastdate == MIT(frequency, 100 + len(source) - 1)
+
+
+# ---- Foreign reconstruction markers through the native backend --------------
+
+
+def foreign(dtype, values, marker, object_marker=None):
+    return StoredSeries(
+        mm(2024, 11),
+        np.array(values, dtype=dtype),
+        StoredElement.numeric(dtype, marker),
+        object_marker=object_marker,
+    )
+
+
+def raw_row(path, name):
+    """(eltype, elfreq, axis frequency, first, length, payload, jeltype, jtype)."""
+    with closing(sqlite3.connect(f"{Path(path).resolve().as_uri()}?mode=ro", uri=True)) as sql:
+        row = sql.execute(
+            "SELECT t.eltype,t.elfreq,a.frequency,a.data,a.length,t.value,"
+            "(SELECT value FROM attributes x WHERE x.id=o.id AND x.name='jeltype'),"
+            "(SELECT value FROM attributes x WHERE x.id=o.id AND x.name='jtype') "
+            "FROM objects o JOIN tseries t ON t.id=o.id JOIN axes a ON a.id=t.axis_id "
+            "WHERE o.name=?",
+            (name,),
+        ).fetchone()
+    return (*row[:5], row[5] or b"", row[6], row[7])
+
+
+FOREIGN_CASES = [
+    ("int16_as_int64", foreign("<i2", [1, 2], "Int64"), TSeries, np.dtype("<i8"), [1, 2]),
+    (
+        "int64_precision_as_float64",
+        foreign("<i8", [2**53 + 1], "Float64"),
+        TSeries,
+        np.dtype("<f8"),
+        [2.0**53],
+    ),
+    (
+        "int128_as_float64",
+        StoredSeries.from_list(mm(2024, 11), INT128.with_marker("Float64"), [2**100 + 1]),
+        TSeries,
+        np.dtype("<f8"),
+        [2.0**100],
+    ),
+    (
+        "monthly_dates_as_bool",
+        StoredSeries.from_list(
+            mm(2024, 11),
+            StoredElement.date(Monthly()).with_bool_marker(),
+            [MIT(Monthly(), 0), MIT(Monthly(), 1)],
+        ),
+        TSeries,
+        np.dtype(bool),
+        [False, True],
+    ),
+    (
+        "int64_as_monthly_dates",
+        foreign("<i8", [1, 2], "MIT{Monthly}"),
+        StoredSeries,
+        StoredElement.date(Monthly()),
+        [MIT(Monthly(), 1), MIT(Monthly(), 2)],
+    ),
+    (
+        "float64_as_complexf16",
+        foreign("<f8", [1.1, 65520.0], "ComplexF16"),
+        StoredSeries,
+        COMPLEXF16,
+        [complex(1.099609375, 0.0), complex(float("inf"), 0.0)],
+    ),
+    ("empty_float64_as_int16", foreign("<f8", [], "Int16"), TSeries, np.dtype("<i2"), []),
+    (
+        "empty_int64_as_monthly_dates",
+        foreign("<i8", [], "MIT{Monthly}"),
+        StoredSeries,
+        StoredElement.date(Monthly()),
+        [],
+    ),
+    (
+        "outer_identity_with_inactive_marker",
+        foreign("<i2", [1, 2], "NoSuchElement", "TSeries"),
+        TSeries,
+        np.dtype("<i2"),
+        [1, 2],
+    ),
+    (
+        "outer_bypasses_bool",
+        foreign("i1", [0, 1], "Bool", "TSeries{Monthly, Int8}"),
+        TSeries,
+        np.dtype("i1"),
+        [0, 1],
+    ),
+]
+
+
+@NATIVE
+@pytest.mark.parametrize("case", FOREIGN_CASES, ids=[c[0] for c in FOREIGN_CASES])
+def test_foreign_markers_round_trip_preserving_storage(tmp_path, case):
+    name, source, result_type, target, values = case
+    path = tmp_path / "foreign.daec"
+    with open_dataecon(path, "a") as db:
+        db.write_series(name, source)
+        result = db.read_series(name)
+        db.write_series(f"{name}_again", result)
+        db.write_series(f"{name}_interpreted", result.to_interpreted())
+    # Storage: kind, element frequency, bytes and both attributes are exact.
+    element = source.element
+    row = raw_row(path, name)
+    assert row == (
+        element.native_kind,
+        element.native_frequency,
+        32,
+        24298,
+        len(source),
+        source.values.tobytes(),
+        element.marker,
+        source.object_marker,
+    )
+    assert raw_row(path, f"{name}_again") == row
+    assert isinstance(result, StoredSeries)
+    assert result == source
+    assert result.values.flags.owndata
+    assert result.values.flags.writeable
+    # Interpretation: Julia's value, independently owned; storage unchanged.
+    interpreted = result.to_interpreted()
+    assert type(interpreted) is result_type
+    if result_type is TSeries:
+        assert interpreted.values.dtype == target
+        assert interpreted.values.tolist() == values
+    else:
+        assert interpreted.element == target
+        assert interpreted.tolist() == values
+    assert not np.shares_memory(interpreted.values, result.values)
+    assert result == source
+    # The interpreted object carries no foreign marker of its own.
+    assert raw_row(path, f"{name}_interpreted")[6:] in ((None, None), ("Bool", None)) or (
+        len(values) == 0
+    )
+
+
+@NATIVE
+def test_both_reserved_attributes_are_written_and_preserved(tmp_path):
+    source = foreign("<i2", [1, 2], "NoSuchElement", "TSeries")
+    path = tmp_path / "order.daec"
+    with open_dataecon(path, "a") as db:
+        db.write_series("s", source)
+        result = db.read_series("s")
+    with closing(sqlite3.connect(path)) as sql:
+        rows = sql.execute(
+            "SELECT name,value FROM attributes WHERE name IN ('jeltype','jtype') ORDER BY name"
+        ).fetchall()
+    assert rows == [("jeltype", "NoSuchElement"), ("jtype", "TSeries")]
+    assert result.object_marker == "TSeries"
+    assert result.element.marker == "NoSuchElement"
+    assert result.active_marker is None
+    # Dropping the whole-object marker would activate the unknown text: refused.
+    with pytest.raises(TypeError, match="never evaluated"):
+        StoredSeries(result.firstdate, result.values, result.element)
+
+
+@NATIVE
+@pytest.mark.parametrize(
+    ("dtype", "values", "key", "text", "error"),
+    [
+        ("<i2", [300], "jeltype", "Int8", ValueError),
+        ("<f8", [2.5], "jeltype", "Int64", ValueError),
+        ("<i8", [2], "jeltype", "Bool", ValueError),
+        ("<i8", [3], "jeltype", "Symbol", TypeError),
+        ("<i8", [3], "jeltype", "Base.Int64", TypeError),
+        ("<i8", [3], "jeltype", "", TypeError),
+        ("<i8", [3], "jtype", "", TypeError),
+        ("<i8", [3], "jtype", "Vector", ValueError),
+        ("<i8", [3], "jtype", "TSeries{Monthly, Int16}", TypeError),
+        ("<i8", [3], "jtype", "Symbol", TypeError),
+        ("<i2", [3], "jeltype", "Duration{Monthly}", TypeError),
+    ],
+)
+def test_unsupported_or_inconvertible_markers_are_refused_on_read(
+    tmp_path, dtype, values, key, text, error
+):
+    path = tmp_path / "refused.daec"
+    with open_dataecon(path, "a") as db:
+        db.write_series("s", TSeries(mm(2024, 11), np.array(values, dtype=dtype)))
+    with closing(sqlite3.connect(path)) as sql, sql:
+        sql.execute("INSERT INTO attributes SELECT id,?,? FROM objects WHERE name='s'", (key, text))
+    with open_dataecon(path) as db, pytest.raises(error):
+        db.read_series("s")
+
+
+@NATIVE
+def test_foreign_overwrite_is_validated_before_the_delete(tmp_path):
+    with open_dataecon(tmp_path / "keep.daec", "a") as db:
+        db.write_scalar("keep", 7)
+        source = foreign("<i2", [1, 2], "Int8")
+        source.values[1] = 300  # no longer convertible to Int8
+        with pytest.raises(ValueError, match="observation 1"):
+            db.write_series("keep", source, overwrite=True)
+        assert db.read_scalar("keep") == 7
+        source.values[1] = 2
+        db.write_series("keep", source, overwrite=True)
+        assert db.read_series("keep") == source
+
+
+class ForeignEmptiedAfterValidation(StoredSeries):
+    __slots__ = ()
+
+    def validate(self):
+        super().validate()
+        self.values.resize((0,), refcheck=False)
+
+
+class ForeignCorruptedAfterValidation(StoredSeries):
+    __slots__ = ()
+
+    def validate(self):
+        super().validate()
+        self.values[0] = 300
+
+
+@NATIVE
+def test_foreign_snapshot_interleavings_are_refused(tmp_path):
+    emptied = ForeignEmptiedAfterValidation(
+        mm(2024, 11), np.array([1, 2], dtype="<i2"), StoredElement.numeric("<i2", "Int64")
+    )
+    with pytest.raises(ValueError, match="nothing was written"):
+        encode_series(emptied)
+    corrupted = ForeignCorruptedAfterValidation(
+        mm(2024, 11), np.array([1, 2], dtype="<i2"), StoredElement.numeric("<i2", "Int8")
+    )
+    with pytest.raises(ValueError, match="observation 0"):
+        encode_series(corrupted)
+    with open_dataecon(tmp_path / "race.daec", "a") as db:
+        db.write_scalar("keep", 1)
+        for series in (
+            ForeignEmptiedAfterValidation(
+                mm(2024, 11), np.array([1, 2], dtype="<i2"), StoredElement.numeric("<i2", "Int64")
+            ),
+            ForeignCorruptedAfterValidation(
+                mm(2024, 11), np.array([1, 2], dtype="<i2"), StoredElement.numeric("<i2", "Int8")
+            ),
+        ):
+            with pytest.raises(ValueError):
+                db.write_series("keep", series, overwrite=True)
+            assert db.read_scalar("keep") == 1
+
+
+FOREIGN_FAULT = r"""
+import json,sys,numpy as np
+from tsecon import mm
+from tsecon.dataecon import open_dataecon,DataEconError,StoredSeries,StoredElement
+path,stage=sys.argv[1:]
+if stage=='element':
+    series=StoredSeries(mm(2024,11),np.array([1,2],dtype='<i2'),StoredElement.numeric('<i2','Int64'))
+elif stage=='object_unknown':
+    element=StoredElement.numeric('<i2','NoSuchElement')
+    series=StoredSeries(mm(2024,11),np.array([1,2],dtype='<i2'),element,object_marker='TSeries')
+else:
+    element=StoredElement.numeric('i1','Bool')
+    outer='TSeries{Monthly, Int8}'
+    series=StoredSeries(mm(2024,11),np.array([0,1],dtype='i1'),element,object_marker=outer)
+db=open_dataecon(path,'a')
+report={}
+try:
+    db.write_series('target',series)
+except DataEconError as exc:
+    report['error']=[exc.code,exc.operation]
+else:
+    raise AssertionError('injection did not fail')
+try:
+    result=db.read_series('target')
+except (TypeError,ValueError) as exc:
+    report['read']=type(exc).__name__
+else:
+    report['read']=[type(result).__name__,str(result.values.dtype),result.values.tolist()]
+try:
+    db.close()
+except DataEconError as exc:
+    report['close']=exc.code
+report['closed']=db.closed
+print(json.dumps(report))
+"""
+
+
+@NATIVE
+@pytest.mark.parametrize(
+    ("stage", "attribute", "read", "attributes"),
+    [
+        ("element", "jeltype", ["TSeries", "int16", [1, 2]], []),
+        ("object_unknown", "jtype", "TypeError", [("jeltype", "NoSuchElement")]),
+        ("object_bool", "jtype", ["TSeries", "bool", [False, True]], [("jeltype", "Bool")]),
+    ],
+)
+def test_attribute_write_failure_residue_at_each_stage(
+    tmp_path, stage, attribute, read, attributes
+):
+    # A failed element-marker write leaves the plain stored values; a failed
+    # whole-object write after a successful element marker leaves that element
+    # marker active, so the residue is refused (unknown text) or reads as a
+    # different valid value (a Boolean series instead of Int8). No cleanup is
+    # attempted and the later close fails and quarantines the owner.
+    path = tmp_path / "fault.daec"
+    with open_dataecon(path, "a") as db:
+        db.write_scalar("other", 9)
+    with closing(sqlite3.connect(path)) as sql, sql:
+        sql.execute(
+            f"CREATE TRIGGER fail_marker BEFORE INSERT ON attributes WHEN NEW.name='{attribute}' "
+            "BEGIN SELECT RAISE(ABORT,'injected'); END"
+        )
+    run = subprocess.run(
+        [sys.executable, "-c", FOREIGN_FAULT, str(path), stage],
+        check=True,
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    report = json.loads(run.stdout)
+    assert report["error"][0] == 19
+    expected_operation = "write marker" if attribute == "jeltype" else "write object marker"
+    assert expected_operation in report["error"][1]
+    assert report["read"] == read
+    assert report["close"] == 19
+    assert report["closed"]
+    with closing(sqlite3.connect(path)) as sql:
+        assert (
+            sql.execute(
+                "SELECT name,value FROM attributes WHERE name IN ('jeltype','jtype') ORDER BY name"
+            ).fetchall()
+            == attributes
+        )
+    with open_dataecon(path) as db:
+        assert db.read_scalar("other") == 9

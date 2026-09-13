@@ -20,6 +20,9 @@
 # Represented series actions: generate-represented-elements/verify-represented-elements
 # (also checked by verify-wheel): MIT/Duration elements over all 32 element frequencies,
 # Int128/UInt128, ComplexF16, marked empties, wide Bool markers and reference controls.
+# Foreign marker actions: generate-foreign-markers/verify-foreign-markers (also checked
+# by verify-wheel): jeltype/jtype reconstruction markers on numeric, wide and
+# date/duration sources, with Julia's own loaded values materialized as siblings.
 using TimeSeriesEcon
 using Test, SHA, TOML, Pkg, Dates
 
@@ -607,6 +610,209 @@ function verify_canonical_bool(db, name, expected::Vector{UInt8})
     @test loaded isa TSeries{Monthly,Bool} && loaded.values == Bool.(expected)
 end
 
+# Foreign reconstruction markers (also checked by verify-wheel): numeric, wide and
+# date/duration sources stored through the C ABI with jeltype/jtype attributes that
+# Julia's own writer never emits for them. The generator loads every object with the
+# pinned loader and materializes the outcome inside the fixture: a "<name>_julia"
+# sibling written by Julia's own writer from the loaded value, or a "<name>_error"
+# string scalar naming the exception type. Python compares its preserved container
+# and explicit interpretation with those siblings; nothing is evaluated from text.
+# Actions: generate-foreign-markers/verify-foreign-markers.
+const foreign_anchor = 2024M11   # code 24298
+const foreign_numeric_types = (Int8, Int16, Int32, Int64, Int128, UInt8, UInt16, UInt32,
+    UInt64, UInt128, Float16, Float32, Float64, ComplexF16, ComplexF32, ComplexF64)
+const foreign_matrix_sources = (Int8, Int64, Int128, UInt8, UInt64, UInt128, Float16,
+    Float64, ComplexF16, ComplexF64)
+const foreign_tokens = ("Bool", string.(foreign_numeric_types)..., "MIT{Monthly}", "Duration{Monthly}")
+foreign_token_name(token) = replace(token, "{" => "_", "}" => "", ", " => "_", "," => "_")
+foreign_c16(r, i) = ComplexF16(reinterpret(Float16, UInt16(r)), reinterpret(Float16, UInt16(i)))
+# Curated cases shared with the installed verifier: (name, values, jeltype, jtype).
+# Python writes the same objects from StoredSeries containers plus its explicit
+# interpretation as "<name>_interpreted"; Julia loads both and compares them.
+function foreign_shared_cases()
+    Any[
+        ("fx_int16_as_int64", Int16[1, 2], "Int64", nothing),
+        ("fx_int64_precision_as_float64", Int64[2^53 + 1], "Float64", nothing),
+        ("fx_int128_as_float64", Int128[Int128(2)^100 + 1], "Float64", nothing),
+        ("fx_mit_monthly_as_bool", MIT{Monthly}[MIT{Monthly}(0), MIT{Monthly}(1)], "Bool", nothing),
+        ("fx_duration_monthly_as_bool", Duration{Monthly}[Duration{Monthly}(0), Duration{Monthly}(1)], "Bool", nothing),
+        ("fx_int64_as_mit_monthly", Int64[1, 2], "MIT{Monthly}", nothing),
+        ("fx_int64_as_duration_daily", Int64[-5, 7], "Duration{Daily}", nothing),
+        ("fx_float64_as_complexf16", Float64[1.1, 65520.0], "ComplexF16", nothing),
+        ("fx_float64_as_float16", Float64[-0.0, 5e-8, 65504.0, 65520.0, 2.0^-25, 3.0 * 2.0^-25], "Float16", nothing),
+        ("fx_int64_midpoints_as_float32", Int64[2^54 + 2^30 + 1, 2^54 + 2^30 - 1], "Float32", nothing),
+        ("fx_uint64_midpoints_as_float64", UInt64[UInt64(2)^63 + 2^10 + 1, UInt64(2)^63 + 2^10 - 1, typemax(UInt64)], "Float64", nothing),
+        ("fx_int128_midpoints_as_float32", Int128[Int128(2)^100 + Int128(2)^76 + 1, Int128(2)^100 + Int128(2)^76 - 1], "Float32", nothing),
+        ("fx_uint128_max_as_float32", UInt128[typemax(UInt128), UInt128(2)^127], "Float32", nothing),
+        ("fx_mit_monthly_as_float64", MIT{Monthly}[MIT{Monthly}(-1), MIT{Monthly}(-13), MIT{Monthly}(typemin(Int64))], "Float64", nothing),
+        ("fx_duration_monthly_as_float64", Duration{Monthly}[Duration{Monthly}(-1), Duration{Monthly}(-13)], "Float64", nothing),
+        ("fx_mit_daily_as_float32", MIT{Daily}[MIT{Daily}(2^54 + 2^30 + 1), MIT{Daily}(-1)], "Float32", nothing),
+        ("fx_mit_quarterly_as_complexf32", MIT{Quarterly{3}}[MIT{Quarterly{3}}(-1), MIT{Quarterly{3}}(7)], "ComplexF32", nothing),
+        ("fx_duration_yearly_as_int64", Duration{Yearly{12}}[Duration{Yearly{12}}(typemin(Int64)), Duration{Yearly{12}}(3)], "Int64", nothing),
+        ("fx_complexf64_negzero_as_int8", ComplexF64[complex(1.0, -0.0), complex(0.0, -0.0)], "Int8", nothing),
+        ("fx_complexf16_as_int64", ComplexF16[ComplexF16(1, 0), ComplexF16(2, 0)], "Int64", nothing),
+        ("fx_uint128_as_int128", UInt128[UInt128(2)^127 - 1, 0], "Int128", nothing),
+        ("fx_int64_as_uint128", Int64[typemax(Int64), 0], "UInt128", nothing),
+        ("fx_int16_alias_as_int", Int16[3, 4], "Int", nothing),
+        ("fx_float64_empty_as_int16", Float64[], "Int16", nothing),
+        ("fx_int64_empty_as_mit_monthly", Int64[], "MIT{Monthly}", nothing),
+        ("fx_complexf64_empty_as_uint128", ComplexF64[], "UInt128", nothing),
+        ("fx_outer_tseries_inactive_eltype", Int16[1, 2], "NoSuchElement", "TSeries"),
+        ("fx_outer_tseries_bypasses_bool", Int8[0, 1], "Bool", "TSeries{Monthly, Int8}"),
+        ("fx_outer_identity_int128", Int128[Int128(2)^100], nothing, "TSeries{Monthly, Int128, Vector{Int128}}"),
+        ("fx_outer_identity_mit", MIT{Monthly}[MIT{Monthly}(1)], "Bool", "TSeries{Monthly, MIT{Monthly}}"),
+        ("fx_outer_vector_empty", Float64[], "Int16", "Vector"),
+        ("fx_outer_vector_float64_empty", Int64[], nothing, "Vector{Float64}"),
+    ]
+end
+# Fixture-only cases: the source/target matrix on 0/1 values, empties per kind,
+# date/duration sources over several families, value boundaries and precedence.
+function foreign_fixture_cases()
+    cases = foreign_shared_cases()
+    push!(cases, ("fx_int64_alias_as_int", Int64[3, 4], "Int", nothing))
+    for S in foreign_matrix_sources, t in foreign_tokens
+        push!(cases, ("fx_m_$(S)_$(foreign_token_name(t))", S[0, 1], t, nothing))
+    end
+    for S in (Int64, UInt64, Float64, ComplexF64), t in foreign_tokens
+        push!(cases, ("fx_e_$(S)_$(foreign_token_name(t))", S[], t, nothing))
+    end
+    for (F, tag) in ((Monthly, "monthly"), (Yearly{12}, "yearly12"), (Daily, "daily"), (Unit, "unit")),
+        (K, kind) in ((MIT, "mit"), (Duration, "dur"))
+        S = K{F}
+        for t in unique(("Bool", "Int8", "Int64", "Int128", "UInt64", "Float16", "Float32", "Float64",
+                  "ComplexF16", "ComplexF32", "ComplexF64", "MIT{Monthly}", "Duration{Monthly}", string(S)))
+            push!(cases, ("fx_d_$(kind)_$(tag)_$(foreign_token_name(t))", S[S(0), S(1)], t, nothing))
+        end
+        push!(cases, ("fx_d_$(kind)_$(tag)_negative_float64", S[S(-1), S(-13), S(2^54 + 2^30 + 1)], "Float64", nothing))
+        push!(cases, ("fx_d_$(kind)_$(tag)_negative_float32", S[S(-1), S(-13), S(2^54 + 2^30 + 1)], "Float32", nothing))
+        push!(cases, ("fx_d_$(kind)_$(tag)_two_as_bool", S[S(2)], "Bool", nothing))
+        push!(cases, ("fx_d_$(kind)_$(tag)_empty_as_bool", S[], "Bool", nothing))
+    end
+    boundaries = Any[
+        ("fx_v_int64_bounds", Int64[typemin(Int64), typemax(Int64)]),
+        ("fx_v_int64_precision", Int64[2^53 + 1, 2^62 + 1]),
+        ("fx_v_int128_bounds", Int128[typemin(Int128), typemax(Int128)]),
+        ("fx_v_uint128_bounds", UInt128[0, typemax(UInt128)]),
+        ("fx_v_uint64_high", UInt64[UInt64(2)^63, typemax(UInt64)]),
+        ("fx_v_float64_fraction", Float64[3, 2.5]),
+        ("fx_v_float64_zero", Float64[-0.0, 0.0]),
+        ("fx_v_float64_special", Float64[NaN, Inf, -Inf]),
+        ("fx_v_float64_overflow", Float64[65520, 1e300]),
+        ("fx_v_float64_int_edge", Float64[-2.0^63, 2.0^63]),
+        ("fx_v_float32_subnormal", Float32[1.4f-45, -1.4f-45]),
+        ("fx_v_float16_max", Float16[65504]),
+        ("fx_v_complexf64_imag", ComplexF64[1 + im, 0 - im]),
+        ("fx_v_complexf64_zeroimag", ComplexF64[complex(-0.0, -0.0), complex(1.0, -0.0)]),
+        ("fx_v_complexf16_inexact", ComplexF16[ComplexF16(1.5, 0)]),
+    ]
+    for (name, v) in boundaries
+        for t in ("Bool", "Int8", "Int16", "Int32", "Int64", "Int128", "UInt8", "UInt64", "UInt128",
+                  "Float16", "Float32", "Float64", "ComplexF16", "ComplexF64", "MIT{Monthly}", "Duration{Monthly}")
+            push!(cases, ("$(name)_$(foreign_token_name(t))", v, t, nothing))
+        end
+    end
+    outer = Any[
+        ("fx_o_tseries", Int16[1, 2], nothing, "TSeries"),
+        ("fx_o_tseries_empty", Int16[], nothing, "TSeries"),
+        ("fx_o_tseries_full", Int16[1, 2], nothing, "TSeries{Monthly, Int16, Vector{Int16}}"),
+        ("fx_o_tseries_short", Int16[1, 2], nothing, "TSeries{Monthly, Int16}"),
+        ("fx_o_tseries_mismatch_type", Int8[0, 1], nothing, "TSeries{Monthly, Int16}"),
+        ("fx_o_tseries_mismatch_axis", Int8[0, 1], nothing, "TSeries{Quarterly{3}, Int8}"),
+        ("fx_o_tseries_no_space", Int16[1, 2], nothing, "TSeries{Monthly,Int16}"),
+        ("fx_o_tseries_leading_space", Int16[1, 2], nothing, " TSeries"),
+        ("fx_o_vector_nonempty", Float64[1.0], nothing, "Vector"),
+        ("fx_o_vector_complex_empty", ComplexF64[], nothing, "Vector"),
+        ("fx_o_vector_mit_empty", MIT{Monthly}[], nothing, "Vector"),
+        ("fx_o_float64", Int16[1, 2], nothing, "Float64"),
+        ("fx_o_unknown", Int16[1, 2], nothing, "NoSuchMarker"),
+        ("fx_o_empty_string", Int16[1, 2], "Int64", ""),
+        ("fx_o_eltype_empty_string", Int16[1, 2], "", nothing),
+        ("fx_o_identity_dated_daily_axis", MIT{Yearly{12}}[MIT{Yearly{12}}(2024)], nothing, "TSeries"),
+    ]
+    append!(cases, outer)
+    return cases
+end
+foreign_axis(values) = eltype(values) <: MIT{Yearly{12}} && length(values) == 1 && Int(values[1]) == 2024 ? (C.freq_daily, 739191, MIT{Daily}(Date(2024, 11, 1))) : (C.freq_monthly, Int(foreign_anchor), foreign_anchor)
+function store_foreign_case!(db, name, values, marker, outer)
+    element = DE.I._eltypefreq(eltype(values))
+    payload = collect(reinterpret(UInt8, values))
+    freq, first, _ = foreign_axis(values)
+    axis = Ref{C.axis_id_t}()
+    id = Ref{C.obj_id_t}()
+    @test C.de_axis_range(db, length(values), freq, first, axis) == 0
+    GC.@preserve payload begin
+        ptr = isempty(payload) ? C_NULL : pointer(payload)
+        @test C.de_store_tseries(db, DE.root_id, name, C.type_tseries, element.eltype,
+            element.elfreq, axis[], length(payload), ptr, id) == 0
+    end
+    marker === nothing || DE.set_attribute(db, id[], "jeltype", marker)
+    outer === nothing || DE.set_attribute(db, id[], "jtype", outer)
+    return id[]
+end
+foreign_loaded_values(x) = x isa TSeries ? x.values : x
+foreign_empty_dated(x) = (v = foreign_loaded_values(x); v isa AbstractVector && isempty(v) && eltype(v) <: Union{MIT,Duration})
+# Compare a loaded value with a stored object: by loading it, or by raw metadata
+# when the value is an empty MIT/Duration vector the pinned loader cannot rebuild.
+function foreign_same_stored(db, id, loaded)
+    if foreign_empty_dated(loaded)
+        metadata, bytes, attrs = raw_series(db, id)
+        element = DE.I._eltypefreq(eltype(foreign_loaded_values(loaded)))
+        return metadata[3] == Int(element.eltype) && metadata[4] == Int(element.elfreq) &&
+            metadata[6] == 0 && isempty(bytes) && attrs == Dict("jeltype" => string(eltype(foreign_loaded_values(loaded))))
+    end
+    return foreign_same_load(loaded, DE.load_tseries(db, id))
+end
+function foreign_same_load(a, b)
+    va, vb = foreign_loaded_values(a), foreign_loaded_values(b)
+    va isa AbstractVector && vb isa AbstractVector || return false
+    eltype(va) == eltype(vb) && length(va) == length(vb) || return false
+    isempty(va) && return true
+    return collect(reinterpret(UInt8, va)) == collect(reinterpret(UInt8, vb))
+end
+# sibling: "_julia" in the reference fixture (Julia's own loaded value), "_interpreted"
+# in the installed-wheel output (Python's explicit interpretation of the preserved object).
+function verify_foreign_case(db, name, values, marker, outer; generate::Bool, sibling::String="_julia")
+    id = DE.find_object(db, DE.root_id, name)
+    metadata, bytes, attrs = raw_series(db, id)
+    element = DE.I._eltypefreq(eltype(values))
+    freq, first, anchor = foreign_axis(values)
+    @test metadata == (2, 12, Int(element.eltype), Int(element.elfreq), 1, length(values), Int(freq), first, length(bytes))
+    @test bytes == collect(reinterpret(UInt8, values))
+    expected_attrs = Dict{String,String}()
+    marker === nothing || (expected_attrs["jeltype"] = marker)
+    outer === nothing || (expected_attrs["jtype"] = outer)
+    @test attrs == expected_attrs
+    loaded = nothing
+    failure = nothing
+    try
+        loaded = DE.load_tseries(db, id)
+    catch e
+        failure = string(nameof(typeof(e)))
+    end
+    if generate
+        if failure === nothing
+            stored = loaded isa TSeries ? loaded : TSeries(anchor, loaded)
+            DE.store_tseries(db, DE.root_id, "$(name)_julia", stored)
+        else
+            DE.store_scalar(db, DE.root_id, "$(name)_error", failure)
+        end
+    end
+    sibling_id = DE.find_object(db, DE.root_id, "$(name)$(sibling)", false)
+    error_scalar = DE.find_object(db, DE.root_id, "$(name)_error", false)
+    if failure === nothing
+        @test sibling_id !== missing && error_scalar === missing
+        sibling_id === missing && return
+        @test foreign_same_stored(db, sibling_id, loaded)
+        if loaded isa TSeries && !foreign_empty_dated(loaded)
+            @test firstdate(loaded) == firstdate(DE.load_tseries(db, sibling_id))
+        end
+    else
+        @test sibling_id === missing && error_scalar !== missing
+        error_scalar === missing && return
+        @test DE.load_scalar(db, error_scalar) == failure
+    end
+end
+
 if action == "generate-series-elements"
     ispath(filename) && error("Use a fresh fixture path")
     DE.opendaec(filename; readonly=false) do db
@@ -897,8 +1103,15 @@ elseif action == "generate-represented-elements"
         @test rc == Int(C.DE_BAD_ELTYPE_DATE)
         C.de_clear_error()
     end
-elseif !(action in ("verify", "verify-empty", "verify-scalars", "verify-quarterly", "verify-annual", "verify-halfyearly", "verify-int64", "verify-strings", "verify-dates", "verify-calendar", "verify-widths", "verify-fileops", "verify-calendar-series", "verify-series-elements", "generate-series-elements", "verify-represented-elements", "verify-wheel"))
-    error("Unknown action; use generate/verify, generate-empty/verify-empty, generate-scalars/verify-scalars, generate-quarterly/verify-quarterly, generate-annual/verify-annual, generate-halfyearly/verify-halfyearly, generate-int64/verify-int64, generate-strings/verify-strings, generate-dates/verify-dates, generate-calendar/verify-calendar, generate-widths/verify-widths, generate-fileops/verify-fileops, generate-calendar-series/verify-calendar-series, generate-series-elements/verify-series-elements, generate-represented-elements/verify-represented-elements or verify-wheel.")
+elseif action == "generate-foreign-markers"
+    ispath(filename) && error("Output already exists; use a fresh fixture path.")
+    DE.opendaec(filename; write=true) do db
+        for (name, values, marker, outer) in foreign_fixture_cases()
+            store_foreign_case!(db, name, values, marker, outer)
+        end
+    end
+elseif !(action in ("verify", "verify-empty", "verify-scalars", "verify-quarterly", "verify-annual", "verify-halfyearly", "verify-int64", "verify-strings", "verify-dates", "verify-calendar", "verify-widths", "verify-fileops", "verify-calendar-series", "verify-series-elements", "generate-series-elements", "verify-represented-elements", "verify-foreign-markers", "verify-wheel"))
+    error("Unknown action; use generate/verify, generate-empty/verify-empty, generate-scalars/verify-scalars, generate-quarterly/verify-quarterly, generate-annual/verify-annual, generate-halfyearly/verify-halfyearly, generate-int64/verify-int64, generate-strings/verify-strings, generate-dates/verify-dates, generate-calendar/verify-calendar, generate-widths/verify-widths, generate-fileops/verify-fileops, generate-calendar-series/verify-calendar-series, generate-series-elements/verify-series-elements, generate-represented-elements/verify-represented-elements, generate-foreign-markers/verify-foreign-markers or verify-wheel.")
 end
 
 if action in ("generate", "verify", "verify-wheel")
@@ -1478,6 +1691,23 @@ if action in ("generate-represented-elements", "verify-represented-elements", "v
     end
 end
 
+if action in ("generate-foreign-markers", "verify-foreign-markers", "verify-wheel")
+    @testset "DataEcon foreign marker interchange" begin
+        reference_fixture = action != "verify-wheel"
+        DE.opendaec(filename; write=(action == "generate-foreign-markers")) do db
+            # The reference fixture compares Julia's load with its own writer's sibling;
+            # the installed-wheel output compares it with Python's explicit interpretation
+            # of the preserved object, which carries no foreign marker.
+            cases = reference_fixture ? foreign_fixture_cases() : foreign_shared_cases()
+            for (name, values, marker, outer) in cases
+                verify_foreign_case(db, name, values, marker, outer;
+                    generate=(action == "generate-foreign-markers"),
+                    sibling=(reference_fixture ? "_julia" : "_interpreted"))
+            end
+        end
+    end
+end
+
 if action == "verify-wheel"
     @testset "DataEcon Boolean scalar interchange" begin
         DE.opendaec(filename) do db
@@ -1496,7 +1726,7 @@ if action == "verify-wheel"
     end
 end
 
-if action in ("generate", "generate-empty", "generate-scalars", "generate-quarterly", "generate-annual", "generate-halfyearly", "generate-int64", "generate-strings", "generate-dates", "generate-calendar", "generate-widths", "generate-fileops", "generate-calendar-series", "generate-series-elements", "generate-represented-elements")
+if action in ("generate", "generate-empty", "generate-scalars", "generate-quarterly", "generate-annual", "generate-halfyearly", "generate-int64", "generate-strings", "generate-dates", "generate-calendar", "generate-widths", "generate-fileops", "generate-calendar-series", "generate-series-elements", "generate-represented-elements", "generate-foreign-markers")
     layout = Dict{String,Any}(
         "enums" => sizeof.([C.class_t, C.type_t, C.frequency_t, C.axis_type_t]),
     )

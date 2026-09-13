@@ -6,7 +6,9 @@ strings, and MIT dates or Durations over the unit, daily, business-daily,
 weekly (every end day), monthly, quarterly, half-yearly and annual
 frequencies. Series also support represented MIT/Duration, Int128/UInt128 and
 ComplexF16 elements, over the same axis frequencies except Unit (daily,
-business-daily and weekly axes use the verified calendar windows).
+business-daily and weekly axes use the verified calendar windows), and
+preserve Julia's finite reconstruction markers (``jeltype``/``jtype``) as
+stored form plus explicit interpretation. No marker text is evaluated.
 """
 
 from __future__ import annotations
@@ -23,6 +25,7 @@ from tsecon.frequencies import (
 from tsecon.mit import MIT, Duration
 from tsecon.tseries import TSeries
 
+from . import _interpret
 from ._metadata import (
     _CALENDAR_FREQUENCIES,
     _CALENDAR_RANGES,
@@ -31,6 +34,8 @@ from ._metadata import (
     _SCALAR_FREQUENCIES,
     _SCALAR_MIN_DATES,
     _SERIES_FREQUENCIES,
+    JULIA_KIND_DEFAULTS,
+    JULIA_NUMERIC_TYPES,
     KIND_COMPLEX,
     KIND_DATE,
     KIND_FLOAT,
@@ -53,7 +58,7 @@ from ._represented import (
     UINT128,
     StoredElement,
     StoredSeries,
-    _check_bool_interpretation,
+    resolve_interpretation,
 )
 
 __all__ = [
@@ -197,23 +202,8 @@ _SERIES_SUPPORT = (
 
 # Empty payloads have no byte width; only an exact reconstruction token or the
 # native kind's wide default can establish the element dtype.
-_SERIES_TYPES: dict[str, tuple[int, np.dtype[Any]]] = {
-    "Int8": (1, np.dtype("i1")),
-    "Int16": (1, np.dtype("<i2")),
-    "Int32": (1, np.dtype("<i4")),
-    "Int64": (1, np.dtype("<i8")),
-    "UInt8": (2, np.dtype("u1")),
-    "UInt16": (2, np.dtype("<u2")),
-    "UInt32": (2, np.dtype("<u4")),
-    "UInt64": (2, np.dtype("<u8")),
-    "Float16": (4, np.dtype("<f2")),
-    "Float32": (4, np.dtype("<f4")),
-    "Float64": (4, np.dtype("<f8")),
-    "ComplexF32": (5, np.dtype("<c8")),
-    "ComplexF64": (5, np.dtype("<c16")),
-    "Bool": (1, np.dtype("?")),
-}
-_SERIES_DEFAULTS = {1: "Int64", 2: "UInt64", 4: "Float64", 5: "ComplexF64"}
+_SERIES_TYPES = JULIA_NUMERIC_TYPES
+_SERIES_DEFAULTS = JULIA_KIND_DEFAULTS
 _SERIES_DTYPES = {
     (kind, dtype.itemsize): dtype for kind, dtype in _SERIES_TYPES.values() if dtype.kind != "b"
 }
@@ -229,6 +219,7 @@ class SeriesPayload(NamedTuple):
     element_frequency: int
     length: int
     marker: str | None
+    object_marker: str | None
 
 
 # Series widths include the represented families; scalar acceptance is unchanged.
@@ -243,68 +234,138 @@ _WIDE_NAMES = {e.julia_name: e for e in _WIDE_ELEMENTS.values()}
 SeriesValue: TypeAlias = TSeries | StoredSeries
 
 
-def series_dtype(
-    element: int, element_frequency: int, length: int, nbytes: int, marker: str | None
-) -> np.dtype[Any] | StoredElement:
-    """Resolve structurally validated metadata using finite marker comparisons."""
-    if marker is not None and type(marker) is not str:
-        raise TypeError("Unsupported Julia reconstruction attribute.")
-    if element_frequency:
-        descriptor = StoredElement(
-            "date" if element == KIND_DATE else "duration", scalar_frequency(element_frequency)
+def _require_token(marker: str) -> _interpret.Target:
+    target = _interpret.resolve_token(marker)
+    if target is None:
+        raise TypeError(
+            "Unsupported Julia reconstruction attribute for this element encoding; marker "
+            "text is compared with a finite table and never evaluated."
         )
-        if marker not in (None, descriptor.julia_name):
-            raise TypeError(
-                "Unsupported Julia reconstruction attribute for date/duration elements."
-            )
-        return descriptor
+    return target
+
+
+def _base_element(element: int, length: int, nbytes: int) -> np.dtype[Any] | StoredElement:
+    """Return the element Julia's loader builds before any marker: dtype or wide descriptor."""
     if not length:
-        return _empty_series_type(element, marker)
+        return _SERIES_TYPES[_SERIES_DEFAULTS[element]][1]
     width = nbytes // length
     wide = _WIDE_ELEMENTS.get((element, width))
-    if wide is not None:
+    return wide if wide is not None else _SERIES_DTYPES[element, width]
+
+
+def series_dtype(
+    element: int,
+    element_frequency: int,
+    length: int,
+    nbytes: int,
+    marker: str | None,
+    object_marker: str | None = None,
+) -> np.dtype[Any] | StoredElement:
+    """Resolve structurally validated metadata using finite marker comparisons.
+
+    Returns the dtype of a ``TSeries`` result (an ordinary payload, possibly
+    with the normalizing ``Bool`` marker) or the ``StoredElement`` of a
+    ``StoredSeries`` result, whose ``marker`` is the preserved ``jeltype``
+    text. A present whole-object marker makes the element marker inactive and
+    always yields a preserved container; its own token is validated against
+    the axis by :func:`validate_series_payload`. Redundant tokens that name the
+    stored family resolve to the unmarked family.
+    """
+    _interpret.check_marker_text(marker, "element")
+    _interpret.check_marker_text(object_marker, "whole-object")
+    if element_frequency:
+        return _dated_series_type(element, element_frequency, length, marker, object_marker)
+    if object_marker is not None:
+        base = _base_element(element, length, nbytes)
+        if isinstance(base, StoredElement):
+            return base.with_marker(marker)
+        return StoredElement.numeric(base, marker)
+    if not length:
+        return _empty_series_type(element, marker)
+    return _nonempty_series_type(_base_element(element, length, nbytes), marker)
+
+
+def _dated_series_type(
+    element: int, element_frequency: int, length: int, marker: str | None, object_marker: str | None
+) -> StoredElement:
+    descriptor = StoredElement(
+        "date" if element == KIND_DATE else "duration", scalar_frequency(element_frequency)
+    )
+    if object_marker is None and (marker is None or marker == descriptor.julia_name):
+        return descriptor
+    if object_marker is None and marker is not None:
+        _require_token(marker)
+    if not length:
+        raise TypeError(
+            "Julia cannot load an empty date or duration series; a reconstruction marker "
+            "other than its own element type is not supported on one."
+        )
+    return descriptor.with_marker(marker)
+
+
+def _nonempty_series_type(
+    base: np.dtype[Any] | StoredElement, marker: str | None
+) -> np.dtype[Any] | StoredElement:
+    if isinstance(base, StoredElement):
+        if marker is None or marker == base.julia_name:
+            return base
         if marker == "Bool":
-            return wide.with_bool_marker()
-        if marker not in (None, wide.julia_name):
-            raise TypeError("Unsupported Julia reconstruction attribute for this element encoding.")
-        return wide
-    if marker not in (None, "Bool"):
-        raise TypeError("Unsupported Julia reconstruction attribute for this element encoding.")
-    # Keep the carrier dtype until Bool values have been checked without casting.
-    return _SERIES_DTYPES[element, width]
+            return base.with_bool_marker()
+        _require_token(marker)
+        return base.with_marker(marker)
+    if marker is None or marker == "Bool":
+        # Keep the carrier dtype until Bool values have been checked without casting.
+        return base
+    _require_token(marker)
+    # Ordinary nonempty identity markers were not accepted before this slice.
+    # They are therefore new foreign encodings and retain their literal token
+    # under the storage-preserving policy, even though Julia drops it on rewrite.
+    return StoredElement.numeric(base, marker)
 
 
 def _empty_series_type(element: int, marker: str | None) -> np.dtype[Any] | StoredElement:
+    default = _SERIES_TYPES[_SERIES_DEFAULTS[element]][1]
+    if marker is None:
+        return default
     if marker == "Bool":
         return np.dtype("?")
-    if marker in _WIDE_NAMES:
-        descriptor = _WIDE_NAMES[marker]
-        if descriptor.native_kind != element:
-            raise TypeError("Unsupported Julia reconstruction attribute for this element encoding.")
-        return descriptor
-    return _empty_series_dtype(element, marker)
-
-
-def _empty_series_dtype(element: int, marker: str | None) -> np.dtype[Any]:
-    if marker is None:
-        return _SERIES_TYPES[_SERIES_DEFAULTS[element]][1]
-    if marker not in _SERIES_TYPES or _SERIES_TYPES[marker][0] != element:
-        raise TypeError("Unsupported Julia reconstruction attribute for this element encoding.")
-    return _SERIES_TYPES[marker][1]
+    target = _require_token(marker)
+    if target.kind == "numeric":
+        # An exact same-kind token restores the typed empty; a foreign kind is
+        # preserved on the kind default (the stored width is unrecoverable).
+        if marker in _SERIES_TYPES and _SERIES_TYPES[marker][0] == element:
+            return target.dtype
+    elif marker in _WIDE_NAMES:
+        wide = _WIDE_NAMES[marker]
+        if wide.native_kind == element:
+            return wide
+    return StoredElement.numeric(default, marker)
 
 
 def validate_series_payload(
-    element: int, element_frequency: int, length: int, payload: bytes, marker: str | None
+    code: int,
+    element: int,
+    element_frequency: int,
+    length: int,
+    payload: bytes,
+    marker: str | None,
+    object_marker: str | None = None,
 ) -> np.dtype[Any] | StoredElement:
-    """Validate interpretation of an owned, structurally checked payload."""
-    resolved = series_dtype(element, element_frequency, length, len(payload), marker)
+    """Validate interpretation of an owned, structurally checked payload.
+
+    Resolves the markers, then checks that the declared conversion is possible
+    for the stored values (route and value rules of the pinned Julia loader)
+    without allocating a converted array. ``TypeError`` names an unsupported
+    token or route, ``ValueError`` an inconvertible value.
+    """
+    resolved = series_dtype(element, element_frequency, length, len(payload), marker, object_marker)
     if isinstance(resolved, StoredElement):
-        if resolved.marker is not None:
-            _check_bool_interpretation(np.frombuffer(payload, dtype=resolved.dtype), resolved)
+        values = np.frombuffer(payload, dtype=resolved.dtype)
+        resolve_interpretation(values, resolved, object_marker, series_frequency(code))
     elif marker == "Bool":
-        values = np.frombuffer(payload, dtype=resolved)
-        if not np.all((values == 0) | (values == 1)):
-            raise ValueError("Boolean series payload must contain only zero and one values.")
+        _interpret.check_bool(
+            np.frombuffer(payload, dtype=resolved), _interpret.numeric_target(resolved)
+        )
     return resolved
 
 
@@ -548,11 +609,13 @@ def encode_series(series: SeriesValue) -> SeriesPayload:
     )
     if code is None:
         raise TypeError(_SERIES_SUPPORT)
+    object_marker = None
     if isinstance(series, StoredSeries):
         series.validate()
         descriptor = series.element
         element, element_frequency = descriptor.native_kind, descriptor.native_frequency
         marker = descriptor.written_marker(len(series))
+        object_marker = series.object_marker
         values = series.values
     else:
         element, marker, values = _numeric_series_values(series)
@@ -569,14 +632,19 @@ def encode_series(series: SeriesValue) -> SeriesPayload:
     # detected here and refused, but no atomic snapshot is promised.
     if len(payload) != nbytes:
         raise ValueError("The series values changed size during the snapshot; nothing was written.")
-    resolved = validate_series_payload(element, element_frequency, length, payload, marker)
+    resolved = validate_series_payload(
+        code, element, element_frequency, length, payload, marker, object_marker
+    )
     if isinstance(series, StoredSeries) and resolved != series.element:
         # An emptied "Bool"-marked wide carrier would otherwise resolve to the
-        # ambiguous empty Boolean encoding and lose its stored width.
+        # ambiguous empty Boolean encoding and lose its stored width; the same
+        # recheck covers every preserved marker and dtype.
         raise ValueError(
             "The snapshot no longer matches the container's stored element; nothing was written."
         )
-    return SeriesPayload(code, first, payload, element, element_frequency, length, marker)
+    return SeriesPayload(
+        code, first, payload, element, element_frequency, length, marker, object_marker
+    )
 
 
 def _numeric_series_values(series: TSeries) -> tuple[int, str | None, np.ndarray[Any, Any]]:
@@ -602,6 +670,7 @@ def decode_series(
     element_frequency: int,
     length: int,
     marker: str | None,
+    object_marker: str | None = None,
 ) -> SeriesValue:
     """Construct owning values; native storage never escapes the adapter."""
     if sys.byteorder != "little":
@@ -609,11 +678,13 @@ def decode_series(
             "DataEcon interchange is currently supported on little-endian hosts only."
         )
     validate_metadata((2, 12, element, element_frequency, 1, length, code, first, len(payload)))
-    resolved = validate_series_payload(element, element_frequency, length, payload, marker)
+    resolved = validate_series_payload(
+        code, element, element_frequency, length, payload, marker, object_marker
+    )
     anchor = MIT(series_frequency(code), first)
     if isinstance(resolved, StoredElement):
         values = np.frombuffer(payload, dtype=resolved.dtype).copy()
-        return StoredSeries(anchor, values, resolved, copy=False)
+        return StoredSeries(anchor, values, resolved, copy=False, object_marker=object_marker)
     values = np.frombuffer(payload, dtype=resolved)
     if marker == "Bool":
         return TSeries(anchor, np.array(values == 1, dtype=bool))

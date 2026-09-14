@@ -1785,6 +1785,106 @@ def check_catalogs(db: de.DataEconFile) -> None:
         raise ValueError("Object info mismatch.")
 
 
+# Workspace interchange: the mixed Workspace Julia's generate-workspace writes
+# with writedb at the root of its fixture, written here with write_workspace
+# under /workspace. Julia's verify-wheel reads it back with readdb; the three
+# marked scalars of the Julia tree (Symbol, Rational, Date) have no Python
+# writer yet and are absent here.
+WORKSPACE_ORDER = [("b", 1), ("a", 2), ("B", 3), ("\u00e4", 4), ("_", 5), ("10", 6), ("9", 7)]
+
+
+def workspace_tree() -> tsecon.Workspace:
+    ws = tsecon.Workspace()
+    ws.f = 1.5
+    ws.i = 7
+    ws.i8 = np.int8(-3)
+    ws.u = np.uint64(2**63)
+    ws.c = 1.0 + 2.0j
+    ws.s = "vintage \u2016 3"
+    ws.b = True
+    ws.d = qq(2020, 1)
+    ws.dur = Duration(Monthly(), 2)
+    ws.ts = tsecon.TSeries(mm(2024, 1), np.array([1.0, 2.0, 3.0]))
+    ws.tsi = tsecon.TSeries(qq(2020, 1), np.array([1, 2], dtype=np.int64))
+    ws.tsb = tsecon.TSeries(tsecon.yy(2020), np.array([True, False]))
+    ws.tse = tsecon.TSeries(mm(2024, 1), np.array([], dtype=np.float64))
+    ws.tsd = de.StoredSeries(mm(2024, 1), CATALOG_DATES, de.StoredElement.date(Monthly()))
+    ws.mv = tsecon.MVTSeries(qq(2024, 1), ("p", "q"), np.array([[1.0, 2.0], [3.0, 4.0]]))
+    ws.mat = np.array([[1.0, 2.0], [3.0, 4.0]])
+    ws.v = np.array([1, 2, 3], dtype=np.int32)
+    ws.vs = ["a", "b"]
+    ws.ur = range(1, 6)
+    ws.mr = tsecon.MITRange(qq(2020, 1), qq(2020, 4))
+    ws.t3 = np.arange(1, 25, dtype=np.int64).reshape((2, 3, 4), order="F")
+    ws.nested = tsecon.Workspace(x=1, deeper=tsecon.Workspace(y=2.0))
+    ws.nested.deeper["\u65e5\u672c\u8a9e"] = 9
+    ws.empty = tsecon.Workspace()
+    ws.order = tsecon.Workspace()
+    for name, value in WORKSPACE_ORDER:
+        ws.order[name] = value
+    return ws
+
+
+def write_workspace_tree(db: de.DataEconFile) -> None:
+    db.new_catalog("/workspace")
+    report = db.write_workspace(workspace_tree(), "/workspace")
+    if not report.ok or report.count != 35:
+        raise ValueError(f"write_workspace did not store the whole tree: {report}")
+    db.set_attribute("/workspace/f", "note", "user attribute")
+
+
+def check_workspace_tree(db: de.DataEconFile) -> None:  # noqa: PLR0912 - finite inventory
+    """Read the tree written by :func:`write_workspace_tree` back as a Workspace."""
+    expected = workspace_tree()
+    loaded = db.read_workspace("/workspace")
+    ws, report = loaded.workspace, loaded.report
+    if not report.ok or report.count != 35 or report.path != "/workspace":
+        raise ValueError(f"read_workspace did not load the whole tree: {report}")
+    if list(ws.keys()) != sorted(expected.keys(), key=lambda k: k.encode("utf-8")):
+        raise ValueError("Workspace keys are not in UTF-8 byte order.")
+    for name in ("f", "i", "c", "s", "d", "dur"):
+        if ws[name] != expected[name] or type(ws[name]) is not type(expected[name]):
+            raise ValueError(f"Workspace scalar {name} mismatch.")
+    if ws.i8 != np.int8(-3) or ws.u != np.uint64(2**63) or ws.b != np.int8(1):
+        raise ValueError("Workspace NumPy/Boolean scalar mismatch.")
+    for name in ("ts", "tsi", "tsb", "tse"):
+        got, want = ws[name], expected[name]
+        if not isinstance(got, tsecon.TSeries) or got.firstdate != want.firstdate:
+            raise ValueError(f"Workspace series {name} mismatch.")
+        if got.values.dtype != want.values.dtype or got.values.tolist() != want.values.tolist():
+            raise ValueError(f"Workspace series {name} values mismatch.")
+    if not isinstance(ws.tsd, de.StoredSeries) or ws.tsd.values.tolist() != CATALOG_DATES.tolist():
+        raise ValueError("Workspace represented series mismatch.")
+    if not isinstance(ws.mv, tsecon.MVTSeries) or list(ws.mv.columns) != ["p", "q"]:
+        raise ValueError("Workspace MVTSeries mismatch.")
+    np.testing.assert_array_equal(ws.mv.values, expected.mv.values)
+    np.testing.assert_array_equal(ws.mat, expected.mat)
+    np.testing.assert_array_equal(ws.v, expected.v)
+    np.testing.assert_array_equal(ws.t3, expected.t3)
+    if ws.v.dtype != np.int32 or ws.t3.dtype != np.int64 or ws.t3.shape != (2, 3, 4):
+        raise ValueError("Workspace array dtype/shape mismatch.")
+    if ws.vs != ["a", "b"] or ws.ur != range(1, 6) or list(ws.mr) != list(expected.mr):
+        raise ValueError("Workspace text/range mismatch.")
+    if ws.nested.x != 1 or ws.nested.deeper.y != 2.0 or ws.nested.deeper["\u65e5\u672c\u8a9e"] != 9:
+        raise ValueError("Nested Workspace mismatch.")
+    if list(ws.nested.keys()) != ["deeper", "x"] or len(ws.empty) != 0:
+        raise ValueError("Nested Workspace order or empty catalog mismatch.")
+    if list(ws.order.keys()) != ["10", "9", "B", "_", "a", "b", "\u00e4"]:
+        raise ValueError("Workspace byte order mismatch.")
+    if [ws.order[n] for n, _ in WORKSPACE_ORDER] != [v for _, v in WORKSPACE_ORDER]:
+        raise ValueError("Workspace order values mismatch.")
+    if db.get_attributes("/workspace/b") != {} or db.get_attributes("/workspace/tsb") != {
+        "jeltype": "Bool"
+    }:
+        raise ValueError("Workspace markers mismatch.")
+    if db.get_attribute("/workspace/f", "note") != "user attribute":
+        raise ValueError("User attribute is not independent of the Workspace.")
+    if db.read_object("/workspace/f") != 1.5 or not isinstance(
+        db.read_object("/workspace/ts"), tsecon.TSeries
+    ):
+        raise ValueError("read_object dispatch mismatch.")
+
+
 def write_interchange(output_dir: Path, series: tsecon.TSeries) -> Path:
     """Write and reopen series and scalars for separate Julia verification."""
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -1800,6 +1900,7 @@ def write_interchange(output_dir: Path, series: tsecon.TSeries) -> Path:
         write_matrices_text(db)
         write_tensors(db)
         write_catalogs(db)
+        write_workspace_tree(db)
         for name, value in (
             ("bool_false", False),
             ("bool_true", True),
@@ -1824,6 +1925,7 @@ def write_interchange(output_dir: Path, series: tsecon.TSeries) -> Path:
         check_matrices_text(db)
         check_tensors(db)
         check_catalogs(db)
+        check_workspace_tree(db)
         np.testing.assert_array_equal(db.read_series("sample").values, series.values)
         for name, expected in (
             ("bool_false", 0),

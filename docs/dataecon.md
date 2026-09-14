@@ -986,6 +986,136 @@ explicitly delete it with `recursive=True` and then call `new_catalog`.
 These are separate, non-atomic operations: if creation fails, the deleted
 catalog and its contents are not restored.
 
+## Workspaces: whole catalog trees
+
+A `Workspace` travels as a catalog tree, exactly as Julia's `writedb` and
+`readdb` move it: every member is stored under its key through the typed
+writer its Python type selects, a nested `Workspace` becomes a catalog, and a
+read rebuilds nested Workspaces from the catalogs below a path. The dispatch
+is by type only, and each member goes through the same method (and the same
+validation, markers and residue rules) as a direct call would use:
+
+| Member value | Stored through | As |
+|---|---|---|
+| `Workspace` | `new_catalog` and its own members | a catalog |
+| `TSeries`, `MVTSeries`, `StoredSeries` | `write_series` | dated series |
+| NumPy array, `StoredArray`, `StoredText`, `list`/`tuple` of `str`, `range`, `MITRange` | `write_array` | plain array, text or range |
+| `bool`, `int`, `float`, `complex`, `str`, `MIT`, `Duration`, NumPy scalar | `write_scalar` | scalar |
+| anything else (`None`, `dict`, `Fraction`, `datetime`, objects) | — | reported as unsupported |
+
+```python
+import numpy as np
+from tsecon import TSeries, Workspace, mm
+from tsecon.dataecon import load_workspace, open_dataecon, save_workspace
+
+ws = Workspace(gdp=TSeries(mm(2024, 1), np.array([1.0, 2.0])), vintage=3)
+ws.inputs = Workspace(raw=Workspace(weights=np.arange(6.0).reshape((2, 3))), note="v1")
+with open_dataecon("workspace-example.daec", "a") as db:
+    report = db.write_workspace(ws)  # /gdp, /vintage, /inputs, /inputs/raw, ...
+    assert report.ok and report.count == 6
+    loaded = db.read_workspace("/inputs")
+    assert list(loaded.workspace.keys()) == ["note", "raw"]  # UTF-8 byte order
+    assert loaded.workspace.raw.weights.shape == (2, 3)
+    report = db.write_workspace(Workspace(bad=object(), ok=1), "/inputs")
+    assert [(s.path, s.category) for s in report.skipped] == [("/inputs/bad", "unsupported")]
+    assert db.read_object("/inputs/ok") == 1
+    db.write_object("/inputs/note", "v2", overwrite=True)
+workspace, report = load_workspace("workspace-example.daec")
+assert report.ok and workspace.inputs.note == "v2"
+assert save_workspace("workspace-example.daec", Workspace(extra=1)).ok
+```
+
+`write_workspace(workspace, path="/", *, overwrite=False, strict=False)`
+stores the members below the catalog `path`, which must already exist and be
+a catalog (`DataEconError` -989 or `ValueError`; it is never created
+implicitly). Keys are object names, never paths: nesting is expressed by
+nesting Workspaces, and a key that is not a valid name (empty, blank,
+containing `/` or NUL) is reported. To store a Workspace as a *new* catalog
+`name` under `parent`, write `Workspace(name=ws)` into `parent`, which is
+Julia's `write_data(de, "/parent/name", ws)`. Members are stored depth-first
+in insertion order from an explicit stack, so nesting depth is bounded by the
+file format, not by Python's recursion limit. The same Workspace object under
+two keys is stored twice (the format has no references); a nested Workspace
+that is its own ancestor is reported as a `cycle` before any catalog is
+created (Julia's recursive writer overflows its stack on such input).
+
+Both directions default to **skip-and-report**, which is what Julia does when
+it logs a failed member and continues, made visible: the returned
+`WorkspaceReport` carries the catalog `path`, the `count` of objects stored or
+loaded (catalogs included) and a tuple of `SkippedMember` records with the
+member's full `path`, a `category` (`unsupported`, `invalid`, `exists`,
+`native` or `cycle`), the `reason` (exception class and message) and whether
+the entry stands for a whole `subtree`. With `strict=True` the first such
+member raises its original `TypeError`, `ValueError` or `DataEconError`, with
+a note naming the member path. Neither mode is a transaction: members already
+stored stay stored, nothing rolls back, and a native failure leaves the same
+residue a direct write would (a partial object, a possible later close
+failure). Only those three exception classes from the member's own write or
+read are reported; a programming error, a closed or read-only owner and a bad
+destination raise immediately in both modes. A nested Workspace whose catalog
+cannot be created is one report entry with `subtree=True` and none of its
+members is attempted.
+
+Without `overwrite`, an existing object of any class at a member's path is
+reported as `exists` (Julia's `DE_EXISTS`) and a nested Workspace is not
+entered. With `overwrite=True` a value replaces an existing scalar, series or
+array through the typed writer's delete-then-store; a nested Workspace
+replaces an existing catalog **entirely** (its old contents are deleted first;
+this is Julia's behaviour, not a merge) or an existing value; a value never
+replaces a catalog (reported as `exists`; delete it explicitly, as for the
+single-object methods). Replaced objects lose their attributes.
+
+`read_workspace(path="/", *, strict=False)` returns a `LoadedWorkspace`
+named tuple `(workspace, report)`. Every member is read with the typed reader
+for its stored class and type and inserted unchanged, so the values are
+exactly what `read_scalar`, `read_series` and `read_array` return:
+`StoredSeries`/`StoredArray`/`StoredText` carriers keep their markers and
+`to_interpreted()`, an empty series keeps its axis, ranges come back as
+`range`/`MITRange`. Keys come back in the UTF-8 byte order of the names at
+each level (the native listing order, also the order Julia's `readdb`
+produces), not in the order they were written, and the traversal is
+depth-first pre-order: a nested catalog is filled before its later siblings,
+as Julia recurses, which fixes the order of the report and of the first strict
+error. Members that cannot be loaded are reported: an object of a native-only
+type (no native call is made), a scalar carrying a reconstruction marker
+(Julia's `Symbol`, `Rational`, `Date` and `DateTime` scalars, until their
+Python mapping exists), an unsupported or malformed encoding, or a native load
+failure; a catalog whose listing fails is one `subtree` entry and is left out
+of its parent. Before a member is read, the path rebuilt from its listed name
+must resolve to the listed object itself and the name must be a valid, unused
+key. The native library never writes such names, but a foreign SQLite writer
+can: a name holding NUL comes back cut short (the listing is a C string), a
+name holding `/` rebuilds into another catalog, and either can alias a
+sibling; such rows are reported as `invalid`, never read as another object's
+bytes or allowed to overwrite a key. Children of non-catalog objects are
+never visited. The result owns its storage and survives closing
+the file. `path` must be a catalog; `read_object(path)` is the single-object
+form (Julia's `read_data`), dispatching on the stored class to the typed
+reader, and `write_object(path, value, overwrite=False)` is its counterpart
+(Julia's `write_data`), dispatching on the Python type; neither accepts a
+Workspace or a catalog.
+
+A Workspace carries **values and their markers**, not file metadata: the
+write emits exactly the markers the typed writers emit (a Boolean series'
+`jeltype`, a preserved foreign marker, an empty array's element token) and
+the read touches no other attribute. User attributes set with
+`set_attribute` stay with their objects in the file and are not part of the
+Workspace on either side, just as in Julia. A Python → file → Python round
+trip therefore preserves values, dtypes, frequencies, shapes, ranges, `Stored*`
+representations, catalog structure and names, but not attributes, object ids
+or insertion order.
+
+`save_workspace(file, workspace, path="/", *, mode="a", overwrite=False,
+strict=False)` and `load_workspace(file, path="/", *, strict=False)` are
+Julia's `writedb(file, …)` and `readdb(file, …)`: they validate their
+arguments first (the Workspace type, the mode and the path grammar; a wrong
+argument neither truncates an existing file nor creates a new one), then open
+the file (`"a"` creates or appends, `"w"` empties it first; loads are
+read-only), do the work, and close on every exit path, owning the handle only
+for that call. The
+returned Workspace and its values stay usable after the close and can be
+written to another file. In-memory databases use the methods.
+
 ## Deleting, overwriting, truncating and in-memory files
 
 The defaults are unchanged: `open_dataecon(path)` is read-only and `"a"`

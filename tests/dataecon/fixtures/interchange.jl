@@ -39,6 +39,10 @@
 # verify-wheel under the /catalogs prefix): nested catalogs, every object
 # family at nested paths, Unicode names, name ordering, a child stored under a
 # scalar, and attributes on objects, catalogs and the root.
+# Workspace actions: generate-workspace/verify-workspace (also checked by
+# verify-wheel under the /workspace prefix): one writedb of a mixed Workspace
+# (every writer dispatch family, nested and empty Workspaces, byte-ordered
+# keys, Julia-only marked scalars) read back with readdb.
 using TimeSeriesEcon
 using Test, SHA, TOML, Pkg, Dates, LinearAlgebra
 # Julia rebuilds a Diagonal/Symmetric/Hermitian jtype marker with
@@ -1132,7 +1136,7 @@ elseif action == "generate-foreign-markers"
             store_foreign_case!(db, name, values, marker, outer)
         end
     end
-elseif !(action in ("verify", "verify-empty", "verify-scalars", "verify-quarterly", "verify-annual", "verify-halfyearly", "verify-int64", "verify-strings", "verify-dates", "verify-calendar", "verify-widths", "verify-fileops", "verify-calendar-series", "verify-series-elements", "generate-series-elements", "verify-represented-elements", "verify-foreign-markers", "generate-arrays-unit", "verify-arrays-unit", "generate-matrices-text", "verify-matrices-text", "generate-tensors", "verify-tensors", "generate-catalogs", "verify-catalogs", "verify-wheel"))
+elseif !(action in ("verify", "verify-empty", "verify-scalars", "verify-quarterly", "verify-annual", "verify-halfyearly", "verify-int64", "verify-strings", "verify-dates", "verify-calendar", "verify-widths", "verify-fileops", "verify-calendar-series", "verify-series-elements", "generate-series-elements", "verify-represented-elements", "verify-foreign-markers", "generate-arrays-unit", "verify-arrays-unit", "generate-matrices-text", "verify-matrices-text", "generate-tensors", "verify-tensors", "generate-catalogs", "verify-catalogs", "generate-workspace", "verify-workspace", "verify-wheel"))
     error("Unknown fixture action.")
 end
 
@@ -2477,7 +2481,133 @@ if action == "verify-wheel"
     end
 end
 
-if action in ("generate", "generate-empty", "generate-scalars", "generate-quarterly", "generate-annual", "generate-halfyearly", "generate-int64", "generate-strings", "generate-dates", "generate-calendar", "generate-widths", "generate-fileops", "generate-calendar-series", "generate-series-elements", "generate-represented-elements", "generate-foreign-markers", "generate-arrays-unit", "generate-matrices-text", "generate-tensors", "generate-catalogs")
+# ---- Workspace interchange ---------------------------------------------------
+
+# One mixed Workspace written by Julia's writedb at the root of its fixture and
+# by Python's write_workspace under "/workspace" in the wheel output; `prefix`
+# selects which one to verify. The Julia tree also carries three marked scalars
+# (Symbol, Rational, Date) that Python reports as unsupported members on read.
+const workspace_dates = MIT{Monthly}[MIT{Monthly}(24288), MIT{Monthly}(24289)]
+const workspace_order = [("b", 1), ("a", 2), ("B", 3), ("\u00e4", 4), ("_", 5), ("10", 6), ("9", 7)]
+
+function workspace_tree(; julia_only::Bool)
+    ws = Workspace()
+    ws.f = 1.5
+    ws.i = 7
+    ws.i8 = Int8(-3)
+    ws.u = UInt64(2)^63
+    ws.c = 1.0 + 2.0im
+    ws.s = "vintage \u2016 3"
+    ws.b = true
+    ws.d = 2020Q1
+    ws.dur = 2020M3 - 2020M1
+    if julia_only
+        ws.sym = :symbol
+        ws.r = 1 // 2
+        ws.date = Date(2020, 1, 15)
+    end
+    ws.ts = TSeries(2024M1, [1.0, 2.0, 3.0])
+    ws.tsi = TSeries(2020Q1, Int64[1, 2])
+    ws.tsb = TSeries(2020Y, [true, false])
+    ws.tse = TSeries(2024M1, Float64[])
+    ws.tsd = TSeries(2024M1, workspace_dates)
+    ws.mv = MVTSeries(2024Q1, (:p, :q), [1.0 2.0; 3.0 4.0])
+    ws.mat = [1.0 2.0; 3.0 4.0]
+    ws.v = Int32[1, 2, 3]
+    ws.vs = ["a", "b"]
+    ws.ur = 1:5
+    ws.mr = 2020Q1:2020Q4
+    ws.t3 = reshape(Int64.(1:24), 2, 3, 4)
+    ws.nested = Workspace(x = 1, deeper = Workspace(y = 2.0))
+    ws.nested.deeper[Symbol("日本語")] = 9
+    ws.empty = Workspace()
+    ws.order = Workspace()
+    for (name, value) in workspace_order
+        ws.order[Symbol(name)] = value
+    end
+    return ws
+end
+
+function verify_workspace_tree(db, prefix; julia_written::Bool)
+    expected = workspace_tree(julia_only=julia_written)
+    ws = DE.readdb(db, prefix == "" ? "/" : prefix)
+    @test ws isa Workspace
+    @test [string(k) for k in keys(ws)] == sort([string(k) for k in keys(expected)]; by=codeunits)
+    @test ws.f === 1.5
+    @test ws.i === 7
+    @test ws.i8 === Int8(-3)
+    @test ws.u === UInt64(2)^63
+    @test ws.c === 1.0 + 2.0im
+    @test ws.s == "vintage \u2016 3"
+    @test ws.b === Int8(1)                       # Bool stores Int8 without a marker
+    @test ws.d === 2020Q1
+    @test ws.dur === 2020M3 - 2020M1
+    if julia_written
+        @test ws.sym === :symbol
+        @test ws.r === 1 // 2
+        @test ws.date == Date(2020, 1, 15)
+    else
+        @test !haskey(ws, :sym) && !haskey(ws, :r) && !haskey(ws, :date)
+    end
+    @test ws.ts == expected.ts
+    @test ws.tsi == expected.tsi && eltype(ws.tsi) == Int64
+    @test ws.tsb == expected.tsb && eltype(ws.tsb) == Bool
+    if julia_written
+        @test ws.tse == Float64[]                # Julia's own empty marker reloads as a vector
+    else
+        # Python omits the redundant empty Float64 marker, so the loader keeps the dated series.
+        @test ws.tse isa TSeries && isempty(ws.tse) && firstdate(ws.tse) == 2024M1
+    end
+    @test ws.tsd == expected.tsd && eltype(ws.tsd) == MIT{Monthly}
+    @test ws.mv == expected.mv && collect(colnames(ws.mv)) == [:p, :q]
+    @test ws.mat == expected.mat && ws.mat isa Matrix{Float64}
+    @test ws.v == expected.v && ws.v isa Vector{Int32}
+    @test ws.vs == ["a", "b"]
+    @test ws.ur == 1:5
+    @test ws.mr == 2020Q1:2020Q4
+    @test ws.t3 == expected.t3 && ws.t3 isa Array{Int64,3}
+    @test ws.nested isa Workspace && ws.nested.x === 1
+    @test ws.nested.deeper.y === 2.0 && ws.nested.deeper[Symbol("日本語")] === 9
+    @test [string(k) for k in keys(ws.nested)] == ["deeper", "x"]
+    @test ws.empty isa Workspace && isempty(ws.empty)
+    @test [string(k) for k in keys(ws.order)] == ["10", "9", "B", "_", "a", "b", "\u00e4"]
+    @test [ws.order[Symbol(n)] for (n, _) in workspace_order] == [v for (_, v) in workspace_order]
+    # Markers are exactly the codec's; user attributes are not part of a Workspace.
+    @test DE.get_all_attributes(db, prefix * "/b") == Dict()
+    @test DE.get_all_attributes(db, prefix * "/tsb") == Dict("jeltype" => "Bool")
+    @test DE.get_all_attributes(db, prefix * "/tse") == (julia_written ? Dict("jeltype" => "Float64") : Dict())
+    @test DE.get_all_attributes(db, prefix * "/tsd") == Dict()
+    @test DE.get_all_attributes(db, prefix * "/nested") == Dict()
+    @test DE.get_attribute(db, prefix * "/f", "note") == "user attribute"
+    @test DE.catalog_size(db, prefix * "/empty") == 0
+    @test DE.catalog_size(db, prefix * "/nested") == 2
+    @test DE.catalog_size(db, prefix == "" ? DE.root_id : prefix) == length(expected)
+end
+
+if action == "generate-workspace"
+    DE.opendaec(filename; readonly=false) do db
+        DE.writedb(db, workspace_tree(julia_only=true))
+        DE.set_attribute(db, "/f", "note", "user attribute")
+    end
+end
+
+if action in ("generate-workspace", "verify-workspace")
+    @testset "DataEcon Workspace interchange" begin
+        DE.opendaec(filename) do db
+            verify_workspace_tree(db, ""; julia_written=true)
+        end
+    end
+end
+
+if action == "verify-wheel"
+    @testset "DataEcon Workspace interchange" begin
+        DE.opendaec(filename) do db
+            verify_workspace_tree(db, "/workspace"; julia_written=false)
+        end
+    end
+end
+
+if action in ("generate", "generate-empty", "generate-scalars", "generate-quarterly", "generate-annual", "generate-halfyearly", "generate-int64", "generate-strings", "generate-dates", "generate-calendar", "generate-widths", "generate-fileops", "generate-calendar-series", "generate-series-elements", "generate-represented-elements", "generate-foreign-markers", "generate-arrays-unit", "generate-matrices-text", "generate-tensors", "generate-catalogs", "generate-workspace")
     layout = Dict{String,Any}(
         "enums" => sizeof.([C.class_t, C.type_t, C.frequency_t, C.axis_type_t]),
     )

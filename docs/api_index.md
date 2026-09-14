@@ -20,3 +20,15 @@ order they appear in `tsecon/__init__.py`.
 ::: tsecon.dataecon.StoredArray
 
 ::: tsecon.dataecon.StoredText
+
+## DataEcon Workspace interchange
+
+::: tsecon.dataecon.WorkspaceReport
+
+::: tsecon.dataecon.SkippedMember
+
+::: tsecon.dataecon.LoadedWorkspace
+
+::: tsecon.dataecon.save_workspace
+
+::: tsecon.dataecon.load_workspace

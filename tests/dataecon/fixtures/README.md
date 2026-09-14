@@ -420,3 +420,24 @@ each attribute individually (Julia's own `get_all_attributes` needs a
 delimiter absent from the names). `verify-wheel` applies the same checks to
 the tree Python writes under `/catalogs` in the wheel output, where the
 scalar's child is absent because Python refuses to create it.
+
+## Workspace fixture
+
+`julia_workspace.daec` and its TOML provenance are generated with
+`generate-workspace` and checked with `verify-workspace`. Julia writes one
+mixed `Workspace` with a single `writedb` call at the root: Float64, Int64,
+Int8, UInt64, ComplexF64, String, Bool (stored as Int8), `MIT` and `Duration`
+scalars; `Symbol`, `Rational` and `Date` scalars, which Julia stores with a
+`jtype` marker and Python reports as unsupported members on read; Float64,
+Int64, Bool, empty Float64 and `MIT{Monthly}` `TSeries`; an `MVTSeries`, a
+Float64 matrix, an `Int32` vector, a text vector, an integer range, an `MIT`
+range and a rank-3 tensor; a nested Workspace two levels deep with a Unicode
+key, an empty Workspace, and a Workspace whose seven keys (`b`, `a`, `B`,
+`ä`, `_`, `10`, `9`) exercise the byte order `readdb` returns. A user
+attribute is set on `/f` afterwards to show that attributes are not part of a
+Workspace. The Julia verification reads the tree back with `readdb`, checks
+every key, type and value, the key order, the codec markers and the attribute.
+`verify-wheel` applies the same checks to the tree Python writes with
+`write_workspace` under `/workspace` in the wheel output, where the three
+marked scalars are absent and the empty Float64 series carries no marker
+(Python omits Julia's redundant one, so Julia's loader keeps the dated series).

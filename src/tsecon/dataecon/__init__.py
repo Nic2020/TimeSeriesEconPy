@@ -18,9 +18,13 @@ operations. Objects live in nested catalogs addressed by ``/``-separated
 paths (``new_catalog``, ``list_objects``, ``catalog_size``, ``exists``,
 ``object_info``); string attributes are read and written per object
 (``get_attribute``, ``get_attributes``, ``set_attribute``). Use
-``open_dataecon`` as a context manager. The native extension loads on first
-use; importing the core package does not require it. Workspace-level
-recursive read/write and text tensors are not supported yet.
+``open_dataecon`` as a context manager. Whole ``Workspace`` trees travel
+through ``write_workspace``/``read_workspace`` (nested Workspaces are
+catalogs; members that cannot be stored or loaded are reported, or raised
+with ``strict=True``) and the one-call ``save_workspace``/``load_workspace``
+file forms. The native extension loads on first use; importing the core
+package does not require it. Text tensors and marker-mapped scalars are not
+supported yet.
 """
 
 from __future__ import annotations
@@ -35,6 +39,7 @@ from types import TracebackType
 from typing import TYPE_CHECKING, Literal
 
 from tsecon.mvtseries import MVTSeries
+from tsecon.workspace import Workspace
 
 from ._arrays import StoredArray, StoredText
 from ._codec import (
@@ -54,6 +59,15 @@ from ._codec import (
 )
 from ._errors import DataEconError
 from ._represented import COMPLEXF16, INT128, UINT128, StoredElement, StoredSeries
+from ._workspace import (
+    LoadedWorkspace,
+    SkippedMember,
+    WorkspaceReport,
+    classify,
+    read_tree,
+    reader_for,
+    write_tree,
+)
 
 if TYPE_CHECKING:
     from . import _native
@@ -65,16 +79,21 @@ __all__ = [
     "ArrayValue",
     "DataEconError",
     "DataEconFile",
+    "LoadedWorkspace",
     "ObjectInfo",
     "ScalarResult",
     "ScalarValue",
     "SeriesValue",
+    "SkippedMember",
     "StoredArray",
     "StoredElement",
     "StoredSeries",
     "StoredText",
+    "WorkspaceReport",
+    "load_workspace",
     "open_dataecon",
     "open_dataecon_memory",
+    "save_workspace",
 ]
 
 _loader_lock = RLock()
@@ -751,16 +770,19 @@ class DataEconFile:
                     stack.extend(self._members(info.id, info.path, info.depth, level + 1))
             return results
 
+    def _children(self, parent_id: int) -> list[tuple[int, int, int, int, str]]:
+        # Owned (id, parent id, class, type, name) rows of one catalog, sorted
+        # by the UTF-8 bytes of the name (the native order made explicit); one
+        # native search, fully consumed and finalized inside list_children.
+        # Caller holds the file lock.
+        return sorted(self._handle.list_children(parent_id), key=lambda r: r[4].encode("utf-8"))
+
     def _members(
         self, parent_id: int, parent_path: str, parent_depth: int, level: int
     ) -> list[tuple[ObjectInfo, int]]:
         # The members of one catalog as (record, level) pairs in reverse UTF-8
         # byte order, ready to be pushed on the traversal stack.
-        rows = sorted(
-            self._handle.list_children(parent_id),
-            key=lambda r: r[4].encode("utf-8"),
-            reverse=True,
-        )
+        rows = reversed(self._children(parent_id))
         return [
             (
                 _info(
@@ -779,6 +801,162 @@ class DataEconFile:
             )
             for oid, pid, obj_class, obj_type, name in rows
         ]
+
+    # -- workspaces and generic objects --------------------------------------------
+
+    def write_workspace(
+        self,
+        workspace: Workspace,
+        path: str = ROOT_PATH,
+        *,
+        overwrite: bool = False,
+        strict: bool = False,
+    ) -> WorkspaceReport:
+        """Store every member of a ``Workspace`` below a catalog (Julia's ``writedb``).
+
+        Each member is stored under its key through the typed writer its
+        Python type selects: a nested ``Workspace`` becomes a catalog holding
+        its own members; ``TSeries``, ``MVTSeries`` and ``StoredSeries`` go
+        through :meth:`write_series`; NumPy arrays, ``StoredArray``,
+        ``StoredText``, ``list``/``tuple`` text, ``range`` and ``MITRange``
+        through :meth:`write_array`; ``bool``, ``int``, ``float``, ``complex``,
+        ``str``, ``MIT``, ``Duration`` and NumPy scalars through
+        :meth:`write_scalar`, each with that method's own validation, markers
+        and residue rules and encoded once. Members are visited depth-first in
+        insertion order from an explicit stack, so any nesting depth is fine.
+        A key must be a valid object name (nonempty, not blank, no ``/`` or
+        NUL); it is a name, never a path.
+
+        ``path`` is the destination catalog (``"/"`` is the root); it must
+        exist (``DataEconError`` -989) and be a catalog (``ValueError``), and
+        is never created here. To store a Workspace as a new catalog ``name``
+        under ``parent``, write ``Workspace(name=ws)`` into ``parent``.
+
+        By default a member that cannot be stored is skipped and recorded in
+        the returned :class:`WorkspaceReport` with its full path, category and
+        reason, and the traversal continues (Julia logs and continues): a
+        value of an unsupported type, a value the typed writer refuses, an
+        invalid key, an existing name without ``overwrite``, a native store
+        failure, or a nested Workspace that is its own ancestor (a cycle; the
+        same Workspace under two names is stored twice). A nested Workspace
+        that cannot be created is one entry with ``subtree=True`` and none of
+        its members is attempted. With ``strict=True`` the first such member
+        raises its original ``TypeError``, ``ValueError`` or
+        ``DataEconError`` with a note naming the member; members already
+        stored stay stored. Neither mode is a transaction: nothing is rolled
+        back, and a native failure leaves the residue :meth:`write_series`
+        documents (a partial object, a possible later close failure).
+
+        With ``overwrite=True`` a member replaces an existing object of its
+        name: a value replaces a scalar/series/array through the typed
+        writer's delete-then-store; a nested Workspace replaces an existing
+        catalog **entirely** (the old contents are deleted first; there is no
+        merge) or an existing value; a value never replaces a catalog (that
+        member is reported as ``exists``; delete it explicitly). Replaced
+        objects lose their attributes. Only the codec's own markers are
+        written; user attributes are not part of a Workspace.
+        """
+        if not isinstance(workspace, Workspace):
+            raise TypeError("write_workspace requires a Workspace.")
+        with self._lock:
+            self._require_open()
+            normalized = _normalize(path)
+            self._require_writable()
+            start = self._handle.describe_path(normalized)
+            if start[2] != 0:
+                raise ValueError(f"{path!r} is not a catalog.")
+            base = "" if normalized == ROOT_PATH else normalized
+            return write_tree(self, workspace, base, normalized, bool(overwrite), bool(strict))
+
+    def read_workspace(self, path: str = ROOT_PATH, *, strict: bool = False) -> LoadedWorkspace:
+        """Load a catalog and everything below it into a ``Workspace`` (Julia's ``readdb``).
+
+        Returns a :class:`LoadedWorkspace` named tuple ``(workspace, report)``.
+        Every member is read with the typed reader for its stored class and
+        type - :meth:`read_scalar`, :meth:`read_series` or :meth:`read_array`
+        - and inserted unchanged, so representations are exactly what those
+        readers return (``StoredSeries``/``StoredArray``/``StoredText``
+        carriers with their markers, empty series with their axis, ``range``
+        and ``MITRange``); nested catalogs become nested Workspaces. Each
+        catalog is listed once and its members inserted in the UTF-8 byte
+        order of their names (the native order, also Julia's), not in the
+        order they were written; the traversal is depth-first pre-order from
+        an explicit stack (a nested catalog is filled before its later
+        siblings, as Julia recurses), so any depth is fine. Before a member is
+        read, the path rebuilt from its listed name must resolve to the listed
+        object itself and the name must be a valid, unused key: a foreign
+        object whose name holds NUL (cut short by the C string), ``/`` or
+        repeats a sibling is reported as ``invalid`` rather than read as
+        another object or silently overwriting a key. Children of non-catalog
+        objects are never visited. The result owns its storage and survives
+        closing the file.
+
+        By default a member that cannot be loaded is skipped and recorded in
+        the report with its path, category and reason (Julia logs and
+        continues): a native-only object type (no native call is made), a
+        scalar carrying a reconstruction marker, an unsupported or malformed
+        encoding, or a native load failure. A catalog whose listing fails is
+        one entry with ``subtree=True`` and is left out of its parent; a
+        failing member inside a catalog is reported alone and its siblings
+        survive. With ``strict=True`` the first such member raises its
+        original exception with a note naming it. ``path`` must be a catalog
+        (``ValueError`` otherwise; use :meth:`read_object` for one object).
+        Attributes other than the codec's markers are not read.
+        """
+        with self._lock:
+            self._require_open()
+            normalized = _normalize(path)
+            start = self._handle.describe_path(normalized)
+            if start[2] != 0:
+                raise ValueError(f"{path!r} is not a catalog; use read_object for one object.")
+            base = "" if normalized == ROOT_PATH else normalized
+            return read_tree(self, start[0], base, normalized, bool(strict))
+
+    def write_object(self, path: str, value: object, *, overwrite: bool = False) -> None:
+        """Store one value through the typed writer for its type (Julia's ``write_data``).
+
+        The dispatch is the one :meth:`write_workspace` uses; the typed
+        method's rules apply unchanged. A ``Workspace`` is refused with
+        ``TypeError`` (store it with :meth:`write_workspace`), as is any type
+        without a storage class.
+        """
+        family = classify(value)
+        if family == "workspace":
+            raise TypeError(
+                "A Workspace is a catalog tree; store it with "
+                "write_workspace(Workspace(name=ws), parent)."
+            )
+        if family == "series":
+            self.write_series(path, value, overwrite=overwrite)  # type: ignore[arg-type]
+        elif family == "array":
+            self.write_array(path, value, overwrite=overwrite)  # type: ignore[arg-type]
+        elif family == "scalar":
+            self.write_scalar(path, value, overwrite=overwrite)  # type: ignore[arg-type]
+        else:
+            raise TypeError(
+                f"No DataEcon storage class for a value of type {type(value).__name__}."
+            )
+
+    def read_object(self, path: str) -> object:
+        """Read one object with the typed reader its stored class selects (Julia's ``read_data``).
+
+        Scalars, dated series/MVTSeries and plain arrays return exactly what
+        :meth:`read_scalar`, :meth:`read_series` and :meth:`read_array`
+        return. A catalog raises ``ValueError`` (use :meth:`read_workspace`);
+        a native-only object type raises ``TypeError``.
+        """
+        with self._lock:
+            self._require_open()
+            info = _info(self._handle.describe_path(_object_path(path)))
+            if info.object_class == 0:
+                raise ValueError(f"{path!r} is a catalog; read it with read_workspace.")
+            reader = reader_for(info.object_class, info.object_type)
+            if reader is None:
+                raise TypeError(
+                    f"Object class {info.object_class} type {info.object_type} is a native-only "
+                    "encoding with no Julia or Python loader."
+                )
+            return getattr(self, reader)(info.path)
 
     # -- attributes ----------------------------------------------------------------
 
@@ -928,3 +1106,47 @@ def open_dataecon_memory() -> DataEconFile:
     ``":memory:"``; no file of that name is created.
     """
     return DataEconFile.in_memory()
+
+
+def save_workspace(
+    file: str | os.PathLike[str],
+    workspace: Workspace,
+    path: str = ROOT_PATH,
+    *,
+    mode: Literal["a", "w"] = "a",
+    overwrite: bool = False,
+    strict: bool = False,
+) -> WorkspaceReport:
+    """Open a file, store a ``Workspace`` below a catalog and close (Julia's ``writedb(file, …)``).
+
+    ``mode="a"`` creates or appends (Julia's ``append=true``); ``mode="w"``
+    empties an existing file first. The file is closed on every exit path;
+    the function owns the handle only for this call. Everything else follows
+    :meth:`DataEconFile.write_workspace`, including its report and residue.
+    """
+    # Argument validation precedes the open: mode "w" truncates an existing
+    # file on open, so a wrong Workspace or path argument must be refused
+    # before anything is touched (and before a new file is created).
+    if mode not in ("a", "w"):
+        raise ValueError(
+            "save_workspace mode must be 'a' (create/append) or 'w' (create/truncate)."
+        )
+    if not isinstance(workspace, Workspace):
+        raise TypeError("save_workspace requires a Workspace.")
+    _normalize(path)
+    with open_dataecon(file, mode) as db:
+        return db.write_workspace(workspace, path, overwrite=overwrite, strict=strict)
+
+
+def load_workspace(
+    file: str | os.PathLike[str], path: str = ROOT_PATH, *, strict: bool = False
+) -> LoadedWorkspace:
+    """Open a file read-only, load a catalog into a ``Workspace`` and close (Julia's ``readdb``).
+
+    The returned Workspace and its values own their storage and stay usable
+    after the file is closed; the function owns the handle only for this
+    call. Everything else follows :meth:`DataEconFile.read_workspace`.
+    """
+    _normalize(path)
+    with open_dataecon(file, "r") as db:
+        return db.read_workspace(path, strict=strict)

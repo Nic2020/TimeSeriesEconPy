@@ -197,6 +197,57 @@ def vector_dtype(token: str, base: Target) -> np.dtype[Any]:
     return np.dtype("<f8") if token == "Vector{Float64}" else base.dtype
 
 
+# ---- plain array and matrix whole-object markers ---------------------------
+
+# Julia's `_apply_jtype` calls `convert(T, value)` on the whole array, so a
+# parameterised container token converts every element, unlike the dated-series
+# tokens above where the same spelling raises `DimensionMismatch`. These
+# structural tokens name LinearAlgebra wrappers; the pinned loader can only
+# rebuild them when the loading session has LinearAlgebra in `Main`.
+STRUCTURE_TOKENS: tuple[str, ...] = ("Diagonal", "Symmetric", "Hermitian")
+_ARRAY_IDENTITY_TOKENS: dict[int, tuple[str, ...]] = {
+    1: ("Vector", "AbstractVector", "Array", "Any"),
+    2: ("Matrix", "AbstractMatrix", "Array", "Any"),
+}
+
+
+def _array_token_element(token: str, ndim: int) -> str | None:
+    """Return the element spelling inside a container token, or None."""
+    outer = "Vector" if ndim == 1 else "Matrix"
+    prefix = f"{outer}{{"
+    if token.startswith(prefix) and token.endswith("}"):
+        return token[len(prefix) : -1]
+    for suffix in (f",{ndim}}}", f", {ndim}}}"):
+        if token.startswith("Array{") and token.endswith(suffix):
+            return token[len("Array{") : -len(suffix)]
+    return None
+
+
+def array_object_interpretation(token: str, base: Target, ndim: int) -> tuple[str, Target]:
+    """Classify a supported array ``jtype`` token.
+
+    Returns ``("identity", base)`` for the bare container and ``Any`` tokens
+    and for a parameterised spelling naming the stored element, ``("element",
+    target)`` for a parameterised spelling naming another supported element,
+    and ``("structure", base)`` for the LinearAlgebra wrappers. Every other
+    spelling raises ``TypeError``; the text is never evaluated.
+    """
+    if ndim not in _ARRAY_IDENTITY_TOKENS:
+        raise TypeError("Whole-object array markers are supported for 1-D and 2-D objects only.")
+    if token in _ARRAY_IDENTITY_TOKENS[ndim]:
+        return "identity", base
+    if ndim == 2 and token in STRUCTURE_TOKENS:
+        return "structure", base
+    inner = _array_token_element(token, ndim)
+    target = None if inner is None else ACTIVE_TOKENS.get(inner)
+    if target is None:
+        raise TypeError(
+            f"Unsupported whole-object reconstruction marker {token!r} for a "
+            f"{ndim}-dimensional DataEcon array; the marker text is not evaluated."
+        )
+    return ("identity" if target == base else "element"), target
+
+
 # ---- routes ---------------------------------------------------------------
 
 

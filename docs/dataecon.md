@@ -249,6 +249,202 @@ their buffer by characters while the native packer sizes UTF-8 bytes, so
 multibyte text can fail; exceptional strings and lossless Symbol-marker retention
 need their explicit array contract. Matrices and tensors use later APIs.
 
+## Matrices and multivariate series
+
+`write_array` and `read_array` also carry two-dimensional NumPy arrays, and
+`write_series`/`read_series` carry `MVTSeries`. DataEcon stores both in
+column-major order with one axis per dimension: a plain matrix has two plain
+axes, while an `MVTSeries` has a dated row axis and a named column axis.
+
+```python
+import numpy as np
+from tsecon import MVTSeries, mm
+from tsecon.dataecon import open_dataecon
+
+wide = np.array([[1, 3, 5], [2, 4, 6]], dtype=np.int64)
+panel = MVTSeries(mm(2024, 1), ("gdp", "cpi"), np.array([[1.0, 4.0], [2.0, 5.0]]))
+
+with open_dataecon("panel.daec", "w") as db:
+    db.write_array("wide", wide)
+    db.write_series("panel", panel)
+
+with open_dataecon("panel.daec") as db:
+    back = db.read_array("wide")
+    loaded = db.read_series("panel")
+
+assert back.shape == (2, 3) and back.tolist() == [[1, 3, 5], [2, 4, 6]]
+assert tuple(loaded.columns) == ("gdp", "cpi")
+assert loaded.firstdate == mm(2024, 1)
+assert loaded.values.tolist() == [[1.0, 4.0], [2.0, 5.0]]
+```
+
+Reads return owning, writable, C-contiguous arrays. Any input layout is
+accepted — C-contiguous, Fortran-contiguous, sliced or transposed — and its
+logical values are snapshotted without mutating or retaining the input.
+
+```python
+import numpy as np
+from tsecon.dataecon import open_dataecon
+
+base = np.arange(12, dtype=np.int64).reshape((3, 4))
+
+with open_dataecon("views.daec", "w") as db:
+    db.write_array("transposed", base.T)
+    db.write_array("sliced", base[::-1, ::2])
+
+with open_dataecon("views.daec") as db:
+    assert db.read_array("transposed").tolist() == base.T.tolist()
+    assert db.read_array("sliced").tolist() == base[::-1, ::2].tolist()
+
+assert base.tolist() == np.arange(12).reshape((3, 4)).tolist()
+```
+
+Column names are stored as one newline-joined string, so a name can contain
+neither a newline nor NUL, and names must be distinct because an `MVTSeries`
+keys its columns by name. DataEcon has no encoding for zero columns: the empty
+names string still splits into one name, so a column-less `MVTSeries` is
+refused rather than written as a file no reader can interpret.
+
+```python
+import numpy as np
+from tsecon import MVTSeries, mm
+from tsecon.dataecon import open_dataecon
+
+with open_dataecon("names.daec", "w") as db:
+    db.write_series("ok", MVTSeries(mm(2024, 1), ("a", "b"), np.ones((2, 2))))
+    for names, values in ((("a\nb", "c"), np.ones((2, 2))), ((), np.ones((2, 0)))):
+        try:
+            db.write_series("bad", MVTSeries(mm(2024, 1), names, values))
+        except ValueError as error:
+            print(type(error).__name__)
+```
+
+A zero-row, zero-column or otherwise degenerate matrix keeps its exact stored
+shape in Python. The pinned Julia loader does not: it writes an element token on
+every empty object and its marker path then returns a flat typed vector, so a
+Julia session sees `Float64[]` where Python sees a `(0, 3)` array. This is the
+same reference limitation as an empty range, recorded rather than imitated.
+
+```python
+import numpy as np
+from tsecon.dataecon import open_dataecon
+
+with open_dataecon("empty.daec", "w") as db:
+    db.write_array("no_rows", np.empty((0, 3), dtype=np.float64))
+    db.write_array("no_columns", np.empty((3, 0), dtype=np.float64))
+
+with open_dataecon("empty.daec") as db:
+    assert db.read_array("no_rows").shape == (0, 3)
+    assert db.read_array("no_columns").shape == (3, 0)
+```
+
+Represented elements work in two dimensions exactly as they do in one. A matrix
+of `MIT` codes, 128-bit integers or ComplexF16 pairs reads back as a
+`StoredArray`: a contiguous carrier plus the stored element descriptor, with
+`to_interpreted()` as the explicit conversion. A `StoredArray` is not a dated
+series and never invents a first date for a plain array.
+
+```python
+import numpy as np
+from tsecon import MIT, Monthly
+from tsecon.dataecon import StoredArray, StoredElement, open_dataecon
+
+codes = StoredArray(np.array([[-1, 1], [0, 2]], dtype="<i8"), StoredElement.date(Monthly()))
+
+with open_dataecon("codes.daec", "w") as db:
+    db.write_array("months", codes)
+
+with open_dataecon("codes.daec") as db:
+    stored = db.read_array("months")
+
+assert stored.shape == (2, 2)
+assert stored.tolist()[0] == [MIT(Monthly(), -1), MIT(Monthly(), 1)]
+assert stored == codes
+```
+
+Julia's `Diagonal`, `Symmetric` and `Hermitian` values are stored as the full
+dense matrix plus a `jtype` marker naming the wrapper. Python preserves both.
+`to_interpreted()` reproduces what Julia's loader builds, which discards the
+entries the wrapper ignores: `Diagonal` keeps only the diagonal, and the
+symmetric and Hermitian forms mirror the upper triangle, conjugating it and
+clearing the diagonal's imaginary part for `Hermitian`.
+
+```python
+import numpy as np
+from tsecon.dataecon import StoredArray, StoredElement, open_dataecon
+
+dense = StoredArray(
+    np.array([[1.0, 3.0], [2.0, 4.0]]),
+    StoredElement.numeric("<f8"),
+    object_marker="Symmetric",
+)
+
+with open_dataecon("structure.daec", "w") as db:
+    db.write_array("cov", dense)
+
+with open_dataecon("structure.daec") as db:
+    stored = db.read_array("cov")
+
+assert stored.object_marker == "Symmetric"
+assert stored.values.tolist() == [[1.0, 3.0], [2.0, 4.0]]
+assert stored.to_interpreted().tolist() == [[1.0, 3.0], [3.0, 4.0]]
+```
+
+Reconstructing these wrappers in Julia needs `LinearAlgebra` in the loading
+session's `Main`; without it the pinned loader raises `UndefVarError` on its
+own markers. Python neither needs nor evaluates anything: the marker is matched
+against a finite table. The mirroring copies the authoritative triangle rather
+than adding a zeroed one, so a stored `-0.0` keeps its sign and a NaN keeps its
+payload, exactly as in Julia, and every supported element converts.
+
+## Text vectors
+
+Ordinary text is a list of Python strings. DataEcon packs the elements as
+NUL-terminated UTF-8 bytes, and the count of terminators must match the stored
+length exactly.
+
+```python
+from tsecon.dataecon import open_dataecon
+
+with open_dataecon("text.daec", "w") as db:
+    db.write_array("labels", ["alpha", "", "z"])
+    db.write_array("unicode", ["é", "\U0001f642"])
+
+with open_dataecon("text.daec") as db:
+    assert db.read_array("labels") == ["alpha", "", "z"]
+    assert db.read_array("unicode") == ["é", "\U0001f642"]
+```
+
+Multibyte text needs care on the Julia side. Julia's own writer sizes the packed
+buffer by character count while the native packer sizes it in UTF-8 bytes, so
+`["é", "🙂"]` fails there with a short-buffer error. Python sizes the buffer in
+bytes and writes these values correctly; a Julia session reads them back intact.
+Reading is bounded entirely in Python, because the native unpacker limits only
+each element's start offset and then scans for NUL without a limit.
+
+An element cannot contain NUL: that byte is the separator, so the element
+boundary itself would be lost. Julia's writer refuses such values too.
+
+A Julia `Symbol` vector, and text whose bytes are not valid UTF-8, come back as
+`StoredText`, a small adapter value holding each element's exact stored bytes
+and the preserved marker. `tolist()` is the explicit decode. There is no Symbol
+class in the core: ordinary text stays `str`.
+
+```python
+from tsecon.dataecon import StoredText, open_dataecon
+
+with open_dataecon("symbols.daec", "w") as db:
+    db.write_array("names", StoredText.from_list(["alpha", "z"], "Symbol"))
+    db.write_array("raw", StoredText((b"\xff", b"a")))
+
+with open_dataecon("symbols.daec") as db:
+    names = db.read_array("names")
+    raw = db.read_array("raw")
+
+assert names.marker == "Symbol" and names.tolist() == ["alpha", "z"]
+assert raw.values == (b"\xff", b"a") and not raw.is_text
+```
+
 ## Empty series
 
 An empty series retains its first-date anchor and owns an empty float64 array:

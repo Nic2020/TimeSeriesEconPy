@@ -19,8 +19,8 @@ from cpython.bytes cimport PyBytes_FromStringAndSize
 from threading import RLock
 
 from ._codec import (series_frequency, validate_array_metadata, validate_array_payload,
-                     validate_date_code, validate_metadata, validate_scalar_metadata,
-                     validate_series_payload)
+                     validate_date_code, validate_matrix_metadata, validate_matrix_payload,
+                     validate_metadata, validate_scalar_metadata, validate_series_payload)
 from ._errors import DataEconError
 
 cdef extern from "daec.h":
@@ -32,6 +32,7 @@ cdef extern from "daec.h":
     ctypedef enum class_t:
         class_catalog
         class_tseries
+        class_matrix
     ctypedef enum type_t:
         type_integer
         type_unsigned
@@ -42,6 +43,8 @@ cdef extern from "daec.h":
         type_vector
         type_range
         type_tseries
+        type_matrix
+        type_mvtseries
     ctypedef enum frequency_t:
         freq_none
         freq_unit
@@ -60,6 +63,7 @@ cdef extern from "daec.h":
     ctypedef enum axis_type_t:
         axis_plain
         axis_range
+        axis_names
     enum:
         DE_SUCCESS
         DE_OBJ_DNE
@@ -90,6 +94,14 @@ cdef extern from "daec.h":
         axis_t axis
         int64_t nbytes
         const void *value
+    ctypedef struct mvtseries_t:
+        object_t object
+        type_t eltype
+        frequency_t elfreq
+        axis_t axis1
+        axis_t axis2
+        int64_t nbytes
+        const void *value
     const char *de_version()
     int de_open(const char *, de_file *)
     int de_open_readonly(const char *, de_file *)
@@ -110,9 +122,13 @@ cdef extern from "daec.h":
     int de_unpack_calendar_date(frequency_t, date_t, int32_t *, uint32_t *, uint32_t *)
     int de_axis_range(de_file, int64_t, frequency_t, int64_t, axis_id_t *)
     int de_axis_plain(de_file, int64_t, axis_id_t *)
+    int de_axis_names(de_file, int64_t, const char *, axis_id_t *)
     int de_store_tseries(de_file, obj_id_t, const char *, type_t, type_t,
                         frequency_t, axis_id_t, int64_t, const void *, obj_id_t *)
     int de_load_tseries(de_file, obj_id_t, tseries_t *)
+    int de_store_mvtseries(de_file, obj_id_t, const char *, type_t, type_t,
+                          frequency_t, axis_id_t, axis_id_t, int64_t, const void *, obj_id_t *)
+    int de_load_mvtseries(de_file, obj_id_t, mvtseries_t *)
     int de_store_scalar(de_file, obj_id_t, const char *, type_t, frequency_t,
                         int64_t, const void *, obj_id_t *)
     int de_load_scalar(de_file, obj_id_t, scalar_t *)
@@ -296,6 +312,70 @@ cdef class FileHandle:
                 de_clear_error()
             self.handle = NULL
 
+    cdef tuple load_matrix(self, obj_id_t oid, str name):
+        # Caller owns the native lock and has already found the object. The
+        # borrowed payload and names pointer are copied into Python objects
+        # before any further native call, as for one-dimensional objects.
+        cdef mvtseries_t mv
+        cdef const char *attribute = NULL
+        cdef bytes key
+        cdef int rc
+        memset(&mv, 0, sizeof(mv))
+        check(de_load_mvtseries(self.handle, oid, &mv), "read matrix", self.path, name)
+        metadata = (int(mv.object.obj_class), int(mv.object.obj_type), int(mv.eltype),
+                    int(mv.elfreq),
+                    int(mv.axis1.ax_type), int(mv.axis1.length), int(mv.axis1.frequency),
+                    int(mv.axis1.first),
+                    int(mv.axis2.ax_type), int(mv.axis2.length), int(mv.axis2.frequency),
+                    int(mv.axis2.first), int(mv.nbytes))
+        validate_matrix_metadata(metadata)
+        if (mv.nbytes > 0 and mv.value == NULL) or mv.object.name == NULL:
+            raise ValueError("DataEcon returned a NULL matrix payload or name.")
+        if mv.axis2.ax_type == axis_names and mv.axis2.names == NULL:
+            raise ValueError("DataEcon returned a NULL column names axis.")
+        loaded_name = (<bytes>mv.object.name).decode("utf-8")
+        payload = b"" if mv.nbytes == 0 else PyBytes_FromStringAndSize(
+            <const char *>mv.value, mv.nbytes)
+        names = None
+        if mv.axis2.ax_type == axis_names:
+            names = (<bytes>mv.axis2.names).decode("utf-8")
+        marker = None
+        object_marker = None
+        for key in (b"jeltype", b"jtype"):
+            rc = de_get_attribute(self.handle, oid, key, &attribute)
+            if rc == DE_MIS_ATTR:
+                de_clear_error()
+            else:
+                check(rc, "matrix attribute", self.path, name)
+                if attribute == NULL:
+                    raise TypeError("DataEcon returned a NULL reconstruction attribute.")
+                text = (<bytes>attribute).decode("utf-8")
+                if key == b"jeltype":
+                    marker = text
+                else:
+                    object_marker = text
+        validate_matrix_payload(metadata, payload, marker, object_marker, names)
+        if mv.axis1.ax_type == axis_range and mv.axis1.frequency != freq_unit:
+            if is_calendar(mv.axis1.frequency):
+                verify_date(mv.axis1.frequency, mv.axis1.first, self.path, name)
+            else:
+                unpack_date(mv.axis1.frequency, mv.axis1.first, self.path, name)
+                if mv.axis1.frequency != freq_monthly and mv.axis1.length > 0:
+                    unpack_date(mv.axis1.frequency, mv.axis1.first + mv.axis1.length - 1,
+                                self.path, name)
+        return payload, metadata, loaded_name, marker, object_marker, names
+
+    cdef obj_id_t locate(self, bytes encoded, str name, int *obj_class) except? -1:
+        # One find plus one object load decides which loader applies, so a
+        # two-dimensional object never reaches de_load_tseries.
+        cdef obj_id_t oid = 0
+        cdef object_t obj
+        check(de_find_object(self.handle, 0, encoded, &oid), "find", self.path, name)
+        memset(&obj, 0, sizeof(obj))
+        check(de_load_object(self.handle, oid, &obj), "find", self.path, name)
+        obj_class[0] = int(obj.obj_class)
+        return oid
+
     def read(self, str name):
         cdef bytes encoded = name.encode("utf-8")
         cdef obj_id_t oid = 0
@@ -303,11 +383,14 @@ cdef class FileHandle:
         cdef const char *attribute = NULL
         cdef bytes key
         cdef int rc
+        cdef int obj_class = 0
         if not encoded or b"/" in encoded or b"\0" in encoded:
             raise ValueError("Expected a nonempty root object name without '/' or NUL.")
         with _lock:
             self.require_open()
-            check(de_find_object(self.handle, 0, encoded, &oid), "find", self.path, name)
+            oid = self.locate(encoded, name, &obj_class)
+            if obj_class == <int>class_matrix:
+                return self.load_matrix(oid, name)
             memset(&ts, 0, sizeof(ts))
             check(de_load_tseries(self.handle, oid, &ts), "read", self.path, name)
             metadata = (int(ts.object.obj_class), int(ts.object.obj_type), int(ts.eltype),
@@ -353,7 +436,7 @@ cdef class FileHandle:
                 if ts.axis.frequency != freq_monthly and ts.axis.length > 0:
                     unpack_date(ts.axis.frequency, ts.axis.first + ts.axis.length - 1,
                                 self.path, name)
-            return payload, metadata, loaded_name, marker, object_marker
+            return payload, metadata, loaded_name, marker, object_marker, None
 
     def read_array(self, str name):
         cdef bytes encoded = name.encode("utf-8")
@@ -362,11 +445,14 @@ cdef class FileHandle:
         cdef const char *attribute = NULL
         cdef bytes key
         cdef int rc
+        cdef int obj_class = 0
         if not encoded or b"/" in encoded or b"\0" in encoded:
             raise ValueError("Expected a nonempty root object name without '/' or NUL.")
         with _lock:
             self.require_open()
-            check(de_find_object(self.handle, 0, encoded, &oid), "find", self.path, name)
+            oid = self.locate(encoded, name, &obj_class)
+            if obj_class == <int>class_matrix:
+                return self.load_matrix(oid, name)
             memset(&ts, 0, sizeof(ts))
             check(de_load_tseries(self.handle, oid, &ts), "read array", self.path, name)
             metadata = (int(ts.object.obj_class), int(ts.object.obj_type), int(ts.eltype),
@@ -395,7 +481,7 @@ cdef class FileHandle:
             validate_array_payload(metadata, payload, marker, object_marker)
             if ts.object.obj_type == type_range and ts.axis.ax_type == axis_range:
                 verify_date(ts.axis.frequency, ts.axis.first, self.path, name)
-            return payload, metadata, loaded_name, marker, object_marker
+            return payload, metadata, loaded_name, marker, object_marker, None
 
     cdef void replace_existing(self, obj_id_t oid, str operation, str name) except *:
         # Caller owns the native lock, has finished every Python/native validation
@@ -565,6 +651,89 @@ cdef class FileHandle:
                       "write array object marker (no rollback)", self.path, name)
 
 
+
+    def write_matrix(self, str name, object_type, element, element_frequency,
+                     axis1_type, rows, frequency, first, columns, names,
+                     bytes payload, bint overwrite, marker, object_marker=None):
+        cdef bytes encoded = name.encode("utf-8")
+        cdef bytes encoded_names
+        cdef obj_id_t oid = 0
+        cdef axis_id_t axis1 = 0
+        cdef axis_id_t axis2 = 0
+        cdef frequency_t freq
+        cdef int rc
+        cdef const void *value = NULL
+        cdef bint existing = False
+        cdef bytes encoded_marker
+        cdef bytes encoded_object_marker
+        if not encoded or b"/" in encoded or b"\0" in encoded:
+            raise ValueError("Expected a nonempty root object name without '/' or NUL.")
+        for label, item in (("object type", object_type), ("element", element),
+                            ("element frequency", element_frequency),
+                            ("row axis type", axis1_type), ("rows", rows),
+                            ("frequency", frequency), ("first", first),
+                            ("columns", columns)):
+            if type(item) is not int:
+                raise TypeError(f"Matrix {label} must be an integer native value.")
+        if names is not None and type(names) is not str:
+            raise TypeError("Matrix column names must be a string or None.")
+        metadata = (3, object_type, element, element_frequency, axis1_type, rows, frequency,
+                    first, 2 if names is not None else 0, columns, 0, 0, len(payload))
+        validate_matrix_payload(metadata, payload, marker, object_marker, names)
+        encoded_marker = b"" if marker is None else marker.encode("utf-8")
+        encoded_object_marker = b"" if object_marker is None else object_marker.encode("utf-8")
+        # The names axis is one NUL-terminated C string; the codec has already
+        # refused newline and NUL inside a name, so nothing can be truncated.
+        encoded_names = b"" if names is None else names.encode("utf-8")
+        if b"\0" in encoded_names:
+            raise ValueError("Matrix column names cannot contain NUL.")
+        freq = <frequency_t><uint32_t>frequency
+        with _lock:
+            self.require_open()
+            rc = de_find_object(self.handle, 0, encoded, &oid)
+            if rc == DE_SUCCESS:
+                if not overwrite:
+                    raise DataEconError(DE_EXISTS, "write matrix", self.path,
+                                       "Object already exists.", name)
+                existing = True
+            elif rc != DE_OBJ_DNE:
+                check(rc, "find", self.path, name)
+            de_clear_error()
+            if axis1_type == <int>axis_range:
+                verify_date(freq, first, self.path, name)
+                if rows > 0 and freq != freq_unit and not is_calendar(freq):
+                    unpack_date(freq, first + rows - 1, self.path, name)
+            if existing:
+                # Every validation of the new value is complete; delete only now.
+                self.replace_existing(oid, "write matrix (overwrite)", name)
+            if axis1_type == <int>axis_range:
+                check(de_axis_range(self.handle, rows, freq, first, &axis1),
+                      "matrix row axis", self.path, name)
+            else:
+                check(de_axis_plain(self.handle, rows, &axis1),
+                      "matrix row axis", self.path, name)
+            if names is None:
+                check(de_axis_plain(self.handle, columns, &axis2),
+                      "matrix column axis", self.path, name)
+            else:
+                check(de_axis_names(self.handle, columns, encoded_names, &axis2),
+                      "matrix column axis", self.path, name)
+            if len(payload) > 0:
+                value = <const char *>payload
+            check(de_store_mvtseries(self.handle, 0, encoded, <type_t><uint32_t>object_type,
+                                     <type_t><uint32_t>element,
+                                     <frequency_t><uint32_t>element_frequency,
+                                     axis1, axis2, len(payload), value, &oid),
+                  "write matrix (overwrite; original deleted, partial replacement may remain)"
+                  if existing else "write matrix (partial object may remain)", self.path, name)
+            if marker is not None:
+                check(de_set_attribute(self.handle, oid, b"jeltype", encoded_marker),
+                      "write matrix marker (unmarked object may read differently; no rollback)",
+                      self.path, name)
+            if object_marker is not None:
+                check(de_set_attribute(self.handle, oid, b"jtype", encoded_object_marker),
+                      "write matrix object marker (the element marker, if any, is now "
+                      "active; no rollback)", self.path, name)
 
     def read_scalar(self, str name):
         cdef bytes encoded = name.encode("utf-8")

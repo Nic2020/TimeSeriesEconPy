@@ -26,8 +26,19 @@
 # Plain-array/Unit-series actions: generate-arrays-unit/verify-arrays-unit (also
 # checked by verify-wheel): ordinary one-dimensional vectors, lossless ranges,
 # and Unit-frequency numeric/Boolean TSeries.
+# Matrix/MVTSeries/text actions: generate-matrices-text/verify-matrices-text (also
+# checked by verify-wheel): column-major plain matrices over every ordinary and
+# represented element, LinearAlgebra structure markers, MVTSeries over every axis
+# family with their names axis, and packed text vectors including multibyte text
+# that Julia's own writer cannot size correctly.
 using TimeSeriesEcon
-using Test, SHA, TOML, Pkg, Dates
+using Test, SHA, TOML, Pkg, Dates, LinearAlgebra
+# Julia rebuilds a Diagonal/Symmetric/Hermitian jtype marker with
+# Core.eval(Main, ...), so those names must be in Main itself. The
+# wheel verifier runs this script inside an anonymous module, where a
+# plain `using` above would not reach Main and the pinned loader would
+# raise UndefVarError on its own markers.
+Core.eval(Main, :(using LinearAlgebra))
 
 const DE = TimeSeriesEcon.DataEcon
 const C = DE.C
@@ -1113,7 +1124,7 @@ elseif action == "generate-foreign-markers"
             store_foreign_case!(db, name, values, marker, outer)
         end
     end
-elseif !(action in ("verify", "verify-empty", "verify-scalars", "verify-quarterly", "verify-annual", "verify-halfyearly", "verify-int64", "verify-strings", "verify-dates", "verify-calendar", "verify-widths", "verify-fileops", "verify-calendar-series", "verify-series-elements", "generate-series-elements", "verify-represented-elements", "verify-foreign-markers", "generate-arrays-unit", "verify-arrays-unit", "verify-wheel"))
+elseif !(action in ("verify", "verify-empty", "verify-scalars", "verify-quarterly", "verify-annual", "verify-halfyearly", "verify-int64", "verify-strings", "verify-dates", "verify-calendar", "verify-widths", "verify-fileops", "verify-calendar-series", "verify-series-elements", "generate-series-elements", "verify-represented-elements", "verify-foreign-markers", "generate-arrays-unit", "verify-arrays-unit", "generate-matrices-text", "verify-matrices-text", "verify-wheel"))
     error("Unknown fixture action.")
 end
 
@@ -1861,6 +1872,253 @@ if action in ("generate-arrays-unit", "verify-arrays-unit", "verify-wheel")
     end
 end
 
+#############################################################################
+# Matrices, MVTSeries and text vectors
+
+function matrix_text_values(T)
+    T <: Signed && return T[typemin(T), -1, 0, typemax(T), 7, 9]
+    T <: Unsigned && return T[0, 1, typemax(T), 7, 9, 11]
+    T === Bool && return Bool[false, true, false, true, true, false]
+    T === Float16 && return reinterpret(Float16, UInt16[0x8000, 0x0001, 0x3d00, 0x7e55, 0x7c00, 0x0002])
+    T === Float32 && return reinterpret(Float32, UInt32[0x80000000, 1, 0x3fa00000, 0x7fc00055, 0x7f800000, 2])
+    T === Float64 && return reinterpret(Float64, UInt64[0x8000000000000000, 1, 0x3ff4000000000000, 0x7ff8000000000055, 0x7ff0000000000000, 2])
+    T === ComplexF32 && return ComplexF32[complex(-0.0f0, 1.25f0), complex(2.5f0, -3.0f0), complex(0.0f0, -0.0f0), complex(1.0f0, 2.0f0), complex(3.0f0, 4.0f0), complex(5.0f0, 6.0f0)]
+    T === ComplexF64 && return ComplexF64[complex(-0.0, 1.25), complex(2.5, -3.0), complex(0.0, -0.0), complex(1.0, 2.0), complex(3.0, 4.0), complex(5.0, 6.0)]
+    error("unsupported matrix fixture type")
+end
+const matrix_text_types = [Int8, Int16, Int32, Int64, UInt8, UInt16, UInt32, UInt64,
+    Float16, Float32, Float64, ComplexF32, ComplexF64, Bool]
+const matrix_text_strings = ["alpha", "", "z"]
+const matrix_text_multibyte = ["\u00e9", "\U0001f642", "a\u00e9"]
+const matrix_text_symbols = [:alpha, Symbol(""), :z]
+
+# Julia's own writer sizes a packed string buffer by character count while the
+# native packer sizes it in UTF-8 bytes, so multibyte text cannot be written
+# through `store_tseries`. The fixture stores the correctly sized payload
+# through the same C entry points the library itself uses.
+function store_packed_text!(db, name, strings; marker=nothing)
+    buffer = UInt8[]
+    for item in strings
+        append!(buffer, Vector{UInt8}(codeunits(String(item))))
+        push!(buffer, 0x00)
+    end
+    ax = Ref{C.axis_id_t}()
+    @test C.de_axis_plain(db, length(strings), ax) == 0
+    id = Ref{C.obj_id_t}()
+    GC.@preserve buffer begin
+        ptr = isempty(buffer) ? C_NULL : pointer(buffer)
+        @test C.de_store_tseries(db, DE.root_id, name, C.type_vector, C.type_string,
+                                 C.freq_none, ax[], length(buffer), ptr, id) == 0
+    end
+    marker === nothing || DE.set_attribute(db, id[], "jeltype", marker)
+    return id[]
+end
+
+const matrix_axis_families = [("u", Unit, 11, typemin(Int64), typemax(Int64)),
+    ("d", Daily, 12, -11980259, 11979954), ("b", BDaily, 13, -8557114, 8557110),
+    ("w7", Weekly{7}, 23, -1711422, 1711422), ("m", Monthly, 32, -393600, 2147483647),
+    ("q1", Quarterly{1}, 65, -131200, 2147483647),
+    ("h1", HalfYearly{1}, 129, -65600, 2147483647),
+    ("y1", Yearly{1}, 257, typemin(Int32), typemax(Int32))]
+
+if action == "generate-matrices-text"
+    DE.opendaec(filename; readonly=false) do db
+        for T in matrix_text_types
+            DE.store_mvtseries(db, "matrix_$(T)", reshape(collect(matrix_text_values(T)), 2, 3))
+            DE.store_mvtseries(db, "matrix_$(T)_empty", Matrix{T}(undef, 0, 0))
+        end
+        DE.store_mvtseries(db, "matrix_zero_rows", Matrix{Float64}(undef, 0, 3))
+        DE.store_mvtseries(db, "matrix_zero_cols", Matrix{Float64}(undef, 3, 0))
+        DE.store_mvtseries(db, "matrix_1x1", reshape(Float64[2.5], 1, 1))
+        DE.store_mvtseries(db, "matrix_mit",
+            reshape(MIT{Monthly}[MIT{Monthly}(-1), MIT{Monthly}(0), MIT{Monthly}(1),
+                                 MIT{Monthly}(2)], 2, 2))
+        DE.store_mvtseries(db, "matrix_duration",
+            reshape(Duration{Monthly}[Duration{Monthly}(1), Duration{Monthly}(2),
+                                      Duration{Monthly}(3), Duration{Monthly}(4)], 2, 2))
+        DE.store_mvtseries(db, "matrix_int128",
+            reshape(Int128[typemin(Int128), -1, 0, typemax(Int128)], 2, 2))
+        DE.store_mvtseries(db, "matrix_uint128",
+            reshape(UInt128[0, 1, 2, typemax(UInt128)], 2, 2))
+        DE.store_mvtseries(db, "matrix_complexf16",
+            reshape(ComplexF16[complex(Float16(-0.0), Float16(1.25)),
+                               complex(Float16(2.0), Float16(3.0))], 1, 2))
+        DE.store_mvtseries(db, "matrix_diagonal", Diagonal(Float64[3.0, 5.0]))
+        DE.store_mvtseries(db, "matrix_symmetric", Symmetric(reshape(Float64[1, 2, 3, 4], 2, 2)))
+        DE.store_mvtseries(db, "matrix_hermitian",
+            Hermitian(reshape(ComplexF64[complex(1.0, 0.0), complex(2.0, -1.0),
+                                         complex(2.0, 1.0), complex(4.0, 0.0)], 2, 2)))
+        DE.store_mvtseries(db, "mvts_float64",
+            MVTSeries(MIT{Monthly}(2024, 1), (:a, :b), reshape(Float64[1, 2, 3, 4, 5, 6], 3, 2)))
+        DE.store_mvtseries(db, "mvts_int64",
+            MVTSeries(MIT{Quarterly{3}}(2020, 1), (:x, :y), reshape(Int64[1, 2, 3, 4], 2, 2)))
+        DE.store_mvtseries(db, "mvts_bool",
+            MVTSeries(MIT{Monthly}(2024, 1), (:a, :b), reshape(Bool[true, false, false, true], 2, 2)))
+        DE.store_mvtseries(db, "mvts_one_col",
+            MVTSeries(MIT{Monthly}(2024, 1), (:only,), reshape(Float64[1, 2], 2, 1)))
+        DE.store_mvtseries(db, "mvts_unicode",
+            MVTSeries(MIT{Monthly}(2024, 1), (Symbol("a\u00e9"), Symbol("\U0001f642")),
+                      reshape(Float64[1, 2, 3, 4], 2, 2)))
+        DE.store_mvtseries(db, "mvts_empty_name",
+            MVTSeries(MIT{Monthly}(2024, 1), (Symbol(""), :b), reshape(Float64[1, 2, 3, 4], 2, 2)))
+        DE.store_mvtseries(db, "mvts_zero_rows",
+            MVTSeries(MIT{Monthly}(2024, 1):MIT{Monthly}(2023, 12), (:a, :b),
+                      Matrix{Float64}(undef, 0, 2)))
+        for (label, F, code, lo, hi) in matrix_axis_families
+            DE.store_mvtseries(db, "mvts_min_$(label)",
+                MVTSeries(MIT{F}(lo), (:a,), reshape(Float64[1], 1, 1)))
+            DE.store_mvtseries(db, "mvts_max_$(label)",
+                MVTSeries(MIT{F}(hi), (:a,), reshape(Float64[1], 1, 1)))
+        end
+        DE.store_tseries(db, "text_ascii", matrix_text_strings)
+        DE.store_tseries(db, "text_symbol", matrix_text_symbols)
+        DE.store_tseries(db, "text_empty", String[])
+        store_packed_text!(db, "text_multibyte", matrix_text_multibyte)
+        store_packed_text!(db, "text_multibyte_symbol", matrix_text_multibyte; marker="Symbol")
+        store_packed_text!(db, "text_one_empty_string", [""])
+    end
+end
+
+if action in ("generate-matrices-text", "verify-matrices-text", "verify-wheel")
+    @testset "DataEcon matrices, MVTSeries and text interchange" begin
+        reference_fixture = action != "verify-wheel"
+        DE.opendaec(filename) do db
+            function raw_matrix(name)
+                id = DE.find_object(db, DE.root_id, name)
+                ref = Ref{C.mvtseries_t}()
+                @test C.de_load_mvtseries(db, id, ref) == 0
+                attrs = Dict(string(k) => string(v) for (k, v) in DE.get_all_attributes(db, id))
+                return id, ref[], attrs
+            end
+            for T in matrix_text_types
+                expected = reshape(collect(matrix_text_values(T)), 2, 3)
+                id, a, attrs = raw_matrix("matrix_$(T)")
+                @test (Int(a.object.obj_class), Int(a.object.obj_type), Int(a.axis1.ax_type),
+                       Int(a.axis1.length), Int(a.axis2.ax_type), Int(a.axis2.length),
+                       Int(a.nbytes)) == (3, 20, 0, 2, 0, 3, sizeof(expected))
+                value = DE.load_mvtseries(db, id)
+                @test value isa Matrix{T}
+                @test isequal(value, expected)
+                @test attrs == (T === Bool ? Dict("jeltype" => "Bool") : Dict())
+                # Every empty two-dimensional object keeps its stored shape but
+                # Julia's own loader returns a flat typed vector for it.
+                id, a, attrs = raw_matrix("matrix_$(T)_empty")
+                @test (Int(a.axis1.length), Int(a.axis2.length), Int(a.nbytes)) == (0, 0, 0)
+                loaded = DE.load_mvtseries(db, id)
+                if haskey(attrs, "jeltype")
+                    # Julia writes the element token on every empty object, and
+                    # its marker path then returns a flat typed vector.
+                    @test attrs["jeltype"] == string(T)
+                    @test loaded == T[]
+                else
+                    # Python omits a token that only repeats the kind default,
+                    # so the loader keeps the stored zero-by-zero shape.
+                    @test T in (Int64, UInt64, Float64, ComplexF64)
+                    @test loaded == Matrix{T}(undef, 0, 0)
+                end
+            end
+            for (name, rows, columns) in (("matrix_zero_rows", 0, 3), ("matrix_zero_cols", 3, 0),
+                                          ("matrix_1x1", 1, 1))
+                id, a, _ = raw_matrix(name)
+                @test (Int(a.axis1.length), Int(a.axis2.length)) == (rows, columns)
+            end
+            @test DE.load_mvtseries(db, DE.find_object(db, DE.root_id, "matrix_1x1")) ==
+                reshape(Float64[2.5], 1, 1)
+            for (name, expected, eltype_code, elfreq) in (
+                ("matrix_mit", reshape(MIT{Monthly}[MIT{Monthly}(-1), MIT{Monthly}(0),
+                                                    MIT{Monthly}(1), MIT{Monthly}(2)], 2, 2), 3, 32),
+                ("matrix_duration", reshape(Duration{Monthly}[Duration{Monthly}(1),
+                    Duration{Monthly}(2), Duration{Monthly}(3), Duration{Monthly}(4)], 2, 2), 1, 32),
+                ("matrix_int128", reshape(Int128[typemin(Int128), -1, 0, typemax(Int128)], 2, 2), 1, 0),
+                ("matrix_uint128", reshape(UInt128[0, 1, 2, typemax(UInt128)], 2, 2), 2, 0),
+                ("matrix_complexf16", reshape(ComplexF16[complex(Float16(-0.0), Float16(1.25)),
+                    complex(Float16(2.0), Float16(3.0))], 1, 2), 5, 0))
+                id, a, _ = raw_matrix(name)
+                @test (Int(a.eltype), Int(a.elfreq)) == (eltype_code, elfreq)
+                @test isequal(DE.load_mvtseries(db, id), expected)
+            end
+            for (name, token, expected) in (
+                ("matrix_diagonal", "Diagonal", Diagonal(Float64[3.0, 5.0])),
+                ("matrix_symmetric", "Symmetric", Symmetric(reshape(Float64[1, 2, 3, 4], 2, 2))),
+                ("matrix_hermitian", "Hermitian",
+                 Hermitian(reshape(ComplexF64[complex(1.0, 0.0), complex(2.0, -1.0),
+                                              complex(2.0, 1.0), complex(4.0, 0.0)], 2, 2))))
+                id, a, attrs = raw_matrix(name)
+                @test attrs["jtype"] == token
+                # The writer materialises the authoritative triangle, so the
+                # dense stored bytes plus the marker rebuild the value exactly.
+                @test isequal(DE.load_mvtseries(db, id), expected)
+            end
+            for (name, first, freq, names, expected) in (
+                ("mvts_float64", MIT{Monthly}(2024, 1), 32, ["a", "b"],
+                 reshape(Float64[1, 2, 3, 4, 5, 6], 3, 2)),
+                ("mvts_int64", MIT{Quarterly{3}}(2020, 1), 67, ["x", "y"],
+                 reshape(Int64[1, 2, 3, 4], 2, 2)),
+                ("mvts_bool", MIT{Monthly}(2024, 1), 32, ["a", "b"],
+                 reshape(Bool[true, false, false, true], 2, 2)),
+                ("mvts_one_col", MIT{Monthly}(2024, 1), 32, ["only"],
+                 reshape(Float64[1, 2], 2, 1)),
+                ("mvts_unicode", MIT{Monthly}(2024, 1), 32, ["a\u00e9", "\U0001f642"],
+                 reshape(Float64[1, 2, 3, 4], 2, 2)),
+                ("mvts_empty_name", MIT{Monthly}(2024, 1), 32, ["", "b"],
+                 reshape(Float64[1, 2, 3, 4], 2, 2)))
+                id, a, _ = raw_matrix(name)
+                @test (Int(a.object.obj_type), Int(a.axis1.ax_type), Int(a.axis2.ax_type)) ==
+                    (21, 1, 2)
+                @test (Int(a.axis1.frequency), Int(a.axis1.first)) == (freq, Int(first))
+                @test (Int(a.axis1.length), Int(a.axis2.length)) == size(expected)
+                @test split(Base.unsafe_string(a.axis2.names), '\n') == names
+                value = DE.load_mvtseries(db, id)
+                @test value isa MVTSeries
+                @test isequal(value.values, expected)
+                @test string.(collect(keys(value.columns))) == names
+                @test first == firstdate(value)
+            end
+            id, a, attrs = raw_matrix("mvts_zero_rows")
+            @test (Int(a.axis1.length), Int(a.axis2.length), Int(a.nbytes)) == (0, 2, 0)
+            if haskey(attrs, "jeltype")
+                @test DE.load_mvtseries(db, id) == Float64[]
+            else
+                @test DE.load_mvtseries(db, id) isa MVTSeries
+            end
+            for (label, F, code, lo, hi) in matrix_axis_families
+                for (suffix, value) in (("min", lo), ("max", hi))
+                    id, a, _ = raw_matrix("mvts_$(suffix)_$(label)")
+                    @test (Int(a.axis1.frequency), Int(a.axis1.first)) == (code, value)
+                    loaded = DE.load_mvtseries(db, id)
+                    @test firstdate(loaded) == MIT{F}(value)
+                    @test isequal(loaded.values, reshape(Float64[1], 1, 1))
+                end
+            end
+            for (name, expected, marker) in (
+                ("text_ascii", matrix_text_strings, nothing),
+                ("text_multibyte", matrix_text_multibyte, nothing),
+                ("text_one_empty_string", [""], nothing),
+                ("text_symbol", matrix_text_symbols, "Symbol"),
+                ("text_multibyte_symbol", Symbol.(matrix_text_multibyte), "Symbol"))
+                id = DE.find_object(db, DE.root_id, name)
+                raw = Ref{C.tseries_t}()
+                @test C.de_load_tseries(db, id, raw) == 0
+                a = raw[]
+                @test (Int(a.object.obj_type), Int(a.eltype), Int(a.axis.length)) ==
+                    (10, 6, length(expected))
+                # The payload is the UTF-8 bytes of every element plus one
+                # terminator each, which is what the native packer sizes.
+                @test Int(a.nbytes) ==
+                    sum(item -> sizeof(String(item)), expected; init=0) + length(expected)
+                attrs = Dict(string(k) => string(v) for (k, v) in DE.get_all_attributes(db, id))
+                @test isequal(DE.load_tseries(db, id), expected)
+                @test get(attrs, "jeltype", nothing) == marker
+            end
+            id = DE.find_object(db, DE.root_id, "text_empty")
+            raw = Ref{C.tseries_t}()
+            @test C.de_load_tseries(db, id, raw) == 0
+            @test (Int(raw[].axis.length), Int(raw[].nbytes)) == (0, 0)
+            @test DE.load_tseries(db, id) == String[]
+        end
+    end
+end
+
 if action == "verify-wheel"
     @testset "DataEcon Boolean scalar interchange" begin
         DE.opendaec(filename) do db
@@ -1879,11 +2137,11 @@ if action == "verify-wheel"
     end
 end
 
-if action in ("generate", "generate-empty", "generate-scalars", "generate-quarterly", "generate-annual", "generate-halfyearly", "generate-int64", "generate-strings", "generate-dates", "generate-calendar", "generate-widths", "generate-fileops", "generate-calendar-series", "generate-series-elements", "generate-represented-elements", "generate-foreign-markers", "generate-arrays-unit")
+if action in ("generate", "generate-empty", "generate-scalars", "generate-quarterly", "generate-annual", "generate-halfyearly", "generate-int64", "generate-strings", "generate-dates", "generate-calendar", "generate-widths", "generate-fileops", "generate-calendar-series", "generate-series-elements", "generate-represented-elements", "generate-foreign-markers", "generate-arrays-unit", "generate-matrices-text")
     layout = Dict{String,Any}(
         "enums" => sizeof.([C.class_t, C.type_t, C.frequency_t, C.axis_type_t]),
     )
-    for T in (C.object_t, C.axis_t, C.tseries_t, C.scalar_t)
+    for T in (C.object_t, C.axis_t, C.tseries_t, C.mvtseries_t, C.scalar_t)
         layout[string(nameof(T))] = Dict(
             "size" => sizeof(T),
             "offsets" => [Int(fieldoffset(T, i)) for i in 1:fieldcount(T)],

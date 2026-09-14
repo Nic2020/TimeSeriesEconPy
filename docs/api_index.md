@@ -16,3 +16,7 @@ order they appear in `tsecon/__init__.py`.
 ::: tsecon.dataecon.StoredElement
 
 ::: tsecon.dataecon.StoredSeries
+
+::: tsecon.dataecon.StoredArray
+
+::: tsecon.dataecon.StoredText

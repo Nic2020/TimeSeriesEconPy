@@ -1250,6 +1250,247 @@ def check_foreign_markers(db: de.DataEconFile) -> None:
             raise ValueError(f"Interpretation of {name} changed its values.")
 
 
+def matrix_values(dtype: np.dtype) -> np.ndarray:
+    """Six values shaped 2x3 column-major, matching the Julia fixture exactly.
+
+    These are the same six values `matrix_text_values` builds in the fixture
+    generator, so Julia's verifier compares like with like: signed zeros, NaN
+    payloads, infinities, subnormals and both integer extremes.
+    """
+    kind = np.dtype(dtype).kind
+    if kind == "b":
+        flat = np.array([False, True, False, True, True, False])
+    elif kind == "i":
+        info = np.iinfo(dtype)
+        flat = np.array([info.min, -1, 0, info.max, 7, 9], dtype=dtype)
+    elif kind == "u":
+        info = np.iinfo(dtype)
+        flat = np.array([0, 1, info.max, 7, 9, 11], dtype=dtype)
+    elif kind == "f":
+        width = np.dtype(dtype).itemsize
+        bits = {2: "<u2", 4: "<u4", 8: "<u8"}[width]
+        raw = {
+            2: [0x8000, 0x0001, 0x3D00, 0x7E55, 0x7C00, 0x0002],
+            4: [0x80000000, 1, 0x3FA00000, 0x7FC00055, 0x7F800000, 2],
+            8: [
+                0x8000000000000000,
+                1,
+                0x3FF4000000000000,
+                0x7FF8000000000055,
+                0x7FF0000000000000,
+                2,
+            ],
+        }[width]
+        flat = np.array(raw, dtype=bits).view(dtype)
+    else:
+        component = "<f4" if np.dtype(dtype).itemsize == 8 else "<f8"
+        real = np.array([-0.0, 2.5, 0.0, 1.0, 3.0, 5.0], dtype=component)
+        imag = np.array([1.25, -3.0, -0.0, 2.0, 4.0, 6.0], dtype=component)
+        flat = np.empty(6, dtype=dtype)
+        flat.real, flat.imag = real, imag
+    return np.asarray(flat).reshape((2, 3), order="F").copy()
+
+
+def matrix_axis_families() -> list[tuple[str, Frequency, int, int]]:
+    """The axis families the MVTSeries fixture anchors at both endpoints."""
+    return [
+        ("u", Unit(), -(2**63), 2**63 - 1),
+        ("d", Daily(), -11980259, 11979954),
+        ("b", BDaily(), -8557114, 8557110),
+        ("w7", Weekly(7), -1711422, 1711422),
+        ("m", Monthly(), -393600, 2147483647),
+        ("q1", Quarterly(1), -131200, 2147483647),
+        ("h1", HalfYearly(1), -65600, 2147483647),
+        ("y1", Yearly(1), -(2**31), 2**31 - 1),
+    ]
+
+
+def write_matrices_text(db: de.DataEconFile) -> None:
+    """Write plain matrices, structure markers, MVTSeries and packed text vectors."""
+    for dtype in ARRAY_DTYPES:
+        token = array_token(dtype)
+        db.write_array(f"matrix_{token}", matrix_values(dtype))
+        db.write_array(f"matrix_{token}_empty", np.empty((0, 0), dtype=dtype))
+    db.write_array("matrix_zero_rows", np.empty((0, 3), dtype=np.float64))
+    db.write_array("matrix_zero_cols", np.empty((3, 0), dtype=np.float64))
+    db.write_array("matrix_1x1", np.array([[2.5]], dtype=np.float64))
+    db.write_array(
+        "matrix_mit",
+        de.StoredArray(np.array([[-1, 1], [0, 2]], dtype="<i8"), de.StoredElement.date(Monthly())),
+    )
+    db.write_array(
+        "matrix_duration",
+        de.StoredArray(
+            np.array([[1, 3], [2, 4]], dtype="<i8"), de.StoredElement.duration(Monthly())
+        ),
+    )
+    db.write_array("matrix_int128", stored_matrix_128(de.INT128, [-(2**127), -1, 0, 2**127 - 1]))
+    db.write_array("matrix_uint128", stored_matrix_128(de.UINT128, [0, 1, 2, 2**128 - 1]))
+    db.write_array("matrix_complexf16", stored_complexf16_matrix())
+    db.write_array(
+        "matrix_diagonal",
+        de.StoredArray(
+            np.array([[3.0, 0.0], [0.0, 5.0]]),
+            de.StoredElement.numeric("<f8"),
+            object_marker="Diagonal",
+        ),
+    )
+    db.write_array(
+        "matrix_symmetric",
+        de.StoredArray(
+            np.array([[1.0, 3.0], [3.0, 4.0]]),
+            de.StoredElement.numeric("<f8"),
+            object_marker="Symmetric",
+        ),
+    )
+    db.write_array(
+        "matrix_hermitian",
+        de.StoredArray(
+            np.array([[1 + 0j, 2 + 1j], [2 - 1j, 4 + 0j]], dtype="<c16"),
+            de.StoredElement.numeric("<c16"),
+            object_marker="Hermitian",
+        ),
+    )
+    db.write_series(
+        "mvts_float64",
+        tsecon.MVTSeries(mm(2024, 1), ("a", "b"), np.array([[1.0, 4.0], [2.0, 5.0], [3.0, 6.0]])),
+    )
+    db.write_series(
+        "mvts_int64",
+        tsecon.MVTSeries(
+            MIT(Quarterly(3), 8080), ("x", "y"), np.array([[1, 3], [2, 4]], dtype=np.int64)
+        ),
+    )
+    db.write_series(
+        "mvts_bool",
+        tsecon.MVTSeries(mm(2024, 1), ("a", "b"), np.array([[True, False], [False, True]])),
+    )
+    db.write_series(
+        "mvts_one_col", tsecon.MVTSeries(mm(2024, 1), ("only",), np.array([[1.0], [2.0]]))
+    )
+    db.write_series(
+        "mvts_unicode",
+        tsecon.MVTSeries(
+            mm(2024, 1), ("a\u00e9", "\U0001f642"), np.array([[1.0, 3.0], [2.0, 4.0]])
+        ),
+    )
+    db.write_series(
+        "mvts_empty_name",
+        tsecon.MVTSeries(mm(2024, 1), ("", "b"), np.array([[1.0, 3.0], [2.0, 4.0]])),
+    )
+    db.write_series("mvts_zero_rows", tsecon.MVTSeries(mm(2024, 1), ("a", "b"), np.empty((0, 2))))
+    for label, frequency, minimum, maximum in matrix_axis_families():
+        for suffix, code in (("min", minimum), ("max", maximum)):
+            db.write_series(
+                f"mvts_{suffix}_{label}",
+                tsecon.MVTSeries(MIT(frequency, code), ("a",), np.array([[1.0]])),
+            )
+    db.write_array("text_ascii", ["alpha", "", "z"])
+    db.write_array("text_symbol", de.StoredText.from_list(["alpha", "", "z"], "Symbol"))
+    db.write_array("text_empty", [])
+    db.write_array("text_multibyte", ["\u00e9", "\U0001f642", "a\u00e9"])
+    db.write_array(
+        "text_multibyte_symbol",
+        de.StoredText.from_list(["\u00e9", "\U0001f642", "a\u00e9"], "Symbol"),
+    )
+    db.write_array("text_one_empty_string", [""])
+
+
+def stored_matrix_128(element: de.StoredElement, values: list[int]) -> de.StoredArray:
+    """Pack four 128-bit values column-major into a 2x2 carrier.
+
+    Both words are unsigned: a negative Int128's low word does not fit a signed
+    64-bit integer, and the carrier stores the two-word bit pattern either way.
+    """
+    words: list[int] = []
+    for value in values:
+        raw = value & ((1 << 128) - 1)
+        words.extend([raw & ((1 << 64) - 1), raw >> 64])
+    packed = np.array(words, dtype="<u8").view(element.dtype)
+    return de.StoredArray(packed.reshape((2, 2), order="F").copy(), element)
+
+
+def stored_complexf16_matrix() -> de.StoredArray:
+    """A 1x2 ComplexF16 carrier matching the Julia fixture's bit patterns."""
+    parts = np.array([0x8000, 0x3D00, 0x4000, 0x4200], dtype="<u2").view(de.COMPLEXF16.dtype)
+    return de.StoredArray(parts.reshape((1, 2), order="F").copy(), de.COMPLEXF16)
+
+
+def check_matrices_text(db: de.DataEconFile) -> None:  # noqa: PLR0912 - finite ABI matrix
+    """Read every object written by :func:`write_matrices_text` back."""
+    for dtype in ARRAY_DTYPES:
+        token = array_token(dtype)
+        expected = matrix_values(dtype)
+        actual = db.read_array(f"matrix_{token}")
+        if not isinstance(actual, np.ndarray) or actual.dtype != np.dtype(dtype):
+            raise TypeError(f"matrix_{token} must read back as its own dtype.")
+        if actual.tobytes(order="C") != expected.tobytes(order="C"):
+            raise ValueError(f"matrix_{token} values changed across the round trip.")
+        if not (actual.flags["C_CONTIGUOUS"] and actual.flags["WRITEABLE"]):
+            raise ValueError(f"matrix_{token} must own writable contiguous storage.")
+        empty = db.read_array(f"matrix_{token}_empty")
+        if empty.shape != (0, 0) or empty.dtype != np.dtype(dtype):
+            raise ValueError(f"matrix_{token}_empty lost its shape or dtype.")
+    if db.read_array("matrix_zero_rows").shape != (0, 3):
+        raise ValueError("A zero-row matrix must keep its column count.")
+    if db.read_array("matrix_zero_cols").shape != (3, 0):
+        raise ValueError("A zero-column matrix must keep its row count.")
+    for name, token, expected in (
+        ("matrix_diagonal", "Diagonal", [[3.0, 0.0], [0.0, 5.0]]),
+        ("matrix_symmetric", "Symmetric", [[1.0, 3.0], [3.0, 4.0]]),
+    ):
+        value = db.read_array(name)
+        if not isinstance(value, de.StoredArray) or value.object_marker != token:
+            raise TypeError(f"{name} must preserve its structural marker.")
+        if value.to_interpreted().tolist() != expected:
+            raise ValueError(f"{name} did not reconstruct Julia's dense value.")
+    for name in (
+        "matrix_mit",
+        "matrix_duration",
+        "matrix_int128",
+        "matrix_uint128",
+        "matrix_complexf16",
+    ):
+        value = db.read_array(name)
+        if not isinstance(value, de.StoredArray) or value.ndim != 2:
+            raise TypeError(f"{name} must read back as a two-dimensional StoredArray.")
+    for name, first, names, expected in (
+        ("mvts_float64", mm(2024, 1), ("a", "b"), [[1.0, 4.0], [2.0, 5.0], [3.0, 6.0]]),
+        ("mvts_int64", MIT(Quarterly(3), 8080), ("x", "y"), [[1, 3], [2, 4]]),
+        ("mvts_one_col", mm(2024, 1), ("only",), [[1.0], [2.0]]),
+        ("mvts_unicode", mm(2024, 1), ("a\u00e9", "\U0001f642"), [[1.0, 3.0], [2.0, 4.0]]),
+        ("mvts_empty_name", mm(2024, 1), ("", "b"), [[1.0, 3.0], [2.0, 4.0]]),
+    ):
+        value = db.read_series(name)
+        if not isinstance(value, tsecon.MVTSeries):
+            raise TypeError(f"{name} must read back as an MVTSeries.")
+        if value.firstdate != first or tuple(value.columns) != names:
+            raise ValueError(f"{name} lost its anchor or column names.")
+        if value.values.tolist() != expected:
+            raise ValueError(f"{name} values changed across the round trip.")
+    if db.read_series("mvts_bool").values.dtype != np.dtype(bool):
+        raise TypeError("A Boolean MVTSeries must read back with a bool dtype.")
+    if db.read_series("mvts_zero_rows").shape != (0, 2):
+        raise ValueError("A zero-row MVTSeries must keep its columns.")
+    for label, frequency, minimum, maximum in matrix_axis_families():
+        for suffix, code in (("min", minimum), ("max", maximum)):
+            value = db.read_series(f"mvts_{suffix}_{label}")
+            if value.firstdate != MIT(frequency, code):
+                raise ValueError(f"mvts_{suffix}_{label} lost its axis anchor.")
+    if db.read_array("text_ascii") != ["alpha", "", "z"]:
+        raise ValueError("An ASCII text vector must read back as plain strings.")
+    if db.read_array("text_multibyte") != ["\u00e9", "\U0001f642", "a\u00e9"]:
+        raise ValueError("A multibyte text vector must read back intact.")
+    if db.read_array("text_empty") != []:
+        raise ValueError("An empty text vector must read back empty.")
+    if db.read_array("text_one_empty_string") != [""]:
+        raise ValueError("One empty string is not an empty vector.")
+    for name in ("text_symbol", "text_multibyte_symbol"):
+        value = db.read_array(name)
+        if not isinstance(value, de.StoredText) or value.marker != "Symbol":
+            raise TypeError(f"{name} must preserve its Symbol marker.")
+
+
 def write_interchange(output_dir: Path, series: tsecon.TSeries) -> Path:
     """Write and reopen series and scalars for separate Julia verification."""
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -1262,6 +1503,7 @@ def write_interchange(output_dir: Path, series: tsecon.TSeries) -> Path:
         write_represented_series(db)
         write_foreign_markers(db)
         write_arrays_unit(db)
+        write_matrices_text(db)
         for name, value in (
             ("bool_false", False),
             ("bool_true", True),
@@ -1283,6 +1525,7 @@ def write_interchange(output_dir: Path, series: tsecon.TSeries) -> Path:
         check_represented_series(db)
         check_foreign_markers(db)
         check_arrays_unit(db)
+        check_matrices_text(db)
         np.testing.assert_array_equal(db.read_series("sample").values, series.values)
         for name, expected in (
             ("bool_false", 0),

@@ -28,12 +28,17 @@ from threading import RLock
 from types import TracebackType
 from typing import TYPE_CHECKING, Literal
 
+from tsecon.mvtseries import MVTSeries
+
+from ._arrays import StoredArray, StoredText
 from ._codec import (
     ArrayValue,
+    MatrixPayload,
     ScalarResult,
     ScalarValue,
     SeriesValue,
     decode_array,
+    decode_matrix,
     decode_scalar,
     decode_series,
     encode_array,
@@ -56,8 +61,10 @@ __all__ = [
     "ScalarResult",
     "ScalarValue",
     "SeriesValue",
+    "StoredArray",
     "StoredElement",
     "StoredSeries",
+    "StoredText",
     "open_dataecon",
     "open_dataecon_memory",
 ]
@@ -159,7 +166,16 @@ class DataEconFile:
             raise ValueError("Cannot write through a read-only DataEcon file.")
 
     def read_series(self, name: str) -> SeriesValue:
-        """Read one root series into owning storage that survives file closure.
+        """Read one root series or MVTSeries into owning storage.
+
+        A multivariate object returns an ``MVTSeries`` with its dated row axis
+        and named columns, whose values own writable storage. Column names are
+        stored newline-joined, so a name can contain neither a newline nor NUL;
+        duplicate names and a zero-column object are refused rather than read
+        back as a narrower value. A plain matrix is read with
+        :meth:`read_array` instead.
+
+        The result survives file closure.
 
         Ordinary numeric and Boolean elements return ``TSeries``. Dates,
         durations, Int128/UInt128 and ComplexF16 elements return ``StoredSeries``
@@ -190,7 +206,14 @@ class DataEconFile:
         with self._lock:
             self._require_open()
             _validate_name(name)
-            payload, metadata, _, marker, object_marker = self._handle.read(name)
+            payload, metadata, _, marker, object_marker, names = self._handle.read(name)
+            if len(metadata) == 13:
+                matrix = decode_matrix(metadata, payload, marker, object_marker, names)
+                if not isinstance(matrix, MVTSeries):
+                    raise TypeError(
+                        "This object is a plain DataEcon matrix; read it with read_array."
+                    )
+                return matrix
             return decode_series(
                 metadata[6],
                 metadata[7],
@@ -203,7 +226,12 @@ class DataEconFile:
             )
 
     def write_series(self, name: str, series: SeriesValue, *, overwrite: bool = False) -> None:
-        """Write a root series; by default an existing name fails and is never replaced.
+        """Write a root series or MVTSeries; an existing name fails unless overwritten.
+
+        An ``MVTSeries`` stores its dated row axis, its newline-joined column
+        names and a column-major payload. Its element rules are the ordinary
+        numeric and Boolean ones; represented MVTSeries elements are not
+        supported yet.
 
         ``StoredSeries`` additionally carries full-Int64 date/duration element
         codes (without scalar date packing), Int128/UInt128 or ComplexF16 bytes.
@@ -256,6 +284,9 @@ class DataEconFile:
             _validate_name(name)
             encoded = encode_series(series)
             self._require_writable()
+            if isinstance(encoded, MatrixPayload):
+                self._write_matrix(name, encoded, overwrite)
+                return
             self._handle.write(
                 name,
                 encoded.frequency,
@@ -270,30 +301,54 @@ class DataEconFile:
             )
 
     def read_array(self, name: str) -> ArrayValue:
-        """Read a plain one-dimensional vector or unit-step range.
+        """Read a plain array, text vector or unit-step range.
 
-        Ordinary numeric and Boolean vectors return owning, writable NumPy
-        arrays. Integer ranges return Python ``range`` values and MIT ranges
-        return ``MITRange``. Reconstruction text is matched against a finite
-        table and never evaluated; represented and string vectors remain
-        unsupported until their separate contracts are complete.
+        Ordinary numeric and Boolean vectors and matrices return owning,
+        writable, C-contiguous NumPy arrays of the stored shape, including
+        singleton and zero-length dimensions. Integer ranges return Python
+        ``range`` values and MIT ranges return ``MITRange``.
+
+        Text vectors return a ``list[str]`` when every element is valid UTF-8
+        and no foreign marker is stored, and a :class:`StoredText` otherwise,
+        which keeps each element's exact bytes and the preserved marker.
+        Elements carrying a date, duration, 128-bit or ComplexF16 encoding, or
+        a preserved reconstruction marker, return a :class:`StoredArray`: a
+        contiguous carrier plus its stored element descriptor, with
+        ``to_interpreted()`` as the explicit conversion. A ``StoredArray`` has
+        no first date; a dated matrix is an ``MVTSeries`` read with
+        :meth:`read_series` instead.
+
+        Reconstruction text is matched against a finite table and never
+        evaluated. A marker whose conversion the stored values cannot satisfy
+        raises ``ValueError``; an unsupported token raises ``TypeError``.
         """
         with self._lock:
             self._require_open()
             _validate_name(name)
-            payload, metadata, _, marker, object_marker = self._handle.read_array(name)
-            return decode_array(metadata, payload, marker, object_marker)
+            payload, metadata, _, marker, object_marker, names = self._handle.read_array(name)
+            return decode_array(metadata, payload, marker, object_marker, names)
 
     def write_array(self, name: str, value: ArrayValue, *, overwrite: bool = False) -> None:
-        """Write a plain one-dimensional vector or a lossless unit-step range.
+        """Write a plain array, text vector or lossless unit-step range.
 
-        NumPy arrays retain their supported native numeric/Boolean dtype and
-        are snapshotted before any native mutation. Python integer ranges are
-        accepted only as ``range(1, stop)`` because DataEcon stores their length
-        but not their starting value. ``MITRange`` retains its frequency and
-        first code, including Unit codes, and must have step one. Empty ranges
-        keep their Python range form even though Julia's reconstruction marker
-        makes its loader return a typed empty vector.
+        One- and two-dimensional NumPy arrays retain their supported native
+        numeric/Boolean dtype. Any input layout is accepted: C-contiguous,
+        Fortran-contiguous, sliced and transposed inputs are snapshotted in
+        logical order before any native mutation, without being retained or
+        modified. A matrix is stored column-major, as DataEcon expects.
+
+        Text is written from a sequence of ``str`` or from a
+        :class:`StoredText`, which also carries a preserved marker and exact
+        bytes. Element bytes are sized in UTF-8, not characters. An element
+        cannot contain NUL, because that byte separates the packed elements.
+
+        :class:`StoredArray` writes its carrier, element descriptor and any
+        preserved markers unchanged. Python integer ranges are accepted only as
+        ``range(1, stop)`` because DataEcon stores their length but not their
+        starting value. ``MITRange`` retains its frequency and first code,
+        including Unit codes, and must have step one. Empty ranges keep their
+        Python range form even though Julia's reconstruction marker makes its
+        loader return a typed empty vector.
 
         Overwrite validates first, then deletes and stores without rollback,
         with the same residue and close-failure rules as other writes.
@@ -303,6 +358,9 @@ class DataEconFile:
             _validate_name(name)
             encoded = encode_array(value)
             self._require_writable()
+            if isinstance(encoded, MatrixPayload):
+                self._write_matrix(name, encoded, overwrite)
+                return
             self._handle.write_array(
                 name,
                 encoded.object_type,
@@ -317,6 +375,31 @@ class DataEconFile:
                 encoded.marker,
                 encoded.object_marker,
             )
+
+    def _write_matrix(self, name: str, encoded: MatrixPayload, overwrite: bool) -> None:
+        """Store an encoded two-dimensional payload; the caller holds the file lock.
+
+        Column-major bytes, both axes and any markers were fully validated by
+        the codec. The store itself is not atomic: an overwrite deletes first,
+        and a later axis, store or attribute failure leaves the residue the
+        one-dimensional writes document.
+        """
+        self._handle.write_matrix(
+            name,
+            encoded.object_type,
+            encoded.element,
+            encoded.element_frequency,
+            encoded.axis1_type,
+            encoded.rows,
+            encoded.frequency,
+            encoded.first,
+            encoded.columns,
+            encoded.names,
+            encoded.payload,
+            bool(overwrite),
+            encoded.marker,
+            encoded.object_marker,
+        )
 
     def read_scalar(self, name: str) -> ScalarResult:
         """Read a root scalar as an exact-width Python or NumPy value.

@@ -66,6 +66,7 @@ __all__ = [
     "UINT128",
     "StoredElement",
     "StoredSeries",
+    "element_tolist",
     "julia_frequency_name",
 ]
 
@@ -503,19 +504,7 @@ class StoredSeries:
         :meth:`to_interpreted` for Julia's converted values.
         """
         _check_carrier(self._values, self._element)
-        element = self._element
-        if element.kind == "date":
-            return [MIT(element.frequency, int(v)) for v in self._values.tolist()]  # type: ignore[arg-type]
-        if element.kind == "duration":
-            return [Duration(element.frequency, int(v)) for v in self._values.tolist()]  # type: ignore[arg-type]
-        if element.kind == "complexf16":
-            return [
-                complex(float(r), float(i))
-                for r, i in zip(self._values["real"], self._values["imag"], strict=True)
-            ]
-        if element.kind == "numeric":
-            return list(self._values.tolist())
-        return _interpret.unpack_words(self._values, element.kind == "int128")
+        return element_tolist(self._values, self._element)
 
     def to_complex64(self) -> TSeries:
         """Widen a ComplexF16 carrier exactly into a ``complex64`` ``TSeries``."""
@@ -589,6 +578,25 @@ class StoredSeries:
         if len(payload) != length * self._element.itemsize:
             raise ValueError("The series values changed size during the conversion snapshot.")
         return np.frombuffer(payload, dtype=self._element.dtype).copy()
+
+
+def element_tolist(values: np.ndarray[Any, Any], element: StoredElement) -> list[Any]:
+    """Convert one contiguous run of stored values into Python objects.
+
+    Shared by the dated and plain-array containers so both report identical
+    Python values for the same stored bytes.
+    """
+    if element.kind == "date":
+        return [MIT(element.frequency, int(v)) for v in values.tolist()]  # type: ignore[arg-type]
+    if element.kind == "duration":
+        return [Duration(element.frequency, int(v)) for v in values.tolist()]  # type: ignore[arg-type]
+    if element.kind == "complexf16":
+        return [
+            complex(float(r), float(i)) for r, i in zip(values["real"], values["imag"], strict=True)
+        ]
+    if element.kind == "numeric":
+        return list(values.tolist())
+    return _interpret.unpack_words(values, element.kind == "int128")
 
 
 def _pack_codes(items: Iterable[object], element: StoredElement) -> np.ndarray[Any, Any]:

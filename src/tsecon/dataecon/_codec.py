@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import struct
 import sys
-from typing import Any, NamedTuple, TypeAlias
+from typing import Any, Literal, NamedTuple, TypeAlias, cast
 
 import numpy as np
 
@@ -24,9 +24,11 @@ from tsecon.frequencies import (
 )
 from tsecon.mit import MIT, Duration
 from tsecon.mitrange import MITRange
+from tsecon.mvtseries import MVTSeries
 from tsecon.tseries import TSeries
 
 from . import _interpret
+from ._arrays import StoredArray, StoredText, resolve_array_interpretation
 from ._metadata import (
     _CALENDAR_FREQUENCIES,
     _CALENDAR_RANGES,
@@ -239,6 +241,23 @@ class ArrayPayload(NamedTuple):
     object_marker: str | None
 
 
+class MatrixPayload(NamedTuple):
+    """Owned column-major bytes and explicit storage information for a 2-D object."""
+
+    object_type: int
+    element: int
+    element_frequency: int
+    axis1_type: int
+    rows: int
+    frequency: int
+    first: int
+    columns: int
+    names: str | None
+    payload: bytes
+    marker: str | None
+    object_marker: str | None
+
+
 # Series widths include the represented families; scalar acceptance is unchanged.
 _SERIES_WIDTHS = {
     **_NUMERIC_WIDTHS,
@@ -248,8 +267,15 @@ _SERIES_WIDTHS = {
 }
 _WIDE_ELEMENTS = {(1, 16): INT128, (2, 16): UINT128, (5, 4): COMPLEXF16}
 _WIDE_NAMES = {e.julia_name: e for e in _WIDE_ELEMENTS.values()}
-SeriesValue: TypeAlias = TSeries | StoredSeries
-ArrayValue: TypeAlias = np.ndarray[Any, Any] | range | MITRange
+SeriesValue: TypeAlias = TSeries | StoredSeries | MVTSeries
+ArrayValue: TypeAlias = (
+    np.ndarray[Any, Any] | range | MITRange | StoredArray | StoredText | list[str] | tuple[str, ...]
+)
+MatrixMetadata: TypeAlias = tuple[int, ...]
+_MATRIX_SUPPORT = (
+    "DataEcon two-dimensional support covers ordinary numeric and Boolean plain "
+    "matrices and MVTSeries, and represented plain matrices."
+)
 
 
 def _require_token(marker: str) -> _interpret.Target:
@@ -586,25 +612,11 @@ def validate_metadata(metadata: Metadata) -> None:
         raise ValueError("Invalid or oversized DataEcon series payload.")
     if length and (nbytes % length or nbytes // length not in widths):
         raise ValueError("Invalid DataEcon series element width or payload length.")
-    if frequency == UNIT_FREQUENCY:
-        if not MIN_INT64 <= first <= MAX_INT64 or (length and first + length - 1 > MAX_INT64):
-            raise ValueError("Unit series dates must fit the signed 64-bit range.")
-    elif not MIN_DATE <= first <= MAX_DATE or (length and first + length - 1 > MAX_DATE):
-        raise ValueError("DataEcon dates must fit the native signed 32-bit date range.")
-    if frequency in _CALENDAR_RANGES:
-        # Only the stored first date must lie inside the verified calendar
-        # window: Julia packs nothing else and never decodes a trailing date.
-        # Later observations are implicit consecutive codes, bounded above by
-        # the signed 32-bit check and the payload limit (at most 134,217,728
-        # one-byte values), so the last code stays below maximum + 134,217,728 and never
-        # reaches a native calendar call.
-        minimum, maximum = _CALENDAR_RANGES[frequency]
-        if not minimum <= first <= maximum:
-            raise ValueError("Date is outside the reliable native date range for its frequency.")
-    elif frequency in _MIN_DATES and first < _MIN_DATES[frequency][0]:
-        raise ValueError(
-            f"Date is outside the reliable native {_MIN_DATES[frequency][1]} date range."
-        )
+    # Later observations are implicit consecutive codes, bounded above by the
+    # signed 32-bit check and the payload limit (at most 134,217,728 one-byte
+    # values), so the last code stays below maximum + 134,217,728 and never
+    # reaches a native calendar call.
+    _check_range_axis(frequency, first, length)
 
 
 def _series_widths(element: int, element_frequency: int) -> frozenset[int]:
@@ -617,10 +629,12 @@ def _series_widths(element: int, element_frequency: int) -> frozenset[int]:
     return _SERIES_WIDTHS[element]
 
 
-def encode_series(series: SeriesValue) -> SeriesPayload:
+def encode_series(series: SeriesValue) -> SeriesPayload | MatrixPayload:
     """Return an independent snapshot with explicit element kind/frequency/length."""
+    if isinstance(series, MVTSeries):
+        return encode_mvtseries(series)
     if not isinstance(series, (TSeries, StoredSeries)):
-        raise TypeError("write_series requires a TSeries or StoredSeries.")
+        raise TypeError("write_series requires a TSeries, StoredSeries or MVTSeries.")
     if sys.byteorder != "little":
         raise RuntimeError(
             "DataEcon interchange is currently supported on little-endian hosts only."
@@ -712,24 +726,42 @@ def decode_series(
     return TSeries(anchor, values.copy())
 
 
-def validate_array_metadata(metadata: Metadata) -> None:
-    """Validate a plain one-dimensional vector or unit-step range."""
-    cls, obj_type, element, element_freq, axis, length, frequency, first, nbytes = metadata
-    if cls != 2 or obj_type not in (10, 11):
-        raise TypeError("DataEcon arrays support plain vectors and unit-step ranges only.")
-    if length < 0 or length > MAX_INT64:
-        raise ValueError("Invalid DataEcon array length.")
-    if obj_type == 10:
-        if (axis, frequency, first) != (0, 0, 0):
-            raise TypeError("A DataEcon vector must have one plain axis.")
-        if element_freq != 0 or element not in _NUMERIC_WIDTHS:
-            raise TypeError("DataEcon vector support covers ordinary numeric and Boolean arrays.")
-        widths = _NUMERIC_WIDTHS[element]
-        if not 0 <= nbytes <= MAX_BYTES or (not length and nbytes):
-            raise ValueError("Invalid or oversized DataEcon vector payload.")
-        if length and (nbytes % length or nbytes // length not in widths):
-            raise ValueError("Invalid DataEcon vector element width or payload length.")
+def _check_range_axis(frequency: int, first: int, length: int) -> None:
+    """Bound a dated axis anchor and its implicit endpoint for its frequency."""
+    if frequency == UNIT_FREQUENCY:
+        if not MIN_INT64 <= first <= MAX_INT64 or (length and first + length - 1 > MAX_INT64):
+            raise ValueError("Unit dates must fit the signed 64-bit range.")
+    elif not MIN_DATE <= first <= MAX_DATE or (length and first + length - 1 > MAX_DATE):
+        raise ValueError("DataEcon dates must fit the native signed 32-bit date range.")
+    if frequency in _CALENDAR_RANGES:
+        # Only the stored first date must lie inside the verified calendar
+        # window: Julia packs nothing else and never decodes a trailing date.
+        minimum, maximum = _CALENDAR_RANGES[frequency]
+        if not minimum <= first <= maximum:
+            raise ValueError("Date is outside the reliable native date range for its frequency.")
+    elif frequency in _MIN_DATES and first < _MIN_DATES[frequency][0]:
+        raise ValueError(
+            f"Date is outside the reliable native {_MIN_DATES[frequency][1]} date range."
+        )
+
+
+def _validate_vector_metadata(metadata: Metadata) -> None:
+    _, _, element, element_freq, axis, length, frequency, first, nbytes = metadata
+    if (axis, frequency, first) != (0, 0, 0):
+        raise TypeError("A DataEcon vector must have one plain axis.")
+    if not 0 <= nbytes <= MAX_BYTES or (not length and nbytes):
+        raise ValueError("Invalid or oversized DataEcon vector payload.")
+    if element == KIND_STRING:
+        if element_freq:
+            raise TypeError("A DataEcon text vector carries no element frequency.")
         return
+    widths = _series_widths(element, element_freq)
+    if length and (nbytes % length or nbytes // length not in widths):
+        raise ValueError("Invalid DataEcon vector element width or payload length.")
+
+
+def _validate_range_metadata(metadata: Metadata) -> None:
+    _, _, element, element_freq, axis, length, frequency, first, nbytes = metadata
     if (element, element_freq, nbytes) != (0, 0, 0):
         raise TypeError("A DataEcon range has no element payload.")
     if axis == 0:
@@ -744,127 +776,591 @@ def validate_array_metadata(metadata: Metadata) -> None:
         raise ValueError("The DataEcon range endpoint exceeds the signed 64-bit range.")
 
 
-def _array_dtype(element: int, length: int, nbytes: int, marker: str | None) -> np.dtype[Any]:
-    _interpret.check_marker_text(marker, "element")
-    if marker == "Bool" and (element != KIND_INTEGER or (length and nbytes // length != 1)):
-        raise TypeError("A plain Boolean vector requires the canonical one-byte signed encoding.")
-    resolved = (
-        _empty_series_type(element, marker)
-        if not length
-        else _nonempty_series_type(_base_element(element, length, nbytes), marker)
+def validate_array_metadata(metadata: Metadata) -> None:
+    """Validate a plain one-dimensional vector, text vector or unit-step range."""
+    cls, obj_type, _, _, _, length, _, _, _ = metadata
+    if cls != 2 or obj_type not in (10, 11):
+        raise TypeError("DataEcon arrays support plain vectors and unit-step ranges only.")
+    if length < 0 or length > MAX_INT64:
+        raise ValueError("Invalid DataEcon array length.")
+    if obj_type == 10:
+        _validate_vector_metadata(metadata)
+    else:
+        _validate_range_metadata(metadata)
+
+
+# Text markers Julia's loader resolves for a packed string vector. "String" is
+# the token Julia writes on an empty String vector, where it names the stored
+# element itself; the others are foreign and are preserved as stored.
+TEXT_MARKERS = ("String", "Symbol", "SubString{String}", "AbstractString")
+
+
+def split_text_payload(payload: bytes, length: int) -> tuple[bytes, ...]:
+    """Split an owned packed text payload into exactly ``length`` elements.
+
+    DataEcon packs text as NUL-terminated byte strings. The native unpacker
+    bounds only each element's start and then scans for NUL without a limit, so
+    a payload whose last element is unterminated would read past the buffer;
+    this function never calls it and validates the owned bytes in Python
+    instead. Julia ignores bytes after the last visited element; a payload with
+    unvisited trailing bytes is refused here so a rewrite stays exact.
+    """
+    if length == 0:
+        if payload:
+            raise ValueError("An empty DataEcon text vector must have an empty payload.")
+        return ()
+    if payload.count(b"\0") != length or not payload.endswith(b"\0"):
+        raise ValueError(
+            f"A DataEcon text vector of {length} elements needs exactly {length} NUL "
+            "terminators and no unvisited trailing bytes."
+        )
+    return tuple(payload.split(b"\0")[:length])
+
+
+def _text_marker(marker: str | None, object_marker: str | None) -> str | None:
+    if object_marker is not None:
+        raise TypeError(
+            "Whole-object reconstruction markers on DataEcon text vectors are not supported yet."
+        )
+    if marker is not None and marker not in TEXT_MARKERS:
+        raise TypeError(
+            f"Unsupported Julia reconstruction attribute {marker!r} for a text vector; "
+            "marker text is compared with a finite table and never evaluated."
+        )
+    return marker
+
+
+def _array_dtype(
+    element: int,
+    element_frequency: int,
+    length: int,
+    nbytes: int,
+    marker: str | None,
+    object_marker: str | None,
+) -> np.dtype[Any] | StoredElement:
+    """Resolve a plain array's element the way :func:`series_dtype` resolves a series."""
+    resolved = series_dtype(element, element_frequency, length, nbytes, marker, object_marker)
+    canonical_bool = (
+        element == KIND_INTEGER and not element_frequency and (not length or nbytes // length == 1)
     )
-    if isinstance(resolved, StoredElement):
-        raise TypeError("This DataEcon vector element representation is not supported yet.")
+    # A Bool marker that resolves to an ordinary dtype becomes Boolean values,
+    # which Julia writes as one signed byte. A Bool marker on a represented
+    # carrier resolves to a StoredElement instead and keeps its stored width
+    # under the approved wide-Bool preservation policy.
+    if (
+        marker == "Bool"
+        and object_marker is None
+        and not isinstance(resolved, StoredElement)
+        and not canonical_bool
+    ):
+        raise TypeError("A plain Boolean array requires the canonical one-byte signed encoding.")
     return resolved
 
 
 def validate_array_payload(
     metadata: Metadata, payload: bytes, marker: str | None, object_marker: str | None
-) -> np.dtype[Any] | None:
-    """Validate array metadata, finite markers and Boolean bytes without constructing output."""
+) -> np.dtype[Any] | StoredElement | None:
+    """Validate array metadata, finite markers and values without constructing output."""
     validate_array_metadata(metadata)
-    _, obj_type, element, _, _, length, _, _, _ = metadata
+    _, obj_type, element, element_freq, axis, length, frequency, _, _ = metadata
+    _interpret.check_marker_text(marker, "element")
     _interpret.check_marker_text(object_marker, "whole-object")
-    if object_marker is not None:
-        raise TypeError(
-            "Whole-object reconstruction markers are not supported for plain arrays yet."
-        )
     if obj_type == 11:
-        _, _, _, _, axis, _, frequency, _, _ = metadata
+        if object_marker is not None:
+            raise TypeError("Whole-object reconstruction markers on ranges are not supported.")
         expected = (
             "Int64" if axis == 0 else f"MIT{{{julia_frequency_name(scalar_frequency(frequency))}}}"
         )
         if marker is not None and (length or marker != expected):
             raise TypeError("Unsupported Julia reconstruction attribute for this range encoding.")
         return None
-    dtype = _array_dtype(element, length, len(payload), marker)
-    if marker == "Bool":
-        _interpret.check_bool(np.frombuffer(payload, dtype=dtype), _interpret.numeric_target(dtype))
-    return dtype
+    if element == KIND_STRING:
+        _text_marker(marker, object_marker)
+        split_text_payload(payload, length)
+        return None
+    resolved = _array_dtype(element, element_freq, length, len(payload), marker, object_marker)
+    if isinstance(resolved, StoredElement):
+        values = np.frombuffer(payload, dtype=resolved.dtype)
+        resolve_array_interpretation(values, resolved, object_marker)
+    elif marker == "Bool":
+        _interpret.check_bool(
+            np.frombuffer(payload, dtype=resolved), _interpret.numeric_target(resolved)
+        )
+    return resolved
 
 
-def encode_array(value: ArrayValue) -> ArrayPayload:
-    """Encode an ordinary one-dimensional ndarray or lossless unit-step range."""
+def _ordinary_array_entry(dtype: np.dtype[Any]) -> tuple[str, int]:
+    entry = next(
+        ((name, kind) for name, (kind, candidate) in _SERIES_TYPES.items() if candidate == dtype),
+        None,
+    )
+    # Windows longdouble can compare equal to float64; preserve the explicit rejection.
+    if entry is None or not dtype.isnative or dtype.char in ("g", "G"):
+        raise TypeError(
+            "DataEcon plain array support covers ordinary native-endian numeric and Boolean dtypes."
+        )
+    return entry
+
+
+def _ordinary_payload(values: np.ndarray[Any, Any], order: Literal["C", "F"]) -> bytes:
+    if values.dtype.kind == "b":
+        values = values.astype(np.int8)
+    return values.tobytes(order=order)
+
+
+def _check_text_capacity(total: int) -> None:
+    """Refuse an oversized text vector before its payload is assembled."""
+    if total > MAX_BYTES:
+        raise ValueError(
+            f"The packed text payload would need {total} bytes, above the "
+            f"{MAX_BYTES}-byte DataEcon limit."
+        )
+
+
+def _text_elements(value: Any) -> tuple[tuple[bytes, ...], str | None]:
+    if isinstance(value, StoredText):
+        _check_text_capacity(sum(len(item) for item in value.values) + len(value.values))
+        return value.values, value.marker
+    items = tuple(value)
+    if any(type(item) is not str for item in items):
+        raise TypeError("A DataEcon text vector takes plain Python strings.")
+    # Size the packed payload in Python integers and refuse it before encoding
+    # every element, so an oversized input never allocates the whole buffer.
+    total = 0
+    for item in items:
+        total += len(item.encode("utf-8")) + 1
+        _check_text_capacity(total)
+    encoded = tuple(item.encode("utf-8") for item in items)
+    if any(b"\0" in item for item in encoded):
+        raise ValueError(
+            "DataEcon packs text elements as NUL-separated bytes, so an element cannot "
+            "contain NUL; the element boundary itself would be lost. Julia's own writer "
+            "refuses these values too."
+        )
+    return encoded, None
+
+
+def _encode_ordinary_vector(value: np.ndarray[Any, Any]) -> ArrayPayload:
+    name, element = _ordinary_array_entry(value.dtype)
+    marker = (
+        name if name == "Bool" or (not len(value) and name != _SERIES_DEFAULTS[element]) else None
+    )
+    length, nbytes = len(value), value.nbytes
+    validate_array_metadata((2, 10, element, 0, 0, length, 0, 0, nbytes))
+    payload = _ordinary_payload(value, "C")
+    if len(payload) != nbytes:
+        raise ValueError("The array changed size during the snapshot; nothing was written.")
+    validate_array_payload(
+        (2, 10, element, 0, 0, length, 0, 0, len(payload)), payload, marker, None
+    )
+    return ArrayPayload(10, 0, 0, 0, payload, element, 0, length, marker, None)
+
+
+def _encode_stored_vector(value: StoredArray) -> ArrayPayload:
+    element = value.element
+    length = len(value)
+    marker = element.written_marker(length)
+    payload = value.values.tobytes(order="C")
+    if len(payload) != length * element.itemsize:
+        raise ValueError("The array changed size during the snapshot; nothing was written.")
+    metadata = (2, 10, element.native_kind, element.native_frequency, 0, length, 0, 0, len(payload))
+    resolved = validate_array_payload(metadata, payload, marker, value.object_marker)
+    if resolved != element:
+        raise ValueError(
+            "The snapshot no longer matches the container's stored element; nothing was written."
+        )
+    return ArrayPayload(
+        10,
+        0,
+        0,
+        0,
+        payload,
+        element.native_kind,
+        element.native_frequency,
+        length,
+        marker,
+        value.object_marker,
+    )
+
+
+def _encode_text_vector(value: StoredText | list[str] | tuple[str, ...]) -> ArrayPayload:
+    elements, marker = _text_elements(value)
+    if marker is not None and marker not in TEXT_MARKERS:
+        raise TypeError(f"Unsupported text reconstruction marker {marker!r}.")
+    length = len(elements)
+    # Julia writes the element token on every empty array; keep byte parity.
+    if marker is None and length == 0:
+        marker = "String"
+    payload = b"".join(item + b"\0" for item in elements)
+    metadata = (2, 10, KIND_STRING, 0, 0, length, 0, 0, len(payload))
+    validate_array_payload(metadata, payload, marker, None)
+    return ArrayPayload(10, 0, 0, 0, payload, KIND_STRING, 0, length, marker, None)
+
+
+def _encode_integer_range(value: range) -> ArrayPayload:
+    try:
+        length = len(value)
+    except OverflowError:
+        raise ValueError(
+            "The integer range length exceeds the native signed 64-bit range."
+        ) from None
+    if value.start != 1 or value.step != 1 or (not length and value.stop != 1):
+        raise ValueError(
+            "DataEcon preserves only an integer range's length; use range(1, stop) "
+            "for a lossless write."
+        )
+    return ArrayPayload(11, 0, 0, 0, b"", 0, 0, length, "Int64" if length == 0 else None, None)
+
+
+def _encode_date_range(value: MITRange) -> ArrayPayload:
+    if value.step != 1:
+        raise ValueError("DataEcon supports only unit-step MITRange values.")
+    try:
+        length = len(value)
+    except OverflowError:
+        raise ValueError("The MITRange length exceeds the native signed 64-bit range.") from None
+    frequency = scalar_frequency_code(value.frequency)
+    first = value.start.value
+    validate_array_metadata((2, 11, 0, 0, 1, length, frequency, first, 0))
+    marker = f"MIT{{{julia_frequency_name(value.frequency)}}}" if length == 0 else None
+    return ArrayPayload(11, 1, frequency, first, b"", 0, 0, length, marker, None)
+
+
+def encode_array(value: ArrayValue) -> ArrayPayload | MatrixPayload:
+    """Encode a plain array, text vector or lossless unit-step range."""
     if sys.byteorder != "little":
         raise RuntimeError(
             "DataEcon interchange is currently supported on little-endian hosts only."
         )
     if isinstance(value, np.ndarray):
+        if value.ndim == 2:
+            return _encode_plain_matrix(value)
         if value.ndim != 1:
-            raise ValueError("write_array requires a one-dimensional NumPy array.")
-        dtype = value.dtype
-        entry = next(
-            (
-                (name, kind)
-                for name, (kind, candidate) in _SERIES_TYPES.items()
-                if candidate == dtype
-            ),
-            None,
-        )
-        if entry is None or not dtype.isnative or dtype.char in ("g", "G"):
-            raise TypeError(
-                "DataEcon vector support covers ordinary native-endian numeric and Boolean dtypes."
-            )
-        name, element = entry
-        marker = (
-            name
-            if name == "Bool" or (not len(value) and name != _SERIES_DEFAULTS[element])
-            else None
-        )
-        values = value
-        length, nbytes = len(values), values.nbytes
-        validate_array_metadata((2, 10, element, 0, 0, length, 0, 0, nbytes))
-        if values.dtype.kind == "b":
-            values = values.astype(np.int8)
-        payload = values.tobytes(order="C")
-        if len(payload) != nbytes:
-            raise ValueError("The array changed size during the snapshot; nothing was written.")
-        _array_dtype(element, length, len(payload), marker)
-        return ArrayPayload(10, 0, 0, 0, payload, element, 0, length, marker, None)
+            raise ValueError("write_array requires a one- or two-dimensional NumPy array.")
+        return _encode_ordinary_vector(value)
+    if isinstance(value, StoredArray):
+        value.validate()
+        return _encode_stored_matrix(value) if value.ndim == 2 else _encode_stored_vector(value)
+    if isinstance(value, (StoredText, list, tuple)):
+        return _encode_text_vector(value)
     if type(value) is range:
-        try:
-            length = len(value)
-        except OverflowError:
-            raise ValueError(
-                "The integer range length exceeds the native signed 64-bit range."
-            ) from None
-        if value.start != 1 or value.step != 1 or (not length and value.stop != 1):
-            raise ValueError(
-                "DataEcon preserves only an integer range's length; use range(1, stop) "
-                "for a lossless write."
-            )
-        marker = "Int64" if length == 0 else None
-        return ArrayPayload(11, 0, 0, 0, b"", 0, 0, length, marker, None)
+        return _encode_integer_range(value)
     if isinstance(value, MITRange):
-        if value.step != 1:
-            raise ValueError("DataEcon supports only unit-step MITRange values.")
-        try:
-            length = len(value)
-        except OverflowError:
-            raise ValueError(
-                "The MITRange length exceeds the native signed 64-bit range."
-            ) from None
-        frequency = scalar_frequency_code(value.frequency)
-        first = value.start.value
-        validate_array_metadata((2, 11, 0, 0, 1, length, frequency, first, 0))
-        marker = f"MIT{{{julia_frequency_name(value.frequency)}}}" if length == 0 else None
-        return ArrayPayload(11, 1, frequency, first, b"", 0, 0, length, marker, None)
-    raise TypeError("write_array requires a one-dimensional NumPy array, range or MITRange.")
+        return _encode_date_range(value)
+    raise TypeError(
+        "write_array requires a NumPy array, StoredArray, text sequence, StoredText, "
+        "range or MITRange."
+    )
 
 
 def decode_array(
-    metadata: Metadata, payload: bytes, marker: str | None, object_marker: str | None
+    metadata: Metadata | MatrixMetadata,
+    payload: bytes,
+    marker: str | None,
+    object_marker: str | None,
+    names: str | None = None,
 ) -> ArrayValue:
-    """Decode an owning plain vector or a lossless range representation."""
-    dtype = validate_array_payload(metadata, payload, marker, object_marker)
-    _, obj_type, _, _, axis, length, frequency, first, _ = metadata
+    """Decode an owning plain array, text vector or lossless range representation."""
+    if len(metadata) == 13:
+        result = decode_matrix(metadata, payload, marker, object_marker, names)
+        if isinstance(result, MVTSeries):
+            raise TypeError("This object is an MVTSeries; read it with read_series.")
+        return result
+    metadata = cast("Metadata", metadata)
+    resolved = validate_array_payload(metadata, payload, marker, object_marker)
+    _, obj_type, element, _, axis, length, frequency, first, _ = metadata
     if obj_type == 11:
-        if axis == 0:
-            return range(1, length + 1)
-        start = MIT(scalar_frequency(frequency), first)
-        return MITRange(start, MIT(start.frequency, first + length - 1))
-    assert dtype is not None
-    values = np.frombuffer(payload, dtype=dtype)
+        return _decode_range(axis, length, frequency, first)
+    if element == KIND_STRING:
+        return _decode_text(payload, length, marker)
+    if isinstance(resolved, StoredElement):
+        values = np.frombuffer(payload, dtype=resolved.dtype).copy()
+        return StoredArray(values, resolved, copy=False, object_marker=object_marker)
+    assert resolved is not None
+    values = np.frombuffer(payload, dtype=resolved)
     if marker == "Bool":
         return np.array(values == 1, dtype=bool)
     return values.copy()
+
+
+def _decode_range(axis: int, length: int, frequency: int, first: int) -> range | MITRange:
+    if axis == 0:
+        return range(1, length + 1)
+    start = MIT(scalar_frequency(frequency), first)
+    return MITRange(start, MIT(start.frequency, first + length - 1))
+
+
+def _decode_text(payload: bytes, length: int, marker: str | None) -> list[str] | StoredText:
+    """Ordinary decodable text returns plain strings; anything else keeps its bytes.
+
+    Julia writes ``jeltype = "String"`` only on an *empty* text vector, where it
+    merely repeats the stored element, so that token is canonical and dropped.
+    A nonempty vector carrying the same token is a foreign marker no Julia
+    writer produces, and the preservation policy keeps it literally.
+    """
+    elements = split_text_payload(payload, length)
+    canonical = marker == "String" and not length
+    stored = StoredText(elements, None if canonical else marker)
+    if stored.marker is None and stored.is_text:
+        return stored.tolist()
+    return stored
+
+
+def _owned(values: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+    """Return independent, writable, C-ordered storage for a decoded array.
+
+    `np.ascontiguousarray` is not enough: a Fortran-shaped view of the read-only
+    payload buffer is already C-contiguous whenever a dimension is one or zero,
+    and would be handed back unchanged and immutable. Reads always own their
+    result, so the copy is unconditional.
+    """
+    return np.array(values, copy=True, order="C")
+
+
+# ---- two-dimensional objects ----------------------------------------------
+
+
+def validate_matrix_metadata(metadata: MatrixMetadata) -> None:
+    """Validate a plain matrix or MVTSeries before any value pointer is read."""
+    (
+        cls,
+        obj_type,
+        element,
+        element_freq,
+        ax1_type,
+        rows,
+        ax1_freq,
+        ax1_first,
+        ax2_type,
+        columns,
+        ax2_freq,
+        ax2_first,
+        nbytes,
+    ) = metadata
+    if cls != 3 or obj_type not in (20, 21):
+        raise TypeError(_MATRIX_SUPPORT)
+    if rows < 0 or columns < 0:
+        raise ValueError("Invalid negative DataEcon matrix dimension.")
+    if element == KIND_STRING:
+        raise TypeError("Two-dimensional DataEcon text objects are not supported yet.")
+    widths = _series_widths(element, element_freq)
+    if (ax2_freq, ax2_first) != (0, 0):
+        raise TypeError("A DataEcon matrix column axis carries no frequency or first date.")
+    if obj_type == 20:
+        if (ax1_type, ax2_type, ax1_freq, ax1_first) != (0, 0, 0, 0):
+            raise TypeError("A plain DataEcon matrix must have two plain axes.")
+    else:
+        if (ax1_type, ax2_type) != (1, 2):
+            raise TypeError("An MVTSeries must have a dated row axis and a named column axis.")
+        series_frequency(ax1_freq)
+        _check_range_axis(ax1_freq, ax1_first, rows)
+    if rows and columns > MAX_INT64 // rows:
+        raise ValueError("The DataEcon matrix element count exceeds the signed 64-bit range.")
+    size = rows * columns
+    if not 0 <= nbytes <= MAX_BYTES or (not size and nbytes):
+        raise ValueError("Invalid or oversized DataEcon matrix payload.")
+    if size and (nbytes % size or nbytes // size not in widths):
+        raise ValueError("Invalid DataEcon matrix element width or payload length.")
+
+
+def split_names(names: str | None, columns: int) -> tuple[str, ...]:
+    """Split a names axis into exactly ``columns`` distinct column names.
+
+    DataEcon joins column names with a newline and stores them as one
+    NUL-terminated C string, so a name can contain neither a newline (the
+    separator) nor NUL (the terminator). Julia raises when the entry count
+    disagrees with the column count; a zero-column MVTSeries is unrepresentable
+    because the empty string still splits into one name. Python's MVTSeries
+    keys its columns by name, so duplicates would silently collapse and are
+    refused rather than read back as a shorter object.
+    """
+    if names is None:
+        raise TypeError("An MVTSeries needs a named column axis.")
+    if columns == 0:
+        raise TypeError(
+            "A DataEcon names axis cannot encode zero columns; the empty names string "
+            "still splits into one name."
+        )
+    parts = tuple(names.split("\n"))
+    if len(parts) != columns:
+        raise ValueError(f"The DataEcon names axis holds {len(parts)} names for {columns} columns.")
+    if len(set(parts)) != len(parts):
+        raise ValueError(
+            "The DataEcon names axis holds duplicate column names, which an MVTSeries "
+            "cannot represent."
+        )
+    return parts
+
+
+def join_names(names: Any) -> str:
+    """Join validated column names into the native names axis encoding."""
+    parts = [str(name) for name in names]
+    if not parts:
+        raise ValueError(
+            "DataEcon cannot store an MVTSeries with no columns; the names axis has no "
+            "encoding for zero names."
+        )
+    for name in parts:
+        if "\n" in name:
+            raise ValueError(
+                "A DataEcon column name cannot contain a newline; it separates the names."
+            )
+        if "\0" in name:
+            raise ValueError(
+                "A DataEcon column name cannot contain NUL; the names axis is stored as a "
+                "NUL-terminated string and would be truncated."
+            )
+    if len(set(parts)) != len(parts):
+        raise ValueError("DataEcon column names must be distinct.")
+    return "\n".join(parts)
+
+
+def validate_matrix_payload(
+    metadata: MatrixMetadata,
+    payload: bytes,
+    marker: str | None,
+    object_marker: str | None,
+    names: str | None = None,
+) -> np.dtype[Any] | StoredElement:
+    """Validate matrix metadata, names, finite markers and values."""
+    validate_matrix_metadata(metadata)
+    _, obj_type, element, element_freq, _, rows, _, _, _, columns, _, _, _ = metadata
+    _interpret.check_marker_text(marker, "element")
+    _interpret.check_marker_text(object_marker, "whole-object")
+    if obj_type == 21:
+        split_names(names, columns)
+    elif names is not None:
+        raise TypeError("A plain DataEcon matrix has no column names.")
+    size = rows * columns
+    resolved = _array_dtype(element, element_freq, size, len(payload), marker, object_marker)
+    if isinstance(resolved, StoredElement):
+        values = np.frombuffer(payload, dtype=resolved.dtype)
+        resolve_array_interpretation(
+            values.reshape((rows, columns), order="F"), resolved, object_marker
+        )
+    elif marker == "Bool":
+        _interpret.check_bool(
+            np.frombuffer(payload, dtype=resolved), _interpret.numeric_target(resolved)
+        )
+    return resolved
+
+
+def _encode_plain_matrix(value: np.ndarray[Any, Any]) -> MatrixPayload:
+    name, element = _ordinary_array_entry(value.dtype)
+    rows, columns = (int(n) for n in value.shape)
+    marker = (
+        name if name == "Bool" or (not value.size and name != _SERIES_DEFAULTS[element]) else None
+    )
+    metadata = (3, 20, element, 0, 0, rows, 0, 0, 0, columns, 0, 0, value.nbytes)
+    validate_matrix_metadata(metadata)
+    payload = _ordinary_payload(value, "F")
+    if len(payload) != value.nbytes:
+        raise ValueError("The matrix changed size during the snapshot; nothing was written.")
+    stored = (3, 20, element, 0, 0, rows, 0, 0, 0, columns, 0, 0, len(payload))
+    validate_matrix_payload(stored, payload, marker, None)
+    return MatrixPayload(20, element, 0, 0, rows, 0, 0, columns, None, payload, marker, None)
+
+
+def _encode_stored_matrix(value: StoredArray) -> MatrixPayload:
+    element = value.element
+    rows, columns = value.shape
+    marker = element.written_marker(rows * columns)
+    payload = value.values.tobytes(order="F")
+    if len(payload) != rows * columns * element.itemsize:
+        raise ValueError("The matrix changed size during the snapshot; nothing was written.")
+    metadata = (
+        3,
+        20,
+        element.native_kind,
+        element.native_frequency,
+        0,
+        rows,
+        0,
+        0,
+        0,
+        columns,
+        0,
+        0,
+        len(payload),
+    )
+    resolved = validate_matrix_payload(metadata, payload, marker, value.object_marker)
+    if resolved != element:
+        raise ValueError(
+            "The snapshot no longer matches the container's stored element; nothing was written."
+        )
+    return MatrixPayload(
+        20,
+        element.native_kind,
+        element.native_frequency,
+        0,
+        rows,
+        0,
+        0,
+        columns,
+        None,
+        payload,
+        marker,
+        value.object_marker,
+    )
+
+
+def encode_mvtseries(series: MVTSeries) -> MatrixPayload:
+    """Encode an ordinary numeric or Boolean MVTSeries into its native payload."""
+    if sys.byteorder != "little":
+        raise RuntimeError(
+            "DataEcon interchange is currently supported on little-endian hosts only."
+        )
+    code = next(
+        (code for code, freq in _SERIES_FREQUENCIES.items() if freq == series.frequency), None
+    )
+    if code is None:
+        raise TypeError(_MATRIX_SUPPORT)
+    values = series.values
+    name, element = _ordinary_array_entry(values.dtype)
+    rows, columns = (int(n) for n in values.shape)
+    names = join_names(series.columns)
+    first = series.firstdate.value
+    marker = (
+        name if name == "Bool" or (not values.size and name != _SERIES_DEFAULTS[element]) else None
+    )
+    metadata = (3, 21, element, 0, 1, rows, code, first, 2, columns, 0, 0, values.nbytes)
+    validate_matrix_metadata(metadata)
+    payload = _ordinary_payload(values, "F")
+    if len(payload) != values.nbytes:
+        raise ValueError("The MVTSeries changed size during the snapshot; nothing was written.")
+    stored = (3, 21, element, 0, 1, rows, code, first, 2, columns, 0, 0, len(payload))
+    validate_matrix_payload(stored, payload, marker, None, names)
+    return MatrixPayload(
+        21, element, 0, 1, rows, code, first, columns, names, payload, marker, None
+    )
+
+
+def decode_matrix(
+    metadata: MatrixMetadata,
+    payload: bytes,
+    marker: str | None,
+    object_marker: str | None,
+    names: str | None = None,
+) -> np.ndarray[Any, Any] | StoredArray | MVTSeries:
+    """Decode an owning matrix or MVTSeries from a column-major payload."""
+    if sys.byteorder != "little":
+        raise RuntimeError(
+            "DataEcon interchange is currently supported on little-endian hosts only."
+        )
+    resolved = validate_matrix_payload(metadata, payload, marker, object_marker, names)
+    _, obj_type, _, _, _, rows, frequency, first, _, columns, _, _, _ = metadata
+    shape = (rows, columns)
+    if isinstance(resolved, StoredElement):
+        if obj_type == 21:
+            raise TypeError(
+                "Represented MVTSeries element families are not supported yet; the stored "
+                "object keeps its element kind, bytes and markers."
+            )
+        values = np.frombuffer(payload, dtype=resolved.dtype).reshape(shape, order="F")
+        return StoredArray(_owned(values), resolved, copy=False, object_marker=object_marker)
+    values = np.frombuffer(payload, dtype=resolved).reshape(shape, order="F")
+    result = _owned(values == 1) if marker == "Bool" else _owned(values)
+    if obj_type == 20:
+        return result
+    anchor = MIT(series_frequency(frequency), first)
+    return MVTSeries(anchor, list(split_names(names, columns)), result, copy=False)

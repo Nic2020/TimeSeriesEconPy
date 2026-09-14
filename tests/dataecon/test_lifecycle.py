@@ -111,9 +111,19 @@ def test_invalid_open_never_reaches_native(path, mode, exception, monkeypatch):
 
 @pytest.mark.parametrize(
     ("name", "exception"),
-    [("", ValueError), ("a/b", ValueError), ("a\0b", ValueError), (1, TypeError)],
+    [
+        ("", ValueError),
+        ("/", ValueError),
+        ("a//b", ValueError),
+        ("a/", ValueError),
+        ("a/ /b", ValueError),
+        ("a\0b", ValueError),
+        (1, TypeError),
+    ],
 )
 def test_invalid_name(owner, name, exception):
+    # "a/b" is a nested catalog path since the catalog slice; only the root,
+    # empty/blank components and NUL are refused before the native lookup.
     db, _ = owner
     with db, pytest.raises(exception):
         db.read_series(name)

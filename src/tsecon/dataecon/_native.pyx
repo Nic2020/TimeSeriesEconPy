@@ -32,6 +32,7 @@ cdef extern from "daec.h":
     ctypedef int64_t date_t
     ctypedef enum class_t:
         class_catalog
+        class_scalar
         class_tseries
         class_matrix
         class_tensor
@@ -72,7 +73,9 @@ cdef extern from "daec.h":
         DE_OBJ_DNE
         DE_EXISTS
         DE_MIS_ATTR
+        DE_NO_OBJ
         DE_MAX_AXES
+    ctypedef void *de_search
     ctypedef struct object_t:
         obj_id_t id
         obj_id_t pid
@@ -130,6 +133,14 @@ cdef extern from "daec.h":
     int de_find_object(de_file, obj_id_t, const char *, obj_id_t *)
     int de_get_attribute(de_file, obj_id_t, const char *, const char **)
     int de_set_attribute(de_file, obj_id_t, const char *, const char *)
+    int de_get_all_attributes(de_file, obj_id_t, const char *, int64_t *,
+                              const char **, const char **)
+    int de_get_object_info(de_file, obj_id_t, const char **, int64_t *, int64_t *)
+    int de_find_fullpath(de_file, const char *, obj_id_t *)
+    int de_new_catalog(de_file, obj_id_t, const char *, obj_id_t *)
+    int de_list_catalog(de_file, obj_id_t, de_search *)
+    int de_next_object(de_search, object_t *)
+    int de_finalize_search(de_search)
     int de_pack_year_period_date(frequency_t, int32_t, uint32_t, date_t *)
     int de_unpack_year_period_date(frequency_t, date_t, int32_t *, uint32_t *)
     int de_pack_calendar_date(frequency_t, int32_t, uint32_t, uint32_t, date_t *)
@@ -350,6 +361,32 @@ cdef class FileHandle:
                 de_clear_error()
             self.handle = NULL
 
+    cdef obj_id_t resolve_path(self, bytes encoded, str path, object_t *obj) except? -1:
+        # Caller owns the native lock. `encoded` is a normalized full path
+        # ("/" for the root, otherwise "/a/b" without empty components, as
+        # validated in Python). de_find_fullpath is an exact string match; the
+        # object row is loaded so the caller can dispatch on its class. The
+        # borrowed name pointer in *obj is valid only until the next call.
+        cdef obj_id_t oid = 0
+        if encoded != b"/":
+            check(de_find_fullpath(self.handle, encoded, &oid), "find", self.path, path)
+        memset(obj, 0, sizeof(object_t))
+        check(de_load_object(self.handle, oid, obj), "find", self.path, path)
+        return oid
+
+    cdef obj_id_t resolve_catalog(self, str parent, str name) except? -1:
+        # Caller owns the native lock. Resolves the parent catalog of a write:
+        # it must exist (DE_OBJ_DNE names the parent path) and be a catalog.
+        # Julia stores under a scalar by accident and can then never list the
+        # result; Python refuses that before any native store.
+        cdef object_t obj
+        cdef obj_id_t pid = self.resolve_path(parent.encode("utf-8"), parent, &obj)
+        if obj.obj_class != class_catalog:
+            raise ValueError(
+                f"Cannot store {name!r} under {parent!r}: the parent is not a catalog."
+            )
+        return pid
+
     cdef tuple load_matrix(self, obj_id_t oid, str name):
         # Caller owns the native lock and has already found the object. The
         # borrowed payload and names pointer are copied into Python objects
@@ -446,17 +483,15 @@ cdef class FileHandle:
         return payload, metadata, loaded_name, marker, object_marker, None
 
     cdef obj_id_t locate(self, bytes encoded, str name, int *obj_class) except? -1:
-        # One find plus one object load decides which loader applies, so a
-        # two-dimensional object never reaches de_load_tseries.
-        cdef obj_id_t oid = 0
+        # One full-path find plus one object load decides which loader applies,
+        # so a two-dimensional object never reaches de_load_tseries.
         cdef object_t obj
-        check(de_find_object(self.handle, 0, encoded, &oid), "find", self.path, name)
-        memset(&obj, 0, sizeof(obj))
-        check(de_load_object(self.handle, oid, &obj), "find", self.path, name)
+        cdef obj_id_t oid = self.resolve_path(encoded, name, &obj)
         obj_class[0] = int(obj.obj_class)
         return oid
 
     def read(self, str name):
+        # name is the normalized full path of the object (validated in Python).
         cdef bytes encoded = name.encode("utf-8")
         cdef obj_id_t oid = 0
         cdef tseries_t ts
@@ -464,8 +499,8 @@ cdef class FileHandle:
         cdef bytes key
         cdef int rc
         cdef int obj_class = 0
-        if not encoded or b"/" in encoded or b"\0" in encoded:
-            raise ValueError("Expected a nonempty root object name without '/' or NUL.")
+        if not encoded.startswith(b"/") or b"\0" in encoded:
+            raise ValueError("Expected a normalized full object path.")
         with _lock:
             self.require_open()
             oid = self.locate(encoded, name, &obj_class)
@@ -523,6 +558,7 @@ cdef class FileHandle:
             return payload, metadata, loaded_name, marker, object_marker, None
 
     def read_array(self, str name):
+        # name is the normalized full path of the object (validated in Python).
         cdef bytes encoded = name.encode("utf-8")
         cdef obj_id_t oid = 0
         cdef tseries_t ts
@@ -530,8 +566,8 @@ cdef class FileHandle:
         cdef bytes key
         cdef int rc
         cdef int obj_class = 0
-        if not encoded or b"/" in encoded or b"\0" in encoded:
-            raise ValueError("Expected a nonempty root object name without '/' or NUL.")
+        if not encoded.startswith(b"/") or b"\0" in encoded:
+            raise ValueError("Expected a normalized full object path.")
         with _lock:
             self.require_open()
             oid = self.locate(encoded, name, &obj_class)
@@ -588,12 +624,14 @@ cdef class FileHandle:
         check(de_delete_object(self.handle, oid), operation, self.path, name)
 
     def write(self, str name, frequency, first, bytes payload, bint overwrite,
-              element, element_frequency, length, marker, object_marker=None):
+              element, element_frequency, length, marker, object_marker=None,
+              str parent="/"):
         # first is the native date code of the first observation (the axis
         # anchor for an empty series). validate_metadata bounds it to the
         # reliable range of its frequency before it is narrowed to date_t.
         cdef bytes encoded = name.encode("utf-8")
         cdef obj_id_t oid = 0
+        cdef obj_id_t pid = 0
         cdef axis_id_t axis = 0
         cdef date_t native_first = 0
         cdef frequency_t freq
@@ -637,7 +675,8 @@ cdef class FileHandle:
         native_element_frequency = <frequency_t><uint32_t>element_frequency
         with _lock:
             self.require_open()
-            rc = de_find_object(self.handle, 0, encoded, &oid)
+            pid = self.resolve_catalog(parent, name)
+            rc = de_find_object(self.handle, pid, encoded, &oid)
             if rc == DE_SUCCESS:
                 if not overwrite:
                     raise DataEconError(DE_EXISTS, "write", self.path,
@@ -658,7 +697,7 @@ cdef class FileHandle:
                   "axis", self.path, name)
             if length > 0:
                 value = <const char *>payload
-            check(de_store_tseries(self.handle, 0, encoded, type_tseries, native_element,
+            check(de_store_tseries(self.handle, pid, encoded, type_tseries, native_element,
                                   native_element_frequency, axis, len(payload), value, &oid),
                   "write (overwrite; original deleted, partial replacement may remain)"
                   if existing else "write (partial object may remain)", self.path, name)
@@ -676,9 +715,10 @@ cdef class FileHandle:
 
     def write_array(self, str name, object_type, axis_type, frequency, first,
                     bytes payload, bint overwrite, element, element_frequency,
-                    length, marker, object_marker=None):
+                    length, marker, object_marker=None, str parent="/"):
         cdef bytes encoded = name.encode("utf-8")
         cdef obj_id_t oid = 0
+        cdef obj_id_t pid = 0
         cdef axis_id_t axis = 0
         cdef frequency_t freq
         cdef int rc
@@ -702,7 +742,8 @@ cdef class FileHandle:
         freq = <frequency_t><uint32_t>frequency
         with _lock:
             self.require_open()
-            rc = de_find_object(self.handle, 0, encoded, &oid)
+            pid = self.resolve_catalog(parent, name)
+            rc = de_find_object(self.handle, pid, encoded, &oid)
             if rc == DE_SUCCESS:
                 if not overwrite:
                     raise DataEconError(DE_EXISTS, "write array", self.path,
@@ -722,7 +763,7 @@ cdef class FileHandle:
                 check(de_axis_plain(self.handle, length, &axis), "array axis", self.path, name)
             if len(payload) > 0:
                 value = <const char *>payload
-            check(de_store_tseries(self.handle, 0, encoded, <type_t><uint32_t>object_type,
+            check(de_store_tseries(self.handle, pid, encoded, <type_t><uint32_t>object_type,
                                    <type_t><uint32_t>element,
                                    <frequency_t><uint32_t>element_frequency,
                                    axis, len(payload), value, &oid),
@@ -740,10 +781,12 @@ cdef class FileHandle:
 
     def write_matrix(self, str name, object_type, element, element_frequency,
                      axis1_type, rows, frequency, first, columns, names,
-                     bytes payload, bint overwrite, marker, object_marker=None):
+                     bytes payload, bint overwrite, marker, object_marker=None,
+                     str parent="/"):
         cdef bytes encoded = name.encode("utf-8")
         cdef bytes encoded_names
         cdef obj_id_t oid = 0
+        cdef obj_id_t pid = 0
         cdef axis_id_t axis1 = 0
         cdef axis_id_t axis2 = 0
         cdef frequency_t freq
@@ -776,7 +819,8 @@ cdef class FileHandle:
         freq = <frequency_t><uint32_t>frequency
         with _lock:
             self.require_open()
-            rc = de_find_object(self.handle, 0, encoded, &oid)
+            pid = self.resolve_catalog(parent, name)
+            rc = de_find_object(self.handle, pid, encoded, &oid)
             if rc == DE_SUCCESS:
                 if not overwrite:
                     raise DataEconError(DE_EXISTS, "write matrix", self.path,
@@ -806,7 +850,7 @@ cdef class FileHandle:
                       "matrix column axis", self.path, name)
             if len(payload) > 0:
                 value = <const char *>payload
-            check(de_store_mvtseries(self.handle, 0, encoded, <type_t><uint32_t>object_type,
+            check(de_store_mvtseries(self.handle, pid, encoded, <type_t><uint32_t>object_type,
                                      <type_t><uint32_t>element,
                                      <frequency_t><uint32_t>element_frequency,
                                      axis1, axis2, len(payload), value, &oid),
@@ -822,9 +866,11 @@ cdef class FileHandle:
                       "active; no rollback)", self.path, name)
 
     def write_tensor(self, str name, object_type, element, element_frequency, shape,
-                     bytes payload, bint overwrite, marker, object_marker=None):
+                     bytes payload, bint overwrite, marker, object_marker=None,
+                     str parent="/"):
         cdef bytes encoded = name.encode("utf-8")
         cdef obj_id_t oid = 0
+        cdef obj_id_t pid = 0
         cdef axis_id_t axes[5]
         cdef int64_t naxes
         cdef int i
@@ -853,7 +899,8 @@ cdef class FileHandle:
         memset(axes, 0, sizeof(axes))
         with _lock:
             self.require_open()
-            rc = de_find_object(self.handle, 0, encoded, &oid)
+            pid = self.resolve_catalog(parent, name)
+            rc = de_find_object(self.handle, pid, encoded, &oid)
             if rc == DE_SUCCESS:
                 if not overwrite:
                     raise DataEconError(DE_EXISTS, "write tensor", self.path,
@@ -870,7 +917,7 @@ cdef class FileHandle:
                       "tensor axis", self.path, name)
             if len(payload) > 0:
                 value = <const char *>payload
-            check(de_store_ndtseries(self.handle, 0, encoded, type_tensor,
+            check(de_store_ndtseries(self.handle, pid, encoded, type_tensor,
                                      <type_t><uint32_t>element,
                                      <frequency_t><uint32_t>element_frequency,
                                      naxes, axes, len(payload), value, &oid),
@@ -886,6 +933,7 @@ cdef class FileHandle:
                       "active; no rollback)", self.path, name)
 
     def read_scalar(self, str name):
+        # name is the normalized full path of the object (validated in Python).
         cdef bytes encoded = name.encode("utf-8")
         cdef obj_id_t oid = 0
         cdef scalar_t scal
@@ -893,11 +941,12 @@ cdef class FileHandle:
         cdef bytes key
         cdef int rc
         cdef int64_t code
-        if not encoded or b"/" in encoded or b"\0" in encoded:
-            raise ValueError("Expected a nonempty root object name without '/' or NUL.")
+        cdef object_t obj
+        if not encoded.startswith(b"/") or b"\0" in encoded:
+            raise ValueError("Expected a normalized full object path.")
         with _lock:
             self.require_open()
-            check(de_find_object(self.handle, 0, encoded, &oid), "find", self.path, name)
+            oid = self.resolve_path(encoded, name, &obj)
             memset(&scal, 0, sizeof(scal))
             check(de_load_scalar(self.handle, oid, &scal), "read_scalar", self.path, name)
             metadata = (int(scal.object.obj_class), int(scal.object.obj_type),
@@ -926,7 +975,8 @@ cdef class FileHandle:
                     raise TypeError("Scalar reconstruction attributes are not supported.")
             return payload, metadata, loaded_name
 
-    def write_scalar(self, str name, int kind, frequency, bytes payload, bint overwrite=False):
+    def write_scalar(self, str name, int kind, frequency, bytes payload, bint overwrite=False,
+                     str parent="/"):
         # kind is the validated native scalar type code: 1 (signed integer at a
         # validated width, or a Duration when frequency is nonzero), 2 (unsigned
         # integer), 3 (MIT date), 4 (float at a validated width), 5 (complex) or
@@ -934,6 +984,7 @@ cdef class FileHandle:
         # year/period codes. validate_scalar_metadata bounds every payload width.
         cdef bytes encoded = name.encode("utf-8")
         cdef obj_id_t oid = 0
+        cdef obj_id_t pid = 0
         cdef int rc
         cdef type_t native_type
         cdef frequency_t freq
@@ -965,7 +1016,8 @@ cdef class FileHandle:
         freq = <frequency_t><uint32_t>frequency
         with _lock:
             self.require_open()
-            rc = de_find_object(self.handle, 0, encoded, &oid)
+            pid = self.resolve_catalog(parent, name)
+            rc = de_find_object(self.handle, pid, encoded, &oid)
             if rc == DE_SUCCESS:
                 if not overwrite:
                     raise DataEconError(DE_EXISTS, "write_scalar", self.path,
@@ -979,26 +1031,28 @@ cdef class FileHandle:
             if existing:
                 # Every validation of the new value is complete; delete only now.
                 self.replace_existing(oid, "write_scalar (overwrite)", name)
-            check(de_store_scalar(self.handle, 0, encoded, native_type, freq,
+            check(de_store_scalar(self.handle, pid, encoded, native_type, freq,
                                   len(payload), <const char *>payload, &oid),
                   "write_scalar (overwrite; original deleted, partial replacement may remain)"
                   if existing else "write_scalar (partial object may remain)", self.path, name)
 
     def delete(self, str name, bint recursive=False):
-        # Delete one root object. A catalog is refused unless recursive is set:
-        # the native DELETE cascades through every nested catalog and object.
-        # A missing name is DE_OBJ_DNE from the lookup (the native delete itself
-        # would silently succeed for a stale id). Axes are not objects and stay.
+        # Delete one object by full path. A catalog is refused unless recursive
+        # is set: the native DELETE cascades through every nested catalog and
+        # object. A missing path is DE_OBJ_DNE from the lookup (the native
+        # delete itself would silently succeed for a stale id). The root is
+        # refused here as well as in Python (natively DE_DEL_ROOT). Axes are
+        # not objects and stay.
         cdef bytes encoded = name.encode("utf-8")
         cdef obj_id_t oid = 0
         cdef object_t obj
-        if not encoded or b"/" in encoded or b"\0" in encoded:
-            raise ValueError("Expected a nonempty root object name without '/' or NUL.")
+        if not encoded.startswith(b"/") or b"\0" in encoded:
+            raise ValueError("Expected a normalized full object path.")
         with _lock:
             self.require_open()
-            check(de_find_object(self.handle, 0, encoded, &oid), "find", self.path, name)
-            memset(&obj, 0, sizeof(obj))
-            check(de_load_object(self.handle, oid, &obj), "find", self.path, name)
+            oid = self.resolve_path(encoded, name, &obj)
+            if oid == 0:
+                raise ValueError("The root catalog cannot be deleted; use truncate().")
             if obj.obj_class == class_catalog and not recursive:
                 raise ValueError(
                     "Object is a catalog; pass recursive=True to delete it and everything "
@@ -1022,11 +1076,249 @@ cdef class FileHandle:
                 self.state = 2
             check(rc, "truncate", self.path)
 
-    def catalog_size(self):
-        # Number of objects directly under the root catalog (native subtracts
-        # the root's self-reference). Zero means the file is empty.
+    def catalog_size(self, str path="/"):
+        # Number of objects directly inside a catalog (native subtracts the
+        # root's self-reference). Zero at the root means the file is empty. A
+        # non-catalog is refused: natively its children would be counted.
+        cdef bytes encoded = path.encode("utf-8")
         cdef int64_t count = 0
+        cdef object_t obj
+        cdef obj_id_t oid
+        if not encoded.startswith(b"/") or b"\0" in encoded:
+            raise ValueError("Expected a normalized full object path.")
         with _lock:
             self.require_open()
-            check(de_catalog_size(self.handle, 0, &count), "catalog_size", self.path)
+            oid = self.resolve_path(encoded, path, &obj)
+            if obj.obj_class != class_catalog:
+                raise ValueError(f"{path!r} is not a catalog.")
+            check(de_catalog_size(self.handle, oid, &count), "catalog_size", self.path, path)
             return int(count)
+
+    cdef tuple describe(self, obj_id_t oid, object_t *obj, str path):
+        # Caller owns the native lock and has just loaded *obj. The borrowed
+        # name is copied before de_get_object_info, whose fullpath is copied
+        # before anything else. A real fullpath pointer is always passed: for
+        # id 0 the library writes "/" through it even when it is NULL.
+        cdef const char *fullpath = NULL
+        cdef int64_t depth = 0
+        cdef int64_t created = 0
+        if obj.name == NULL:
+            raise ValueError("DataEcon returned a NULL object name.")
+        name = (<bytes>obj.name).decode("utf-8")
+        row = (int(obj.id), int(obj.pid), int(obj.obj_class), int(obj.obj_type), name)
+        check(de_get_object_info(self.handle, oid, &fullpath, &depth, &created),
+              "object_info", self.path, path)
+        if fullpath == NULL:
+            raise ValueError("DataEcon returned a NULL object path.")
+        return (*row, (<bytes>fullpath).decode("utf-8"), int(depth), int(created))
+
+    def describe_path(self, str path):
+        # (id, parent id, class, type, name, fullpath, depth, created) of one
+        # object by full path; DE_OBJ_DNE when missing.
+        cdef bytes encoded = path.encode("utf-8")
+        cdef object_t obj
+        cdef obj_id_t oid
+        if not encoded.startswith(b"/") or b"\0" in encoded:
+            raise ValueError("Expected a normalized full object path.")
+        with _lock:
+            self.require_open()
+            oid = self.resolve_path(encoded, path, &obj)
+            return self.describe(oid, &obj, path)
+
+    def describe_id(self, object_id):
+        # The same record by object id (the explicit advanced interface).
+        cdef object_t obj
+        cdef obj_id_t oid
+        if type(object_id) is not int:
+            raise TypeError("DataEcon object ids are integers.")
+        if not 0 <= object_id <= 0x7FFFFFFFFFFFFFFF:
+            # A negative id is the native list-everything capacity; never pass it.
+            raise ValueError("DataEcon object ids are nonnegative 64-bit integers.")
+        oid = object_id
+        with _lock:
+            self.require_open()
+            memset(&obj, 0, sizeof(obj))
+            check(de_load_object(self.handle, oid, &obj), "find", self.path, str(object_id))
+            return self.describe(oid, &obj, str(object_id))
+
+    def exists(self, str path):
+        cdef bytes encoded = path.encode("utf-8")
+        cdef obj_id_t oid = 0
+        cdef int rc
+        if not encoded.startswith(b"/") or b"\0" in encoded:
+            raise ValueError("Expected a normalized full object path.")
+        if encoded == b"/":
+            return True
+        with _lock:
+            self.require_open()
+            rc = de_find_fullpath(self.handle, encoded, &oid)
+            if rc == DE_OBJ_DNE:
+                de_clear_error()
+                return False
+            check(rc, "find", self.path, path)
+            return True
+
+    def new_catalog(self, str name, str parent="/"):
+        # Create one catalog under an existing catalog. DE_EXISTS for any
+        # existing name; the name rule was checked in Python (the native rule
+        # would also refuse it). Returns the new id.
+        cdef bytes encoded = name.encode("utf-8")
+        cdef obj_id_t pid
+        cdef obj_id_t oid = 0
+        if not encoded or b"/" in encoded or b"\0" in encoded or not name.strip():
+            raise ValueError("Expected a nonempty, non-blank object name without '/' or NUL.")
+        with _lock:
+            self.require_open()
+            pid = self.resolve_catalog(parent, name)
+            check(de_new_catalog(self.handle, pid, encoded, &oid), "new_catalog", self.path, name)
+            return int(oid)
+
+    def list_children(self, object_id):
+        # Owned (id, parent id, class, type, name) rows of the objects directly
+        # inside a catalog, in the library's order. The search is stepped to
+        # DE_NO_OBJ and finalized under the lock on every exit path; each name
+        # is copied on its own step. A finalize failure is reported once and
+        # never retried (the native call neither frees nor clears on failure).
+        cdef de_search search = NULL
+        cdef object_t obj
+        cdef obj_id_t oid
+        cdef int rc
+        cdef int fin
+        if type(object_id) is not int:
+            raise TypeError("DataEcon object ids are integers.")
+        if not 0 <= object_id <= 0x7FFFFFFFFFFFFFFF:
+            raise ValueError("DataEcon object ids are nonnegative 64-bit integers.")
+        oid = object_id
+        rows = []
+        with _lock:
+            self.require_open()
+            memset(&obj, 0, sizeof(obj))
+            check(de_load_object(self.handle, oid, &obj), "find", self.path, str(object_id))
+            if obj.obj_class != class_catalog:
+                raise ValueError(f"Object {object_id} is not a catalog.")
+            check(de_list_catalog(self.handle, oid, &search), "list", self.path, str(object_id))
+            try:
+                while True:
+                    memset(&obj, 0, sizeof(obj))
+                    rc = de_next_object(search, &obj)
+                    if rc == DE_NO_OBJ:
+                        break
+                    check(rc, "list", self.path, str(object_id))
+                    if obj.name == NULL:
+                        raise ValueError("DataEcon returned a NULL object name.")
+                    rows.append((int(obj.id), int(obj.pid), int(obj.obj_class),
+                                 int(obj.obj_type), (<bytes>obj.name).decode("utf-8")))
+            finally:
+                fin = de_finalize_search(search)
+                search = NULL
+            check(fin, "list (finalize)", self.path, str(object_id))
+            return rows
+
+    def get_attribute(self, object_id, str name):
+        # One attribute value or None when absent. A SQL NULL value (native-only
+        # capacity that Julia cannot read either) is refused, not substituted.
+        # The value is a NUL-terminated C string with no length from the ABI:
+        # a foreign SQL writer's value holding NUL is cut there (Julia reads the
+        # same prefix); Python's own writer never stores NUL.
+        cdef bytes encoded = name.encode("utf-8")
+        cdef const char *value = NULL
+        cdef obj_id_t oid
+        cdef int rc
+        if type(object_id) is not int:
+            raise TypeError("DataEcon object ids are integers.")
+        if not 0 <= object_id <= 0x7FFFFFFFFFFFFFFF:
+            raise ValueError("DataEcon object ids are nonnegative 64-bit integers.")
+        if b"\0" in encoded:
+            raise ValueError("Attribute names cannot contain NUL.")
+        oid = object_id
+        with _lock:
+            self.require_open()
+            rc = de_get_attribute(self.handle, oid, encoded, &value)
+            if rc == DE_MIS_ATTR:
+                de_clear_error()
+                return None
+            check(rc, "get_attribute", self.path, name)
+            if value == NULL:
+                raise ValueError(f"Attribute {name!r} holds a SQL NULL value.")
+            return (<bytes>value).decode("utf-8")
+
+    cdef bytes joined_attribute_names(self, obj_id_t oid, bytes delimiter, int64_t *count,
+                                      str label):
+        # One de_get_all_attributes call; the borrowed names string is copied
+        # before returning. count == 0 yields b"" (the library returns NULL).
+        cdef const char *names = NULL
+        cdef const char *values = NULL
+        count[0] = 0
+        check(de_get_all_attributes(self.handle, oid, delimiter, count, &names, &values),
+              "get_attributes", self.path, label)
+        if count[0] == 0:
+            return b""
+        if names == NULL:
+            raise ValueError("DataEcon returned NULL attribute names.")
+        return <bytes>names
+
+    def attribute_names(self, object_id):
+        # Every attribute name of one object, losslessly. The ABI only offers
+        # the names joined by a caller-chosen delimiter plus their count. The
+        # names are requested twice, joined by two delimiters of the same
+        # length that differ at every byte; the first text is split and the
+        # split is accepted only when the piece count equals the native count,
+        # no piece repeats, and re-joining the pieces with the second delimiter
+        # reproduces the second text exactly. Two different name lists cannot
+        # satisfy both joins (the two texts differ exactly on the delimiter
+        # spans of either list), so acceptance is a proof, never a guess. On a
+        # collision the delimiters grow (an ordered run a name cannot contain
+        # once it is longer than any name, which the joined length bounds), so
+        # the loop ends; reaching that bound without proof means the joined
+        # text itself is damaged (for example a name holding NUL, which the C
+        # string cuts short) and is an error.
+        cdef int64_t count = 0
+        cdef int64_t count_again = 0
+        cdef obj_id_t oid
+        cdef bytes first_delimiter
+        cdef bytes second_delimiter
+        if type(object_id) is not int:
+            raise TypeError("DataEcon object ids are integers.")
+        if not 0 <= object_id <= 0x7FFFFFFFFFFFFFFF:
+            raise ValueError("DataEcon object ids are nonnegative 64-bit integers.")
+        oid = object_id
+        label = str(object_id)
+        run = 1
+        with _lock:
+            self.require_open()
+            while True:
+                first_delimiter = b"\x1e" + b"\x1f" * run
+                second_delimiter = b"\x1d" + b"\x1c" * run
+                joined = self.joined_attribute_names(oid, first_delimiter, &count, label)
+                if count == 0:
+                    return []
+                witness = self.joined_attribute_names(oid, second_delimiter, &count_again, label)
+                pieces = joined.split(first_delimiter)
+                if (count_again == count and len(pieces) == count
+                        and len(set(pieces)) == count
+                        and second_delimiter.join(pieces) == witness):
+                    return [piece.decode("utf-8") for piece in pieces]
+                longest_possible = len(joined) - (count - 1) * (run + 1)
+                if run > longest_possible:
+                    raise ValueError(
+                        "The attribute names of this object cannot be enumerated "
+                        "losslessly (a stored name is damaged, for example by NUL); "
+                        "read known names individually with get_attribute."
+                    )
+                run = min(run * 2, longest_possible + 1)
+
+    def set_attribute(self, object_id, str name, str value):
+        cdef bytes encoded = name.encode("utf-8")
+        cdef bytes encoded_value = value.encode("utf-8")
+        cdef obj_id_t oid
+        if type(object_id) is not int:
+            raise TypeError("DataEcon object ids are integers.")
+        if not 0 <= object_id <= 0x7FFFFFFFFFFFFFFF:
+            raise ValueError("DataEcon object ids are nonnegative 64-bit integers.")
+        if b"\0" in encoded or b"\0" in encoded_value:
+            raise ValueError("Attribute names and values cannot contain NUL.")
+        oid = object_id
+        with _lock:
+            self.require_open()
+            check(de_set_attribute(self.handle, oid, encoded, encoded_value),
+                  "set_attribute", self.path, name)

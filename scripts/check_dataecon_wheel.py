@@ -40,6 +40,7 @@ from tsecon import (
     bdaily,
     daily,
     mm,
+    qq,
     weekly,
 )
 from tsecon.frequencies import Frequency
@@ -1678,6 +1679,112 @@ def check_tensors(db: de.DataEconFile) -> None:  # noqa: PLR0912 - finite ABI ma
         raise ValueError("A wide Bool tensor did not convert to its flags.")
 
 
+# Catalogs, nested paths and attributes: the tree Julia's generate-catalogs
+# writes at the root of its fixture, written here under /catalogs so the wheel
+# output keeps its root-level objects. Julia's verify-wheel reads it back.
+CATALOG_ORDER_NAMES = ["b", "B", "a", "1", " sp", "_u", "\u00e4", "Z"]
+CATALOG_ATTRIBUTES = [
+    ("note", "second"),
+    ("empty", ""),
+    ("", "empty name"),
+    ("unicod\u00e9/\u540d ", "v\u00e4lue \U0001f642\nline\ttab"),
+    ("delim", "a\u2016b"),
+    ("unit", "a\x1fb"),
+    ("k\u20163", "v3"),
+    ("run\x1e\x1f\x1f", "r"),
+    ("long", "x" * 5000),
+]
+CATALOG_DATES = np.array([24288, 24289], dtype="<i8")
+
+
+def write_catalogs(db: de.DataEconFile) -> None:
+    prefix = "/catalogs"
+    db.new_catalog(prefix)
+    db.new_catalog(f"{prefix}/cat")
+    db.new_catalog(f"{prefix}/cat/sub")
+    db.new_catalog(f"{prefix}/cat/sub/deep")
+    db.new_catalog(f"{prefix}/cat/\u65e5\u672c\u8a9e")
+    db.write_scalar(f"{prefix}/cat/scalar", 1.5)
+    db.write_scalar(f"{prefix}/cat/sub/text", "vintage \u2016 3")
+    db.write_array(f"{prefix}/cat/sub/vector", np.array([1, 2, 3], dtype=np.int32))
+    db.write_array(f"{prefix}/cat/sub/matrix", np.array([[1.0, 2.0], [3.0, 4.0]]))
+    db.write_array(
+        f"{prefix}/cat/sub/deep/tensor",
+        np.arange(1, 25, dtype=np.int64).reshape((2, 3, 4), order="F"),
+    )
+    db.write_series(
+        f"{prefix}/cat/sub/deep/series", tsecon.TSeries(mm(2024, 1), np.array([1.0, 2.0, 3.0]))
+    )
+    db.write_series(
+        f"{prefix}/cat/sub/mvtseries",
+        tsecon.MVTSeries(qq(2024, 1), ("p", "q"), np.array([[1.0, 2.0], [3.0, 4.0]])),
+    )
+    db.write_series(f"{prefix}/cat/sub/bools", tsecon.TSeries(mm(2024, 1), np.array([True, False])))
+    db.write_array(f"{prefix}/cat/sub/text_vector", ["a", "b"])
+    db.write_series(
+        f"{prefix}/cat/\u65e5\u672c\u8a9e/dates",
+        de.StoredSeries(mm(2024, 1), CATALOG_DATES, de.StoredElement.date(Monthly())),
+    )
+    db.write_array(
+        f"{prefix}/cat/\u65e5\u672c\u8a9e/date_array",
+        de.StoredArray(CATALOG_DATES.reshape((1, 2)), de.StoredElement.date(Monthly())),
+    )
+    for name in CATALOG_ORDER_NAMES:
+        db.write_scalar(f"{prefix}/cat/{name}", 1)
+    db.write_scalar(f"{prefix}/cat/scalar_parent", 2)
+    try:
+        db.write_scalar(f"{prefix}/cat/scalar_parent/child", 3)
+    except ValueError:
+        pass
+    else:
+        raise ValueError("A scalar must not accept children.")
+    db.set_attribute(f"{prefix}/cat/scalar", "note", "first")
+    for name, value in CATALOG_ATTRIBUTES:
+        db.set_attribute(f"{prefix}/cat/scalar", name, value)
+    db.set_attribute(f"{prefix}/cat", "owner", "julia")
+    db.set_attribute("/", "root_note", "hello")
+
+
+def check_catalogs(db: de.DataEconFile) -> None:
+    """Read every object written by :func:`write_catalogs` back."""
+    prefix = "/catalogs"
+    if db.catalog_size(f"{prefix}/cat") != 4 + len(CATALOG_ORDER_NAMES):
+        raise ValueError("Unexpected catalog size.")
+    listed = [entry.name for entry in db.list_objects(f"{prefix}/cat")]
+    if listed != sorted(listed, key=lambda n: n.encode("utf-8")) or len(listed) != 12:
+        raise ValueError("Catalog listing is not in UTF-8 byte order.")
+    paths = [entry.path for entry in db.list_objects(prefix, recursive=True)]
+    if f"{prefix}/cat/sub/deep/tensor" not in paths or f"{prefix}/cat/scalar_parent/child" in paths:
+        raise ValueError("Recursive listing is wrong.")
+    if (
+        db.read_scalar(f"{prefix}/cat/scalar") != 1.5
+        or db.read_scalar(f"{prefix}/cat/sub/text") != "vintage \u2016 3"
+    ):
+        raise ValueError("Nested scalar mismatch.")
+    np.testing.assert_array_equal(
+        db.read_array(f"{prefix}/cat/sub/deep/tensor"),
+        np.arange(1, 25, dtype=np.int64).reshape((2, 3, 4), order="F"),
+    )
+    series = db.read_series(f"{prefix}/cat/sub/deep/series")
+    if series.firstdate != mm(2024, 1) or series.values.tolist() != [1.0, 2.0, 3.0]:
+        raise ValueError("Nested series mismatch.")
+    dates = db.read_series(f"{prefix}/cat/\u65e5\u672c\u8a9e/dates")
+    if not isinstance(dates, de.StoredSeries) or dates.values.tolist() != CATALOG_DATES.tolist():
+        raise ValueError("Nested represented series mismatch.")
+    if db.get_attributes(f"{prefix}/cat/scalar") != dict(CATALOG_ATTRIBUTES):
+        raise ValueError("Attribute enumeration mismatch.")
+    if db.get_attribute(f"{prefix}/cat/sub/bools", "jeltype") != "Bool":
+        raise ValueError("Marker attribute not readable.")
+    if (
+        db.get_attributes(f"{prefix}/cat") != {"owner": "julia"}
+        or db.get_attribute("/", "root_note") != "hello"
+    ):
+        raise ValueError("Catalog/root attributes mismatch.")
+    info = db.object_info(f"{prefix}/cat/sub/deep/tensor")
+    if info.depth != 5 or info.kind != "array" or db.object_path(info.id) != info.path:
+        raise ValueError("Object info mismatch.")
+
+
 def write_interchange(output_dir: Path, series: tsecon.TSeries) -> Path:
     """Write and reopen series and scalars for separate Julia verification."""
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -1692,6 +1799,7 @@ def write_interchange(output_dir: Path, series: tsecon.TSeries) -> Path:
         write_arrays_unit(db)
         write_matrices_text(db)
         write_tensors(db)
+        write_catalogs(db)
         for name, value in (
             ("bool_false", False),
             ("bool_true", True),
@@ -1715,6 +1823,7 @@ def write_interchange(output_dir: Path, series: tsecon.TSeries) -> Path:
         check_arrays_unit(db)
         check_matrices_text(db)
         check_tensors(db)
+        check_catalogs(db)
         np.testing.assert_array_equal(db.read_series("sample").values, series.values)
         for name, expected in (
             ("bool_false", 0),

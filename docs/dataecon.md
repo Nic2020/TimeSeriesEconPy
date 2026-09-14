@@ -46,8 +46,10 @@ np.testing.assert_array_equal(restored.values, series.values)
 
 Reads return owning TSeries arrays that remain usable after closing the file.
 Writes copy the input, including strided arrays and column views. NaNs are
-preserved as floating-point missing values. Names must be nonempty root names
-without `/` or NUL; Unicode object names are supported. **Windows file paths must
+preserved as floating-point missing values. Names are root names or nested
+catalog paths (see [Catalogs, nested paths and attributes](#catalogs-nested-paths-and-attributes));
+each component must be nonempty, not blank and free of `/` and NUL; Unicode
+object names are supported. **Windows file paths must
 be ASCII**: the pinned native library's narrow `fopen` existence check does not
 reliably recognize UTF-8 paths when reopening files. The adapter rejects such
 paths before opening or creating anything.
@@ -56,8 +58,9 @@ The payload limit is 128 MiB per series. Dates must fit the native encoding;
 extreme boundary years can also be rejected before native date arithmetic.
 Only little-endian hosts are currently supported. Julia reconstruction attributes
 are never evaluated. `jtype` is rejected; `jeltype` is accepted only when its
-value is an exact supported empty-element token or the canonical Bool marker. Custom attributes
-are outside this API's interchange contract.
+value is an exact supported empty-element token or the canonical Bool marker.
+Ordinary string attributes are read and written per object through
+`get_attribute`/`get_attributes`/`set_attribute`; the marker keys are reserved.
 
 ## Quarterly series and fiscal anchors
 
@@ -872,6 +875,117 @@ integer stay distinct. Julia anchors beyond 1..7 collapse on write (`Weekly{8}`
 is stored as `Weekly{1}`). The Sunday alias 16, the unused codes 14 and 15 and
 weekly codes 24 through 31, which Julia never writes, are rejected.
 
+## Catalogs, nested paths and attributes
+
+Objects live in a tree of catalogs, exactly as in Julia. Every read, write and
+delete method takes a path: a root name such as `"gdp"` still means `/gdp`,
+and `"/inputs/raw/gdp"` (the leading `/` is optional) addresses an object in a
+nested catalog. Components are separated by `/`; each must be a valid object
+name (nonempty, not blank, no `/`, no NUL), and `.`, `..`, `\\` and blanks
+inside a name are ordinary characters on every platform. `"/"` (or `""`)
+names the root catalog and is accepted only where a catalog is expected.
+
+```python
+import numpy as np
+from tsecon import TSeries, mm
+from tsecon.dataecon import open_dataecon
+
+with open_dataecon("catalog-example.daec", "a") as db:
+    db.new_catalog("/inputs/raw", parents=True)  # creates /inputs, then /inputs/raw
+    db.write_series("/inputs/raw/gdp", TSeries(mm(2024, 1), np.array([1.0, 2.0])))
+    db.write_scalar("inputs/raw/vintage", 3)  # the leading slash is optional
+    db.write_array("/inputs/raw/weights", np.arange(6, dtype=np.float64).reshape((2, 3)))
+    db.set_attribute("/inputs/raw/gdp", "source", "StatCan \u2016 table 36-10")
+    assert db.get_attributes("/inputs/raw/gdp") == {"source": "StatCan \u2016 table 36-10"}
+    assert db.get_attribute("/inputs/raw/gdp", "missing") is None
+    assert [e.path for e in db.list_objects("/inputs", recursive=True)] == [
+        "/inputs/raw",
+        "/inputs/raw/gdp",
+        "/inputs/raw/vintage",
+        "/inputs/raw/weights",
+    ]
+    assert db.catalog_size("/inputs/raw") == 3
+    assert db.exists("/inputs/raw/gdp") and not db.exists("/inputs/old")
+    info = db.object_info("/inputs/raw/gdp")
+    assert (info.kind, info.depth, info.name) == ("series", 3, "gdp")
+    assert db.object_path(info.id) == "/inputs/raw/gdp"
+    db.write_scalar("/inputs/raw/vintage", 4, overwrite=True)
+    db.delete("/inputs", recursive=True)
+    assert db.is_empty()
+```
+
+Writes never create catalogs implicitly: every catalog on the path must exist
+(`DataEconError` with code -989 names the missing parent) and the parent must
+be a catalog (`ValueError`; Julia's writer accepts a scalar as a parent by
+accident and then cannot list what it stored, while Python still *reads* such
+objects by path). `new_catalog(path, parents=True)` creates the missing
+intermediate catalogs one at a time; `exist_ok=True` accepts an existing
+catalog at `path`, and any other existing object raises `DataEconError`
+(code -985). Replacing a catalog is always an explicit
+`delete(path, recursive=True)` first.
+
+`list_objects(path="/", recursive=False, max_depth=None)` returns owned
+`ObjectInfo` records (`id`, `parent_id`, `path`, `name`, `kind`,
+`object_class`, `object_type`, `depth`), sorted by the UTF-8 bytes of the
+names at each level, which is also the order the native library returns.
+Catalogs appear as entries; recursion descends into catalogs only, at most
+`max_depth` levels below `path` (`1` is the immediate members). `kind` says
+which reader applies: `"scalar"`, `"series"` (`read_series`), `"array"`
+(`read_array`), `"catalog"`, or `"unknown"` for a native-only object type.
+Julia's `list_catalog` returns non-catalog full paths and prints a tree;
+Python returns the structured records instead. `catalog_size(path)` is
+Julia's `catalog_size` and `exists(path)` is `find_fullpath` with the missing
+case mapped to `False`.
+
+Object ids are the native `AUTOINCREMENT` row ids. They are exposed only
+through explicit conversions — `object_id(path)`, `object_path(id)`,
+`object_info(path)`, `object_info_by_id(id)` and the `id`/`parent_id` fields
+— never as an alternative spelling of a path argument. An id is not promised
+to survive `overwrite=True` (delete-then-store assigns a new id), deletion
+(the id is never reused) or truncation (ids restart at 1); a stale id raises
+`DataEconError` (code -989) and a negative one `ValueError`.
+
+Attributes are per-object strings. `get_attribute(path, name)` returns the
+value or `None`; `get_attributes(path)` returns every attribute as a `dict`;
+`set_attribute(path, name, value)` stores or replaces one. Names and values
+are `str` without NUL (the native library would silently truncate at NUL);
+empty strings, blanks, `/` inside a name and any Unicode round-trip exactly.
+The native library enumerates attributes only as two delimiter-joined
+strings, and Julia's `get_all_attributes` fails when a name or value contains
+its delimiter. Python's enumeration asks for the names joined by two
+different delimiters and accepts a split only when re-joining it with the
+second delimiter reproduces the second string exactly (a proof that the split
+is the stored list), growing the delimiters on a collision; every value is
+then read individually. Both getters are exact for valid UTF-8 attribute names and
+values without NUL. The guarantee
+stops there: the library returns each value as a C string without a byte
+length, so a value that some other SQLite writer stored with an embedded NUL
+is returned cut at that NUL, exactly as Julia returns it, and nothing can
+detect the cut through the DataEcon ABI. Attributes are also readable and
+writable on catalogs and on the root (`"/"`).
+
+Three keys are **reserved on write**: `jtype` and `jeltype` are Julia's
+reconstruction markers, which the pinned Julia loader evaluates as code when
+it reads the object, and `DE_VERSION` is library-owned file metadata on the
+root. `set_attribute` refuses them with `ValueError`; they remain readable,
+and the adapter keeps writing the markers it manages (Boolean series, empty
+arrays, preserved foreign markers) through its own validated paths. There is
+deliberately no generic escape hatch for these keys. A stored attribute whose
+value is SQL NULL (possible only through the C API; Julia cannot read it
+either) raises `ValueError` rather than being substituted. Read-only owners
+refuse `new_catalog`, `set_attribute` and nested deletes before any native
+call, and the residue rules above apply unchanged: `parents=True` can leave a
+partial chain of catalogs when a later step fails natively, and nothing rolls
+back.
+
+Catalog paths use `/` as the separator on every platform; backslash, `.` and
+`..` are literal name characters. Listing depth is relative to the requested
+catalog. New objects must have a catalog parent; existing foreign objects
+under non-catalog parents remain readable by path. To replace a catalog,
+explicitly delete it with `recursive=True` and then call `new_catalog`.
+These are separate, non-atomic operations: if creation fails, the deleted
+catalog and its contents are not restored.
+
 ## Deleting, overwriting, truncating and in-memory files
 
 The defaults are unchanged: `open_dataecon(path)` is read-only and `"a"`
@@ -904,17 +1018,18 @@ with open_dataecon_memory() as scratch:  # Julia's opendaecmem()
     assert scratch.path == ":memory:"
 ```
 
-`delete(name)` removes one root object with its payload and attributes. A
-missing name raises `DataEconError` (code -989) and the owner stays usable.
-A root **catalog** (written by Julia) is refused unless you pass
-`recursive=True`, in which case every nested catalog and object under it is
-deleted, exactly as Julia's `delete_object` does without asking. Deleting a
+`delete(path)` removes one object (root or nested) with its payload and
+attributes. A missing path raises `DataEconError` (code -989) and the owner
+stays usable. A **catalog** is refused unless you pass `recursive=True`, in
+which case every nested catalog and object under it is deleted, exactly as
+Julia's `delete_object` does without asking; the root catalog itself is
+always refused (use `truncate`). Deleting a
 series leaves its shared axis row in the file (axes are not objects), and
 values returned by earlier reads remain valid because reads copy.
 
-`overwrite=True` on `write_scalar`/`write_series` is Julia's
-`opendaec(...; overwrite=true)` behavior for that one call: the existing root
-scalar or series of that name is deleted and the new object stored, whatever
+`overwrite=True` on `write_scalar`/`write_series`/`write_array` is Julia's
+`opendaec(...; overwrite=true)` behavior for that one call: the existing
+scalar, series or array at that path is deleted and the new object stored, whatever
 its class. Python validates the new value completely *before* deleting, so a
 rejected value leaves the old object intact (Julia deletes first and then
 fails). The operation is **not atomic** and nothing rolls back: once the

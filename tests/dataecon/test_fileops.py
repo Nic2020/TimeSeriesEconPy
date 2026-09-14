@@ -62,8 +62,9 @@ class RecordingHandle:
     def close(self):
         self.calls.append("close")
 
-    def catalog_size(self):
+    def catalog_size(self, path="/"):
         self.calls.append("catalog_size")
+        assert path == "/"
         return 0
 
     def truncate(self):
@@ -102,7 +103,7 @@ def test_write_mode_truncates_after_opening(monkeypatch):
     assert not db.closed
     db.delete("sample", recursive=True)
     db.close()
-    assert handle.calls == ["truncate", ("delete", "sample", True), "close"]
+    assert handle.calls == ["truncate", ("delete", "/sample", True), "close"]
 
 
 def test_operations_after_close(readonly_owner):
@@ -217,7 +218,7 @@ def test_delete_scalar_series_and_missing(tmp_path):
         with pytest.raises(DataEconError) as caught:
             db.delete("y")
         assert caught.value.code == -989
-        assert caught.value.name == "y"
+        assert caught.value.name == "/y"
         with pytest.raises(DataEconError) as caught:
             db.read_scalar("y")
         assert caught.value.code == -989

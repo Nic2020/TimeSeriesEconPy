@@ -35,6 +35,10 @@
 # verify-wheel): column-major plain arrays with three to five plain axes over
 # every ordinary and represented element, singleton and zero-length
 # dimensions, Julia's BitArray tokens and preserved element/object markers.
+# Catalog actions: generate-catalogs/verify-catalogs (also checked by
+# verify-wheel under the /catalogs prefix): nested catalogs, every object
+# family at nested paths, Unicode names, name ordering, a child stored under a
+# scalar, and attributes on objects, catalogs and the root.
 using TimeSeriesEcon
 using Test, SHA, TOML, Pkg, Dates, LinearAlgebra
 # Julia rebuilds a Diagonal/Symmetric/Hermitian jtype marker with
@@ -1128,7 +1132,7 @@ elseif action == "generate-foreign-markers"
             store_foreign_case!(db, name, values, marker, outer)
         end
     end
-elseif !(action in ("verify", "verify-empty", "verify-scalars", "verify-quarterly", "verify-annual", "verify-halfyearly", "verify-int64", "verify-strings", "verify-dates", "verify-calendar", "verify-widths", "verify-fileops", "verify-calendar-series", "verify-series-elements", "generate-series-elements", "verify-represented-elements", "verify-foreign-markers", "generate-arrays-unit", "verify-arrays-unit", "generate-matrices-text", "verify-matrices-text", "generate-tensors", "verify-tensors", "verify-wheel"))
+elseif !(action in ("verify", "verify-empty", "verify-scalars", "verify-quarterly", "verify-annual", "verify-halfyearly", "verify-int64", "verify-strings", "verify-dates", "verify-calendar", "verify-widths", "verify-fileops", "verify-calendar-series", "verify-series-elements", "generate-series-elements", "verify-represented-elements", "verify-foreign-markers", "generate-arrays-unit", "verify-arrays-unit", "generate-matrices-text", "verify-matrices-text", "generate-tensors", "verify-tensors", "generate-catalogs", "verify-catalogs", "verify-wheel"))
     error("Unknown fixture action.")
 end
 
@@ -2314,6 +2318,147 @@ if action in ("generate-tensors", "verify-tensors", "verify-wheel")
     end
 end
 
+
+# ---- Catalogs, nested paths, listing and attributes -------------------------
+
+# The same tree is written by Julia at the root of the fixture and by Python
+# under "/catalogs" in the wheel output; `prefix` selects which one to verify.
+const catalog_order_names = ["b", "B", "a", "1", " sp", "_u", "\u00e4", "Z"]
+const catalog_attributes = [("note", "second"), ("empty", ""), ("", "empty name"),
+    ("unicod\u00e9/\u540d ", "v\u00e4lue \U0001f642\nline\ttab"), ("delim", "a\u2016b"),
+    ("unit", "a\x1fb"), ("k\u20163", "v3"), ("run\x1e\x1f\x1f", "r"), ("long", repeat("x", 5000))]
+const catalog_dates = MIT{Monthly}[MIT{Monthly}(24288), MIT{Monthly}(24289)]
+
+function write_catalog_tree!(db, prefix)
+    cat = DE.new_catalog(db, prefix * "/cat")
+    sub = DE.new_catalog(db, cat, "sub")
+    DE.new_catalog(db, prefix * "/cat/sub/deep")
+    DE.new_catalog(db, prefix * "/cat/\u65e5\u672c\u8a9e")
+    DE.store_scalar(db, prefix * "/cat/scalar", 1.5)
+    DE.store_scalar(db, sub, "text", "vintage \u2016 3")
+    DE.store_tseries(db, prefix * "/cat/sub/vector", Int32[1, 2, 3])
+    DE.store_mvtseries(db, prefix * "/cat/sub/matrix", [1.0 2.0; 3.0 4.0])
+    DE.store_ndtseries(db, prefix * "/cat/sub/deep/tensor", reshape(Int64.(1:24), 2, 3, 4))
+    DE.store_tseries(db, prefix * "/cat/sub/deep/series", TSeries(2024M1, [1.0, 2.0, 3.0]))
+    DE.store_mvtseries(db, prefix * "/cat/sub/mvtseries", MVTSeries(2024Q1, (:p, :q), [1.0 2.0; 3.0 4.0]))
+    DE.store_tseries(db, prefix * "/cat/sub/bools", TSeries(2024M1, [true, false]))
+    DE.store_tseries(db, prefix * "/cat/sub/text_vector", ["a", "b"])
+    DE.store_tseries(db, prefix * "/cat/\u65e5\u672c\u8a9e/dates", TSeries(2024M1, catalog_dates))
+    DE.store_mvtseries(db, prefix * "/cat/\u65e5\u672c\u8a9e/date_array", reshape(catalog_dates, 1, 2))
+    for name in catalog_order_names
+        DE.store_scalar(db, cat, name, 1)
+    end
+    # Julia stores a child under a scalar (the native store does not check the
+    # parent's class); Python reads it by path but never lists it.
+    DE.store_scalar(db, prefix * "/cat/scalar_parent", 2)
+    DE.store_scalar(db, prefix * "/cat/scalar_parent/child", 3)
+    DE.set_attribute(db, prefix * "/cat/scalar", "note", "first")
+    for (name, value) in catalog_attributes
+        DE.set_attribute(db, prefix * "/cat/scalar", name, value)
+    end
+    DE.set_attribute(db, cat, "owner", "julia")
+    DE.set_attribute(db, DE.root_id, "root_note", "hello")
+end
+
+function verify_catalog_tree(db, prefix; julia_written::Bool)
+    cat = DE.find_fullpath(db, prefix * "/cat")
+    @test DE.get_fullpath(db, cat) == prefix * "/cat"
+    @test DE.find_object(db, cat, "sub") == DE.find_fullpath(db, prefix * "/cat/sub")
+    @test DE.catalog_size(db, prefix * "/cat") == 4 + length(catalog_order_names)
+    @test DE.catalog_size(db, prefix * "/cat/sub") == 7
+    @test DE.catalog_size(db, prefix * "/cat/sub/deep") == 2
+    @test DE.catalog_size(db, prefix * "/cat/\u65e5\u672c\u8a9e") == 2
+    @test DE.load_scalar(db, prefix * "/cat/scalar") == 1.5
+    @test DE.load_scalar(db, prefix * "/cat/sub/text") == "vintage \u2016 3"
+    @test DE.load_tseries(db, prefix * "/cat/sub/vector") == Int32[1, 2, 3]
+    @test DE.load_mvtseries(db, prefix * "/cat/sub/matrix") == [1.0 2.0; 3.0 4.0]
+    @test DE.load_ndtseries(db, prefix * "/cat/sub/deep/tensor") == reshape(Int64.(1:24), 2, 3, 4)
+    @test DE.load_tseries(db, prefix * "/cat/sub/deep/series") == TSeries(2024M1, [1.0, 2.0, 3.0])
+    @test DE.load_mvtseries(db, prefix * "/cat/sub/mvtseries") == MVTSeries(2024Q1, (:p, :q), [1.0 2.0; 3.0 4.0])
+    @test DE.load_tseries(db, prefix * "/cat/sub/bools") == TSeries(2024M1, [true, false])
+    @test DE.get_attribute(db, prefix * "/cat/sub/bools", "jeltype") == "Bool"
+    @test DE.load_tseries(db, prefix * "/cat/sub/text_vector") == ["a", "b"]
+    @test DE.load_tseries(db, prefix * "/cat/\u65e5\u672c\u8a9e/dates") == TSeries(2024M1, catalog_dates)
+    @test DE.load_mvtseries(db, prefix * "/cat/\u65e5\u672c\u8a9e/date_array") == reshape(catalog_dates, 1, 2)
+    for name in catalog_order_names
+        @test DE.load_scalar(db, cat, name) == 1
+    end
+    @test DE.load_scalar(db, prefix * "/cat/scalar_parent") == 2
+    if julia_written
+        @test DE.load_scalar(db, prefix * "/cat/scalar_parent/child") == 3
+        @test DE.catalog_size(db, prefix * "/cat/scalar_parent") == 1
+    else
+        # Python refuses to store under a non-catalog parent.
+        @test DE.find_fullpath(db, prefix * "/cat/scalar_parent/child", false) === missing
+    end
+    # Native listing order is the UTF-8 byte order of the names.
+    search = Ref{C.de_search}()
+    @test C.de_list_catalog(db, cat, search) == 0
+    obj = Ref{C.object_t}()
+    listed = String[]
+    rc = C.de_next_object(search[], obj)
+    while rc == C.DE_SUCCESS
+        push!(listed, unsafe_string(obj[].name))
+        rc = C.de_next_object(search[], obj)
+    end
+    @test rc == C.DE_NO_OBJ
+    @test C.de_finalize_search(search[]) == 0
+    @test listed == sort(listed; by=codeunits)
+    @test length(listed) == DE.catalog_size(db, cat)
+    # Julia's returned list: non-catalog full paths, recursive through catalogs only.
+    paths = DE.list_catalog(db, prefix * "/cat"; quiet=true)
+    @test prefix * "/cat/sub/deep/tensor" in paths
+    @test prefix * "/cat/\u65e5\u672c\u8a9e/dates" in paths
+    @test !(prefix * "/cat/sub" in paths)
+    @test !(prefix * "/cat/scalar_parent/child" in paths)
+    @test length(paths) == 11 + length(catalog_order_names) + 1
+    # Attributes: individual reads are exact for every value; the delimited
+    # enumeration needs a delimiter absent from the names (Julia's limitation).
+    sid = DE.find_fullpath(db, prefix * "/cat/scalar")
+    for (name, value) in catalog_attributes
+        @test DE.get_attribute(db, sid, name) == value
+    end
+    @test DE.get_attribute(db, sid, "missing") === missing
+    all = DE.get_all_attributes(db, sid; delim="\x1d\x1c")
+    @test all == Dict(catalog_attributes)
+    @test length(all) == length(catalog_attributes)
+    @test DE.get_all_attributes(db, cat) == Dict("owner" => "julia")
+    root_attrs = DE.get_all_attributes(db, DE.root_id)
+    @test root_attrs["DE_VERSION"] == "0.4.0"
+    @test root_attrs["root_note"] == "hello"
+    # Every object lives at the depth its path says (objects_info).
+    for (path, depth) in ((prefix * "/cat", 1), (prefix * "/cat/sub/deep/tensor", 4),
+                          (prefix * "/cat/\u65e5\u672c\u8a9e/dates", 3))
+        fp = Ref{Ptr{Cchar}}()
+        d = Ref{Int64}(-1)
+        @test C.de_get_object_info(db, DE.find_fullpath(db, path), fp, d, C_NULL) == 0
+        @test unsafe_string(fp[]) == path
+        @test d[] == depth + count("/", prefix)
+    end
+end
+
+if action == "generate-catalogs"
+    DE.opendaec(filename; readonly=false) do db
+        write_catalog_tree!(db, "")
+    end
+end
+
+if action in ("generate-catalogs", "verify-catalogs")
+    @testset "DataEcon catalog and attribute interchange" begin
+        DE.opendaec(filename) do db
+            verify_catalog_tree(db, ""; julia_written=true)
+        end
+    end
+end
+
+if action == "verify-wheel"
+    @testset "DataEcon catalog and attribute interchange" begin
+        DE.opendaec(filename) do db
+            verify_catalog_tree(db, "/catalogs"; julia_written=false)
+        end
+    end
+end
+
 if action == "verify-wheel"
     @testset "DataEcon Boolean scalar interchange" begin
         DE.opendaec(filename) do db
@@ -2332,7 +2477,7 @@ if action == "verify-wheel"
     end
 end
 
-if action in ("generate", "generate-empty", "generate-scalars", "generate-quarterly", "generate-annual", "generate-halfyearly", "generate-int64", "generate-strings", "generate-dates", "generate-calendar", "generate-widths", "generate-fileops", "generate-calendar-series", "generate-series-elements", "generate-represented-elements", "generate-foreign-markers", "generate-arrays-unit", "generate-matrices-text", "generate-tensors")
+if action in ("generate", "generate-empty", "generate-scalars", "generate-quarterly", "generate-annual", "generate-halfyearly", "generate-int64", "generate-strings", "generate-dates", "generate-calendar", "generate-widths", "generate-fileops", "generate-calendar-series", "generate-series-elements", "generate-represented-elements", "generate-foreign-markers", "generate-arrays-unit", "generate-matrices-text", "generate-tensors", "generate-catalogs")
     layout = Dict{String,Any}(
         "enums" => sizeof.([C.class_t, C.type_t, C.frequency_t, C.axis_type_t]),
     )

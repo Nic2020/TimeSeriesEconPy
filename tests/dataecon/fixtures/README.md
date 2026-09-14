@@ -396,3 +396,27 @@ records the measured `ndtseries_t` layout (304 bytes, offsets
 0/32/36/40/48/288/296). `verify-wheel` applies the same set to the
 Python-written objects; Python omits the element token on empty kind-default
 arrays, which Julia's loader then reads with their shape preserved.
+
+## Catalog and attribute fixture
+
+`julia_catalogs.daec` and its TOML provenance are generated with
+`generate-catalogs` and checked with `verify-catalogs`. Julia writes a
+nested tree: `/cat`, `/cat/sub`, `/cat/sub/deep` and `/cat/日本語`; a scalar,
+a string, an `Int32` vector, a Float64 matrix, a rank-3 tensor, a monthly
+`TSeries`, a quarterly `MVTSeries`, a Boolean series (with its `jeltype`
+marker), an ASCII text vector and `MIT{Monthly}` series/matrix objects at
+nested paths, eight scalars whose names (`b`, `B`, `a`, `1`, ` sp`, `_u`,
+`ä`, `Z`) exercise the native listing order, and a scalar with a child object
+under it (Julia's writer accepts a non-catalog parent; Python reads that
+child by path but neither lists it nor writes one). Attributes on
+`/cat/scalar` include an empty value, an empty name, a Unicode name with
+`/` and a trailing blank, values and names containing Julia's `‖` delimiter
+and the control characters Python uses, a run of separators and a
+5,000-character value; `/cat` carries `owner` and the root carries
+`root_note` next to the library's `DE_VERSION`. The Julia verification reads
+every object back by full path and by parent id plus name, checks catalog
+sizes, the native listing order, Julia's returned `list_catalog` paths and
+each attribute individually (Julia's own `get_all_attributes` needs a
+delimiter absent from the names). `verify-wheel` applies the same checks to
+the tree Python writes under `/catalogs` in the wheel output, where the
+scalar's child is absent because Python refuses to create it.

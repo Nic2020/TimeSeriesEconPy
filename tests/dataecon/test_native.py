@@ -94,7 +94,7 @@ def test_missing_duplicate_and_readonly(tmp_path):
         with pytest.raises(DataEconError) as caught:
             db.read_series("unknown")
         assert caught.value.code == -989
-        assert caught.value.name == "unknown"
+        assert caught.value.name == "/unknown"
         db.write_series("sample", TSeries(mm(2024, 1), VALUES.copy()))
         with pytest.raises(DataEconError) as caught:
             db.write_series("sample", TSeries(mm(2024, 1), np.ones(4)))

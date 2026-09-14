@@ -397,6 +397,118 @@ against a finite table. The mirroring copies the authoritative triangle rather
 than adding a zeroed one, so a stored `-0.0` keeps its sign and a NaN keeps its
 payload, exactly as in Julia, and every supported element converts.
 
+## N-dimensional arrays
+
+`write_array` and `read_array` also carry NumPy arrays of three, four or five
+dimensions. DataEcon stores at most five axes (`DE_MAX_AXES`), one plain axis
+per dimension, and the payload column-major exactly as for a matrix: a 2x3x4
+tensor of `1..24` in Fortran order stores the run itself, and Julia loads it as
+`Array{Int64, 3}` with `[i, j, k]` at linear position `i + 2(j-1) + 6(k-1)`.
+Every ordinary numeric and Boolean dtype is accepted, any input layout is
+snapshotted in logical order, and reads return owning, writable, C-contiguous
+arrays of the stored shape, singleton and zero-length dimensions included.
+
+```python
+import numpy as np
+from tsecon.dataecon import open_dataecon
+
+cube = np.arange(1, 25, dtype=np.int64).reshape((2, 3, 4), order="F")
+flags = np.array([[[True, False]]])
+
+with open_dataecon("tensors.daec", "w") as db:
+    db.write_array("cube", cube)
+    db.write_array("flags", flags)
+    db.write_array("empty", np.empty((0, 2, 3)))
+    db.write_array("rank5", np.ones((3, 1, 2, 1, 1), dtype=np.float32))
+
+with open_dataecon("tensors.daec") as db:
+    back = db.read_array("cube")
+    assert back.shape == (2, 3, 4) and np.array_equal(back, cube)
+    assert back.flags["OWNDATA"] and back.flags["WRITEABLE"]
+    assert db.read_array("flags").tolist() == [[[True, False]]]
+    assert db.read_array("empty").shape == (0, 2, 3)
+    assert db.read_array("rank5").shape == (3, 1, 2, 1, 1)
+```
+
+A rank above five is refused with `ValueError` before any native call; a
+zero-dimensional array is a scalar and has its own methods. Julia's own writer
+cannot store an *empty* array above rank two, but its loader reads Python's
+unmarked empties with their shape preserved (a marked empty reloads as a flat
+typed vector, as for matrices).
+
+`StoredArray` carriers keep the same element families at every rank: `MIT`
+and `Duration` codes with their own frequency, `Int128`/`UInt128` words,
+`ComplexF16` pairs, and preserved reconstruction markers. `tolist()` nests one
+list per dimension and `to_interpreted()` returns the value Julia would build.
+
+```python
+import numpy as np
+from tsecon import Monthly
+from tsecon.dataecon import StoredArray, StoredElement, open_dataecon
+
+codes = np.arange(6, dtype=np.int64).reshape((1, 2, 3, 1, 1))
+dates = StoredArray(codes, StoredElement.date(Monthly()))
+
+with open_dataecon("dates.daec", "w") as db:
+    db.write_array("dates", dates)
+
+with open_dataecon("dates.daec") as db:
+    stored = db.read_array("dates")
+
+assert stored == dates and stored.ndim == 5
+assert stored.tolist()[0][1][2][0][0].value == 5
+```
+
+Julia stores a `BitArray` with a whole-object token naming its rank
+(`BitVector`, `BitMatrix`, `BitArray{3}` and so on) together with the `Bool`
+element token. Python preserves both in a `StoredArray` whose carrier is the
+stored Int8 zero/one bytes, and `to_interpreted()` is the Boolean array; a
+rewrite stores the same tokens, so Julia reloads a `BitArray` again. The
+`Diagonal`, `Symmetric` and `Hermitian` markers remain two-dimensional: the
+pinned Julia loader has no conversion from a rank-3 array to any of them, and
+Python refuses those tokens above rank two rather than inventing one.
+
+```python
+import numpy as np
+from tsecon.dataecon import StoredArray, StoredElement, open_dataecon
+
+bits = StoredArray(
+    np.array([[[0, 1], [1, 0]]], dtype=np.int8),
+    StoredElement.numeric(np.dtype("i1"), "Bool"),
+    object_marker="BitArray{3}",
+)
+
+with open_dataecon("bits.daec", "w") as db:
+    db.write_array("bits", bits)
+
+with open_dataecon("bits.daec") as db:
+    stored = db.read_array("bits")
+
+assert stored.object_marker == "BitArray{3}"
+assert stored.to_interpreted().tolist() == [[[False, True], [True, False]]]
+```
+
+Text tensors (`Array{String,N}` and `Array{Symbol,N}`) are not supported yet:
+Julia writes and reads ASCII ones, so they remain unimplemented Python
+capabilities rather than an excluded encoding, and Python refuses them on read
+with a `TypeError` naming that limit. Two other groups are refused because
+Julia's writer never produces them: N-dimensional objects with fewer than
+three axes, which Julia's loader would read as a 0-d array, a vector or a
+matrix, and the dated and "other" N-dimensional object types, which Julia's
+loader cannot read at all. A stored axis slot that is missing or refers to no
+axis is also refused: Julia's loader would silently drop that dimension and
+return a lower-rank array. The element count is accumulated in Python integers
+and compared with the payload size before any copy, so an overflowing or
+absurd product never reaches an allocation.
+
+The restriction on class-4 `type_tensor` objects with zero, one or two axes
+is a current adapter limitation, not an invalid-file rule or a permanent
+format constraint. It does not affect ordinary vectors and matrices stored
+in their usual object classes. Support may be added later after defining the
+zero-dimensional return type and verifying shape, dtype, marker and rewrite
+behavior for all three forms. Until then, `read_array` raises `TypeError`
+without changing the file; Julia can read these objects.
+
 ## Text vectors
 
 Ordinary text is a list of Python strings. DataEcon packs the elements as

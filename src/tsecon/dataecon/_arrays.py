@@ -8,9 +8,9 @@ familiar types cannot hold losslessly:
 * :class:`StoredArray` pairs a contiguous carrier with a
   :class:`~tsecon.dataecon._represented.StoredElement`, so ``MIT``/``Duration``
   codes, 128-bit integers, ComplexF16 pairs and preserved reconstruction
-  markers keep their stored kind, width and bytes. It holds one- and
-  two-dimensional values; :meth:`StoredArray.to_interpreted` is the explicit
-  conversion to the value Julia's loader would build.
+  markers keep their stored kind, width and bytes. It holds values of one to
+  five dimensions (DataEcon's axis limit); :meth:`StoredArray.to_interpreted`
+  is the explicit conversion to the value Julia's loader would build.
 * :class:`StoredText` keeps each element's exact stored bytes together with the
   preserved ``jeltype`` text, which is how a ``Symbol`` vector and text that is
   not valid UTF-8 survive a read-modify-write.
@@ -53,8 +53,10 @@ def _check_array_values(values: np.ndarray[Any, Any], element: StoredElement) ->
     """
     if not isinstance(values, np.ndarray):
         raise TypeError("A StoredArray carrier must be a NumPy array.")
-    if values.ndim not in (1, 2):
-        raise ValueError("A StoredArray carrier must be one- or two-dimensional.")
+    if not 1 <= values.ndim <= _interpret.MAX_AXES:
+        raise ValueError(
+            f"A StoredArray carrier must have one to {_interpret.MAX_AXES} dimensions."
+        )
     if (
         values.dtype != element.dtype
         or values.dtype.char != element.dtype.char
@@ -134,12 +136,12 @@ def _structure_dense(values: np.ndarray[Any, Any], token: str) -> np.ndarray[Any
 class StoredArray:
     """A plain DataEcon array kept in its stored element representation.
 
-    ``values`` is a one- or two-dimensional C-contiguous NumPy carrier holding
-    the exact stored bytes for ``element``; a two-dimensional carrier is in the
-    natural NumPy row-major order and the adapter writes DataEcon's
-    column-major payload from it. ``object_marker`` is a preserved ``jtype``
-    text. The container is copied by default so the file's bytes cannot be
-    mutated through an alias.
+    ``values`` is a C-contiguous NumPy carrier of one to five dimensions
+    holding the exact stored bytes for ``element``; a carrier of two or more
+    dimensions is in the natural NumPy row-major order and the adapter writes
+    DataEcon's column-major payload from it. ``object_marker`` is a preserved
+    ``jtype`` text. The container is copied by default so the file's bytes
+    cannot be mutated through an alias.
     """
 
     __slots__ = ("_element", "_object_marker", "_values")
@@ -185,7 +187,7 @@ class StoredArray:
 
     @property
     def ndim(self) -> int:
-        """One for a plain vector, two for a matrix."""
+        """One for a plain vector, two for a matrix, three to five for a tensor."""
         return int(self._values.ndim)
 
     @property
@@ -238,7 +240,7 @@ class StoredArray:
     # ---- explicit conversions --------------------------------------------
 
     def tolist(self) -> list[Any]:
-        """Convert the stored values to Python objects, nesting rows for a matrix.
+        """Convert the stored values to Python objects, nesting one list per dimension.
 
         Dates and durations become core ``MIT``/``Duration`` objects with the
         element frequency, 128-bit values become Python ``int`` and ComplexF16
@@ -246,12 +248,12 @@ class StoredArray:
         this; use :meth:`to_interpreted` for Julia's converted values.
         """
         _check_array_carrier(self._values, self._element)
-        if self._values.ndim == 1:
-            return self._row_to_list(self._values)
-        return [self._row_to_list(np.ascontiguousarray(row)) for row in self._values]
+        return self._nested_list(self._values)
 
-    def _row_to_list(self, row: np.ndarray[Any, Any]) -> list[Any]:
-        return element_tolist(row, self._element)
+    def _nested_list(self, values: np.ndarray[Any, Any]) -> list[Any]:
+        if values.ndim == 1:
+            return element_tolist(np.ascontiguousarray(values), self._element)
+        return [self._nested_list(row) for row in values]
 
     def to_bool(self) -> np.ndarray[Any, Any]:
         """Convert a carrier with an active ``"Bool"`` marker into a Boolean array."""
@@ -363,6 +365,8 @@ def resolve_array_interpretation(
             _interpret.check_route(base, target)
             _interpret.check_values(values.reshape(-1), base, target)
         elif kind == "structure" and ndim != 2:
+            # Unreachable through the vocabulary (structure tokens resolve for
+            # rank two only); kept as the contract's own guard.
             raise TypeError("A structural reconstruction marker applies to matrices only.")
         return kind, target
     marker = element.marker

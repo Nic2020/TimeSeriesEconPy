@@ -340,8 +340,9 @@ def test_stored_array_copies_by_default_and_validates_mutation():
 
 
 def test_stored_array_rejects_bad_carriers():
-    with pytest.raises(ValueError, match="one- or two-dimensional"):
-        StoredArray(np.zeros((2, 2, 2), dtype="<i8"), StoredElement.date(Monthly()))
+    # Ranks three to five are tensors since the N-d contract; six is the limit.
+    with pytest.raises(ValueError, match="one to 5 dimensions"):
+        StoredArray(np.zeros((1, 1, 1, 1, 1, 1), dtype="<i8"), StoredElement.date(Monthly()))
     with pytest.raises(TypeError, match="storage dtype"):
         StoredArray(np.zeros(2, dtype="<i4"), StoredElement.date(Monthly()), copy=False)
     with pytest.raises(TypeError, match="belong in a plain NumPy array"):
@@ -966,6 +967,7 @@ def test_complexf16_hermitian_conjugates_and_clears_the_diagonal():
     assert dense.values["imag"][1, 0] == -parts["imag"][0, 1]
 
 
+@NATIVE
 @pytest.mark.parametrize("shape", [(1, 1), (1, 3), (3, 1), (0, 3), (3, 0), (0, 0), (2, 3)])
 def test_every_matrix_shape_reads_back_owning_and_writable(tmp_path, shape):
     values = np.ones(shape, dtype=np.float64)
@@ -984,6 +986,7 @@ def test_every_matrix_shape_reads_back_owning_and_writable(tmp_path, shape):
         assert result[0, 0] == 7.0
 
 
+@NATIVE
 @pytest.mark.parametrize("dtype", ["<f8", "?", "<i8"])
 def test_singleton_matrix_results_survive_file_closure(tmp_path, dtype):
     values = np.ones((1, 2), dtype=dtype)
@@ -996,6 +999,7 @@ def test_singleton_matrix_results_survive_file_closure(tmp_path, dtype):
     assert result.flags["OWNDATA"]
 
 
+@NATIVE
 def test_represented_matrix_results_are_writable(tmp_path):
     array = StoredArray(np.array([[1, 2]], dtype="<i8"), StoredElement.date(Monthly()))
     path = tmp_path / "rep.daec"
@@ -1008,6 +1012,7 @@ def test_represented_matrix_results_are_writable(tmp_path):
     assert back.values[0, 0] == 5
 
 
+@NATIVE
 def test_single_column_mvtseries_values_are_writable(tmp_path):
     series = MVTSeries(MIT(Monthly(), 0), ("a",), np.array([[1.0], [2.0]]))
     path = tmp_path / "mvts.daec"
@@ -1061,6 +1066,7 @@ def test_stored_array_capacity_is_checked_before_use(monkeypatch):
         StoredArray(np.zeros(4, dtype="<i8"), StoredElement.numeric("<i8", "Int64"))
 
 
+@NATIVE
 @pytest.mark.parametrize("shape", [(2,), (1, 2)])
 def test_wide_bool_arrays_preserve_their_storage(tmp_path, shape):
     words = np.array([0, 0, 1, 0], dtype="<u8").view(INT128.dtype).reshape(shape)
@@ -1076,6 +1082,7 @@ def test_wide_bool_arrays_preserve_their_storage(tmp_path, shape):
     assert back.to_bool().tolist() == np.array([False, True]).reshape(shape).tolist()
 
 
+@NATIVE
 def test_date_bool_marker_preserves_its_carrier(tmp_path):
     element = StoredElement.date(Monthly()).with_bool_marker()
     array = StoredArray(np.array([0, 1], dtype="<i8"), element)
@@ -1102,6 +1109,7 @@ def test_ordinary_boolean_arrays_still_require_one_byte_storage():
     assert resolved.julia_name == "Int128"
 
 
+@NATIVE
 @pytest.mark.parametrize("shape", [(0,), (0, 2)])
 def test_empty_foreign_markers_are_preserved_on_the_kind_default(tmp_path, shape):
     array = StoredArray(np.empty(shape, dtype="<i8"), StoredElement.numeric("<i8", "Float64"))
@@ -1155,6 +1163,7 @@ def test_a_snapshot_size_change_is_refused():
         array.to_interpreted()
 
 
+@NATIVE
 def test_nonempty_string_marker_is_preserved(tmp_path):
     path = tmp_path / "marked.daec"
     with open_dataecon(path, "w") as db:

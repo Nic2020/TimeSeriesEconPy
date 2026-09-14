@@ -1,4 +1,4 @@
-from ._codec import MatrixMetadata, Metadata, ScalarMetadata
+from ._codec import MatrixMetadata, Metadata, ScalarMetadata, TensorMetadata
 
 def version() -> tuple[str, str]: ...
 def abi_layout() -> dict[str, tuple[int, ...] | tuple[int, tuple[int, ...]]]: ...
@@ -24,7 +24,9 @@ class FileHandle:
     ) -> None: ...
     def read_array(
         self, name: str
-    ) -> tuple[bytes, Metadata | MatrixMetadata, str, str | None, str | None, str | None]: ...
+    ) -> tuple[
+        bytes, Metadata | MatrixMetadata | TensorMetadata, str, str | None, str | None, str | None
+    ]: ...
     def write_array(
         self,
         name: str,
@@ -52,6 +54,18 @@ class FileHandle:
         first: int,
         columns: int,
         names: str | None,
+        payload: bytes,
+        overwrite: bool,
+        marker: str | None,
+        object_marker: str | None = None,
+    ) -> None: ...
+    def write_tensor(
+        self,
+        name: str,
+        object_type: int,
+        element: int,
+        element_frequency: int,
+        shape: tuple[int, ...],
         payload: bytes,
         overwrite: bool,
         marker: str | None,

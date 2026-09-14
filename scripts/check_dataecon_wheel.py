@@ -1491,6 +1491,193 @@ def check_matrices_text(db: de.DataEconFile) -> None:  # noqa: PLR0912 - finite 
             raise TypeError(f"{name} must preserve its Symbol marker.")
 
 
+def tensor_values(dtype: np.dtype, shape: tuple[int, ...]) -> np.ndarray:
+    """The six matrix values laid out column-major in a three- to five-dimensional shape."""
+    flat = matrix_values(dtype).reshape(-1, order="F")
+    return flat.reshape(shape, order="F").copy()
+
+
+def tensor_run(shape: tuple[int, ...]) -> np.ndarray:
+    """The column-major run 1..24 in a shape whose bytes never change."""
+    return np.arange(1, 25, dtype="<i8").reshape(shape, order="F").copy()
+
+
+def stored_words_128(
+    element: de.StoredElement, values: list[int], shape: tuple[int, ...]
+) -> de.StoredArray:
+    """Pack 128-bit values column-major into a carrier of any supported rank."""
+    words: list[int] = []
+    for value in values:
+        raw = value & ((1 << 128) - 1)
+        words.extend([raw & ((1 << 64) - 1), raw >> 64])
+    packed = np.array(words, dtype="<u8").view(element.dtype)
+    return de.StoredArray(packed.reshape(shape, order="F").copy(), element)
+
+
+def stored_complexf16_tensor(shape: tuple[int, ...]) -> de.StoredArray:
+    """The fixture's two ComplexF16 bit patterns in a three- or four-dimensional carrier."""
+    parts = np.array([0x8000, 0x3D00, 0x4000, 0x4200], dtype="<u2").view(de.COMPLEXF16.dtype)
+    return de.StoredArray(parts.reshape(shape, order="F").copy(), de.COMPLEXF16)
+
+
+def bit_array(values: np.ndarray, token: str) -> de.StoredArray:
+    """A Julia BitArray as Python preserves it: Int8 zero/one, Bool element, rank token."""
+    carrier = np.asarray(values, dtype=bool).astype(np.int8)
+    element = de.StoredElement.numeric(np.dtype("i1"), "Bool")
+    return de.StoredArray(carrier, element, object_marker=token)
+
+
+def write_tensors(db: de.DataEconFile) -> None:
+    """Write three- to five-dimensional plain arrays over every supported element."""
+    for dtype in ARRAY_DTYPES:
+        token = array_token(dtype)
+        db.write_array(f"tensor_{token}", tensor_values(dtype, (1, 2, 3)))
+        db.write_array(f"tensor5_{token}", tensor_values(dtype, (3, 1, 2, 1, 1)))
+        db.write_array(f"tensor_{token}_empty", np.empty((0, 2, 3), dtype=dtype))
+    for dtype in (np.dtype("<i8"), np.dtype("<f8"), np.dtype("?"), np.dtype("u1")):
+        db.write_array(f"tensor4_{array_token(dtype)}", tensor_values(dtype, (1, 2, 3, 1)))
+    db.write_array("tensor_empty_2x0x3", np.empty((2, 0, 3), dtype=np.float64))
+    db.write_array("tensor_empty_2x3x0", np.empty((2, 3, 0), dtype=np.float64))
+    db.write_array("tensor_empty_rank5", np.empty((0, 0, 0, 0, 0), dtype=np.float64))
+    db.write_array("tensor_empty_rank4_bool", np.empty((0, 1, 1, 1), dtype=bool))
+    for shape in ((2, 3, 4), (4, 3, 2), (2, 2, 2, 3), (2, 2, 2, 3, 1)):
+        db.write_array("tensor_run_" + "x".join(map(str, shape)), tensor_run(shape))
+    db.write_array("tensor_1x1x1", np.array([[[2.5]]], dtype=np.float64))
+    db.write_array("tensor_1x1x1x1x1", np.array([42], dtype="<i8").reshape((1, 1, 1, 1, 1)))
+    db.write_array(
+        "tensor_mit",
+        de.StoredArray(
+            np.array([-1, 0, 1, 2], dtype="<i8").reshape((2, 1, 2), order="F"),
+            de.StoredElement.date(Monthly()),
+        ),
+    )
+    db.write_array(
+        "tensor_mit_unit5",
+        de.StoredArray(
+            np.array([-(2**63), 2**63 - 1], dtype="<i8").reshape((1, 2, 1, 1, 1)),
+            de.StoredElement.date(Unit()),
+        ),
+    )
+    db.write_array(
+        "tensor_duration_q1",
+        de.StoredArray(
+            np.array([1, -2, 2**63 - 1, 0], dtype="<i8").reshape((1, 2, 2), order="F"),
+            de.StoredElement.duration(Quarterly(1)),
+        ),
+    )
+    db.write_array(
+        "tensor_int128", stored_words_128(de.INT128, [-(2**127), -1, 0, 2**127 - 1], (2, 1, 2))
+    )
+    db.write_array("tensor_uint128", stored_words_128(de.UINT128, [0, 1, 2, 2**128 - 1], (1, 2, 2)))
+    db.write_array("tensor_complexf16", stored_complexf16_tensor((1, 1, 2)))
+    db.write_array("tensor_complexf16_4d", stored_complexf16_tensor((2, 1, 1, 1)))
+    db.write_array(
+        "tensor_bitarray", bit_array(tensor_values(np.dtype("?"), (1, 2, 3)), "BitArray{3}")
+    )
+    db.write_array("bit_vector", bit_array(np.array([True, False, True]), "BitVector"))
+    db.write_array("bit_matrix", bit_array(np.array([[True, False], [False, True]]), "BitMatrix"))
+    cube = np.arange(1, 9, dtype="<i8").reshape((2, 2, 2), order="F")
+    db.write_array(
+        "tensor_marked_float64",
+        de.StoredArray(cube, de.StoredElement.numeric(np.dtype("<i8"), "Float64")),
+    )
+    db.write_array(
+        "tensor_object_float64",
+        de.StoredArray(
+            cube, de.StoredElement.numeric(np.dtype("<i8"), None), object_marker="Array{Float64,3}"
+        ),
+    )
+    db.write_array(
+        "tensor_object_identity",
+        de.StoredArray(
+            cube, de.StoredElement.numeric(np.dtype("<i8"), None), object_marker="Array"
+        ),
+    )
+    db.write_array(
+        "tensor_marked_bool_wide",
+        de.StoredArray(
+            np.array([0, 0, 1, 0], dtype="<u8").view(de.INT128.dtype).reshape((1, 2, 1)),
+            de.INT128.with_bool_marker(),
+        ),
+    )
+
+
+def check_tensors(db: de.DataEconFile) -> None:  # noqa: PLR0912 - finite ABI matrix
+    """Read every object written by :func:`write_tensors` back."""
+    for dtype in ARRAY_DTYPES:
+        token = array_token(dtype)
+        for name, shape in ((f"tensor_{token}", (1, 2, 3)), (f"tensor5_{token}", (3, 1, 2, 1, 1))):
+            expected = tensor_values(dtype, shape)
+            actual = db.read_array(name)
+            if not isinstance(actual, np.ndarray) or actual.dtype != np.dtype(dtype):
+                raise TypeError(f"{name} must read back as its own dtype.")
+            if actual.shape != shape or actual.tobytes(order="C") != expected.tobytes(order="C"):
+                raise ValueError(f"{name} values or shape changed across the round trip.")
+            if not (actual.flags["C_CONTIGUOUS"] and actual.flags["WRITEABLE"]):
+                raise ValueError(f"{name} must own writable contiguous storage.")
+        empty = db.read_array(f"tensor_{token}_empty")
+        if empty.shape != (0, 2, 3) or empty.dtype != np.dtype(dtype):
+            raise ValueError(f"tensor_{token}_empty lost its shape or dtype.")
+    for name, shape in (
+        ("tensor_empty_2x0x3", (2, 0, 3)),
+        ("tensor_empty_2x3x0", (2, 3, 0)),
+        ("tensor_empty_rank5", (0, 0, 0, 0, 0)),
+        ("tensor_empty_rank4_bool", (0, 1, 1, 1)),
+    ):
+        if db.read_array(name).shape != shape:
+            raise ValueError(f"{name} lost its stored shape.")
+    for shape in ((2, 3, 4), (4, 3, 2), (2, 2, 2, 3), (2, 2, 2, 3, 1)):
+        name = "tensor_run_" + "x".join(map(str, shape))
+        actual = db.read_array(name)
+        if actual.shape != shape or not np.array_equal(actual, tensor_run(shape)):
+            raise ValueError(f"{name} did not keep the column-major run.")
+    if db.read_array("tensor_1x1x1").tolist() != [[[2.5]]]:
+        raise ValueError("A 1x1x1 tensor changed.")
+    if db.read_array("tensor_1x1x1x1x1").shape != (1, 1, 1, 1, 1):
+        raise ValueError("A rank-5 singleton lost its shape.")
+    for name, ndim in (
+        ("tensor_mit", 3),
+        ("tensor_mit_unit5", 5),
+        ("tensor_duration_q1", 3),
+        ("tensor_int128", 3),
+        ("tensor_uint128", 3),
+        ("tensor_complexf16", 3),
+        ("tensor_complexf16_4d", 4),
+    ):
+        value = db.read_array(name)
+        if not isinstance(value, de.StoredArray) or value.ndim != ndim:
+            raise TypeError(f"{name} must read back as a {ndim}-dimensional StoredArray.")
+    for name, token, expected in (
+        ("tensor_bitarray", "BitArray{3}", tensor_values(np.dtype("?"), (1, 2, 3))),
+        ("bit_vector", "BitVector", np.array([True, False, True])),
+        ("bit_matrix", "BitMatrix", np.array([[True, False], [False, True]])),
+    ):
+        value = db.read_array(name)
+        if not isinstance(value, de.StoredArray) or value.object_marker != token:
+            raise TypeError(f"{name} must preserve Julia's {token} token.")
+        if not np.array_equal(value.to_interpreted(), expected):
+            raise ValueError(f"{name} did not interpret to its Boolean values.")
+    cube = np.arange(1, 9, dtype="<i8").reshape((2, 2, 2), order="F")
+    for name, marker, object_marker in (
+        ("tensor_marked_float64", "Float64", None),
+        ("tensor_object_float64", None, "Array{Float64,3}"),
+        ("tensor_object_identity", None, "Array"),
+    ):
+        value = db.read_array(name)
+        if not isinstance(value, de.StoredArray):
+            raise TypeError(f"{name} must preserve its marker in a StoredArray.")
+        if value.element.marker != marker or value.object_marker != object_marker:
+            raise ValueError(f"{name} lost a reconstruction marker.")
+        interpreted = value.to_interpreted()
+        if interpreted.shape != (2, 2, 2) or not np.array_equal(interpreted, cube):
+            raise ValueError(f"{name} did not interpret to Julia's values.")
+    wide = db.read_array("tensor_marked_bool_wide")
+    if not isinstance(wide, de.StoredArray) or wide.element.marker != "Bool":
+        raise TypeError("A wide Bool tensor must keep its carrier and marker.")
+    if wide.to_bool().tolist() != [[[False], [True]]]:
+        raise ValueError("A wide Bool tensor did not convert to its flags.")
+
+
 def write_interchange(output_dir: Path, series: tsecon.TSeries) -> Path:
     """Write and reopen series and scalars for separate Julia verification."""
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -1504,6 +1691,7 @@ def write_interchange(output_dir: Path, series: tsecon.TSeries) -> Path:
         write_foreign_markers(db)
         write_arrays_unit(db)
         write_matrices_text(db)
+        write_tensors(db)
         for name, value in (
             ("bool_false", False),
             ("bool_true", True),
@@ -1526,6 +1714,7 @@ def write_interchange(output_dir: Path, series: tsecon.TSeries) -> Path:
         check_foreign_markers(db)
         check_arrays_unit(db)
         check_matrices_text(db)
+        check_tensors(db)
         np.testing.assert_array_equal(db.read_series("sample").values, series.values)
         for name, expected in (
             ("bool_false", 0),

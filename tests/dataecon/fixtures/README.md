@@ -365,3 +365,34 @@ julia --startup-file=no --project=<isolated-project> tests/dataecon/fixtures/int
 into the primary file (`fx_*` preserved containers and their
 `fx_*_interpreted` conversions): raw metadata, bytes and both attributes, and
 Julia's own load of each preserved object against its load of the interpreted one.
+
+## Matrices, MVTSeries and text fixture
+
+`julia_matrices_text.daec` and its TOML provenance are generated with
+`generate-matrices-text` and checked with `verify-matrices-text`. It stores
+every ordinary dtype as a 2x3 column-major matrix and as an empty matrix,
+degenerate shapes, represented `MIT`/`Duration`/`Int128`/`UInt128`/`ComplexF16`
+matrices, `Diagonal`/`Symmetric`/`Hermitian` markers, `MVTSeries` over the
+eight axis families at both reliable endpoints with unicode, empty and single
+names and zero rows, and packed text vectors including multibyte text that
+Julia's own writer cannot size (stored through the C entry points). The
+provenance records the measured `mvtseries_t` layout. `verify-wheel` applies
+the same set to the Python-written objects.
+
+## N-dimensional array fixture
+
+`julia_tensors.daec` and its TOML provenance are generated with
+`generate-tensors` and checked with `verify-tensors`. It stores every ordinary
+dtype as a 1x2x3 and a 3x1x2x1x1 tensor of the six matrix values, four dtypes
+at rank four, the column-major run `1..24` at four shapes whose bytes are
+identical, rank-3 and rank-5 singletons, empties at every rank (Julia's own
+writer has no empty-array method above rank two, so these are stored through
+the C entry points with the element token Julia writes on every other empty
+array), represented `MIT{Monthly}`/`MIT{Unit}`/`Duration{Quarterly{1}}`/
+`Int128`/`UInt128`/`ComplexF16` tensors, a `BitArray{3}` plus a `BitVector`
+and a `BitMatrix` (Julia writes a rank token and the `Bool` element token for
+each), and preserved element/object markers on an Int64 cube. The provenance
+records the measured `ndtseries_t` layout (304 bytes, offsets
+0/32/36/40/48/288/296). `verify-wheel` applies the same set to the
+Python-written objects; Python omits the element token on empty kind-default
+arrays, which Julia's loader then reads with their shape preserved.

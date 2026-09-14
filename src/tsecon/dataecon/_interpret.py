@@ -203,20 +203,32 @@ def vector_dtype(token: str, base: Target) -> np.dtype[Any]:
 # parameterised container token converts every element, unlike the dated-series
 # tokens above where the same spelling raises `DimensionMismatch`. These
 # structural tokens name LinearAlgebra wrappers; the pinned loader can only
-# rebuild them when the loading session has LinearAlgebra in `Main`.
+# rebuild them when the loading session has LinearAlgebra in `Main`, and it
+# has no conversion from a rank-3 or higher array to any of them.
 STRUCTURE_TOKENS: tuple[str, ...] = ("Diagonal", "Symmetric", "Hermitian")
+# DataEcon stores at most five axes (DE_MAX_AXES); ranks three to five are
+# `type_tensor` objects whose bare container spellings are `Array` and
+# `AbstractArray`.
+MAX_AXES = 5
 _ARRAY_IDENTITY_TOKENS: dict[int, tuple[str, ...]] = {
     1: ("Vector", "AbstractVector", "Array", "Any"),
     2: ("Matrix", "AbstractMatrix", "Array", "Any"),
+    **dict.fromkeys(range(3, MAX_AXES + 1), ("AbstractArray", "Array", "Any")),
+}
+# Julia's own writer stores a `BitArray` with `jtype` naming the rank and
+# `jeltype = "Bool"`; the loader converts exact 0/1 values back to a BitArray.
+_BIT_ARRAY_TOKENS: dict[int, tuple[str, ...]] = {
+    n: (f"BitArray{{{n}}}",) + (("BitVector",) if n == 1 else ("BitMatrix",) if n == 2 else ())
+    for n in range(1, MAX_AXES + 1)
 }
 
 
 def _array_token_element(token: str, ndim: int) -> str | None:
     """Return the element spelling inside a container token, or None."""
-    outer = "Vector" if ndim == 1 else "Matrix"
-    prefix = f"{outer}{{"
-    if token.startswith(prefix) and token.endswith("}"):
-        return token[len(prefix) : -1]
+    if ndim in (1, 2):
+        prefix = "Vector{" if ndim == 1 else "Matrix{"
+        if token.startswith(prefix) and token.endswith("}"):
+            return token[len(prefix) : -1]
     for suffix in (f",{ndim}}}", f", {ndim}}}"):
         if token.startswith("Array{") and token.endswith(suffix):
             return token[len("Array{") : -len(suffix)]
@@ -228,16 +240,22 @@ def array_object_interpretation(token: str, base: Target, ndim: int) -> tuple[st
 
     Returns ``("identity", base)`` for the bare container and ``Any`` tokens
     and for a parameterised spelling naming the stored element, ``("element",
-    target)`` for a parameterised spelling naming another supported element,
-    and ``("structure", base)`` for the LinearAlgebra wrappers. Every other
-    spelling raises ``TypeError``; the text is never evaluated.
+    target)`` for a parameterised spelling naming another supported element
+    (the Julia bit-array tokens name ``Bool``), and ``("structure", base)`` for
+    the LinearAlgebra wrappers on a matrix. Every other spelling raises
+    ``TypeError``; the text is never evaluated.
     """
     if ndim not in _ARRAY_IDENTITY_TOKENS:
-        raise TypeError("Whole-object array markers are supported for 1-D and 2-D objects only.")
+        raise TypeError(
+            f"Whole-object array markers are supported for one- to {MAX_AXES}-dimensional "
+            "objects only."
+        )
     if token in _ARRAY_IDENTITY_TOKENS[ndim]:
         return "identity", base
     if ndim == 2 and token in STRUCTURE_TOKENS:
         return "structure", base
+    if token in _BIT_ARRAY_TOKENS[ndim]:
+        return "element", ACTIVE_TOKENS["Bool"]
     inner = _array_token_element(token, ndim)
     target = None if inner is None else ACTIVE_TOKENS.get(inner)
     if target is None:

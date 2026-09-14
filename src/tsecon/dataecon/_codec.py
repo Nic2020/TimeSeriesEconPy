@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-"""Scalar and series conversions between core objects and native DataEcon payloads.
+"""Scalar, series and array conversions between core objects and native DataEcon payloads.
 
 Scalars: Float16/32/64, Int8/16/32/64, UInt8/16/32/64, Complex64/128, UTF-8
 strings, and MIT dates or Durations over the unit, daily, business-daily,
@@ -258,6 +258,18 @@ class MatrixPayload(NamedTuple):
     object_marker: str | None
 
 
+class TensorPayload(NamedTuple):
+    """Owned column-major bytes and explicit storage information for a 3-D to 5-D object."""
+
+    object_type: int
+    element: int
+    element_frequency: int
+    shape: tuple[int, ...]
+    payload: bytes
+    marker: str | None
+    object_marker: str | None
+
+
 # Series widths include the represented families; scalar acceptance is unchanged.
 _SERIES_WIDTHS = {
     **_NUMERIC_WIDTHS,
@@ -272,6 +284,16 @@ ArrayValue: TypeAlias = (
     np.ndarray[Any, Any] | range | MITRange | StoredArray | StoredText | list[str] | tuple[str, ...]
 )
 MatrixMetadata: TypeAlias = tuple[int, ...]
+# Six header integers (class, object type, element, element frequency, axis
+# count, nbytes) followed by DE_MAX_AXES slots of (id, axis type, length,
+# frequency, first), exactly as the native loader fills `ndtseries_t`.
+TensorMetadata: TypeAlias = tuple[int, ...]
+MAX_AXES = _interpret.MAX_AXES
+_TENSOR_METADATA_LENGTH = 6 + 5 * MAX_AXES
+_TENSOR_SUPPORT = (
+    "DataEcon N-dimensional support covers ordinary numeric and Boolean plain arrays "
+    f"and represented plain arrays with three to {MAX_AXES} plain axes."
+)
 _MATRIX_SUPPORT = (
     "DataEcon two-dimensional support covers ordinary numeric and Boolean plain "
     "matrices and MVTSeries, and represented plain matrices."
@@ -908,6 +930,39 @@ def _ordinary_payload(values: np.ndarray[Any, Any], order: Literal["C", "F"]) ->
     return values.tobytes(order=order)
 
 
+def _ordinary_snapshot(
+    values: np.ndarray[Any, Any], order: Literal["C", "F"]
+) -> tuple[bytes, np.dtype[Any], int]:
+    """Snapshot an ordinary array's bytes against the shape and dtype seen beforehand.
+
+    The expected byte count is fixed from the size and storage width captured
+    before ``tobytes`` runs, never from the live array afterwards: an input
+    that shrinks during the snapshot would otherwise pass a comparison with
+    its own new size, and the same native kind at a narrower width would then
+    be stored under the original shape. Returns the payload, the storage dtype
+    the bytes must resolve to (Int8 for Boolean values) and the expected count.
+    """
+    storage = np.dtype("i1") if values.dtype.kind == "b" else values.dtype
+    expected = int(values.size) * storage.itemsize
+    payload = _ordinary_payload(values, order)
+    if len(payload) != expected:
+        raise ValueError("The array changed size during the snapshot; nothing was written.")
+    return payload, storage, expected
+
+
+def _check_snapshot_storage(
+    resolved: np.dtype[Any] | StoredElement | None, storage: np.dtype[Any], marker: str | None
+) -> None:
+    """Require the validated snapshot to resolve to the dtype that was snapshotted."""
+    # An empty Boolean payload resolves to the bool dtype itself; every other
+    # ordinary payload resolves to its own storage dtype.
+    if resolved == storage or (marker == "Bool" and resolved == np.dtype("?")):
+        return
+    raise ValueError(
+        "The snapshot no longer resolves to the array's own dtype; nothing was written."
+    )
+
+
 def _check_text_capacity(total: int) -> None:
     """Refuse an oversized text vector before its payload is assembled."""
     if total > MAX_BYTES:
@@ -945,14 +1000,13 @@ def _encode_ordinary_vector(value: np.ndarray[Any, Any]) -> ArrayPayload:
     marker = (
         name if name == "Bool" or (not len(value) and name != _SERIES_DEFAULTS[element]) else None
     )
-    length, nbytes = len(value), value.nbytes
-    validate_array_metadata((2, 10, element, 0, 0, length, 0, 0, nbytes))
-    payload = _ordinary_payload(value, "C")
-    if len(payload) != nbytes:
-        raise ValueError("The array changed size during the snapshot; nothing was written.")
-    validate_array_payload(
-        (2, 10, element, 0, 0, length, 0, 0, len(payload)), payload, marker, None
+    length = len(value)
+    validate_array_metadata((2, 10, element, 0, 0, length, 0, 0, value.nbytes))
+    payload, storage, nbytes = _ordinary_snapshot(value, "C")
+    resolved = validate_array_payload(
+        (2, 10, element, 0, 0, length, 0, 0, nbytes), payload, marker, None
     )
+    _check_snapshot_storage(resolved, storage, marker)
     return ArrayPayload(10, 0, 0, 0, payload, element, 0, length, marker, None)
 
 
@@ -1026,21 +1080,34 @@ def _encode_date_range(value: MITRange) -> ArrayPayload:
     return ArrayPayload(11, 1, frequency, first, b"", 0, 0, length, marker, None)
 
 
-def encode_array(value: ArrayValue) -> ArrayPayload | MatrixPayload:
+def _encode_ndarray(value: np.ndarray[Any, Any]) -> ArrayPayload | MatrixPayload | TensorPayload:
+    if value.ndim == 2:
+        return _encode_plain_matrix(value)
+    if value.ndim == 1:
+        return _encode_ordinary_vector(value)
+    _check_tensor_rank(value.ndim)
+    return _encode_plain_tensor(value)
+
+
+def _encode_stored_array(value: StoredArray) -> ArrayPayload | MatrixPayload | TensorPayload:
+    value.validate()
+    if value.ndim == 2:
+        return _encode_stored_matrix(value)
+    if value.ndim == 1:
+        return _encode_stored_vector(value)
+    return _encode_stored_tensor(value)
+
+
+def encode_array(value: ArrayValue) -> ArrayPayload | MatrixPayload | TensorPayload:
     """Encode a plain array, text vector or lossless unit-step range."""
     if sys.byteorder != "little":
         raise RuntimeError(
             "DataEcon interchange is currently supported on little-endian hosts only."
         )
     if isinstance(value, np.ndarray):
-        if value.ndim == 2:
-            return _encode_plain_matrix(value)
-        if value.ndim != 1:
-            raise ValueError("write_array requires a one- or two-dimensional NumPy array.")
-        return _encode_ordinary_vector(value)
+        return _encode_ndarray(value)
     if isinstance(value, StoredArray):
-        value.validate()
-        return _encode_stored_matrix(value) if value.ndim == 2 else _encode_stored_vector(value)
+        return _encode_stored_array(value)
     if isinstance(value, (StoredText, list, tuple)):
         return _encode_text_vector(value)
     if type(value) is range:
@@ -1054,7 +1121,7 @@ def encode_array(value: ArrayValue) -> ArrayPayload | MatrixPayload:
 
 
 def decode_array(
-    metadata: Metadata | MatrixMetadata,
+    metadata: Metadata | MatrixMetadata | TensorMetadata,
     payload: bytes,
     marker: str | None,
     object_marker: str | None,
@@ -1066,6 +1133,8 @@ def decode_array(
         if isinstance(result, MVTSeries):
             raise TypeError("This object is an MVTSeries; read it with read_series.")
         return result
+    if len(metadata) == _TENSOR_METADATA_LENGTH:
+        return decode_tensor(metadata, payload, marker, object_marker)
     metadata = cast("Metadata", metadata)
     resolved = validate_array_payload(metadata, payload, marker, object_marker)
     _, obj_type, element, _, axis, length, frequency, first, _ = metadata
@@ -1078,9 +1147,7 @@ def decode_array(
         return StoredArray(values, resolved, copy=False, object_marker=object_marker)
     assert resolved is not None
     values = np.frombuffer(payload, dtype=resolved)
-    if marker == "Bool":
-        return np.array(values == 1, dtype=bool)
-    return values.copy()
+    return np.array(values == 1, dtype=bool) if marker == "Bool" else values.copy()
 
 
 def _decode_range(axis: int, length: int, frequency: int, first: int) -> range | MITRange:
@@ -1253,11 +1320,10 @@ def _encode_plain_matrix(value: np.ndarray[Any, Any]) -> MatrixPayload:
     )
     metadata = (3, 20, element, 0, 0, rows, 0, 0, 0, columns, 0, 0, value.nbytes)
     validate_matrix_metadata(metadata)
-    payload = _ordinary_payload(value, "F")
-    if len(payload) != value.nbytes:
-        raise ValueError("The matrix changed size during the snapshot; nothing was written.")
-    stored = (3, 20, element, 0, 0, rows, 0, 0, 0, columns, 0, 0, len(payload))
-    validate_matrix_payload(stored, payload, marker, None)
+    payload, storage, nbytes = _ordinary_snapshot(value, "F")
+    stored = (3, 20, element, 0, 0, rows, 0, 0, 0, columns, 0, 0, nbytes)
+    resolved = validate_matrix_payload(stored, payload, marker, None)
+    _check_snapshot_storage(resolved, storage, marker)
     return MatrixPayload(20, element, 0, 0, rows, 0, 0, columns, None, payload, marker, None)
 
 
@@ -1325,11 +1391,10 @@ def encode_mvtseries(series: MVTSeries) -> MatrixPayload:
     )
     metadata = (3, 21, element, 0, 1, rows, code, first, 2, columns, 0, 0, values.nbytes)
     validate_matrix_metadata(metadata)
-    payload = _ordinary_payload(values, "F")
-    if len(payload) != values.nbytes:
-        raise ValueError("The MVTSeries changed size during the snapshot; nothing was written.")
-    stored = (3, 21, element, 0, 1, rows, code, first, 2, columns, 0, 0, len(payload))
-    validate_matrix_payload(stored, payload, marker, None, names)
+    payload, storage, nbytes = _ordinary_snapshot(values, "F")
+    stored = (3, 21, element, 0, 1, rows, code, first, 2, columns, 0, 0, nbytes)
+    resolved = validate_matrix_payload(stored, payload, marker, None, names)
+    _check_snapshot_storage(resolved, storage, marker)
     return MatrixPayload(
         21, element, 0, 1, rows, code, first, columns, names, payload, marker, None
     )
@@ -1364,3 +1429,173 @@ def decode_matrix(
         return result
     anchor = MIT(series_frequency(frequency), first)
     return MVTSeries(anchor, list(split_names(names, columns)), result, copy=False)
+
+
+# ---- N-dimensional objects ------------------------------------------------
+
+
+def _check_tensor_rank(ndim: int) -> None:
+    if not 3 <= ndim <= MAX_AXES:
+        raise ValueError(
+            f"write_array supports NumPy arrays of one to {MAX_AXES} dimensions; DataEcon "
+            f"stores at most {MAX_AXES} axes."
+        )
+
+
+def validate_tensor_metadata(metadata: TensorMetadata) -> tuple[int, ...]:
+    """Validate a plain tensor's header and axis slots before any value pointer is read.
+
+    Returns the stored shape. Only ``type_tensor`` objects with three to five
+    plain axes are accepted: class-4 objects with fewer axes and the dated or
+    "other" object types are native capacity Julia never writes. Every slot
+    inside the axis count must hold a real plain axis; a gap or a dangling axis
+    id (the native loader reports id -1 or 0 there) is refused because Julia's
+    loader would silently drop that dimension. The element count is accumulated
+    in Python integers and compared with the payload size before any copy.
+    """
+    if len(metadata) != _TENSOR_METADATA_LENGTH:
+        raise TypeError(_TENSOR_SUPPORT)
+    cls, obj_type, element, element_freq, naxes, nbytes = metadata[:6]
+    slots = [tuple(metadata[6 + 5 * i : 11 + 5 * i]) for i in range(MAX_AXES)]
+    if cls != 4 or obj_type != 30:
+        raise TypeError(
+            _TENSOR_SUPPORT
+            + " Dated and other N-dimensional object types are native capacity Julia never writes."
+        )
+    if not 3 <= naxes <= MAX_AXES:
+        raise TypeError(
+            f"A DataEcon N-dimensional object with {naxes} axes is native capacity Julia never "
+            f"writes; supported objects have three to {MAX_AXES} plain axes."
+        )
+    if element == KIND_STRING:
+        raise TypeError("N-dimensional DataEcon text objects are not supported yet.")
+    shape = _tensor_shape(slots, naxes)
+    size = 1
+    for length in shape:
+        size *= length
+        if size > MAX_INT64:
+            raise ValueError("The DataEcon tensor element count exceeds the signed 64-bit range.")
+    widths = _series_widths(element, element_freq)
+    if not 0 <= nbytes <= MAX_BYTES or (not size and nbytes):
+        raise ValueError("Invalid or oversized DataEcon tensor payload.")
+    if size and (nbytes % size or nbytes // size not in widths):
+        raise ValueError("Invalid DataEcon tensor element width or payload length.")
+    return shape
+
+
+def _tensor_shape(slots: list[tuple[int, ...]], naxes: int) -> tuple[int, ...]:
+    """Return the lengths of the used slots, refusing missing, foreign or unused-but-set slots."""
+    shape: list[int] = []
+    for index, (axis_id, ax_type, length, frequency, first) in enumerate(slots):
+        if index >= naxes:
+            if axis_id != -1:
+                raise TypeError("A DataEcon tensor has axis slots beyond its axis count.")
+            continue
+        if axis_id <= 0:
+            raise TypeError(
+                f"DataEcon tensor axis {index} is missing or refers to no stored axis; Julia "
+                "would silently drop that dimension."
+            )
+        if (ax_type, frequency, first) != (0, 0, 0):
+            raise TypeError("A DataEcon tensor must have plain axes only.")
+        if length < 0 or length > MAX_INT64:
+            raise ValueError("Invalid DataEcon tensor dimension.")
+        shape.append(length)
+    return tuple(shape)
+
+
+def tensor_metadata(
+    element: int, element_frequency: int, shape: tuple[int, ...], nbytes: int
+) -> TensorMetadata:
+    """Build the native-shaped metadata tuple for a tensor Python is about to write."""
+    header = [4, 30, element, element_frequency, len(shape), nbytes]
+    slots: list[int] = []
+    for index in range(MAX_AXES):
+        if index < len(shape):
+            # The axis id is unknown before the native call; any positive
+            # placeholder satisfies the "real axis" rule the reader applies.
+            slots.extend((1, 0, int(shape[index]), 0, 0))
+        else:
+            slots.extend((-1, 0, 0, 0, 0))
+    return tuple(header + slots)
+
+
+def validate_tensor_payload(
+    metadata: TensorMetadata, payload: bytes, marker: str | None, object_marker: str | None
+) -> np.dtype[Any] | StoredElement:
+    """Validate tensor metadata, finite markers and values without constructing output."""
+    shape = validate_tensor_metadata(metadata)
+    _, _, element, element_freq, _, _ = metadata[:6]
+    _interpret.check_marker_text(marker, "element")
+    _interpret.check_marker_text(object_marker, "whole-object")
+    size = 1
+    for length in shape:
+        size *= length
+    resolved = _array_dtype(element, element_freq, size, len(payload), marker, object_marker)
+    if isinstance(resolved, StoredElement):
+        values = np.frombuffer(payload, dtype=resolved.dtype)
+        resolve_array_interpretation(values.reshape(shape, order="F"), resolved, object_marker)
+    elif marker == "Bool":
+        _interpret.check_bool(
+            np.frombuffer(payload, dtype=resolved), _interpret.numeric_target(resolved)
+        )
+    return resolved
+
+
+def _encode_plain_tensor(value: np.ndarray[Any, Any]) -> TensorPayload:
+    name, element = _ordinary_array_entry(value.dtype)
+    shape = tuple(int(n) for n in value.shape)
+    marker = (
+        name if name == "Bool" or (not value.size and name != _SERIES_DEFAULTS[element]) else None
+    )
+    validate_tensor_metadata(tensor_metadata(element, 0, shape, value.nbytes))
+    payload, storage, nbytes = _ordinary_snapshot(value, "F")
+    resolved = validate_tensor_payload(
+        tensor_metadata(element, 0, shape, nbytes), payload, marker, None
+    )
+    _check_snapshot_storage(resolved, storage, marker)
+    return TensorPayload(30, element, 0, shape, payload, marker, None)
+
+
+def _encode_stored_tensor(value: StoredArray) -> TensorPayload:
+    element = value.element
+    shape = value.shape
+    size = 1
+    for length in shape:
+        size *= length
+    marker = element.written_marker(size)
+    payload = value.values.tobytes(order="F")
+    if len(payload) != size * element.itemsize:
+        raise ValueError("The array changed size during the snapshot; nothing was written.")
+    metadata = tensor_metadata(element.native_kind, element.native_frequency, shape, len(payload))
+    resolved = validate_tensor_payload(metadata, payload, marker, value.object_marker)
+    if resolved != element:
+        raise ValueError(
+            "The snapshot no longer matches the container's stored element; nothing was written."
+        )
+    return TensorPayload(
+        30,
+        element.native_kind,
+        element.native_frequency,
+        shape,
+        payload,
+        marker,
+        value.object_marker,
+    )
+
+
+def decode_tensor(
+    metadata: TensorMetadata, payload: bytes, marker: str | None, object_marker: str | None
+) -> np.ndarray[Any, Any] | StoredArray:
+    """Decode an owning three- to five-dimensional array from a column-major payload."""
+    if sys.byteorder != "little":
+        raise RuntimeError(
+            "DataEcon interchange is currently supported on little-endian hosts only."
+        )
+    resolved = validate_tensor_payload(metadata, payload, marker, object_marker)
+    shape = validate_tensor_metadata(metadata)
+    if isinstance(resolved, StoredElement):
+        values = np.frombuffer(payload, dtype=resolved.dtype).reshape(shape, order="F")
+        return StoredArray(_owned(values), resolved, copy=False, object_marker=object_marker)
+    values = np.frombuffer(payload, dtype=resolved).reshape(shape, order="F")
+    return _owned(values == 1) if marker == "Bool" else _owned(values)

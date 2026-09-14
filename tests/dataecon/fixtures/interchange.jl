@@ -31,6 +31,10 @@
 # represented element, LinearAlgebra structure markers, MVTSeries over every axis
 # family with their names axis, and packed text vectors including multibyte text
 # that Julia's own writer cannot size correctly.
+# N-dimensional actions: generate-tensors/verify-tensors (also checked by
+# verify-wheel): column-major plain arrays with three to five plain axes over
+# every ordinary and represented element, singleton and zero-length
+# dimensions, Julia's BitArray tokens and preserved element/object markers.
 using TimeSeriesEcon
 using Test, SHA, TOML, Pkg, Dates, LinearAlgebra
 # Julia rebuilds a Diagonal/Symmetric/Hermitian jtype marker with
@@ -1124,7 +1128,7 @@ elseif action == "generate-foreign-markers"
             store_foreign_case!(db, name, values, marker, outer)
         end
     end
-elseif !(action in ("verify", "verify-empty", "verify-scalars", "verify-quarterly", "verify-annual", "verify-halfyearly", "verify-int64", "verify-strings", "verify-dates", "verify-calendar", "verify-widths", "verify-fileops", "verify-calendar-series", "verify-series-elements", "generate-series-elements", "verify-represented-elements", "verify-foreign-markers", "generate-arrays-unit", "verify-arrays-unit", "generate-matrices-text", "verify-matrices-text", "verify-wheel"))
+elseif !(action in ("verify", "verify-empty", "verify-scalars", "verify-quarterly", "verify-annual", "verify-halfyearly", "verify-int64", "verify-strings", "verify-dates", "verify-calendar", "verify-widths", "verify-fileops", "verify-calendar-series", "verify-series-elements", "generate-series-elements", "verify-represented-elements", "verify-foreign-markers", "generate-arrays-unit", "verify-arrays-unit", "generate-matrices-text", "verify-matrices-text", "generate-tensors", "verify-tensors", "verify-wheel"))
     error("Unknown fixture action.")
 end
 
@@ -1983,16 +1987,23 @@ if action in ("generate-matrices-text", "verify-matrices-text", "verify-wheel")
     @testset "DataEcon matrices, MVTSeries and text interchange" begin
         reference_fixture = action != "verify-wheel"
         DE.opendaec(filename) do db
+            # The struct's value and names pointers are borrowed and valid
+            # only until the next library call, so the names axis is copied
+            # before the attribute lookup and the returned struct's pointers
+            # are never dereferenced afterwards.
             function raw_matrix(name)
                 id = DE.find_object(db, DE.root_id, name)
                 ref = Ref{C.mvtseries_t}()
                 @test C.de_load_mvtseries(db, id, ref) == 0
+                a = ref[]
+                names = a.axis2.ax_type == C.axis_names && a.axis2.names != C_NULL ?
+                    Base.unsafe_string(a.axis2.names) : nothing
                 attrs = Dict(string(k) => string(v) for (k, v) in DE.get_all_attributes(db, id))
-                return id, ref[], attrs
+                return id, a, attrs, names
             end
             for T in matrix_text_types
                 expected = reshape(collect(matrix_text_values(T)), 2, 3)
-                id, a, attrs = raw_matrix("matrix_$(T)")
+                id, a, attrs, _ = raw_matrix("matrix_$(T)")
                 @test (Int(a.object.obj_class), Int(a.object.obj_type), Int(a.axis1.ax_type),
                        Int(a.axis1.length), Int(a.axis2.ax_type), Int(a.axis2.length),
                        Int(a.nbytes)) == (3, 20, 0, 2, 0, 3, sizeof(expected))
@@ -2002,7 +2013,7 @@ if action in ("generate-matrices-text", "verify-matrices-text", "verify-wheel")
                 @test attrs == (T === Bool ? Dict("jeltype" => "Bool") : Dict())
                 # Every empty two-dimensional object keeps its stored shape but
                 # Julia's own loader returns a flat typed vector for it.
-                id, a, attrs = raw_matrix("matrix_$(T)_empty")
+                id, a, attrs, _ = raw_matrix("matrix_$(T)_empty")
                 @test (Int(a.axis1.length), Int(a.axis2.length), Int(a.nbytes)) == (0, 0, 0)
                 loaded = DE.load_mvtseries(db, id)
                 if haskey(attrs, "jeltype")
@@ -2019,7 +2030,7 @@ if action in ("generate-matrices-text", "verify-matrices-text", "verify-wheel")
             end
             for (name, rows, columns) in (("matrix_zero_rows", 0, 3), ("matrix_zero_cols", 3, 0),
                                           ("matrix_1x1", 1, 1))
-                id, a, _ = raw_matrix(name)
+                id, a, _, _ = raw_matrix(name)
                 @test (Int(a.axis1.length), Int(a.axis2.length)) == (rows, columns)
             end
             @test DE.load_mvtseries(db, DE.find_object(db, DE.root_id, "matrix_1x1")) ==
@@ -2033,7 +2044,7 @@ if action in ("generate-matrices-text", "verify-matrices-text", "verify-wheel")
                 ("matrix_uint128", reshape(UInt128[0, 1, 2, typemax(UInt128)], 2, 2), 2, 0),
                 ("matrix_complexf16", reshape(ComplexF16[complex(Float16(-0.0), Float16(1.25)),
                     complex(Float16(2.0), Float16(3.0))], 1, 2), 5, 0))
-                id, a, _ = raw_matrix(name)
+                id, a, _, _ = raw_matrix(name)
                 @test (Int(a.eltype), Int(a.elfreq)) == (eltype_code, elfreq)
                 @test isequal(DE.load_mvtseries(db, id), expected)
             end
@@ -2043,7 +2054,7 @@ if action in ("generate-matrices-text", "verify-matrices-text", "verify-wheel")
                 ("matrix_hermitian", "Hermitian",
                  Hermitian(reshape(ComplexF64[complex(1.0, 0.0), complex(2.0, -1.0),
                                               complex(2.0, 1.0), complex(4.0, 0.0)], 2, 2))))
-                id, a, attrs = raw_matrix(name)
+                id, a, attrs, _ = raw_matrix(name)
                 @test attrs["jtype"] == token
                 # The writer materialises the authoritative triangle, so the
                 # dense stored bytes plus the marker rebuild the value exactly.
@@ -2062,19 +2073,19 @@ if action in ("generate-matrices-text", "verify-matrices-text", "verify-wheel")
                  reshape(Float64[1, 2, 3, 4], 2, 2)),
                 ("mvts_empty_name", MIT{Monthly}(2024, 1), 32, ["", "b"],
                  reshape(Float64[1, 2, 3, 4], 2, 2)))
-                id, a, _ = raw_matrix(name)
+                id, a, _, stored_names = raw_matrix(name)
                 @test (Int(a.object.obj_type), Int(a.axis1.ax_type), Int(a.axis2.ax_type)) ==
                     (21, 1, 2)
                 @test (Int(a.axis1.frequency), Int(a.axis1.first)) == (freq, Int(first))
                 @test (Int(a.axis1.length), Int(a.axis2.length)) == size(expected)
-                @test split(Base.unsafe_string(a.axis2.names), '\n') == names
+                @test split(stored_names, '\n') == names
                 value = DE.load_mvtseries(db, id)
                 @test value isa MVTSeries
                 @test isequal(value.values, expected)
                 @test string.(collect(keys(value.columns))) == names
                 @test first == firstdate(value)
             end
-            id, a, attrs = raw_matrix("mvts_zero_rows")
+            id, a, attrs, _ = raw_matrix("mvts_zero_rows")
             @test (Int(a.axis1.length), Int(a.axis2.length), Int(a.nbytes)) == (0, 2, 0)
             if haskey(attrs, "jeltype")
                 @test DE.load_mvtseries(db, id) == Float64[]
@@ -2083,7 +2094,7 @@ if action in ("generate-matrices-text", "verify-matrices-text", "verify-wheel")
             end
             for (label, F, code, lo, hi) in matrix_axis_families
                 for (suffix, value) in (("min", lo), ("max", hi))
-                    id, a, _ = raw_matrix("mvts_$(suffix)_$(label)")
+                    id, a, _, _ = raw_matrix("mvts_$(suffix)_$(label)")
                     @test (Int(a.axis1.frequency), Int(a.axis1.first)) == (code, value)
                     loaded = DE.load_mvtseries(db, id)
                     @test firstdate(loaded) == MIT{F}(value)
@@ -2119,6 +2130,190 @@ if action in ("generate-matrices-text", "verify-matrices-text", "verify-wheel")
     end
 end
 
+# ---- N-dimensional plain arrays (three to five plain axes) -------------------
+
+# Julia's own writer has no empty-array method above rank two, so empties are
+# stored through the same C entry points the library uses, carrying the element
+# token Julia writes on every other empty array. Marked objects are stored the
+# same way so both markers are exact.
+function store_raw_tensor!(db, name, eltype, elfreq, payload::Vector{UInt8}, dims;
+                           marker=nothing, objmarker=nothing)
+    ids = C.axis_id_t[]
+    for n in dims
+        ax = Ref{C.axis_id_t}()
+        @test C.de_axis_plain(db, n, ax) == 0
+        push!(ids, ax[])
+    end
+    id = Ref{C.obj_id_t}()
+    GC.@preserve payload ids begin
+        ptr = isempty(payload) ? C_NULL : pointer(payload)
+        @test C.de_store_ndtseries(db, DE.root_id, name, C.type_tensor, eltype, elfreq,
+                                   length(ids), pointer(ids), length(payload), ptr, id) == 0
+    end
+    marker === nothing || DE.set_attribute(db, id[], "jeltype", marker)
+    objmarker === nothing || DE.set_attribute(db, id[], "jtype", objmarker)
+    return id[]
+end
+
+tensor_bytes(v::Vector{T}) where {T} = Vector{UInt8}(reinterpret(UInt8, v))
+const tensor_run = Int64.(1:24)
+const tensor_mit_values = MIT{Monthly}[MIT{Monthly}(-1), MIT{Monthly}(0), MIT{Monthly}(1), MIT{Monthly}(2)]
+const tensor_duration_values = Duration{Quarterly{1}}[Duration{Quarterly{1}}(1), Duration{Quarterly{1}}(-2),
+    Duration{Quarterly{1}}(typemax(Int64)), Duration{Quarterly{1}}(0)]
+const tensor_complexf16_values = ComplexF16[complex(Float16(-0.0), Float16(1.25)),
+    complex(Float16(2.0), Float16(3.0))]
+
+if action == "generate-tensors"
+    DE.opendaec(filename; readonly=false) do db
+        for T in matrix_text_types
+            values = collect(matrix_text_values(T))
+            DE.store_ndtseries(db, "tensor_$(T)", reshape(values, 1, 2, 3))
+            DE.store_ndtseries(db, "tensor5_$(T)", reshape(values, 3, 1, 2, 1, 1))
+            store_raw_tensor!(db, "tensor_$(T)_empty", TimeSeriesEcon.DataEcon.I._to_de_scalar_type(T),
+                              C.freq_none, UInt8[], (0, 2, 3); marker=string(T))
+        end
+        for T in (Int64, Float64, Bool, UInt8)
+            DE.store_ndtseries(db, "tensor4_$(T)", reshape(collect(matrix_text_values(T)), 1, 2, 3, 1))
+        end
+        store_raw_tensor!(db, "tensor_empty_2x0x3", C.type_float, C.freq_none, UInt8[], (2, 0, 3); marker="Float64")
+        store_raw_tensor!(db, "tensor_empty_2x3x0", C.type_float, C.freq_none, UInt8[], (2, 3, 0); marker="Float64")
+        store_raw_tensor!(db, "tensor_empty_rank5", C.type_float, C.freq_none, UInt8[], (0, 0, 0, 0, 0); marker="Float64")
+        store_raw_tensor!(db, "tensor_empty_rank4_bool", C.type_integer, C.freq_none, UInt8[], (0, 1, 1, 1); marker="Bool")
+        DE.store_ndtseries(db, "tensor_run_2x3x4", reshape(tensor_run, 2, 3, 4))
+        DE.store_ndtseries(db, "tensor_run_4x3x2", reshape(tensor_run, 4, 3, 2))
+        DE.store_ndtseries(db, "tensor_run_2x2x2x3", reshape(tensor_run, 2, 2, 2, 3))
+        DE.store_ndtseries(db, "tensor_run_2x2x2x3x1", reshape(tensor_run, 2, 2, 2, 3, 1))
+        DE.store_ndtseries(db, "tensor_1x1x1", reshape(Float64[2.5], 1, 1, 1))
+        DE.store_ndtseries(db, "tensor_1x1x1x1x1", reshape(Int64[42], 1, 1, 1, 1, 1))
+        DE.store_ndtseries(db, "tensor_mit", reshape(tensor_mit_values, 2, 1, 2))
+        DE.store_ndtseries(db, "tensor_mit_unit5",
+            reshape(MIT{Unit}[MIT{Unit}(typemin(Int64)), MIT{Unit}(typemax(Int64))], 1, 2, 1, 1, 1))
+        DE.store_ndtseries(db, "tensor_duration_q1", reshape(tensor_duration_values, 1, 2, 2))
+        DE.store_ndtseries(db, "tensor_int128", reshape(Int128[typemin(Int128), -1, 0, typemax(Int128)], 2, 1, 2))
+        DE.store_ndtseries(db, "tensor_uint128", reshape(UInt128[0, 1, 2, typemax(UInt128)], 1, 2, 2))
+        DE.store_ndtseries(db, "tensor_complexf16", reshape(tensor_complexf16_values, 1, 1, 2))
+        DE.store_ndtseries(db, "tensor_complexf16_4d", reshape(tensor_complexf16_values, 2, 1, 1, 1))
+        DE.store_ndtseries(db, "tensor_bitarray", BitArray(reshape(collect(matrix_text_values(Bool)), 1, 2, 3)))
+        DE.store_tseries(db, "bit_vector", BitVector([true, false, true]))
+        DE.store_mvtseries(db, "bit_matrix", BitMatrix([true false; false true]))
+        cube = tensor_bytes(Int64.(1:8))
+        store_raw_tensor!(db, "tensor_marked_float64", C.type_integer, C.freq_none, cube, (2, 2, 2); marker="Float64")
+        store_raw_tensor!(db, "tensor_object_float64", C.type_integer, C.freq_none, cube, (2, 2, 2); objmarker="Array{Float64,3}")
+        store_raw_tensor!(db, "tensor_object_identity", C.type_integer, C.freq_none, cube, (2, 2, 2); objmarker="Array")
+        store_raw_tensor!(db, "tensor_marked_bool_wide", C.type_integer, C.freq_none,
+                          tensor_bytes(UInt64[0, 0, 1, 0]), (1, 2, 1); marker="Bool")
+    end
+end
+
+if action in ("generate-tensors", "verify-tensors", "verify-wheel")
+    @testset "DataEcon N-dimensional array interchange" begin
+        DE.opendaec(filename) do db
+            # The value pointer is borrowed and valid only until the next
+            # library call: the payload is copied right after the load, before
+            # the attribute lookup, and only owned bytes are returned.
+            function raw_tensor(name)
+                id = DE.find_object(db, DE.root_id, name)
+                ref = Ref{C.ndtseries_t}()
+                @test C.de_load_ndtseries(db, id, ref) == 0
+                a = ref[]
+                payload = a.nbytes == 0 ? UInt8[] :
+                    copy(unsafe_wrap(Vector{UInt8}, Ptr{UInt8}(a.value), a.nbytes))
+                attrs = Dict(string(k) => string(v) for (k, v) in DE.get_all_attributes(db, id))
+                return id, a, attrs, payload
+            end
+            dims_of(a) = Int[ax.length for ax in a.axis if ax.id > 0]
+            function check_tensor(name, expected; attrs_expected=nothing, eltype_code=nothing, elfreq=nothing)
+                id, a, attrs, _ = raw_tensor(name)
+                @test (Int(a.object.obj_class), Int(a.object.obj_type), Int(a.naxes)) ==
+                    (4, 30, ndims(expected))
+                @test all(ax.ax_type == C.axis_plain for ax in a.axis[1:Int(a.naxes)])
+                @test dims_of(a) == collect(size(expected))
+                @test Int(a.nbytes) == length(expected) * sizeof(eltype(expected))
+                eltype_code === nothing || @test (Int(a.eltype), Int(a.elfreq)) == (eltype_code, elfreq)
+                value = DE.load_ndtseries(db, id)
+                @test typeof(value) == typeof(expected)
+                @test isequal(value, expected)
+                attrs_expected === nothing || @test attrs == attrs_expected
+                return a
+            end
+            for T in matrix_text_types
+                values = collect(matrix_text_values(T))
+                marks = T === Bool ? Dict("jeltype" => "Bool") : Dict()
+                check_tensor("tensor_$(T)", reshape(values, 1, 2, 3); attrs_expected=marks)
+                check_tensor("tensor5_$(T)", reshape(values, 3, 1, 2, 1, 1); attrs_expected=marks)
+                # Empty tensors keep their axes in storage. Julia's marker path
+                # returns a flat typed vector; an unmarked kind default (what
+                # Python writes) keeps its shape through `reshape`.
+                id, a, attrs, _ = raw_tensor("tensor_$(T)_empty")
+                @test (Int(a.naxes), dims_of(a), Int(a.nbytes)) == (3, [0, 2, 3], 0)
+                loaded = DE.load_ndtseries(db, id)
+                if haskey(attrs, "jeltype")
+                    @test attrs["jeltype"] == string(T)
+                    @test loaded == T[]
+                else
+                    @test T in (Int64, UInt64, Float64, ComplexF64)
+                    @test loaded == Array{T}(undef, 0, 2, 3)
+                end
+            end
+            for T in (Int64, Float64, Bool, UInt8)
+                check_tensor("tensor4_$(T)", reshape(collect(matrix_text_values(T)), 1, 2, 3, 1))
+            end
+            for (name, dims) in (("tensor_empty_2x0x3", [2, 0, 3]), ("tensor_empty_2x3x0", [2, 3, 0]),
+                                 ("tensor_empty_rank5", [0, 0, 0, 0, 0]))
+                id, a, attrs, _ = raw_tensor(name)
+                @test (Int(a.naxes), dims_of(a), Int(a.nbytes)) == (length(dims), dims, 0)
+                loaded = DE.load_ndtseries(db, id)
+                @test loaded == (haskey(attrs, "jeltype") ? Float64[] : Array{Float64}(undef, dims...))
+            end
+            id, a, attrs, _ = raw_tensor("tensor_empty_rank4_bool")
+            @test (Int(a.naxes), dims_of(a), attrs) == (4, [0, 1, 1, 1], Dict("jeltype" => "Bool"))
+            @test DE.load_ndtseries(db, id) == Bool[]
+            # One column-major run at four shapes stores identical bytes.
+            run_bytes(name) = raw_tensor(name)[4]
+            reference = run_bytes("tensor_run_2x3x4")
+            @test reference == tensor_bytes(tensor_run)
+            @test all(run_bytes(name) == reference for name in
+                ("tensor_run_4x3x2", "tensor_run_2x2x2x3", "tensor_run_2x2x2x3x1"))
+            check_tensor("tensor_run_2x3x4", reshape(tensor_run, 2, 3, 4))
+            check_tensor("tensor_run_4x3x2", reshape(tensor_run, 4, 3, 2))
+            check_tensor("tensor_run_2x2x2x3", reshape(tensor_run, 2, 2, 2, 3))
+            check_tensor("tensor_run_2x2x2x3x1", reshape(tensor_run, 2, 2, 2, 3, 1))
+            check_tensor("tensor_1x1x1", reshape(Float64[2.5], 1, 1, 1))
+            check_tensor("tensor_1x1x1x1x1", reshape(Int64[42], 1, 1, 1, 1, 1))
+            check_tensor("tensor_mit", reshape(tensor_mit_values, 2, 1, 2); eltype_code=3, elfreq=32, attrs_expected=Dict())
+            check_tensor("tensor_mit_unit5",
+                reshape(MIT{Unit}[MIT{Unit}(typemin(Int64)), MIT{Unit}(typemax(Int64))], 1, 2, 1, 1, 1);
+                eltype_code=3, elfreq=11)
+            check_tensor("tensor_duration_q1", reshape(tensor_duration_values, 1, 2, 2); eltype_code=1, elfreq=65)
+            check_tensor("tensor_int128", reshape(Int128[typemin(Int128), -1, 0, typemax(Int128)], 2, 1, 2); eltype_code=1, elfreq=0)
+            check_tensor("tensor_uint128", reshape(UInt128[0, 1, 2, typemax(UInt128)], 1, 2, 2); eltype_code=2, elfreq=0)
+            check_tensor("tensor_complexf16", reshape(tensor_complexf16_values, 1, 1, 2); eltype_code=5, elfreq=0)
+            check_tensor("tensor_complexf16_4d", reshape(tensor_complexf16_values, 2, 1, 1, 1); eltype_code=5, elfreq=0)
+            # Julia's BitArray writer stores a rank token plus the Bool element token.
+            check_tensor("tensor_bitarray", BitArray(reshape(collect(matrix_text_values(Bool)), 1, 2, 3));
+                         attrs_expected=Dict("jtype" => "BitArray{3}", "jeltype" => "Bool"))
+            let id = DE.find_object(db, DE.root_id, "bit_vector")
+                attrs = Dict(string(k) => string(v) for (k, v) in DE.get_all_attributes(db, id))
+                @test attrs == Dict("jtype" => "BitVector", "jeltype" => "Bool")
+                @test DE.load_tseries(db, id) == BitVector([true, false, true])
+            end
+            let id = DE.find_object(db, DE.root_id, "bit_matrix")
+                attrs = Dict(string(k) => string(v) for (k, v) in DE.get_all_attributes(db, id))
+                @test attrs == Dict("jtype" => "BitMatrix", "jeltype" => "Bool")
+                @test DE.load_mvtseries(db, id) == BitMatrix([true false; false true])
+            end
+            # Preserved markers convert exactly as on vectors; the stored bytes stay Int64.
+            cube = reshape(Int64.(1:8), 2, 2, 2)
+            check_tensor("tensor_marked_float64", Float64.(cube); attrs_expected=Dict("jeltype" => "Float64"), eltype_code=1, elfreq=0)
+            check_tensor("tensor_object_float64", Float64.(cube); attrs_expected=Dict("jtype" => "Array{Float64,3}"), eltype_code=1, elfreq=0)
+            check_tensor("tensor_object_identity", cube; attrs_expected=Dict("jtype" => "Array"), eltype_code=1, elfreq=0)
+            id, a, attrs, _ = raw_tensor("tensor_marked_bool_wide")
+            @test (Int(a.eltype), Int(a.nbytes), dims_of(a), attrs) == (1, 32, [1, 2, 1], Dict("jeltype" => "Bool"))
+            @test DE.load_ndtseries(db, id) == reshape(Bool[false, true], 1, 2, 1)
+        end
+    end
+end
+
 if action == "verify-wheel"
     @testset "DataEcon Boolean scalar interchange" begin
         DE.opendaec(filename) do db
@@ -2137,11 +2332,11 @@ if action == "verify-wheel"
     end
 end
 
-if action in ("generate", "generate-empty", "generate-scalars", "generate-quarterly", "generate-annual", "generate-halfyearly", "generate-int64", "generate-strings", "generate-dates", "generate-calendar", "generate-widths", "generate-fileops", "generate-calendar-series", "generate-series-elements", "generate-represented-elements", "generate-foreign-markers", "generate-arrays-unit", "generate-matrices-text")
+if action in ("generate", "generate-empty", "generate-scalars", "generate-quarterly", "generate-annual", "generate-halfyearly", "generate-int64", "generate-strings", "generate-dates", "generate-calendar", "generate-widths", "generate-fileops", "generate-calendar-series", "generate-series-elements", "generate-represented-elements", "generate-foreign-markers", "generate-arrays-unit", "generate-matrices-text", "generate-tensors")
     layout = Dict{String,Any}(
         "enums" => sizeof.([C.class_t, C.type_t, C.frequency_t, C.axis_type_t]),
     )
-    for T in (C.object_t, C.axis_t, C.tseries_t, C.mvtseries_t, C.scalar_t)
+    for T in (C.object_t, C.axis_t, C.tseries_t, C.mvtseries_t, C.ndtseries_t, C.scalar_t)
         layout[string(nameof(T))] = Dict(
             "size" => sizeof(T),
             "offsets" => [Int(fieldoffset(T, i)) for i in 1:fieldcount(T)],

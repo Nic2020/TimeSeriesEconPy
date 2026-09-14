@@ -7,9 +7,10 @@ Durations over every core frequency (Unit, Daily, BDaily, Weekly with any end
 day, Monthly, Quarterly, HalfYearly and Yearly); series carry supported numeric
 NumPy dtypes, Boolean values, or StoredSeries carriers for MIT/Duration,
 Int128/UInt128 and ComplexF16 elements over the monthly, quarterly, half-yearly,
-annual, daily, business-daily, weekly and Unit frequencies. Plain one-dimensional
-numeric/Boolean NumPy arrays and lossless integer/MIT ranges use
-``write_array``/``read_array``. Files open read-only by
+annual, daily, business-daily, weekly and Unit frequencies. Plain numeric/Boolean
+NumPy arrays of one to five dimensions, text vectors, represented ``StoredArray``
+carriers and lossless integer/MIT ranges use ``write_array``/``read_array``;
+``MVTSeries`` travel through the series methods. Files open read-only by
 default, append without overwriting with ``"a"``, or truncate with ``"w"``; explicit
 ``overwrite=True`` writes, ``delete``, ``truncate``, ``is_empty`` and
 in-memory databases (``open_dataecon_memory``) mirror the Julia file
@@ -37,6 +38,7 @@ from ._codec import (
     ScalarResult,
     ScalarValue,
     SeriesValue,
+    TensorPayload,
     decode_array,
     decode_matrix,
     decode_scalar,
@@ -303,10 +305,11 @@ class DataEconFile:
     def read_array(self, name: str) -> ArrayValue:
         """Read a plain array, text vector or unit-step range.
 
-        Ordinary numeric and Boolean vectors and matrices return owning,
-        writable, C-contiguous NumPy arrays of the stored shape, including
-        singleton and zero-length dimensions. Integer ranges return Python
-        ``range`` values and MIT ranges return ``MITRange``.
+        Ordinary numeric and Boolean vectors, matrices and tensors of three to
+        five dimensions return owning, writable, C-contiguous NumPy arrays of
+        the stored shape, including singleton and zero-length dimensions.
+        Integer ranges return Python ``range`` values and MIT ranges return
+        ``MITRange``.
 
         Text vectors return a ``list[str]`` when every element is valid UTF-8
         and no foreign marker is stored, and a :class:`StoredText` otherwise,
@@ -331,11 +334,12 @@ class DataEconFile:
     def write_array(self, name: str, value: ArrayValue, *, overwrite: bool = False) -> None:
         """Write a plain array, text vector or lossless unit-step range.
 
-        One- and two-dimensional NumPy arrays retain their supported native
-        numeric/Boolean dtype. Any input layout is accepted: C-contiguous,
-        Fortran-contiguous, sliced and transposed inputs are snapshotted in
-        logical order before any native mutation, without being retained or
-        modified. A matrix is stored column-major, as DataEcon expects.
+        NumPy arrays of one to five dimensions (DataEcon stores at most five
+        axes) retain their supported native numeric/Boolean dtype. Any input
+        layout is accepted: C-contiguous, Fortran-contiguous, sliced and
+        transposed inputs are snapshotted in logical order before any native
+        mutation, without being retained or modified. Matrices and tensors are
+        stored column-major, as DataEcon expects.
 
         Text is written from a sequence of ``str`` or from a
         :class:`StoredText`, which also carries a preserved marker and exact
@@ -360,6 +364,19 @@ class DataEconFile:
             self._require_writable()
             if isinstance(encoded, MatrixPayload):
                 self._write_matrix(name, encoded, overwrite)
+                return
+            if isinstance(encoded, TensorPayload):
+                self._handle.write_tensor(
+                    name,
+                    encoded.object_type,
+                    encoded.element,
+                    encoded.element_frequency,
+                    encoded.shape,
+                    encoded.payload,
+                    bool(overwrite),
+                    encoded.marker,
+                    encoded.object_marker,
+                )
                 return
             self._handle.write_array(
                 name,

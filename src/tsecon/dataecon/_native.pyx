@@ -18,9 +18,10 @@ from cpython.bytes cimport PyBytes_FromStringAndSize
 
 from threading import RLock
 
-from ._codec import (series_frequency, validate_array_metadata, validate_array_payload,
-                     validate_date_code, validate_matrix_metadata, validate_matrix_payload,
-                     validate_metadata, validate_scalar_metadata, validate_series_payload)
+from ._codec import (series_frequency, tensor_metadata, validate_array_metadata,
+                     validate_array_payload, validate_date_code, validate_matrix_metadata,
+                     validate_matrix_payload, validate_metadata, validate_scalar_metadata,
+                     validate_series_payload, validate_tensor_metadata, validate_tensor_payload)
 from ._errors import DataEconError
 
 cdef extern from "daec.h":
@@ -33,6 +34,7 @@ cdef extern from "daec.h":
         class_catalog
         class_tseries
         class_matrix
+        class_tensor
     ctypedef enum type_t:
         type_integer
         type_unsigned
@@ -45,6 +47,7 @@ cdef extern from "daec.h":
         type_tseries
         type_matrix
         type_mvtseries
+        type_tensor
     ctypedef enum frequency_t:
         freq_none
         freq_unit
@@ -69,6 +72,7 @@ cdef extern from "daec.h":
         DE_OBJ_DNE
         DE_EXISTS
         DE_MIS_ATTR
+        DE_MAX_AXES
     ctypedef struct object_t:
         obj_id_t id
         obj_id_t pid
@@ -102,6 +106,16 @@ cdef extern from "daec.h":
         axis_t axis2
         int64_t nbytes
         const void *value
+    # axis[DE_MAX_AXES]; the header's value is asserted to be five at handle
+    # creation so the literal below cannot silently disagree with it.
+    ctypedef struct ndtseries_t:
+        object_t object
+        type_t eltype
+        frequency_t elfreq
+        int64_t naxes
+        axis_t axis[5]
+        int64_t nbytes
+        const void *value
     const char *de_version()
     int de_open(const char *, de_file *)
     int de_open_readonly(const char *, de_file *)
@@ -129,6 +143,9 @@ cdef extern from "daec.h":
     int de_store_mvtseries(de_file, obj_id_t, const char *, type_t, type_t,
                           frequency_t, axis_id_t, axis_id_t, int64_t, const void *, obj_id_t *)
     int de_load_mvtseries(de_file, obj_id_t, mvtseries_t *)
+    int de_store_ndtseries(de_file, obj_id_t, const char *, type_t, type_t, frequency_t,
+                           int64_t, const axis_id_t *, int64_t, const void *, obj_id_t *)
+    int de_load_ndtseries(de_file, obj_id_t, ndtseries_t *)
     int de_store_scalar(de_file, obj_id_t, const char *, type_t, frequency_t,
                         int64_t, const void *, obj_id_t *)
     int de_load_scalar(de_file, obj_id_t, scalar_t *)
@@ -223,7 +240,26 @@ def abi_layout():
     cdef axis_t ax
     cdef tseries_t ts
     cdef scalar_t scal
+    cdef mvtseries_t mv
+    cdef ndtseries_t nd
     return {
+        "max_axes": int(DE_MAX_AXES),
+        "mvtseries_t": (sizeof(mvtseries_t), tuple([
+            <size_t>(<char *>&mv.object - <char *>&mv),
+            <size_t>(<char *>&mv.eltype - <char *>&mv),
+            <size_t>(<char *>&mv.elfreq - <char *>&mv),
+            <size_t>(<char *>&mv.axis1 - <char *>&mv),
+            <size_t>(<char *>&mv.axis2 - <char *>&mv),
+            <size_t>(<char *>&mv.nbytes - <char *>&mv),
+            <size_t>(<char *>&mv.value - <char *>&mv)])),
+        "ndtseries_t": (sizeof(ndtseries_t), tuple([
+            <size_t>(<char *>&nd.object - <char *>&nd),
+            <size_t>(<char *>&nd.eltype - <char *>&nd),
+            <size_t>(<char *>&nd.elfreq - <char *>&nd),
+            <size_t>(<char *>&nd.naxes - <char *>&nd),
+            <size_t>(<char *>&nd.axis - <char *>&nd),
+            <size_t>(<char *>&nd.nbytes - <char *>&nd),
+            <size_t>(<char *>&nd.value - <char *>&nd)])),
         "enums": (sizeof(class_t), sizeof(type_t), sizeof(frequency_t), sizeof(axis_type_t)),
         "scalar_t": (sizeof(scalar_t), tuple([
             <size_t>(<char *>&scal.object - <char *>&scal),
@@ -279,6 +315,8 @@ cdef class FileHandle:
         with _lock:
             if version() != ("0.4.0", "0.4.0"):
                 raise ImportError("DataEcon requires matching 0.4.0 header and library.")
+            if DE_MAX_AXES != 5:
+                raise ImportError("DataEcon's DE_MAX_AXES differs from the five-slot declaration.")
             if memory:
                 check(de_open_memory(&self.handle), "open", path)
             elif readonly:
@@ -365,6 +403,48 @@ cdef class FileHandle:
                                 self.path, name)
         return payload, metadata, loaded_name, marker, object_marker, names
 
+    cdef tuple load_tensor(self, obj_id_t oid, str name):
+        # Caller owns the native lock and has already found the object. The
+        # header and all five axis slots are validated before the borrowed value
+        # pointer is read; the payload is then copied before any further native
+        # call, as for the one- and two-dimensional loaders.
+        cdef ndtseries_t nd
+        cdef const char *attribute = NULL
+        cdef bytes key
+        cdef int rc
+        cdef int i
+        memset(&nd, 0, sizeof(nd))
+        check(de_load_ndtseries(self.handle, oid, &nd), "read tensor", self.path, name)
+        slots = []
+        for i in range(5):
+            slots.extend((int(nd.axis[i].id), int(nd.axis[i].ax_type), int(nd.axis[i].length),
+                          int(nd.axis[i].frequency), int(nd.axis[i].first)))
+        metadata = (int(nd.object.obj_class), int(nd.object.obj_type), int(nd.eltype),
+                    int(nd.elfreq), int(nd.naxes), int(nd.nbytes), *slots)
+        validate_tensor_metadata(metadata)
+        if (nd.nbytes > 0 and nd.value == NULL) or nd.object.name == NULL:
+            raise ValueError("DataEcon returned a NULL tensor payload or name.")
+        loaded_name = (<bytes>nd.object.name).decode("utf-8")
+        payload = b"" if nd.nbytes == 0 else PyBytes_FromStringAndSize(
+            <const char *>nd.value, nd.nbytes)
+        marker = None
+        object_marker = None
+        for key in (b"jeltype", b"jtype"):
+            rc = de_get_attribute(self.handle, oid, key, &attribute)
+            if rc == DE_MIS_ATTR:
+                de_clear_error()
+            else:
+                check(rc, "tensor attribute", self.path, name)
+                if attribute == NULL:
+                    raise TypeError("DataEcon returned a NULL reconstruction attribute.")
+                text = (<bytes>attribute).decode("utf-8")
+                if key == b"jeltype":
+                    marker = text
+                else:
+                    object_marker = text
+        validate_tensor_payload(metadata, payload, marker, object_marker)
+        return payload, metadata, loaded_name, marker, object_marker, None
+
     cdef obj_id_t locate(self, bytes encoded, str name, int *obj_class) except? -1:
         # One find plus one object load decides which loader applies, so a
         # two-dimensional object never reaches de_load_tseries.
@@ -391,6 +471,10 @@ cdef class FileHandle:
             oid = self.locate(encoded, name, &obj_class)
             if obj_class == <int>class_matrix:
                 return self.load_matrix(oid, name)
+            if obj_class == <int>class_tensor:
+                raise TypeError(
+                    "This object is an N-dimensional DataEcon array; read it with read_array."
+                )
             memset(&ts, 0, sizeof(ts))
             check(de_load_tseries(self.handle, oid, &ts), "read", self.path, name)
             metadata = (int(ts.object.obj_class), int(ts.object.obj_type), int(ts.eltype),
@@ -453,6 +537,8 @@ cdef class FileHandle:
             oid = self.locate(encoded, name, &obj_class)
             if obj_class == <int>class_matrix:
                 return self.load_matrix(oid, name)
+            if obj_class == <int>class_tensor:
+                return self.load_tensor(oid, name)
             memset(&ts, 0, sizeof(ts))
             check(de_load_tseries(self.handle, oid, &ts), "read array", self.path, name)
             metadata = (int(ts.object.obj_class), int(ts.object.obj_type), int(ts.eltype),
@@ -733,6 +819,70 @@ cdef class FileHandle:
             if object_marker is not None:
                 check(de_set_attribute(self.handle, oid, b"jtype", encoded_object_marker),
                       "write matrix object marker (the element marker, if any, is now "
+                      "active; no rollback)", self.path, name)
+
+    def write_tensor(self, str name, object_type, element, element_frequency, shape,
+                     bytes payload, bint overwrite, marker, object_marker=None):
+        cdef bytes encoded = name.encode("utf-8")
+        cdef obj_id_t oid = 0
+        cdef axis_id_t axes[5]
+        cdef int64_t naxes
+        cdef int i
+        cdef int rc
+        cdef const void *value = NULL
+        cdef bint existing = False
+        cdef bytes encoded_marker
+        cdef bytes encoded_object_marker
+        if not encoded or b"/" in encoded or b"\0" in encoded:
+            raise ValueError("Expected a nonempty root object name without '/' or NUL.")
+        for label, item in (("object type", object_type), ("element", element),
+                            ("element frequency", element_frequency)):
+            if type(item) is not int:
+                raise TypeError(f"Tensor {label} must be an integer native value.")
+        if type(shape) is not tuple or any(type(n) is not int for n in shape):
+            raise TypeError("Tensor shape must be a tuple of integers.")
+        if object_type != <int>type_tensor:
+            raise TypeError("Only plain type_tensor objects are written.")
+        metadata = tensor_metadata(element, element_frequency, shape, len(payload))
+        # Rank, every dimension, the Python-integer product and the payload are
+        # all validated here before anything is narrowed into C types.
+        validate_tensor_payload(metadata, payload, marker, object_marker)
+        naxes = len(shape)
+        encoded_marker = b"" if marker is None else marker.encode("utf-8")
+        encoded_object_marker = b"" if object_marker is None else object_marker.encode("utf-8")
+        memset(axes, 0, sizeof(axes))
+        with _lock:
+            self.require_open()
+            rc = de_find_object(self.handle, 0, encoded, &oid)
+            if rc == DE_SUCCESS:
+                if not overwrite:
+                    raise DataEconError(DE_EXISTS, "write tensor", self.path,
+                                       "Object already exists.", name)
+                existing = True
+            elif rc != DE_OBJ_DNE:
+                check(rc, "find", self.path, name)
+            de_clear_error()
+            if existing:
+                # Every validation of the new value is complete; delete only now.
+                self.replace_existing(oid, "write tensor (overwrite)", name)
+            for i in range(naxes):
+                check(de_axis_plain(self.handle, <int64_t>shape[i], &axes[i]),
+                      "tensor axis", self.path, name)
+            if len(payload) > 0:
+                value = <const char *>payload
+            check(de_store_ndtseries(self.handle, 0, encoded, type_tensor,
+                                     <type_t><uint32_t>element,
+                                     <frequency_t><uint32_t>element_frequency,
+                                     naxes, axes, len(payload), value, &oid),
+                  "write tensor (overwrite; original deleted, partial replacement may remain)"
+                  if existing else "write tensor (partial object may remain)", self.path, name)
+            if marker is not None:
+                check(de_set_attribute(self.handle, oid, b"jeltype", encoded_marker),
+                      "write tensor marker (unmarked object may read differently; no rollback)",
+                      self.path, name)
+            if object_marker is not None:
+                check(de_set_attribute(self.handle, oid, b"jtype", encoded_object_marker),
+                      "write tensor object marker (the element marker, if any, is now "
                       "active; no rollback)", self.path, name)
 
     def read_scalar(self, str name):

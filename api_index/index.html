@@ -3744,6 +3744,89 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#dataecon-workspace-interchange" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        DataEcon Workspace interchange
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tsecon.dataecon.WorkspaceReport" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        WorkspaceReport
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="WorkspaceReport">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tsecon.dataecon.WorkspaceReport.ok" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ok
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tsecon.dataecon.SkippedMember" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        SkippedMember
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tsecon.dataecon.LoadedWorkspace" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        LoadedWorkspace
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tsecon.dataecon.save_workspace" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        save_workspace
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tsecon.dataecon.load_workspace" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        load_workspace
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -6287,6 +6370,89 @@
         
       </ul>
     </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dataecon-workspace-interchange" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        DataEcon Workspace interchange
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tsecon.dataecon.WorkspaceReport" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        WorkspaceReport
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="WorkspaceReport">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tsecon.dataecon.WorkspaceReport.ok" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ok
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tsecon.dataecon.SkippedMember" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        SkippedMember
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tsecon.dataecon.LoadedWorkspace" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        LoadedWorkspace
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tsecon.dataecon.save_workspace" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        save_workspace
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tsecon.dataecon.load_workspace" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        load_workspace
+      
+    </span>
+  </a>
   
 </li>
       
@@ -33054,6 +33220,428 @@ or their exact bytes.</p>
 
   </div>
 
+    </div>
+
+</div><h2 id="dataecon-workspace-interchange">DataEcon Workspace interchange<a class="headerlink" href="#dataecon-workspace-interchange" title="Permanent link">&para;</a></h2>
+
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="tsecon.dataecon.WorkspaceReport" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">tsecon.dataecon.WorkspaceReport</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-dataclass"><code>dataclass</code></small>
+  </span>
+
+<a href="#tsecon.dataecon.WorkspaceReport" class="headerlink" title="Permanent link">&para;</a></h2>
+
+
+    <div class="doc doc-contents first">
+
+
+
+        <p>What a Workspace write or read did: the catalog, a count and the skips.</p>
+<p><code>count</code> is the number of objects stored or loaded, catalogs included;
+<code>skipped</code> lists the members that were not, in traversal order. <code>ok</code>
+is true when nothing was skipped.</p>
+
+
+
+
+
+
+
+
+              <details class="mkdocstrings-source">
+                <summary>Source code in <code>src/tsecon/dataecon/_workspace.py</code></summary>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-74">74</a></span>
+<span class="normal"><a href="#__codelineno-0-75">75</a></span>
+<span class="normal"><a href="#__codelineno-0-76">76</a></span>
+<span class="normal"><a href="#__codelineno-0-77">77</a></span>
+<span class="normal"><a href="#__codelineno-0-78">78</a></span>
+<span class="normal"><a href="#__codelineno-0-79">79</a></span>
+<span class="normal"><a href="#__codelineno-0-80">80</a></span>
+<span class="normal"><a href="#__codelineno-0-81">81</a></span>
+<span class="normal"><a href="#__codelineno-0-82">82</a></span>
+<span class="normal"><a href="#__codelineno-0-83">83</a></span>
+<span class="normal"><a href="#__codelineno-0-84">84</a></span>
+<span class="normal"><a href="#__codelineno-0-85">85</a></span>
+<span class="normal"><a href="#__codelineno-0-86">86</a></span>
+<span class="normal"><a href="#__codelineno-0-87">87</a></span>
+<span class="normal"><a href="#__codelineno-0-88">88</a></span>
+<span class="normal"><a href="#__codelineno-0-89">89</a></span>
+<span class="normal"><a href="#__codelineno-0-90">90</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-74" name="__codelineno-0-74"></a><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">slots</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-0-75" name="__codelineno-0-75"></a><span class="k">class</span><span class="w"> </span><span class="nc">WorkspaceReport</span><span class="p">:</span>
+<a id="__codelineno-0-76" name="__codelineno-0-76"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;What a Workspace write or read did: the catalog, a count and the skips.</span>
+<a id="__codelineno-0-77" name="__codelineno-0-77"></a>
+<a id="__codelineno-0-78" name="__codelineno-0-78"></a><span class="sd">    ``count`` is the number of objects stored or loaded, catalogs included;</span>
+<a id="__codelineno-0-79" name="__codelineno-0-79"></a><span class="sd">    ``skipped`` lists the members that were not, in traversal order. ``ok``</span>
+<a id="__codelineno-0-80" name="__codelineno-0-80"></a><span class="sd">    is true when nothing was skipped.</span>
+<a id="__codelineno-0-81" name="__codelineno-0-81"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-82" name="__codelineno-0-82"></a>
+<a id="__codelineno-0-83" name="__codelineno-0-83"></a>    <span class="n">path</span><span class="p">:</span> <span class="nb">str</span>
+<a id="__codelineno-0-84" name="__codelineno-0-84"></a>    <span class="n">count</span><span class="p">:</span> <span class="nb">int</span>
+<a id="__codelineno-0-85" name="__codelineno-0-85"></a>    <span class="n">skipped</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">SkippedMember</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
+<a id="__codelineno-0-86" name="__codelineno-0-86"></a>
+<a id="__codelineno-0-87" name="__codelineno-0-87"></a>    <span class="nd">@property</span>
+<a id="__codelineno-0-88" name="__codelineno-0-88"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">ok</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<a id="__codelineno-0-89" name="__codelineno-0-89"></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Whether every member was stored or loaded.&quot;&quot;&quot;</span>
+<a id="__codelineno-0-90" name="__codelineno-0-90"></a>        <span class="k">return</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">skipped</span>
+</code></pre></div></td></tr></table></div>
+              </details>
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="tsecon.dataecon.WorkspaceReport.ok" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">ok</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#tsecon.dataecon.WorkspaceReport.ok" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">ok</span><span class="p">:</span> <span class="nb">bool</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Whether every member was stored or loaded.</p>
+
+    </div>
+
+</div>
+
+
+
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="tsecon.dataecon.SkippedMember" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">tsecon.dataecon.SkippedMember</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-dataclass"><code>dataclass</code></small>
+  </span>
+
+<a href="#tsecon.dataecon.SkippedMember" class="headerlink" title="Permanent link">&para;</a></h2>
+
+
+    <div class="doc doc-contents first">
+
+
+
+        <p>One member that a Workspace write or read did not store or load.</p>
+<p><code>path</code> is the member's full path in the file. <code>category</code> is
+<code>"unsupported"</code> (no dispatch family, a <code>TypeError</code> from the typed
+method, or a native-only object type), <code>"invalid"</code> (a <code>ValueError</code>:
+an invalid key, value or payload), <code>"exists"</code> (a name conflict that was
+not overwritten), <code>"native"</code> (a <code>DataEconError</code> from the native store
+or load) or <code>"cycle"</code> (a nested Workspace that is its own ancestor).
+<code>reason</code> carries the exception class and message. <code>subtree</code> is true
+when the entry stands for a whole nested Workspace or catalog whose
+members were never attempted.</p>
+
+
+
+
+
+
+
+
+              <details class="mkdocstrings-source">
+                <summary>Source code in <code>src/tsecon/dataecon/_workspace.py</code></summary>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-53">53</a></span>
+<span class="normal"><a href="#__codelineno-0-54">54</a></span>
+<span class="normal"><a href="#__codelineno-0-55">55</a></span>
+<span class="normal"><a href="#__codelineno-0-56">56</a></span>
+<span class="normal"><a href="#__codelineno-0-57">57</a></span>
+<span class="normal"><a href="#__codelineno-0-58">58</a></span>
+<span class="normal"><a href="#__codelineno-0-59">59</a></span>
+<span class="normal"><a href="#__codelineno-0-60">60</a></span>
+<span class="normal"><a href="#__codelineno-0-61">61</a></span>
+<span class="normal"><a href="#__codelineno-0-62">62</a></span>
+<span class="normal"><a href="#__codelineno-0-63">63</a></span>
+<span class="normal"><a href="#__codelineno-0-64">64</a></span>
+<span class="normal"><a href="#__codelineno-0-65">65</a></span>
+<span class="normal"><a href="#__codelineno-0-66">66</a></span>
+<span class="normal"><a href="#__codelineno-0-67">67</a></span>
+<span class="normal"><a href="#__codelineno-0-68">68</a></span>
+<span class="normal"><a href="#__codelineno-0-69">69</a></span>
+<span class="normal"><a href="#__codelineno-0-70">70</a></span>
+<span class="normal"><a href="#__codelineno-0-71">71</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-53" name="__codelineno-0-53"></a><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">slots</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-0-54" name="__codelineno-0-54"></a><span class="k">class</span><span class="w"> </span><span class="nc">SkippedMember</span><span class="p">:</span>
+<a id="__codelineno-0-55" name="__codelineno-0-55"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;One member that a Workspace write or read did not store or load.</span>
+<a id="__codelineno-0-56" name="__codelineno-0-56"></a>
+<a id="__codelineno-0-57" name="__codelineno-0-57"></a><span class="sd">    ``path`` is the member&#39;s full path in the file. ``category`` is</span>
+<a id="__codelineno-0-58" name="__codelineno-0-58"></a><span class="sd">    ``&quot;unsupported&quot;`` (no dispatch family, a ``TypeError`` from the typed</span>
+<a id="__codelineno-0-59" name="__codelineno-0-59"></a><span class="sd">    method, or a native-only object type), ``&quot;invalid&quot;`` (a ``ValueError``:</span>
+<a id="__codelineno-0-60" name="__codelineno-0-60"></a><span class="sd">    an invalid key, value or payload), ``&quot;exists&quot;`` (a name conflict that was</span>
+<a id="__codelineno-0-61" name="__codelineno-0-61"></a><span class="sd">    not overwritten), ``&quot;native&quot;`` (a ``DataEconError`` from the native store</span>
+<a id="__codelineno-0-62" name="__codelineno-0-62"></a><span class="sd">    or load) or ``&quot;cycle&quot;`` (a nested Workspace that is its own ancestor).</span>
+<a id="__codelineno-0-63" name="__codelineno-0-63"></a><span class="sd">    ``reason`` carries the exception class and message. ``subtree`` is true</span>
+<a id="__codelineno-0-64" name="__codelineno-0-64"></a><span class="sd">    when the entry stands for a whole nested Workspace or catalog whose</span>
+<a id="__codelineno-0-65" name="__codelineno-0-65"></a><span class="sd">    members were never attempted.</span>
+<a id="__codelineno-0-66" name="__codelineno-0-66"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-67" name="__codelineno-0-67"></a>
+<a id="__codelineno-0-68" name="__codelineno-0-68"></a>    <span class="n">path</span><span class="p">:</span> <span class="nb">str</span>
+<a id="__codelineno-0-69" name="__codelineno-0-69"></a>    <span class="n">category</span><span class="p">:</span> <span class="nb">str</span>
+<a id="__codelineno-0-70" name="__codelineno-0-70"></a>    <span class="n">reason</span><span class="p">:</span> <span class="nb">str</span>
+<a id="__codelineno-0-71" name="__codelineno-0-71"></a>    <span class="n">subtree</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+</code></pre></div></td></tr></table></div>
+              </details>
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="tsecon.dataecon.LoadedWorkspace" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">tsecon.dataecon.LoadedWorkspace</span>
+
+
+<a href="#tsecon.dataecon.LoadedWorkspace" class="headerlink" title="Permanent link">&para;</a></h2>
+
+
+    <div class="doc doc-contents first">
+            <p class="doc doc-class-bases">
+              Bases: <code><span title="typing.NamedTuple">NamedTuple</span></code></p>
+
+
+
+        <p>The result of a Workspace read: the <code>Workspace</code> and its report.</p>
+
+
+
+
+
+
+
+
+              <details class="mkdocstrings-source">
+                <summary>Source code in <code>src/tsecon/dataecon/_workspace.py</code></summary>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-93">93</a></span>
+<span class="normal"><a href="#__codelineno-0-94">94</a></span>
+<span class="normal"><a href="#__codelineno-0-95">95</a></span>
+<span class="normal"><a href="#__codelineno-0-96">96</a></span>
+<span class="normal"><a href="#__codelineno-0-97">97</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-93" name="__codelineno-0-93"></a><span class="k">class</span><span class="w"> </span><span class="nc">LoadedWorkspace</span><span class="p">(</span><span class="n">NamedTuple</span><span class="p">):</span>
+<a id="__codelineno-0-94" name="__codelineno-0-94"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;The result of a Workspace read: the ``Workspace`` and its report.&quot;&quot;&quot;</span>
+<a id="__codelineno-0-95" name="__codelineno-0-95"></a>
+<a id="__codelineno-0-96" name="__codelineno-0-96"></a>    <span class="n">workspace</span><span class="p">:</span> <span class="n">Workspace</span>
+<a id="__codelineno-0-97" name="__codelineno-0-97"></a>    <span class="n">report</span><span class="p">:</span> <span class="n">WorkspaceReport</span>
+</code></pre></div></td></tr></table></div>
+              </details>
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h2 id="tsecon.dataecon.save_workspace" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">tsecon.dataecon.save_workspace</span>
+
+
+<a href="#tsecon.dataecon.save_workspace" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">save_workspace</span><span class="p">(</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">file</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">PathLike</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">workspace</span><span class="p">:</span> <span class="n">Workspace</span><span class="p">,</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">ROOT_PATH</span><span class="p">,</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="o">*</span><span class="p">,</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">mode</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;a&quot;</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;a&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="n">overwrite</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="n">strict</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">WorkspaceReport</span>
+</code></pre></div>
+
+    <div class="doc doc-contents first">
+
+        <p>Open a file, store a <code>Workspace</code> below a catalog and close (Julia's <code>writedb(file, …)</code>).</p>
+<p><code>mode="a"</code> creates or appends (Julia's <code>append=true</code>); <code>mode="w"</code>
+empties an existing file first. The file is closed on every exit path;
+the function owns the handle only for this call. Everything else follows
+:meth:<code>DataEconFile.write_workspace</code>, including its report and residue.</p>
+
+
+            <details class="mkdocstrings-source">
+              <summary>Source code in <code>src/tsecon/dataecon/__init__.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-1111">1111</a></span>
+<span class="normal"><a href="#__codelineno-0-1112">1112</a></span>
+<span class="normal"><a href="#__codelineno-0-1113">1113</a></span>
+<span class="normal"><a href="#__codelineno-0-1114">1114</a></span>
+<span class="normal"><a href="#__codelineno-0-1115">1115</a></span>
+<span class="normal"><a href="#__codelineno-0-1116">1116</a></span>
+<span class="normal"><a href="#__codelineno-0-1117">1117</a></span>
+<span class="normal"><a href="#__codelineno-0-1118">1118</a></span>
+<span class="normal"><a href="#__codelineno-0-1119">1119</a></span>
+<span class="normal"><a href="#__codelineno-0-1120">1120</a></span>
+<span class="normal"><a href="#__codelineno-0-1121">1121</a></span>
+<span class="normal"><a href="#__codelineno-0-1122">1122</a></span>
+<span class="normal"><a href="#__codelineno-0-1123">1123</a></span>
+<span class="normal"><a href="#__codelineno-0-1124">1124</a></span>
+<span class="normal"><a href="#__codelineno-0-1125">1125</a></span>
+<span class="normal"><a href="#__codelineno-0-1126">1126</a></span>
+<span class="normal"><a href="#__codelineno-0-1127">1127</a></span>
+<span class="normal"><a href="#__codelineno-0-1128">1128</a></span>
+<span class="normal"><a href="#__codelineno-0-1129">1129</a></span>
+<span class="normal"><a href="#__codelineno-0-1130">1130</a></span>
+<span class="normal"><a href="#__codelineno-0-1131">1131</a></span>
+<span class="normal"><a href="#__codelineno-0-1132">1132</a></span>
+<span class="normal"><a href="#__codelineno-0-1133">1133</a></span>
+<span class="normal"><a href="#__codelineno-0-1134">1134</a></span>
+<span class="normal"><a href="#__codelineno-0-1135">1135</a></span>
+<span class="normal"><a href="#__codelineno-0-1136">1136</a></span>
+<span class="normal"><a href="#__codelineno-0-1137">1137</a></span>
+<span class="normal"><a href="#__codelineno-0-1138">1138</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-1111" name="__codelineno-0-1111"></a><span class="k">def</span><span class="w"> </span><span class="nf">save_workspace</span><span class="p">(</span>
+<a id="__codelineno-0-1112" name="__codelineno-0-1112"></a>    <span class="n">file</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">os</span><span class="o">.</span><span class="n">PathLike</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+<a id="__codelineno-0-1113" name="__codelineno-0-1113"></a>    <span class="n">workspace</span><span class="p">:</span> <span class="n">Workspace</span><span class="p">,</span>
+<a id="__codelineno-0-1114" name="__codelineno-0-1114"></a>    <span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">ROOT_PATH</span><span class="p">,</span>
+<a id="__codelineno-0-1115" name="__codelineno-0-1115"></a>    <span class="o">*</span><span class="p">,</span>
+<a id="__codelineno-0-1116" name="__codelineno-0-1116"></a>    <span class="n">mode</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;a&quot;</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;a&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-1117" name="__codelineno-0-1117"></a>    <span class="n">overwrite</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<a id="__codelineno-0-1118" name="__codelineno-0-1118"></a>    <span class="n">strict</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<a id="__codelineno-0-1119" name="__codelineno-0-1119"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">WorkspaceReport</span><span class="p">:</span>
+<a id="__codelineno-0-1120" name="__codelineno-0-1120"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Open a file, store a ``Workspace`` below a catalog and close (Julia&#39;s ``writedb(file, …)``).</span>
+<a id="__codelineno-0-1121" name="__codelineno-0-1121"></a>
+<a id="__codelineno-0-1122" name="__codelineno-0-1122"></a><span class="sd">    ``mode=&quot;a&quot;`` creates or appends (Julia&#39;s ``append=true``); ``mode=&quot;w&quot;``</span>
+<a id="__codelineno-0-1123" name="__codelineno-0-1123"></a><span class="sd">    empties an existing file first. The file is closed on every exit path;</span>
+<a id="__codelineno-0-1124" name="__codelineno-0-1124"></a><span class="sd">    the function owns the handle only for this call. Everything else follows</span>
+<a id="__codelineno-0-1125" name="__codelineno-0-1125"></a><span class="sd">    :meth:`DataEconFile.write_workspace`, including its report and residue.</span>
+<a id="__codelineno-0-1126" name="__codelineno-0-1126"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-1127" name="__codelineno-0-1127"></a>    <span class="c1"># Argument validation precedes the open: mode &quot;w&quot; truncates an existing</span>
+<a id="__codelineno-0-1128" name="__codelineno-0-1128"></a>    <span class="c1"># file on open, so a wrong Workspace or path argument must be refused</span>
+<a id="__codelineno-0-1129" name="__codelineno-0-1129"></a>    <span class="c1"># before anything is touched (and before a new file is created).</span>
+<a id="__codelineno-0-1130" name="__codelineno-0-1130"></a>    <span class="k">if</span> <span class="n">mode</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;a&quot;</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">):</span>
+<a id="__codelineno-0-1131" name="__codelineno-0-1131"></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+<a id="__codelineno-0-1132" name="__codelineno-0-1132"></a>            <span class="s2">&quot;save_workspace mode must be &#39;a&#39; (create/append) or &#39;w&#39; (create/truncate).&quot;</span>
+<a id="__codelineno-0-1133" name="__codelineno-0-1133"></a>        <span class="p">)</span>
+<a id="__codelineno-0-1134" name="__codelineno-0-1134"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">workspace</span><span class="p">,</span> <span class="n">Workspace</span><span class="p">):</span>
+<a id="__codelineno-0-1135" name="__codelineno-0-1135"></a>        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;save_workspace requires a Workspace.&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-1136" name="__codelineno-0-1136"></a>    <span class="n">_normalize</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+<a id="__codelineno-0-1137" name="__codelineno-0-1137"></a>    <span class="k">with</span> <span class="n">open_dataecon</span><span class="p">(</span><span class="n">file</span><span class="p">,</span> <span class="n">mode</span><span class="p">)</span> <span class="k">as</span> <span class="n">db</span><span class="p">:</span>
+<a id="__codelineno-0-1138" name="__codelineno-0-1138"></a>        <span class="k">return</span> <span class="n">db</span><span class="o">.</span><span class="n">write_workspace</span><span class="p">(</span><span class="n">workspace</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">overwrite</span><span class="o">=</span><span class="n">overwrite</span><span class="p">,</span> <span class="n">strict</span><span class="o">=</span><span class="n">strict</span><span class="p">)</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h2 id="tsecon.dataecon.load_workspace" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">tsecon.dataecon.load_workspace</span>
+
+
+<a href="#tsecon.dataecon.load_workspace" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">load_workspace</span><span class="p">(</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">file</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">PathLike</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">ROOT_PATH</span><span class="p">,</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="o">*</span><span class="p">,</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">strict</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">LoadedWorkspace</span>
+</code></pre></div>
+
+    <div class="doc doc-contents first">
+
+        <p>Open a file read-only, load a catalog into a <code>Workspace</code> and close (Julia's <code>readdb</code>).</p>
+<p>The returned Workspace and its values own their storage and stay usable
+after the file is closed; the function owns the handle only for this
+call. Everything else follows :meth:<code>DataEconFile.read_workspace</code>.</p>
+
+
+            <details class="mkdocstrings-source">
+              <summary>Source code in <code>src/tsecon/dataecon/__init__.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-1141">1141</a></span>
+<span class="normal"><a href="#__codelineno-0-1142">1142</a></span>
+<span class="normal"><a href="#__codelineno-0-1143">1143</a></span>
+<span class="normal"><a href="#__codelineno-0-1144">1144</a></span>
+<span class="normal"><a href="#__codelineno-0-1145">1145</a></span>
+<span class="normal"><a href="#__codelineno-0-1146">1146</a></span>
+<span class="normal"><a href="#__codelineno-0-1147">1147</a></span>
+<span class="normal"><a href="#__codelineno-0-1148">1148</a></span>
+<span class="normal"><a href="#__codelineno-0-1149">1149</a></span>
+<span class="normal"><a href="#__codelineno-0-1150">1150</a></span>
+<span class="normal"><a href="#__codelineno-0-1151">1151</a></span>
+<span class="normal"><a href="#__codelineno-0-1152">1152</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-1141" name="__codelineno-0-1141"></a><span class="k">def</span><span class="w"> </span><span class="nf">load_workspace</span><span class="p">(</span>
+<a id="__codelineno-0-1142" name="__codelineno-0-1142"></a>    <span class="n">file</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">os</span><span class="o">.</span><span class="n">PathLike</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">ROOT_PATH</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">strict</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+<a id="__codelineno-0-1143" name="__codelineno-0-1143"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">LoadedWorkspace</span><span class="p">:</span>
+<a id="__codelineno-0-1144" name="__codelineno-0-1144"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Open a file read-only, load a catalog into a ``Workspace`` and close (Julia&#39;s ``readdb``).</span>
+<a id="__codelineno-0-1145" name="__codelineno-0-1145"></a>
+<a id="__codelineno-0-1146" name="__codelineno-0-1146"></a><span class="sd">    The returned Workspace and its values own their storage and stay usable</span>
+<a id="__codelineno-0-1147" name="__codelineno-0-1147"></a><span class="sd">    after the file is closed; the function owns the handle only for this</span>
+<a id="__codelineno-0-1148" name="__codelineno-0-1148"></a><span class="sd">    call. Everything else follows :meth:`DataEconFile.read_workspace`.</span>
+<a id="__codelineno-0-1149" name="__codelineno-0-1149"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-1150" name="__codelineno-0-1150"></a>    <span class="n">_normalize</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+<a id="__codelineno-0-1151" name="__codelineno-0-1151"></a>    <span class="k">with</span> <span class="n">open_dataecon</span><span class="p">(</span><span class="n">file</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">db</span><span class="p">:</span>
+<a id="__codelineno-0-1152" name="__codelineno-0-1152"></a>        <span class="k">return</span> <span class="n">db</span><span class="o">.</span><span class="n">read_workspace</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">strict</span><span class="o">=</span><span class="n">strict</span><span class="p">)</span>
+</code></pre></div></td></tr></table></div>
+            </details>
     </div>
 
 </div>

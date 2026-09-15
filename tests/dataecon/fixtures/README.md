@@ -441,3 +441,24 @@ every key, type and value, the key order, the codec markers and the attribute.
 `write_workspace` under `/workspace` in the wheel output, where the three
 marked scalars are absent and the empty Float64 series carries no marker
 (Python omits Julia's redundant one, so Julia's loader keeps the dated series).
+
+## Text array fixture
+
+`julia_text_arrays.daec` and its TOML provenance are generated with
+`generate-text-arrays` and checked with `verify-text-arrays`. Julia's own
+writer stores `String`, `Symbol` and `SubString{String}` matrices (2x3, its 3x2
+transpose, four empty strings, 1x2) and tensors of ranks three to five
+(2x2x3, one 24-label run as 3x2x4 and 4x3x2, 1x2x3x1, 2x1x2x1x1, Symbol
+1x2x3 and 1x1x2x1x1, SubString 1x1x2), plus the empty 0x0, 0x3, 3x0 and
+Symbol 0x2 matrices it marks with their element token. Rows Julia's writer
+cannot produce are stored through the same C entry points the library uses:
+multibyte 2x2/1x2x2 payloads sized in UTF-8 bytes (with and without the
+`Symbol` token), unmarked and marked empty tensors (0x2x3, 0x0x0x0x0 with
+`Symbol`, 1x0x1x0), and nonempty foreign `String`/`AbstractString` element
+tokens. A `Workspace` of text arrays is written under `/text_ws` with
+`writedb`. The Julia verification checks every object's class, type, axes,
+column-major packed bytes, byte count and markers against its inventory,
+loads it (marked empties reload flat, unmarked ones keep their shape) and
+reads the Workspace back with `readdb`. `verify-wheel` applies the same
+checks to the objects Python writes under the same names in the wheel output,
+where every empty carries the `String` token Python always writes.

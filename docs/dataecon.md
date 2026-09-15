@@ -9,9 +9,11 @@ scalars cover every core frequency: `Unit`, `Daily`, `BDaily`, `Weekly` with
 any end day, `Monthly`, `Quarterly`, `HalfYearly` and `Yearly`.
 Series may also hold date, duration, Int128/UInt128 and ComplexF16 elements
 through `StoredSeries` (see [Represented series elements](#represented-series-elements)).
-Int128/UInt128/ComplexF16 scalars, represented or text plain arrays, other
-marker-reconstructed Julia types, catalogs, workspaces and general attributes
-are not supported yet.
+Plain arrays of one to five dimensions carry numeric, Boolean, represented
+and text elements; catalogs, attributes and whole `Workspace` trees have their
+own sections below. Int128/UInt128/ComplexF16 scalars, marker-reconstructed
+Julia scalar types (`Symbol`, `Rational`, `Date`, ...) and represented
+`MVTSeries` elements are not supported yet.
 Existing JSON I/O is unchanged.
 
 Native DataEcon support is configured in the wheel workflow for CPython 3.11–3.13:
@@ -247,10 +249,8 @@ as other supported `TSeries`; the element frequency remains independent of the
 Unit axis. The first implicit code and `first + length - 1` must both fit signed
 64 bits.
 
-String and Symbol vectors are not accepted yet. The pinned Julia writer sizes
-their buffer by characters while the native packer sizes UTF-8 bytes, so
-multibyte text can fail; exceptional strings and lossless Symbol-marker retention
-need their explicit array contract. Matrices and tensors use later APIs.
+Text vectors, matrices and tensors travel through the same two methods; see
+[Text vectors](#text-vectors) and [Text matrices and tensors](#text-matrices-and-tensors).
 
 ## Matrices and multivariate series
 
@@ -491,11 +491,10 @@ assert stored.object_marker == "BitArray{3}"
 assert stored.to_interpreted().tolist() == [[[False, True], [True, False]]]
 ```
 
-Text tensors (`Array{String,N}` and `Array{Symbol,N}`) are not supported yet:
-Julia writes and reads ASCII ones, so they remain unimplemented Python
-capabilities rather than an excluded encoding, and Python refuses them on read
-with a `TypeError` naming that limit. Two other groups are refused because
-Julia's writer never produces them: N-dimensional objects with fewer than
+Text tensors (`Array{String,N}` and `Array{Symbol,N}`) use the same packed
+encoding as text vectors and are described under
+[Text matrices and tensors](#text-matrices-and-tensors). Two groups are
+refused because Julia's writer never produces them: N-dimensional objects with fewer than
 three axes, which Julia's loader would read as a 0-d array, a vector or a
 matrix, and the dated and "other" N-dimensional object types, which Julia's
 loader cannot read at all. A stored axis slot that is missing or refers to no
@@ -559,6 +558,99 @@ with open_dataecon("symbols.daec") as db:
 assert names.marker == "Symbol" and names.tolist() == ["alpha", "z"]
 assert raw.values == (b"\xff", b"a") and not raw.is_text
 ```
+
+## Text matrices and tensors
+
+A Julia `Matrix{String}` or `Array{String,N}` (`N` up to five) is stored
+exactly like a text vector: the elements' UTF-8 bytes, each followed by NUL,
+packed in DataEcon's column-major order under the matrix or tensor axes.
+In Python these objects are NumPy `str_` (`<U`) arrays. `write_array`
+accepts a `str_` array of any layout (Fortran, transposed or sliced inputs are
+snapshotted in logical order), a rectangular nested list of `str`, or a
+`StoredText`; `read_array` returns an owning, C-contiguous `str_` array of the
+stored shape, so `value[i, j]` is the element Julia stores at `[i+1, j+1]`.
+Rank-one text keeps its `list[str]` form.
+
+```python
+import numpy as np
+from tsecon.dataecon import StoredText, open_dataecon
+
+table = np.array([["gdp", "cpi", "rate"], ["level", "index", "percent"]])
+with open_dataecon("text-arrays.daec", "w") as db:
+    db.write_array("table", table)
+    db.write_array("cube", [[["a", "b"], ["c", "d"]], [["e", "f"], ["g", "h"]]])
+    db.write_array("symbols", StoredText.from_numpy(table.T, "Symbol"))
+    db.write_array("empty", np.empty((0, 3), dtype=str))
+
+with open_dataecon("text-arrays.daec") as db:
+    back = db.read_array("table")
+    cube = db.read_array("cube")
+    symbols = db.read_array("symbols")
+    empty = db.read_array("empty")
+
+assert back.tolist() == table.tolist() and back.dtype.kind == "U"
+assert cube.shape == (2, 2, 2) and cube[1, 0, 1] == "f"
+assert symbols.marker == "Symbol" and symbols.shape == (3, 2)
+assert symbols.to_numpy().tolist() == table.T.tolist()
+assert symbols.values[:2] == (b"gdp", b"cpi")  # column-major stored order
+assert empty.shape == (0, 3)
+```
+
+`StoredText` carries a `shape` at every rank. Its `values` tuple holds the
+exact stored bytes in column-major order (the payload order); `tolist()`
+returns nested lists in row-major nesting and `to_numpy()` an owning `str_`
+array, both strict UTF-8 decodes that name the offending element and index.
+`from_list` accepts flat or rectangular nested sequences of `str`;
+`from_numpy` accepts a `str_` array. A one-dimensional container is built
+exactly as before, with `shape` defaulting to `(len(values),)`.
+
+A fixed-width `str_` array costs `count × longest element × 4` bytes, which
+a small packed payload can inflate without bound (one long element pads every
+other one). `read_array` therefore materializes a `str_` array only when that
+size is at most `MAX_UNICODE_BYTES` (four times the 128 MiB native payload
+cap, so no padding-free payload is ever refused); above it the lossless shaped
+`StoredText` is returned instead, and its `to_numpy()` refuses before
+allocating while `tolist()` still works (nested lists hold each string at its
+own size). `StoredText.unicode_nbytes` reports the size in advance. Inputs are
+bounded before they are copied: the rank, dimensions, Python-integer element
+count and minimum packed size (one terminator per element) are checked before
+anything is read; a `str_` array is then traversed in column-major order in
+bounded chunks (at most 16 MiB of fixed-width storage at a time, gathered by
+index for broadcast or strided views) with the UTF-8 byte total accumulated as
+it goes, so a broadcast of one long string is refused long before its logical
+size is ever materialized while a padded input whose packed payload fits is
+still encoded; a nested list is bounded while it is walked; and the snapshot
+must hold exactly the elements of the captured shape at every rank.
+
+Every empty shape is preserved on read, including `(0, 3)`, `(3, 0)` and
+`(1, 0, 1, 0)`. Python writes Julia's `jeltype = "String"` token on an empty
+text array of any rank for byte parity with the Julia writer; Julia's loader
+returns a flat `String[]` for any marked empty (its own or Python's) and
+keeps the shape only for an unmarked empty. Julia itself cannot write empty
+arrays above rank two, nor multibyte text at any rank (the character-count
+sizing bug described above); Python writes both and the pinned Julia loader
+reads them back intact with their shape.
+
+The marker table is the vector one: a `Symbol`, `SubString{String}` or
+`AbstractString` element token, or a nonempty foreign `String` token, comes
+back as a `StoredText` with that marker and rewrites it unchanged; `Char`
+and any whole-object `jtype` token on a text array (Julia reads identity
+spellings such as `Matrix{String}` or `Array{String,3}`, which its writer never
+produces) are refused with `TypeError`, unevaluated. NumPy `bytes_` and
+object arrays are not converted implicitly: build a `str_` array or a
+`StoredText` instead. A Julia `MVTSeries` holds numeric elements only, so a
+text payload under the MVTSeries object type is native-only capacity and is
+refused.
+
+Reads validate the owned payload in Python at every rank: exactly one
+terminator per element of the axes' product, the last byte a terminator, no
+unvisited trailing bytes, no element frequency. A payload with fewer
+terminators than elements is the case Julia's unbounded native unpacker would
+scan past; a payload with more is the case Julia would silently truncate.
+Both are refused so a rewrite stays exact. Sizes are accumulated in Python
+integers before any encoding or allocation: the element count against the
+signed-64-bit limit and the packed byte total against the DataEcon payload
+limit.
 
 ## Empty series
 

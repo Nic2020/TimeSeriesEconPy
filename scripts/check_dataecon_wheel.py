@@ -1885,6 +1885,126 @@ def check_workspace_tree(db: de.DataEconFile) -> None:  # noqa: PLR0912 - finite
         raise ValueError("read_object dispatch mismatch.")
 
 
+# ---- text matrices and tensors ----------------------------------------------
+
+TEXT_M23 = np.array([["r1c1", "r1c2", "r1c3"], ["r2c1", "r2c2", "r2c3"]])
+TEXT_MULTI22 = np.array([["\u00e9", "a\u00e9"], ["\U0001f642", "z"]])
+TEXT_T223 = np.array([f"e{i}" for i in range(1, 13)]).reshape((2, 2, 3), order="F")
+TEXT_H24 = np.array([f"h{i}" for i in range(1, 25)])
+
+
+def text_array_inventory() -> list[tuple[str, np.ndarray | de.StoredText]]:
+    """The fixture's text-array inventory in its Python input forms (same names as Julia's)."""
+    symbols = np.array([["alpha", "b"], ["", "d"]])
+    substrings = np.array([["ab", "bc"]])
+    return [
+        ("text2_2x3", TEXT_M23),
+        ("text2_3x2", TEXT_M23.T),
+        ("text2_blank_2x2", np.array([["", ""], ["", ""]])),
+        ("text2_symbol_2x2", de.StoredText.from_numpy(symbols, "Symbol")),
+        ("text2_substring_1x2", de.StoredText.from_numpy(substrings, "SubString{String}")),
+        ("text2_empty_0x0", np.empty((0, 0), dtype=str)),
+        ("text2_empty_0x3", np.empty((0, 3), dtype=str)),
+        ("text2_empty_3x0", np.empty((3, 0), dtype=str)),
+        ("text2_symbol_empty_0x2", de.StoredText((), "Symbol", (0, 2))),
+        ("text3_2x2x3", TEXT_T223),
+        ("text3_3x2x4", TEXT_H24.reshape((3, 2, 4), order="F")),
+        ("text3_4x3x2", TEXT_H24.reshape((4, 3, 2), order="F")),
+        (
+            "text4_1x2x3x1",
+            np.array([f"f{i}" for i in range(1, 7)]).reshape((1, 2, 3, 1), order="F"),
+        ),
+        (
+            "text5_2x1x2x1x1",
+            np.array([f"g{i}" for i in range(1, 5)]).reshape((2, 1, 2, 1, 1), order="F"),
+        ),
+        (
+            "text3_symbol_1x2x3",
+            de.StoredText.from_numpy(
+                np.array(["a", "bb", "ccc", "", "e", "f"]).reshape((1, 2, 3), order="F"), "Symbol"
+            ),
+        ),
+        (
+            "text5_symbol_1x1x2x1x1",
+            de.StoredText.from_numpy(np.array(["p", "q"]).reshape((1, 1, 2, 1, 1)), "Symbol"),
+        ),
+        (
+            "text3_substring_1x1x2",
+            de.StoredText.from_numpy(substrings.reshape((1, 1, 2)), "SubString{String}"),
+        ),
+        ("text2_multibyte_2x2", TEXT_MULTI22),
+        ("text2_multibyte_symbol_2x2", de.StoredText.from_numpy(TEXT_MULTI22, "Symbol")),
+        ("text3_multibyte_1x2x2", TEXT_MULTI22.reshape((1, 2, 2), order="F")),
+        (
+            "text5_multibyte_symbol_2x1x1x1x2",
+            de.StoredText.from_numpy(TEXT_MULTI22.reshape((2, 1, 1, 1, 2), order="F"), "Symbol"),
+        ),
+        ("text3_empty_0x2x3", np.empty((0, 2, 3), dtype=str)),
+        ("text3_empty_marked_0x2x3", np.empty((0, 2, 3), dtype=str)),
+        ("text5_symbol_empty_0x0x0x0x0", de.StoredText((), "Symbol", (0, 0, 0, 0, 0))),
+        ("text4_empty_1x0x1x0", np.empty((1, 0, 1, 0), dtype=str)),
+        ("text2_string_marker_2x3", de.StoredText.from_numpy(TEXT_M23, "String")),
+        ("text3_string_marker_2x2x3", de.StoredText.from_numpy(TEXT_T223, "String")),
+        ("text2_abstract_2x3", de.StoredText.from_numpy(TEXT_M23, "AbstractString")),
+    ]
+
+
+def text_workspace() -> tsecon.Workspace:
+    return tsecon.Workspace(
+        tm=TEXT_M23,
+        ts=de.StoredText.from_numpy(np.array([["alpha", "b"], ["", "d"]]), "Symbol"),
+        tt=TEXT_T223,
+        t5=de.StoredText.from_numpy(np.array(["p", "q"]).reshape((1, 1, 2, 1, 1)), "Symbol"),
+        tv=["a", "b"],
+    )
+
+
+def write_text_arrays(db: de.DataEconFile) -> None:
+    """Write the text matrices and tensors the Julia fixture stores, under the same names."""
+    for name, value in text_array_inventory():
+        db.write_array(name, value)
+    db.new_catalog("/text_ws")
+    report = db.write_workspace(text_workspace(), "/text_ws")
+    if not report.ok or report.count != 5:
+        raise ValueError(f"write_workspace did not store the text Workspace: {report}")
+
+
+def _check_text_value(name: str, actual: object, expected: np.ndarray | de.StoredText) -> None:
+    if isinstance(expected, de.StoredText):
+        if not isinstance(actual, de.StoredText) or actual != expected:
+            raise ValueError(f"Text array {name} lost its marker, bytes or shape.")
+        if actual.tolist() != expected.tolist():
+            raise ValueError(f"Text array {name} decodes differently.")
+        return
+    if not isinstance(actual, np.ndarray) or actual.dtype.kind != "U":
+        raise ValueError(f"Text array {name} did not read back as a NumPy str_ array.")
+    if actual.shape != expected.shape or actual.tolist() != expected.tolist():
+        raise ValueError(f"Text array {name} changed shape or values.")
+    if not actual.flags.owndata or not actual.flags.c_contiguous:
+        raise ValueError(f"Text array {name} does not own C-contiguous storage.")
+
+
+def check_text_arrays(db: de.DataEconFile) -> None:
+    """Read every text array written by :func:`write_text_arrays`, including the Workspace."""
+    for name, expected in text_array_inventory():
+        _check_text_value(name, db.read_array(name), expected)
+        markers = db.get_attributes(name)
+        if isinstance(expected, de.StoredText):
+            if markers != {"jeltype": expected.marker}:
+                raise ValueError(f"Text array {name} marker mismatch: {markers}.")
+        elif markers != ({"jeltype": "String"} if expected.size == 0 else {}):
+            raise ValueError(f"Text array {name} marker mismatch: {markers}.")
+    loaded = db.read_workspace("/text_ws")
+    if not loaded.report.ok or loaded.report.count != 5:
+        raise ValueError(f"read_workspace did not load the text Workspace: {loaded.report}")
+    for name, expected in text_workspace().items():
+        if name == "tv":
+            if loaded.workspace.tv != ["a", "b"]:
+                raise ValueError("Text Workspace vector mismatch.")
+            continue
+        _check_text_value(f"text_ws/{name}", loaded.workspace[name], expected)
+
+
 def write_interchange(output_dir: Path, series: tsecon.TSeries) -> Path:
     """Write and reopen series and scalars for separate Julia verification."""
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -1901,6 +2021,7 @@ def write_interchange(output_dir: Path, series: tsecon.TSeries) -> Path:
         write_tensors(db)
         write_catalogs(db)
         write_workspace_tree(db)
+        write_text_arrays(db)
         for name, value in (
             ("bool_false", False),
             ("bool_true", True),
@@ -1926,6 +2047,7 @@ def write_interchange(output_dir: Path, series: tsecon.TSeries) -> Path:
         check_tensors(db)
         check_catalogs(db)
         check_workspace_tree(db)
+        check_text_arrays(db)
         np.testing.assert_array_equal(db.read_series("sample").values, series.values)
         for name, expected in (
             ("bool_false", 0),

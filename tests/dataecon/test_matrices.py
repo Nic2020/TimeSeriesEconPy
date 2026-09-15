@@ -215,7 +215,8 @@ def test_matrix_element_count_and_payload_bounds_are_checked():
         ((3, 20, 4, 0, 1, 1, 32, 0, 0, 1, 0, 0, 8), "two plain axes"),
         ((3, 21, 4, 0, 0, 1, 0, 0, 2, 1, 0, 0, 8), "dated row axis"),
         ((3, 21, 4, 0, 1, 1, 32, 0, 0, 1, 0, 0, 8), "dated row axis"),
-        ((3, 20, 6, 0, 0, 1, 0, 0, 0, 1, 0, 0, 2), "text objects are not supported"),
+        ((3, 20, 6, 32, 0, 1, 0, 0, 0, 1, 0, 0, 2), "no element frequency"),
+        ((3, 21, 6, 0, 1, 1, 32, 0, 2, 1, 0, 0, 2), "cannot hold text"),
         ((3, 20, 4, 0, 0, 1, 0, 0, 0, 1, 32, 0, 8), "no frequency or first date"),
     ],
 )
@@ -1186,7 +1187,7 @@ def test_nonempty_string_marker_is_preserved(tmp_path):
 
 
 def test_text_capacity_is_enforced_before_the_payload_is_built(monkeypatch):
-    monkeypatch.setattr("tsecon.dataecon._codec.MAX_BYTES", 16)
+    monkeypatch.setattr("tsecon.dataecon._arrays.MAX_BYTES", 16)
     with pytest.raises(ValueError, match="above the"):
         encode_array(["aaaaaaaa", "bbbbbbbb", "cccccccc"])
     with pytest.raises(ValueError, match="above the"):

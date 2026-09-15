@@ -23,8 +23,9 @@ through ``write_workspace``/``read_workspace`` (nested Workspaces are
 catalogs; members that cannot be stored or loaded are reported, or raised
 with ``strict=True``) and the one-call ``save_workspace``/``load_workspace``
 file forms. The native extension loads on first use; importing the core
-package does not require it. Text tensors and marker-mapped scalars are not
-supported yet.
+package does not require it. Marker-mapped scalars (``Symbol``, ``Rational``,
+``Date``, ...), Int128/UInt128/ComplexF16 scalars and represented
+``MVTSeries`` elements are not supported yet.
 """
 
 from __future__ import annotations
@@ -41,7 +42,7 @@ from typing import TYPE_CHECKING, Literal
 from tsecon.mvtseries import MVTSeries
 from tsecon.workspace import Workspace
 
-from ._arrays import StoredArray, StoredText
+from ._arrays import MAX_UNICODE_BYTES, StoredArray, StoredText
 from ._codec import (
     ArrayValue,
     MatrixPayload,
@@ -75,6 +76,7 @@ if TYPE_CHECKING:
 __all__ = [
     "COMPLEXF16",
     "INT128",
+    "MAX_UNICODE_BYTES",
     "UINT128",
     "ArrayValue",
     "DataEconError",
@@ -446,8 +448,13 @@ class DataEconFile:
         ``MITRange``.
 
         Text vectors return a ``list[str]`` when every element is valid UTF-8
-        and no foreign marker is stored, and a :class:`StoredText` otherwise,
-        which keeps each element's exact bytes and the preserved marker.
+        and no foreign marker is stored; text matrices and tensors (two to
+        five dimensions) return an owning NumPy ``str_`` array of the stored
+        shape under the same conditions, provided that fixed-width array
+        would not exceed ``MAX_UNICODE_BYTES`` (count times the longest
+        element times four). Anything else returns a :class:`StoredText`,
+        which keeps each element's exact bytes, the preserved marker and the
+        shape, with ``tolist()``/``to_numpy()`` as explicit decodes.
         Elements carrying a date, duration, 128-bit or ComplexF16 encoding, or
         a preserved reconstruction marker, return a :class:`StoredArray`: a
         contiguous carrier plus its stored element descriptor, with
@@ -476,10 +483,13 @@ class DataEconFile:
         mutation, without being retained or modified. Matrices and tensors are
         stored column-major, as DataEcon expects.
 
-        Text is written from a sequence of ``str`` or from a
-        :class:`StoredText`, which also carries a preserved marker and exact
-        bytes. Element bytes are sized in UTF-8, not characters. An element
+        Text is written from a flat or rectangular nested sequence of ``str``,
+        a NumPy ``str_`` array of one to five dimensions (any layout), or a
+        :class:`StoredText`, which also carries a preserved marker, exact bytes
+        and a shape. Matrices and tensors are packed column-major like numeric
+        ones. Element bytes are sized in UTF-8, not characters. An element
         cannot contain NUL, because that byte separates the packed elements.
+        NumPy ``bytes_`` and object arrays are refused rather than converted.
 
         :class:`StoredArray` writes its carrier, element descriptor and any
         preserved markers unchanged. Python integer ranges are accepted only as

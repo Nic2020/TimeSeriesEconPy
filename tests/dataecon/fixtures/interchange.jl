@@ -43,6 +43,11 @@
 # verify-wheel under the /workspace prefix): one writedb of a mixed Workspace
 # (every writer dispatch family, nested and empty Workspaces, byte-ordered
 # keys, Julia-only marked scalars) read back with readdb.
+# Text array actions: generate-text-arrays/verify-text-arrays (also checked by
+# verify-wheel): String, Symbol and SubString matrices and tensors of ranks two
+# to five, multibyte rows stored through the C entry points, marked and
+# unmarked empties, foreign String/AbstractString tokens and a Workspace of
+# text arrays written with writedb.
 using TimeSeriesEcon
 using Test, SHA, TOML, Pkg, Dates, LinearAlgebra
 # Julia rebuilds a Diagonal/Symmetric/Hermitian jtype marker with
@@ -1136,7 +1141,7 @@ elseif action == "generate-foreign-markers"
             store_foreign_case!(db, name, values, marker, outer)
         end
     end
-elseif !(action in ("verify", "verify-empty", "verify-scalars", "verify-quarterly", "verify-annual", "verify-halfyearly", "verify-int64", "verify-strings", "verify-dates", "verify-calendar", "verify-widths", "verify-fileops", "verify-calendar-series", "verify-series-elements", "generate-series-elements", "verify-represented-elements", "verify-foreign-markers", "generate-arrays-unit", "verify-arrays-unit", "generate-matrices-text", "verify-matrices-text", "generate-tensors", "verify-tensors", "generate-catalogs", "verify-catalogs", "generate-workspace", "verify-workspace", "verify-wheel"))
+elseif !(action in ("verify", "verify-empty", "verify-scalars", "verify-quarterly", "verify-annual", "verify-halfyearly", "verify-int64", "verify-strings", "verify-dates", "verify-calendar", "verify-widths", "verify-fileops", "verify-calendar-series", "verify-series-elements", "generate-series-elements", "verify-represented-elements", "verify-foreign-markers", "generate-arrays-unit", "verify-arrays-unit", "generate-matrices-text", "verify-matrices-text", "generate-tensors", "verify-tensors", "generate-catalogs", "verify-catalogs", "generate-workspace", "verify-workspace", "generate-text-arrays", "verify-text-arrays", "verify-wheel"))
     error("Unknown fixture action.")
 end
 
@@ -2607,7 +2612,176 @@ if action == "verify-wheel"
     end
 end
 
-if action in ("generate", "generate-empty", "generate-scalars", "generate-quarterly", "generate-annual", "generate-halfyearly", "generate-int64", "generate-strings", "generate-dates", "generate-calendar", "generate-widths", "generate-fileops", "generate-calendar-series", "generate-series-elements", "generate-represented-elements", "generate-foreign-markers", "generate-arrays-unit", "generate-matrices-text", "generate-tensors", "generate-catalogs", "generate-workspace")
+# ---- Text matrices and tensors (element type 6 at ranks two to five) ---------
+
+# Julia's own writer stores `Array{String,N}` and `Array{Symbol,N}` through the
+# same packed-string payload as vectors (column-major, one NUL per element) and
+# reads them back with their shape; it cannot size multibyte text (DE_SHORT_BUF)
+# and has no empty-array method above rank two, so those rows are stored
+# through the C entry points the library itself uses. A marked empty reloads in
+# Julia as a flat typed vector; an unmarked one keeps its shape.
+const text_m23 = ["r1c1" "r1c2" "r1c3"; "r2c1" "r2c2" "r2c3"]
+const text_multi22 = ["é" "aé"; "\U0001f642" "z"]
+const text_t223 = reshape([string("e", i) for i in 1:12], 2, 2, 3)
+const text_h24 = [string("h", i) for i in 1:24]
+
+function store_packed_text_array!(db, name, value; marker=nothing)
+    buffer = UInt8[]
+    for item in vec(value)
+        append!(buffer, Vector{UInt8}(codeunits(String(item))))
+        push!(buffer, 0x00)
+    end
+    ids = C.axis_id_t[]
+    for n in size(value)
+        ax = Ref{C.axis_id_t}()
+        @test C.de_axis_plain(db, n, ax) == 0
+        push!(ids, ax[])
+    end
+    id = Ref{C.obj_id_t}()
+    GC.@preserve buffer ids begin
+        ptr = isempty(buffer) ? C_NULL : pointer(buffer)
+        if ndims(value) == 2
+            @test C.de_store_mvtseries(db, DE.root_id, name, C.type_matrix, C.type_string,
+                                       C.freq_none, ids[1], ids[2], length(buffer), ptr, id) == 0
+        else
+            @test C.de_store_ndtseries(db, DE.root_id, name, C.type_tensor, C.type_string,
+                                       C.freq_none, length(ids), pointer(ids), length(buffer), ptr, id) == 0
+        end
+    end
+    marker === nothing || DE.set_attribute(db, id[], "jeltype", marker)
+    return id[]
+end
+
+# (name, expected loaded value, expected jeltype, written by Julia's own writer)
+function text_array_inventory()
+    return [
+        ("text2_2x3", text_m23, nothing, true),
+        ("text2_3x2", permutedims(text_m23), nothing, true),
+        ("text2_blank_2x2", ["" ""; "" ""], nothing, true),
+        ("text2_symbol_2x2", [:alpha :b; Symbol("") :d], "Symbol", true),
+        ("text2_substring_1x2", SubString{String}[SubString("abc", 1, 2) SubString("abc", 2, 3)], "SubString{String}", true),
+        ("text2_empty_0x0", Matrix{String}(undef, 0, 0), "String", true),
+        ("text2_empty_0x3", Matrix{String}(undef, 0, 3), "String", true),
+        ("text2_empty_3x0", Matrix{String}(undef, 3, 0), "String", true),
+        ("text2_symbol_empty_0x2", Matrix{Symbol}(undef, 0, 2), "Symbol", true),
+        ("text3_2x2x3", text_t223, nothing, true),
+        ("text3_3x2x4", reshape(text_h24, 3, 2, 4), nothing, true),
+        ("text3_4x3x2", reshape(text_h24, 4, 3, 2), nothing, true),
+        ("text4_1x2x3x1", reshape([string("f", i) for i in 1:6], 1, 2, 3, 1), nothing, true),
+        ("text5_2x1x2x1x1", reshape([string("g", i) for i in 1:4], 2, 1, 2, 1, 1), nothing, true),
+        ("text3_symbol_1x2x3", reshape([:a, :bb, :ccc, Symbol(""), :e, :f], 1, 2, 3), "Symbol", true),
+        ("text5_symbol_1x1x2x1x1", reshape([:p, :q], 1, 1, 2, 1, 1), "Symbol", true),
+        ("text3_substring_1x1x2", reshape(SubString{String}[SubString("abc", 1, 2), SubString("abc", 2, 3)], 1, 1, 2), "SubString{String}", true),
+        ("text2_multibyte_2x2", text_multi22, nothing, false),
+        ("text2_multibyte_symbol_2x2", Symbol.(text_multi22), "Symbol", false),
+        ("text3_multibyte_1x2x2", reshape(vec(text_multi22), 1, 2, 2), nothing, false),
+        ("text5_multibyte_symbol_2x1x1x1x2", reshape(Symbol.(vec(text_multi22)), 2, 1, 1, 1, 2), "Symbol", false),
+        ("text3_empty_0x2x3", Array{String,3}(undef, 0, 2, 3), nothing, false),
+        ("text3_empty_marked_0x2x3", Array{String,3}(undef, 0, 2, 3), "String", false),
+        ("text5_symbol_empty_0x0x0x0x0", Array{Symbol,5}(undef, 0, 0, 0, 0, 0), "Symbol", false),
+        ("text4_empty_1x0x1x0", Array{String,4}(undef, 1, 0, 1, 0), nothing, false),
+        ("text2_string_marker_2x3", text_m23, "String", false),
+        ("text3_string_marker_2x2x3", text_t223, "String", false),
+        ("text2_abstract_2x3", text_m23, "AbstractString", false),
+    ]
+end
+
+text_workspace() = Workspace(:tm => text_m23, :ts => [:alpha :b; Symbol("") :d], :tt => text_t223,
+                             :t5 => reshape([:p, :q], 1, 1, 2, 1, 1), :tv => ["a", "b"])
+
+if action == "generate-text-arrays"
+    DE.opendaec(filename; readonly=false) do db
+        for (name, value, marker, writable) in text_array_inventory()
+            if writable
+                ndims(value) == 2 ? DE.store_mvtseries(db, name, value) : DE.store_ndtseries(db, name, value)
+            else
+                store_packed_text_array!(db, name, value; marker=marker)
+            end
+        end
+        DE.writedb(db, DE.new_catalog(db, DE.root_id, "text_ws"), text_workspace())
+    end
+end
+
+if action in ("generate-text-arrays", "verify-text-arrays", "verify-wheel")
+    @testset "DataEcon text array interchange" begin
+        reference_fixture = action != "verify-wheel"
+        DE.opendaec(filename) do db
+            # Borrowed payload pointers are copied before any further native call.
+            function raw_text(id)
+                obj = Ref{C.object_t}()
+                @test C.de_load_object(db, id, obj) == 0
+                if Int(obj[].obj_class) == Int(C.class_mvtseries)
+                    ref = Ref{C.mvtseries_t}()
+                    @test C.de_load_mvtseries(db, id, ref) == 0
+                    a = ref[]
+                    dims = Int[a.axis1.length, a.axis2.length]
+                    types = Int[a.axis1.ax_type, a.axis2.ax_type]
+                    header = (Int(a.object.obj_type), Int(a.eltype), Int(a.elfreq), Int(a.nbytes))
+                    value = a.value
+                else
+                    ref = Ref{C.ndtseries_t}()
+                    @test C.de_load_ndtseries(db, id, ref) == 0
+                    a = ref[]
+                    dims = Int[ax.length for ax in a.axis if ax.id > 0]
+                    types = Int[ax.ax_type for ax in a.axis[1:Int(a.naxes)]]
+                    header = (Int(a.object.obj_type), Int(a.eltype), Int(a.elfreq), Int(a.nbytes))
+                    value = a.value
+                end
+                payload = header[4] == 0 ? UInt8[] :
+                    copy(unsafe_wrap(Vector{UInt8}, Ptr{UInt8}(value), header[4]))
+                attrs = Dict(string(k) => string(v) for (k, v) in DE.get_all_attributes(db, id))
+                return Int(obj[].obj_class), header, dims, types, payload, attrs
+            end
+            store_bytes(expected) = let buffer = UInt8[]
+                for item in vec(expected)
+                    append!(buffer, Vector{UInt8}(codeunits(String(item))))
+                    push!(buffer, 0x00)
+                end
+                buffer
+            end
+            function check_text(path, expected, marker)
+                id = DE.find_fullpath(db, path)
+                cls, header, dims, types, payload, attrs = raw_text(id)
+                @test (cls, header[1]) == (ndims(expected) == 2 ? (3, 20) : (4, 30))
+                @test (header[2], header[3]) == (6, 0)
+                @test dims == collect(size(expected))
+                @test all(==(0), types)
+                # Column-major UTF-8 bytes plus one terminator per element.
+                @test payload == store_bytes(expected)
+                @test header[4] == sum(item -> sizeof(String(item)), vec(expected); init=0) + length(expected)
+                loaded = (cls == 3 ? DE.load_mvtseries : DE.load_ndtseries)(db, id)
+                if isempty(expected)
+                    # Python marks every empty text array; the fixture also holds
+                    # unmarked raw rows, which Julia reads with their shape.
+                    reference_fixture && @test get(attrs, "jeltype", nothing) == marker
+                    if haskey(attrs, "jeltype")
+                        @test loaded == eltype(expected)[]
+                    else
+                        @test typeof(loaded) == typeof(expected) && size(loaded) == size(expected)
+                    end
+                else
+                    @test get(attrs, "jeltype", nothing) == marker
+                    @test !haskey(attrs, "jtype")
+                    @test typeof(loaded) == typeof(expected) || marker == "AbstractString"
+                    @test isequal(loaded, expected) && size(loaded) == size(expected)
+                end
+            end
+            for (name, value, marker, _) in text_array_inventory()
+                check_text("/" * name, value, marker)
+            end
+            ws = text_workspace()
+            back = DE.readdb(db, "/text_ws")
+            @test Set(keys(back)) == Set(keys(ws))
+            @test all(isequal(back[k], ws[k]) && typeof(back[k]) == typeof(ws[k]) for k in keys(ws))
+            check_text("/text_ws/tm", ws.tm, nothing)
+            check_text("/text_ws/ts", ws.ts, "Symbol")
+            check_text("/text_ws/tt", ws.tt, nothing)
+            check_text("/text_ws/t5", ws.t5, "Symbol")
+        end
+    end
+end
+
+if action in ("generate", "generate-empty", "generate-scalars", "generate-quarterly", "generate-annual", "generate-halfyearly", "generate-int64", "generate-strings", "generate-dates", "generate-calendar", "generate-widths", "generate-fileops", "generate-calendar-series", "generate-series-elements", "generate-represented-elements", "generate-foreign-markers", "generate-arrays-unit", "generate-matrices-text", "generate-tensors", "generate-catalogs", "generate-workspace", "generate-text-arrays")
     layout = Dict{String,Any}(
         "enums" => sizeof.([C.class_t, C.type_t, C.frequency_t, C.axis_type_t]),
     )

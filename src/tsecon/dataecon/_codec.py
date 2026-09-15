@@ -27,7 +27,7 @@ from tsecon.mitrange import MITRange
 from tsecon.mvtseries import MVTSeries
 from tsecon.tseries import TSeries
 
-from . import _interpret
+from . import _arrays, _interpret
 from ._arrays import StoredArray, StoredText, resolve_array_interpretation
 from ._metadata import (
     _CALENDAR_FREQUENCIES,
@@ -280,8 +280,10 @@ _SERIES_WIDTHS = {
 _WIDE_ELEMENTS = {(1, 16): INT128, (2, 16): UINT128, (5, 4): COMPLEXF16}
 _WIDE_NAMES = {e.julia_name: e for e in _WIDE_ELEMENTS.values()}
 SeriesValue: TypeAlias = TSeries | StoredSeries | MVTSeries
+# Text input is a flat or rectangular nested sequence of ``str`` (list/tuple),
+# a NumPy ``str_`` array, or a StoredText of one to five dimensions.
 ArrayValue: TypeAlias = (
-    np.ndarray[Any, Any] | range | MITRange | StoredArray | StoredText | list[str] | tuple[str, ...]
+    np.ndarray[Any, Any] | range | MITRange | StoredArray | StoredText | list[Any] | tuple[Any, ...]
 )
 MatrixMetadata: TypeAlias = tuple[int, ...]
 # Six header integers (class, object type, element, element frequency, axis
@@ -291,12 +293,12 @@ TensorMetadata: TypeAlias = tuple[int, ...]
 MAX_AXES = _interpret.MAX_AXES
 _TENSOR_METADATA_LENGTH = 6 + 5 * MAX_AXES
 _TENSOR_SUPPORT = (
-    "DataEcon N-dimensional support covers ordinary numeric and Boolean plain arrays "
-    f"and represented plain arrays with three to {MAX_AXES} plain axes."
+    "DataEcon N-dimensional support covers ordinary numeric and Boolean plain arrays, "
+    f"represented plain arrays and text arrays with three to {MAX_AXES} plain axes."
 )
 _MATRIX_SUPPORT = (
     "DataEcon two-dimensional support covers ordinary numeric and Boolean plain "
-    "matrices and MVTSeries, and represented plain matrices."
+    "matrices and MVTSeries, represented plain matrices and text matrices."
 )
 
 
@@ -829,11 +831,11 @@ def split_text_payload(payload: bytes, length: int) -> tuple[bytes, ...]:
     """
     if length == 0:
         if payload:
-            raise ValueError("An empty DataEcon text vector must have an empty payload.")
+            raise ValueError("An empty DataEcon text array must have an empty payload.")
         return ()
     if payload.count(b"\0") != length or not payload.endswith(b"\0"):
         raise ValueError(
-            f"A DataEcon text vector of {length} elements needs exactly {length} NUL "
+            f"A DataEcon text array of {length} elements needs exactly {length} NUL "
             "terminators and no unvisited trailing bytes."
         )
     return tuple(payload.split(b"\0")[:length])
@@ -842,11 +844,11 @@ def split_text_payload(payload: bytes, length: int) -> tuple[bytes, ...]:
 def _text_marker(marker: str | None, object_marker: str | None) -> str | None:
     if object_marker is not None:
         raise TypeError(
-            "Whole-object reconstruction markers on DataEcon text vectors are not supported yet."
+            "Whole-object reconstruction markers on DataEcon text arrays are not supported yet."
         )
     if marker is not None and marker not in TEXT_MARKERS:
         raise TypeError(
-            f"Unsupported Julia reconstruction attribute {marker!r} for a text vector; "
+            f"Unsupported Julia reconstruction attribute {marker!r} for a text array; "
             "marker text is compared with a finite table and never evaluated."
         )
     return marker
@@ -963,36 +965,25 @@ def _check_snapshot_storage(
     )
 
 
-def _check_text_capacity(total: int) -> None:
-    """Refuse an oversized text vector before its payload is assembled."""
-    if total > MAX_BYTES:
-        raise ValueError(
-            f"The packed text payload would need {total} bytes, above the "
-            f"{MAX_BYTES}-byte DataEcon limit."
-        )
+def _text_elements(value: Any) -> tuple[tuple[bytes, ...], str | None, tuple[int, ...]]:
+    """Return column-major element bytes, the marker and the captured shape of a text input.
 
-
-def _text_elements(value: Any) -> tuple[tuple[bytes, ...], str | None]:
+    Every path checks rank, dimensions, the Python-integer element count and
+    the minimum packed size before the input is flattened or copied, and the
+    cumulative UTF-8 byte total before every element is encoded.
+    """
     if isinstance(value, StoredText):
-        _check_text_capacity(sum(len(item) for item in value.values) + len(value.values))
-        return value.values, value.marker
-    items = tuple(value)
-    if any(type(item) is not str for item in items):
-        raise TypeError("A DataEcon text vector takes plain Python strings.")
-    # Size the packed payload in Python integers and refuse it before encoding
-    # every element, so an oversized input never allocates the whole buffer.
-    total = 0
-    for item in items:
-        total += len(item.encode("utf-8")) + 1
-        _check_text_capacity(total)
-    encoded = tuple(item.encode("utf-8") for item in items)
-    if any(b"\0" in item for item in encoded):
-        raise ValueError(
-            "DataEcon packs text elements as NUL-separated bytes, so an element cannot "
-            "contain NUL; the element boundary itself would be lost. Julia's own writer "
-            "refuses these values too."
-        )
-    return encoded, None
+        assert value.shape is not None
+        _arrays.check_text_capacity(sum(len(item) for item in value.values) + len(value.values))
+        return value.values, value.marker, value.shape
+    if isinstance(value, np.ndarray):
+        shape = _arrays.text_array_shape(value)
+        # The logical values are snapshotted in column-major order, in bounded
+        # chunks, only after the shape-derived bounds passed; the array is
+        # never raveled as a whole, modified or kept.
+        return _arrays.text_array_bytes(value, shape), None, shape
+    shape, flat = _arrays.nested_text(value)
+    return _arrays.column_major(_arrays.pack_strings(flat), shape), None, shape
 
 
 def _encode_ordinary_vector(value: np.ndarray[Any, Any]) -> ArrayPayload:
@@ -1037,18 +1028,35 @@ def _encode_stored_vector(value: StoredArray) -> ArrayPayload:
     )
 
 
-def _encode_text_vector(value: StoredText | list[str] | tuple[str, ...]) -> ArrayPayload:
-    elements, marker = _text_elements(value)
+def _encode_text_array(value: Any) -> ArrayPayload | MatrixPayload | TensorPayload:
+    """Encode a text vector, matrix or tensor as NUL-terminated column-major UTF-8 bytes."""
+    elements, marker, shape = _text_elements(value)
     if marker is not None and marker not in TEXT_MARKERS:
         raise TypeError(f"Unsupported text reconstruction marker {marker!r}.")
-    length = len(elements)
+    count = _arrays.text_count(shape)
+    # The snapshot must hold exactly the elements of the captured shape at
+    # every rank: an input that shrinks or grows while it is flattened would
+    # otherwise be stored under the wrong length or shape.
+    if len(elements) != count:
+        raise ValueError("The text array changed size during the snapshot; nothing was written.")
     # Julia writes the element token on every empty array; keep byte parity.
-    if marker is None and length == 0:
+    if marker is None and count == 0:
         marker = "String"
     payload = b"".join(item + b"\0" for item in elements)
-    metadata = (2, 10, KIND_STRING, 0, 0, length, 0, 0, len(payload))
-    validate_array_payload(metadata, payload, marker, None)
-    return ArrayPayload(10, 0, 0, 0, payload, KIND_STRING, 0, length, marker, None)
+    if len(shape) == 1:
+        metadata = (2, 10, KIND_STRING, 0, 0, count, 0, 0, len(payload))
+        validate_array_payload(metadata, payload, marker, None)
+        return ArrayPayload(10, 0, 0, 0, payload, KIND_STRING, 0, count, marker, None)
+    if len(shape) == 2:
+        rows, columns = shape
+        matrix = (3, 20, KIND_STRING, 0, 0, rows, 0, 0, 0, columns, 0, 0, len(payload))
+        validate_matrix_payload(matrix, payload, marker, None)
+        return MatrixPayload(
+            20, KIND_STRING, 0, 0, rows, 0, 0, columns, None, payload, marker, None
+        )
+    tensor = tensor_metadata(KIND_STRING, 0, shape, len(payload))
+    validate_tensor_payload(tensor, payload, marker, None)
+    return TensorPayload(30, KIND_STRING, 0, shape, payload, marker, None)
 
 
 def _encode_integer_range(value: range) -> ArrayPayload:
@@ -1081,6 +1089,8 @@ def _encode_date_range(value: MITRange) -> ArrayPayload:
 
 
 def _encode_ndarray(value: np.ndarray[Any, Any]) -> ArrayPayload | MatrixPayload | TensorPayload:
+    if value.dtype.kind in ("U", "S", "O", "T"):
+        return _encode_text_array(value)
     if value.ndim == 2:
         return _encode_plain_matrix(value)
     if value.ndim == 1:
@@ -1109,14 +1119,14 @@ def encode_array(value: ArrayValue) -> ArrayPayload | MatrixPayload | TensorPayl
     if isinstance(value, StoredArray):
         return _encode_stored_array(value)
     if isinstance(value, (StoredText, list, tuple)):
-        return _encode_text_vector(value)
+        return _encode_text_array(value)
     if type(value) is range:
         return _encode_integer_range(value)
     if isinstance(value, MITRange):
         return _encode_date_range(value)
     raise TypeError(
-        "write_array requires a NumPy array, StoredArray, text sequence, StoredText, "
-        "range or MITRange."
+        "write_array requires a NumPy array, StoredArray, text sequence (flat or nested), "
+        "StoredText, range or MITRange."
     )
 
 
@@ -1141,7 +1151,7 @@ def decode_array(
     if obj_type == 11:
         return _decode_range(axis, length, frequency, first)
     if element == KIND_STRING:
-        return _decode_text(payload, length, marker)
+        return _decode_text(payload, marker, (length,))
     if isinstance(resolved, StoredElement):
         values = np.frombuffer(payload, dtype=resolved.dtype).copy()
         return StoredArray(values, resolved, copy=False, object_marker=object_marker)
@@ -1157,20 +1167,47 @@ def _decode_range(axis: int, length: int, frequency: int, first: int) -> range |
     return MITRange(start, MIT(start.frequency, first + length - 1))
 
 
-def _decode_text(payload: bytes, length: int, marker: str | None) -> list[str] | StoredText:
+def _decode_text(
+    payload: bytes, marker: str | None, shape: tuple[int, ...]
+) -> list[str] | np.ndarray[Any, Any] | StoredText:
     """Ordinary decodable text returns plain strings; anything else keeps its bytes.
 
-    Julia writes ``jeltype = "String"`` only on an *empty* text vector, where it
-    merely repeats the stored element, so that token is canonical and dropped.
-    A nonempty vector carrying the same token is a foreign marker no Julia
-    writer produces, and the preservation policy keeps it literally.
+    A vector returns ``list[str]``; a matrix or tensor returns an owning NumPy
+    ``str_`` array of the stored shape (empties included) unless that array
+    would exceed ``MAX_UNICODE_BYTES``, in which case the shaped ``StoredText``
+    is returned so nothing is allocated beyond the payload. Julia writes
+    ``jeltype = "String"`` only on an *empty* text array, where it merely
+    repeats the stored element, so that token is canonical and dropped. A
+    nonempty array carrying the same token is a foreign marker no Julia writer
+    produces, and the preservation policy keeps it literally in a StoredText.
     """
-    elements = split_text_payload(payload, length)
-    canonical = marker == "String" and not length
-    stored = StoredText(elements, None if canonical else marker)
-    if stored.marker is None and stored.is_text:
-        return stored.tolist()
-    return stored
+    count = _arrays.text_count(shape)
+    elements = split_text_payload(payload, count)
+    canonical = marker == "String" and not count
+    stored = StoredText(elements, None if canonical else marker, shape)
+    if stored.marker is not None:
+        return stored
+    try:
+        decoded = stored._decoded()
+    except ValueError:
+        return stored
+    if len(shape) == 1:
+        return decoded
+    # A fixed-width Unicode array is count * longest element * 4 bytes, which a
+    # small packed payload can inflate without bound; above the cap the
+    # lossless shaped container is returned instead of allocating.
+    if _arrays.unicode_nbytes(decoded) > _arrays.MAX_UNICODE_BYTES:
+        return stored
+    return _arrays.unicode_array(decoded, shape)
+
+
+def _decode_text_array(
+    payload: bytes, marker: str | None, shape: tuple[int, ...]
+) -> np.ndarray[Any, Any] | StoredText:
+    """Decode a text matrix or tensor; the rank-one ``list[str]`` form never applies here."""
+    decoded = _decode_text(payload, marker, shape)
+    assert not isinstance(decoded, list)
+    return decoded
 
 
 def _owned(values: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
@@ -1185,6 +1222,19 @@ def _owned(values: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
 
 
 # ---- two-dimensional objects ----------------------------------------------
+
+
+def _check_text_matrix_kind(obj_type: int, element_freq: int) -> None:
+    # Text elements carry no width: the payload is validated by its NUL
+    # terminators once the element count is known. Julia's MVTSeries holds
+    # numeric elements only, so a text MVTSeries is native-only capacity.
+    if element_freq:
+        raise TypeError("A DataEcon text array carries no element frequency.")
+    if obj_type != 20:
+        raise TypeError(
+            "A DataEcon MVTSeries cannot hold text elements; only plain text matrices "
+            "are supported."
+        )
 
 
 def validate_matrix_metadata(metadata: MatrixMetadata) -> None:
@@ -1209,8 +1259,7 @@ def validate_matrix_metadata(metadata: MatrixMetadata) -> None:
     if rows < 0 or columns < 0:
         raise ValueError("Invalid negative DataEcon matrix dimension.")
     if element == KIND_STRING:
-        raise TypeError("Two-dimensional DataEcon text objects are not supported yet.")
-    widths = _series_widths(element, element_freq)
+        _check_text_matrix_kind(obj_type, element_freq)
     if (ax2_freq, ax2_first) != (0, 0):
         raise TypeError("A DataEcon matrix column axis carries no frequency or first date.")
     if obj_type == 20:
@@ -1226,6 +1275,9 @@ def validate_matrix_metadata(metadata: MatrixMetadata) -> None:
     size = rows * columns
     if not 0 <= nbytes <= MAX_BYTES or (not size and nbytes):
         raise ValueError("Invalid or oversized DataEcon matrix payload.")
+    if element == KIND_STRING:
+        return
+    widths = _series_widths(element, element_freq)
     if size and (nbytes % size or nbytes // size not in widths):
         raise ValueError("Invalid DataEcon matrix element width or payload length.")
 
@@ -1288,8 +1340,8 @@ def validate_matrix_payload(
     marker: str | None,
     object_marker: str | None,
     names: str | None = None,
-) -> np.dtype[Any] | StoredElement:
-    """Validate matrix metadata, names, finite markers and values."""
+) -> np.dtype[Any] | StoredElement | None:
+    """Validate matrix metadata, names, finite markers and values (None for text)."""
     validate_matrix_metadata(metadata)
     _, obj_type, element, element_freq, _, rows, _, _, _, columns, _, _, _ = metadata
     _interpret.check_marker_text(marker, "element")
@@ -1299,6 +1351,10 @@ def validate_matrix_payload(
     elif names is not None:
         raise TypeError("A plain DataEcon matrix has no column names.")
     size = rows * columns
+    if element == KIND_STRING:
+        _text_marker(marker, object_marker)
+        split_text_payload(payload, size)
+        return None
     resolved = _array_dtype(element, element_freq, size, len(payload), marker, object_marker)
     if isinstance(resolved, StoredElement):
         values = np.frombuffer(payload, dtype=resolved.dtype)
@@ -1406,15 +1462,17 @@ def decode_matrix(
     marker: str | None,
     object_marker: str | None,
     names: str | None = None,
-) -> np.ndarray[Any, Any] | StoredArray | MVTSeries:
+) -> np.ndarray[Any, Any] | StoredArray | StoredText | MVTSeries:
     """Decode an owning matrix or MVTSeries from a column-major payload."""
     if sys.byteorder != "little":
         raise RuntimeError(
             "DataEcon interchange is currently supported on little-endian hosts only."
         )
     resolved = validate_matrix_payload(metadata, payload, marker, object_marker, names)
-    _, obj_type, _, _, _, rows, frequency, first, _, columns, _, _, _ = metadata
+    _, obj_type, element, _, _, rows, frequency, first, _, columns, _, _, _ = metadata
     shape = (rows, columns)
+    if element == KIND_STRING:
+        return _decode_text_array(payload, marker, shape)
     if isinstance(resolved, StoredElement):
         if obj_type == 21:
             raise TypeError(
@@ -1423,6 +1481,7 @@ def decode_matrix(
             )
         values = np.frombuffer(payload, dtype=resolved.dtype).reshape(shape, order="F")
         return StoredArray(_owned(values), resolved, copy=False, object_marker=object_marker)
+    assert resolved is not None
     values = np.frombuffer(payload, dtype=resolved).reshape(shape, order="F")
     result = _owned(values == 1) if marker == "Bool" else _owned(values)
     if obj_type == 20:
@@ -1467,17 +1526,21 @@ def validate_tensor_metadata(metadata: TensorMetadata) -> tuple[int, ...]:
             f"A DataEcon N-dimensional object with {naxes} axes is native capacity Julia never "
             f"writes; supported objects have three to {MAX_AXES} plain axes."
         )
-    if element == KIND_STRING:
-        raise TypeError("N-dimensional DataEcon text objects are not supported yet.")
+    if element == KIND_STRING and element_freq:
+        raise TypeError("A DataEcon text array carries no element frequency.")
     shape = _tensor_shape(slots, naxes)
     size = 1
     for length in shape:
         size *= length
         if size > MAX_INT64:
             raise ValueError("The DataEcon tensor element count exceeds the signed 64-bit range.")
-    widths = _series_widths(element, element_freq)
     if not 0 <= nbytes <= MAX_BYTES or (not size and nbytes):
         raise ValueError("Invalid or oversized DataEcon tensor payload.")
+    if element == KIND_STRING:
+        # Text has no element width; the terminators are checked against the
+        # element count once the owned payload is available.
+        return shape
+    widths = _series_widths(element, element_freq)
     if size and (nbytes % size or nbytes // size not in widths):
         raise ValueError("Invalid DataEcon tensor element width or payload length.")
     return shape
@@ -1522,8 +1585,11 @@ def tensor_metadata(
 
 def validate_tensor_payload(
     metadata: TensorMetadata, payload: bytes, marker: str | None, object_marker: str | None
-) -> np.dtype[Any] | StoredElement:
-    """Validate tensor metadata, finite markers and values without constructing output."""
+) -> np.dtype[Any] | StoredElement | None:
+    """Validate tensor metadata, finite markers and values without constructing output.
+
+    Returns the resolved element, or None for a text tensor.
+    """
     shape = validate_tensor_metadata(metadata)
     _, _, element, element_freq, _, _ = metadata[:6]
     _interpret.check_marker_text(marker, "element")
@@ -1531,6 +1597,10 @@ def validate_tensor_payload(
     size = 1
     for length in shape:
         size *= length
+    if element == KIND_STRING:
+        _text_marker(marker, object_marker)
+        split_text_payload(payload, size)
+        return None
     resolved = _array_dtype(element, element_freq, size, len(payload), marker, object_marker)
     if isinstance(resolved, StoredElement):
         values = np.frombuffer(payload, dtype=resolved.dtype)
@@ -1586,7 +1656,7 @@ def _encode_stored_tensor(value: StoredArray) -> TensorPayload:
 
 def decode_tensor(
     metadata: TensorMetadata, payload: bytes, marker: str | None, object_marker: str | None
-) -> np.ndarray[Any, Any] | StoredArray:
+) -> np.ndarray[Any, Any] | StoredArray | StoredText:
     """Decode an owning three- to five-dimensional array from a column-major payload."""
     if sys.byteorder != "little":
         raise RuntimeError(
@@ -1594,8 +1664,11 @@ def decode_tensor(
         )
     resolved = validate_tensor_payload(metadata, payload, marker, object_marker)
     shape = validate_tensor_metadata(metadata)
+    if metadata[2] == KIND_STRING:
+        return _decode_text_array(payload, marker, shape)
     if isinstance(resolved, StoredElement):
         values = np.frombuffer(payload, dtype=resolved.dtype).reshape(shape, order="F")
         return StoredArray(_owned(values), resolved, copy=False, object_marker=object_marker)
+    assert resolved is not None
     values = np.frombuffer(payload, dtype=resolved).reshape(shape, order="F")
     return _owned(values == 1) if marker == "Bool" else _owned(values)

@@ -202,7 +202,7 @@ def test_extended_precision_is_refused_at_every_rank():
         (metadata_with((2, 2, 2), 64, cls=3), TypeError, "N-dimensional support"),
         (metadata_with((2, 2, 2), 64, obj_type=31), TypeError, "native capacity"),
         (metadata_with((2, 2, 2), 64, obj_type=32), TypeError, "native capacity"),
-        (metadata_with((2, 2, 2), 64, element=6), TypeError, "text objects"),
+        (metadata_with((2, 2, 2), 64, element=6, elfreq=32), TypeError, "no element frequency"),
         (
             metadata_with((2, 2, 2), 64, element=4, elfreq=32),
             TypeError,
@@ -743,7 +743,13 @@ def test_julia_fixture_tensor_values():
             TypeError,
             "one-byte",
         ),
-        ("tensor_Int64", ["UPDATE ndtseries SET eltype=6 WHERE id=:id"], TypeError, "text objects"),
+        # Numeric bytes relabelled as text carry the wrong number of terminators.
+        (
+            "tensor_Int64",
+            ["UPDATE ndtseries SET eltype=6 WHERE id=:id"],
+            ValueError,
+            "NUL terminators",
+        ),
         (
             "tensor_Float64",
             ["UPDATE ndtseries SET elfreq=32 WHERE id=:id"],

@@ -55,6 +55,11 @@
 # and identity object markers stored through the C entry points, and
 # Diagonal/Symmetric/Hermitian matrices materialised from either triangle
 # over ordinary, Boolean and represented elements.
+# Scalar marker actions: generate-scalar-markers/verify-scalar-markers (reference
+# only; not checked by verify-wheel): Int128/UInt128/ComplexF16, Symbol and other
+# string forms, Date/DateTime, Rational{T}, integer Complex{T}, Irrational and
+# foreign jtype markers injected on ordinary payloads, with Julia's loaded
+# type, value, rewrite and error outcomes materialised as siblings.
 using TimeSeriesEcon
 using Test, SHA, TOML, Pkg, Dates, LinearAlgebra
 # Julia rebuilds a Diagonal/Symmetric/Hermitian jtype marker with
@@ -63,6 +68,8 @@ using Test, SHA, TOML, Pkg, Dates, LinearAlgebra
 # plain `using` above would not reach Main and the pinned loader would
 # raise UndefVarError on its own markers.
 Core.eval(Main, :(using LinearAlgebra))
+# The same holds for Julia's own Date/DateTime scalar markers.
+Core.eval(Main, :(using Dates))
 
 const DE = TimeSeriesEcon.DataEcon
 const C = DE.C
@@ -1148,7 +1155,7 @@ elseif action == "generate-foreign-markers"
             store_foreign_case!(db, name, values, marker, outer)
         end
     end
-elseif !(action in ("verify", "verify-empty", "verify-scalars", "verify-quarterly", "verify-annual", "verify-halfyearly", "verify-int64", "verify-strings", "verify-dates", "verify-calendar", "verify-widths", "verify-fileops", "verify-calendar-series", "verify-series-elements", "generate-series-elements", "verify-represented-elements", "verify-foreign-markers", "generate-arrays-unit", "verify-arrays-unit", "generate-matrices-text", "verify-matrices-text", "generate-tensors", "verify-tensors", "generate-catalogs", "verify-catalogs", "generate-workspace", "verify-workspace", "generate-text-arrays", "verify-text-arrays", "generate-represented-mvtseries", "verify-represented-mvtseries", "verify-wheel"))
+elseif !(action in ("verify", "verify-empty", "verify-scalars", "verify-quarterly", "verify-annual", "verify-halfyearly", "verify-int64", "verify-strings", "verify-dates", "verify-calendar", "verify-widths", "verify-fileops", "verify-calendar-series", "verify-series-elements", "generate-series-elements", "verify-represented-elements", "verify-foreign-markers", "generate-arrays-unit", "verify-arrays-unit", "generate-matrices-text", "verify-matrices-text", "generate-tensors", "verify-tensors", "generate-catalogs", "verify-catalogs", "generate-workspace", "verify-workspace", "generate-text-arrays", "verify-text-arrays", "generate-represented-mvtseries", "verify-represented-mvtseries", "generate-scalar-markers", "verify-scalar-markers", "verify-wheel"))
     error("Unknown fixture action.")
 end
 
@@ -3026,7 +3033,292 @@ if action in ("generate-represented-mvtseries", "verify-represented-mvtseries", 
     end
 end
 
-if action in ("generate", "generate-empty", "generate-scalars", "generate-quarterly", "generate-annual", "generate-halfyearly", "generate-int64", "generate-strings", "generate-dates", "generate-calendar", "generate-widths", "generate-fileops", "generate-calendar-series", "generate-series-elements", "generate-represented-elements", "generate-foreign-markers", "generate-arrays-unit", "generate-matrices-text", "generate-tensors", "generate-catalogs", "generate-workspace", "generate-text-arrays", "generate-represented-mvtseries")
+# ---- Marker-mapped, wide and exceptional scalars ------------------------------
+# Reference rows for the scalar surface Python does not yet read: Int128, UInt128
+# and ComplexF16 widths; Symbol, SubString and other string forms including
+# invalid UTF-8 and embedded NUL; Date/DateTime; Rational{T}; integer Complex{T};
+# Irrational; and foreign jtype markers injected on ordinary payloads through the
+# C entry points. Julia's outcome for every row is materialised as siblings:
+# "<name>_type" (the loaded type's name) and "<name>_value" (a canonical text of
+# the loaded value) when the load succeeds, "<name>_julia" (Julia's own writer
+# re-storing the loaded value) with "<name>_rewrite" ("<type>:<canonical text>" of
+# what that re-stored object loads as, or the exception type's name: Julia's own
+# rewrite is lossy for Bool, for integer components beyond 2^53 and for
+# rationals whose float exceeds the parameter) when that writer can store it,
+# and "<name>_error" (the exception type's name) when the load fails. Actions:
+# generate-scalar-markers/verify-scalar-markers. verify-wheel does not check this
+# set: Python writes none of these forms yet.
+sm_le(x) = Vector{UInt8}(reinterpret(UInt8, [x]))
+sm_cstr(s) = (b = Vector{UInt8}(codeunits(String(s))); push!(b, 0x00); b)
+# Julia's own writer: (name, value).
+function sm_written_cases()
+    return Any[
+        ("sm_int128_min", typemin(Int128)), ("sm_int128_max", typemax(Int128)), ("sm_int128_neg1", Int128(-1)),
+        ("sm_uint128_max", typemax(UInt128)), ("sm_uint128_zero", UInt128(0)), ("sm_uint128_2p64", UInt128(2)^64),
+        ("sm_cf16", ComplexF16(1.5, -2.25)), ("sm_cf16_nan", ComplexF16(NaN16, Inf16)), ("sm_cf16_negzero", ComplexF16(-0.0, 0.0)),
+        ("sm_symbol", :alpha), ("sm_symbol_empty", Symbol("")), ("sm_symbol_multibyte", Symbol("é\U0001f642")),
+        ("sm_symbol_invalid_utf8", Symbol(String([0x66, 0xff, 0x6f]))), ("sm_symbol_space", Symbol("a b")),
+        ("sm_substring", SubString("hello world", 1, 5)), ("sm_generic_string", Test.GenericString("gen")),
+        ("sm_string_invalid_utf8", String([0x66, 0xff, 0x6f])), ("sm_string_embedded_nul", "a\0b"), ("sm_string_only_nul", "\0"),
+        ("sm_date", Date(2024, 3, 15)), ("sm_date_epoch", Date(1970, 1, 1)), ("sm_date_before_epoch", Date(1969, 12, 31)),
+        ("sm_date_year0", Date(0, 1, 1)), ("sm_date_negative_year", Date(-1000, 6, 30)), ("sm_date_year1", Date(1, 1, 1)),
+        ("sm_date_year9999", Date(9999, 12, 31)), ("sm_date_year10000", Date(10000, 1, 1)), ("sm_date_year_300k", Date(300000, 1, 1)),
+        ("sm_datetime", DateTime(2024, 3, 15, 13, 45, 30)), ("sm_datetime_ms", DateTime(2024, 3, 15, 13, 45, 30, 123)),
+        ("sm_datetime_ms_999", DateTime(2024, 3, 15, 23, 59, 59, 999)), ("sm_datetime_epoch", DateTime(1970, 1, 1)),
+        ("sm_datetime_negative_ms", DateTime(1969, 12, 31, 23, 59, 59, 999)), ("sm_datetime_year0", DateTime(0, 1, 1, 0, 0, 0, 1)),
+        ("sm_datetime_year9999", DateTime(9999, 12, 31, 23, 59, 59, 999)), ("sm_datetime_year10000", DateTime(10000, 1, 1, 0, 0, 0, 7)),
+        # Beyond 2^53 milliseconds Julia's own Float64 storage loses the millisecond: written .005, reloaded .004.
+        ("sm_datetime_year_300k", DateTime(300000, 6, 1, 12, 0, 0, 5)), ("sm_datetime_year_neg300k", DateTime(-300000, 6, 1, 12, 0, 0, 5)),
+        ("sm_rational_half", 1 // 2), ("sm_rational_third", 1 // 3), ("sm_rational_neg_third", -1 // 3), ("sm_rational_dyadic", 3 // 8),
+        ("sm_rational_int", 7 // 1), ("sm_rational_zero", 0 // 1), ("sm_rational_inf", 1 // 0), ("sm_rational_neginf", -1 // 0),
+        ("sm_rational_big_num", (2^62) // 3), ("sm_rational_2p53", (2^53 + 1) // 1), ("sm_rational_int32", Rational{Int32}(1, 3)),
+        ("sm_rational_int8", Rational{Int8}(3, 4)), ("sm_rational_uint8", Rational{UInt8}(3, 4)), ("sm_rational_int128", Rational{Int128}(1, 3)),
+        ("sm_rational_int128_big", Rational{Int128}(Int128(2)^100, 3)), ("sm_rational_bool", Rational{Bool}(true, true)),
+        ("sm_rational_int16_small", Rational{Int16}(1, 1024)),
+        # Julia's Float64 partial quotients above 2^53 round: this reloads as 3//4611686018427387649, not 3//2^62.
+        ("sm_rational_3_2p62", 3 // Int64(2)^62),
+        ("sm_complex_int", Complex(1, 2)), ("sm_complex_int_neg", Complex(-3, 0)), ("sm_complex_int_zero", Complex(0, 0)),
+        ("sm_complex_int8", Complex{Int8}(1, -2)), ("sm_complex_uint8", Complex{UInt8}(1, 2)),
+        ("sm_complex_int128_big", Complex{Int128}(Int128(2)^70, 1)), ("sm_complex_int_2p53", Complex(2^53 + 1, 0)),
+        ("sm_complex_bool", Complex(true, false)), ("sm_complex_int64_max", Complex(typemax(Int64), typemin(Int64))),
+        ("sm_complex_rational", Complex(1 // 2, 1 // 3)), ("sm_complex_int_2p54", Complex(Int64(2)^54, 1)),
+        ("sm_complex_int_3x2p61", Complex(3 * Int64(2)^61, -Int64(2)^60)), ("sm_complex_int128_2p100", Complex(Int128(2)^100, Int128(2)^70)),
+        ("sm_complex_int128_2p126_neg", Complex(-Int128(2)^126, 0)), ("sm_complex_int8_127", Complex{Int8}(127, -128)),
+        ("sm_irrational_pi", pi), ("sm_irrational_e", MathConstants.e),
+    ]
+end
+# Raw C entry point stores with an injected marker: (name, kind, frequency, payload, jtype).
+function sm_raw_cases()
+    f64(x) = sm_le(Float64(x)); i64(x) = sm_le(Int64(x))
+    return Any[
+        ("sm_inj_date_on_int64", C.type_integer, 0, i64(1710460800), "Date"),
+        ("sm_inj_datetime_on_float", C.type_float, 0, f64(1710510330.123), "DateTime"),
+        ("sm_inj_dates_date_qualified", C.type_float, 0, f64(1710460800.0), "Dates.Date"),
+        ("sm_inj_date_on_string", C.type_string, 0, sm_cstr("x"), "Date"),
+        ("sm_inj_date_on_complex", C.type_complex, 0, sm_le(ComplexF64(1.0, 0.0)), "Date"),
+        ("sm_inj_date_on_complex_imag", C.type_complex, 0, sm_le(ComplexF64(1.0, 2.0)), "Date"),
+        ("sm_inj_datetime_string_payload", C.type_string, 0, sm_cstr("2024-01-01"), "DateTime"),
+        ("sm_inj_rational_on_int64", C.type_integer, 0, i64(7), "Rational{Int64}"),
+        ("sm_inj_rational_on_float_nan", C.type_float, 0, f64(NaN), "Rational{Int64}"),
+        ("sm_inj_rational_on_float_huge", C.type_float, 0, f64(1e300), "Rational{Int64}"),
+        ("sm_inj_rational_int8_on_float", C.type_float, 0, f64(0.5), "Rational{Int8}"),
+        ("sm_inj_rational_int8_overflow", C.type_float, 0, f64(1000.0), "Rational{Int8}"),
+        ("sm_inj_rational_int8_on_int8_min", C.type_integer, 0, UInt8[0x80], "Rational{Int8}"),
+        ("sm_inj_rational_int8_on_int64_min", C.type_integer, 0, i64(-128), "Rational{Int8}"),
+        ("sm_inj_rational_bare", C.type_float, 0, f64(0.5), "Rational"),
+        ("sm_inj_rat64_2p_neg100", C.type_float, 0, f64(2.0^-100), "Rational{Int64}"),
+        ("sm_inj_rat64_2p_neg62", C.type_float, 0, f64(2.0^-62), "Rational{Int64}"),
+        ("sm_inj_rat64_2p_neg63", C.type_float, 0, f64(2.0^-63), "Rational{Int64}"),
+        ("sm_inj_rat64_2p54", C.type_float, 0, f64(2.0^54), "Rational{Int64}"),
+        ("sm_inj_rat64_2p63", C.type_float, 0, f64(2.0^63), "Rational{Int64}"),
+        ("sm_inj_rat64_neg2p63", C.type_float, 0, f64(-2.0^63), "Rational{Int64}"),
+        ("sm_inj_rat64_neg2p63_edge", C.type_float, 0, f64(-(2.0^63 - 1024)), "Rational{Int64}"),
+        ("sm_inj_rat64_subnormal", C.type_float, 0, f64(2.0^-1074), "Rational{Int64}"),
+        ("sm_inj_rat64_tenth", C.type_float, 0, f64(0.1), "Rational{Int64}"),
+        ("sm_inj_rat64_3_2p62", C.type_float, 0, f64(3 * 2.0^-62), "Rational{Int64}"),
+        ("sm_inj_rat8_1_128", C.type_float, 0, f64(1 / 128), "Rational{Int8}"),
+        ("sm_inj_rat8_1_64", C.type_float, 0, f64(1 / 64), "Rational{Int8}"),
+        ("sm_inj_rat8_tenth", C.type_float, 0, f64(0.1), "Rational{Int8}"),
+        ("sm_inj_rat8_127", C.type_float, 0, f64(127.0), "Rational{Int8}"),
+        ("sm_inj_rat8_128", C.type_float, 0, f64(128.0), "Rational{Int8}"),
+        ("sm_inj_rat8_neg128", C.type_float, 0, f64(-128.0), "Rational{Int8}"),
+        ("sm_inj_rat8_neg127", C.type_float, 0, f64(-127.0), "Rational{Int8}"),
+        ("sm_inj_ratu8_neg_half", C.type_float, 0, f64(-0.5), "Rational{UInt8}"),
+        ("sm_inj_ratu8_half", C.type_float, 0, f64(0.5), "Rational{UInt8}"),
+        ("sm_inj_rat128_2p_neg100", C.type_float, 0, f64(2.0^-100), "Rational{Int128}"),
+        ("sm_inj_rat128_2p_neg127", C.type_float, 0, f64(2.0^-127), "Rational{Int128}"),
+        ("sm_inj_rat128_2p126", C.type_float, 0, f64(2.0^126), "Rational{Int128}"),
+        ("sm_inj_rat128_tiny", C.type_float, 0, f64(2.7141251072346146e-36), "Rational{Int128}"),
+        ("sm_inj_rat64_on_int64_max", C.type_integer, 0, i64(typemax(Int64)), "Rational{Int64}"),
+        ("sm_inj_rat64_on_int128_big", C.type_integer, 0, sm_le(Int128(2)^70), "Rational{Int64}"),
+        ("sm_inj_complex_int_on_float", C.type_float, 0, f64(2.0), "Complex{Int64}"),
+        ("sm_inj_complex_int_on_float_frac", C.type_float, 0, f64(1.5), "Complex{Int64}"),
+        ("sm_inj_complex_on_string", C.type_string, 0, sm_cstr("1+2im"), "Complex{Int64}"),
+        ("sm_inj_wide_complex_int128", C.type_integer, 0, sm_le(Int128(5)), "Complex{Int64}"),
+        ("sm_inj_cint_on_int64_2p53p1", C.type_integer, 0, i64(9007199254740993), "Complex{Int64}"),
+        ("sm_inj_cint_on_float_2p53p1", C.type_float, 0, f64(9007199254740993.0), "Complex{Int64}"),
+        ("sm_inj_cint_on_int128_2p70", C.type_integer, 0, sm_le(Int128(2)^70), "Complex{Int64}"),
+        ("sm_inj_cint128_on_int128_2p70", C.type_integer, 0, sm_le(Int128(2)^70), "Complex{Int128}"),
+        ("sm_inj_cint_on_complex_2p53p1", C.type_complex, 0, sm_le(ComplexF64(9007199254740993.0, 1.0)), "Complex{Int64}"),
+        ("sm_inj_cbool_on_float_two", C.type_float, 0, f64(2.0), "Complex{Bool}"),
+        ("sm_inj_symbol_on_float", C.type_float, 0, f64(1.5), "Symbol"),
+        ("sm_inj_symbol_on_int64", C.type_integer, 0, i64(3), "Symbol"),
+        ("sm_inj_symbol_on_date_kind", C.type_date, 32, i64(24288), "Symbol"),
+        ("sm_inj_string_nul_symbol", C.type_string, 0, UInt8[0x61, 0x00, 0x62, 0x00], "Symbol"),
+        ("sm_inj_string_on_float", C.type_float, 0, f64(1.5), "String"),
+        ("sm_inj_substring_on_string", C.type_string, 0, sm_cstr("abc"), "SubString{String}"),
+        ("sm_inj_abstractstring_on_string", C.type_string, 0, sm_cstr("abc"), "AbstractString"),
+        ("sm_inj_any_on_string", C.type_string, 0, sm_cstr("abc"), "Any"),
+        ("sm_inj_char_on_string", C.type_string, 0, sm_cstr("a"), "Char"),
+        ("sm_inj_int64_on_float_exact", C.type_float, 0, f64(2.0), "Int64"),
+        ("sm_inj_int64_on_float_frac", C.type_float, 0, f64(1.5), "Int64"),
+        ("sm_inj_float32_on_float", C.type_float, 0, f64(1.5), "Float32"),
+        ("sm_inj_float64_on_int64", C.type_integer, 0, i64(3), "Float64"),
+        ("sm_inj_int128_on_int64", C.type_integer, 0, i64(-3), "Int128"),
+        ("sm_inj_uint8_on_int64_neg", C.type_integer, 0, i64(-3), "UInt8"),
+        ("sm_inj_bool_on_int8_one", C.type_integer, 0, UInt8[0x01], "Bool"),
+        ("sm_inj_bool_on_int8_two", C.type_integer, 0, UInt8[0x02], "Bool"),
+        ("sm_inj_mit_monthly_on_int64", C.type_integer, 0, i64(24288), "MIT{Monthly}"),
+        ("sm_inj_duration_on_int64", C.type_integer, 0, i64(5), "Duration{Monthly}"),
+        ("sm_inj_mit_on_date_kind", C.type_date, 32, i64(24288), "Int64"),
+        ("sm_inj_bigint_on_int64", C.type_integer, 0, i64(typemax(Int64)), "BigInt"),
+        ("sm_inj_bigfloat_on_float", C.type_float, 0, f64(0.1), "BigFloat"),
+        ("sm_inj_irrational_on_float", C.type_float, 0, f64(Float64(pi)), "Irrational{:π}"),
+        ("sm_inj_unknown", C.type_float, 0, f64(1.5), "NoSuchType"),
+        ("sm_inj_evaluated", C.type_float, 0, f64(1.5), "error(\"evaluated\")"),
+        ("sm_inj_base_int64", C.type_float, 0, f64(2.0), "Base.Int64"),
+        ("sm_inj_spaced", C.type_float, 0, f64(2.0), " Int64 "),
+        ("sm_inj_vector_int64", C.type_integer, 0, i64(2), "Vector{Int64}"),
+    ]
+end
+# A canonical, exact text of a loaded scalar (integers and rationals in decimal,
+# floats and complex floats as little-endian hex, calendar values by component).
+sm_hex(x) = bytes2hex(sm_le(x))
+sm_text(x::Integer) = string(BigInt(x))
+sm_text(x::Rational) = string(BigInt(numerator(x)), "//", BigInt(denominator(x)))
+sm_text(x::Complex{<:Union{Integer,Rational}}) = string(sm_text(real(x)), ",", sm_text(imag(x)))
+sm_text(x::Union{Float16,Float32,Float64,ComplexF16,ComplexF32,ComplexF64}) = sm_hex(x)
+sm_text(x::BigFloat) = string(x)
+sm_text(x::Date) = string(Dates.year(x), "-", Dates.month(x), "-", Dates.day(x))
+sm_text(x::DateTime) = string(sm_text(Date(x)), "T", Dates.hour(x), ":", Dates.minute(x), ":", Dates.second(x), ".", Dates.millisecond(x))
+sm_text(x::Symbol) = String(x)
+sm_text(x::AbstractString) = String(x)
+sm_text(x::Union{MIT,Duration}) = string(x)
+# Julia's writer recurses without bound on BigInt/BigFloat values, so those loaded
+# values are recorded as text only.
+sm_writable(x) = !(x isa Union{BigInt,BigFloat})
+
+function sm_raw_scalar(db, id)
+    ref = Ref{C.scalar_t}()
+    @test C.de_load_scalar(db, id, ref) == 0
+    s = ref[]
+    payload = s.nbytes == 0 ? UInt8[] : copy(unsafe_wrap(Vector{UInt8}, Ptr{UInt8}(s.value), Int(s.nbytes)))
+    attrs = Dict(string(k) => string(v) for (k, v) in DE.get_all_attributes(db, id))
+    return (Int(s.object.obj_class), Int(s.object.obj_type), Int(s.frequency), Int(s.nbytes)), payload, attrs
+end
+
+function sm_materialize!(db, name, id)
+    loaded = try
+        DE.load_scalar(db, id)
+    catch e
+        e
+    end
+    if loaded isa Exception
+        DE.store_scalar(db, DE.root_id, "$(name)_error", string(nameof(typeof(loaded))))
+    else
+        DE.store_scalar(db, DE.root_id, "$(name)_type", string(typeof(loaded)))
+        DE.store_scalar(db, DE.root_id, "$(name)_value", sm_text(loaded))
+        if sm_writable(loaded)
+            julia_id = DE.store_scalar(db, DE.root_id, "$(name)_julia", loaded)
+            DE.store_scalar(db, DE.root_id, "$(name)_rewrite", sm_outcome_text(db, julia_id))
+        end
+    end
+    return loaded
+end
+function sm_outcome_text(db, id)
+    loaded = try
+        DE.load_scalar(db, id)
+    catch e
+        e
+    end
+    return loaded isa Exception ? string(nameof(typeof(loaded))) : string(typeof(loaded), ":", sm_text(loaded))
+end
+
+if action == "generate-scalar-markers"
+    ispath(filename) && error("Output already exists; use a fresh fixture path.")
+    DE.opendaec(filename; write=true) do db
+        for (name, value) in sm_written_cases()
+            id = DE.store_scalar(db, DE.root_id, name, value)
+            sm_materialize!(db, name, id)
+        end
+        for (name, kind, freq, payload, jtype) in sm_raw_cases()
+            id = Ref{C.obj_id_t}()
+            rc = GC.@preserve payload begin
+                C.de_store_scalar(db, DE.root_id, name, kind, C.frequency_t(Integer(freq)), length(payload),
+                                  isempty(payload) ? C_NULL : pointer(payload), id)
+            end
+            @test rc == 0
+            DE.set_attribute(db, id[], "jtype", jtype)
+            sm_materialize!(db, name, id[])
+        end
+    end
+end
+
+if action in ("generate-scalar-markers", "verify-scalar-markers")
+    @testset "DataEcon marker-mapped, wide and exceptional scalars" begin
+        DE.opendaec(filename) do db
+            function verify_siblings(name, loaded)
+                error_id = DE.find_object(db, DE.root_id, "$(name)_error", false)
+                type_id = DE.find_object(db, DE.root_id, "$(name)_type", false)
+                value_id = DE.find_object(db, DE.root_id, "$(name)_value", false)
+                julia_id = DE.find_object(db, DE.root_id, "$(name)_julia", false)
+                rewrite_id = DE.find_object(db, DE.root_id, "$(name)_rewrite", false)
+                if loaded isa Exception
+                    @test error_id !== missing && type_id === missing && value_id === missing
+                    @test julia_id === missing && rewrite_id === missing
+                    error_id === missing || @test DE.load_scalar(db, error_id) == string(nameof(typeof(loaded)))
+                else
+                    @test error_id === missing && type_id !== missing && value_id !== missing
+                    type_id === missing || @test DE.load_scalar(db, type_id) == string(typeof(loaded))
+                    value_id === missing || @test DE.load_scalar(db, value_id) == sm_text(loaded)
+                    if sm_writable(loaded)
+                        @test julia_id !== missing && rewrite_id !== missing
+                        if julia_id !== missing && rewrite_id !== missing
+                            # The recorded rewrite outcome is what Julia's re-stored object loads as now.
+                            @test DE.load_scalar(db, rewrite_id) == sm_outcome_text(db, julia_id)
+                        end
+                    else
+                        @test julia_id === missing && rewrite_id === missing
+                    end
+                end
+            end
+            for (name, value) in sm_written_cases()
+                id = DE.find_object(db, DE.root_id, name)
+                header, payload, attrs = sm_raw_scalar(db, id)
+                @test header[1] == 1
+                loaded = try
+                    DE.load_scalar(db, id)
+                catch e
+                    e
+                end
+                verify_siblings(name, loaded)
+                # Recorded facts about Julia's own writer and loader.
+                if value isa Union{Int128,UInt128}
+                    @test header[4] == 16 && payload == sm_le(value) && !haskey(attrs, "jtype") && loaded == value
+                elseif value isa ComplexF16
+                    @test header == (1, 5, 0, 4) && payload == sm_le(value) && !haskey(attrs, "jtype")
+                elseif value isa Symbol
+                    @test header[2] == 6 && attrs == Dict("jtype" => "Symbol") && loaded == value
+                elseif value isa Union{Date,DateTime}
+                    @test header == (1, 4, 0, 8) && attrs == Dict("jtype" => string(nameof(typeof(value))))
+                elseif value isa Rational || value isa Complex{<:Integer} || value isa Complex{<:Rational} || value isa Irrational
+                    @test header[2] == (value isa Complex ? 5 : 4) && attrs == Dict("jtype" => string(typeof(value)))
+                end
+            end
+            @test DE.load_scalar(db, DE.find_object(db, DE.root_id, "sm_rational_int32")) == Rational{Int32}(1, 3)
+            @test DE.load_scalar(db, DE.find_object(db, DE.root_id, "sm_rational_3_2p62")) == 3 // 4611686018427387649
+            @test DE.load_scalar(db, DE.find_object(db, DE.root_id, "sm_datetime_year_300k")) == DateTime(300000, 6, 1, 12, 0, 0, 4)
+            @test DE.load_scalar(db, DE.find_object(db, DE.root_id, "sm_string_embedded_nul")) == "a"
+            @test DE.load_scalar(db, DE.find_object(db, DE.root_id, "sm_inj_rational_int8_on_int8_min")) == Rational{Int8}(-128, 1)
+            @test DE.load_scalar(db, DE.find_object(db, DE.root_id, "sm_inj_rat8_tenth")) == Rational{Int8}(1, 10)
+            @test DE.load_scalar(db, DE.find_object(db, DE.root_id, "sm_inj_rat128_tiny")) == 408 // Int128(150324684338411231602781414279658602777)
+            for (name, kind, freq, payload, jtype) in sm_raw_cases()
+                id = DE.find_object(db, DE.root_id, name)
+                header, stored, attrs = sm_raw_scalar(db, id)
+                @test header == (1, Int(kind), freq, length(payload)) && stored == payload
+                @test attrs == Dict("jtype" => jtype)
+                loaded = try
+                    DE.load_scalar(db, id)
+                catch e
+                    e
+                end
+                verify_siblings(name, loaded)
+            end
+        end
+    end
+end
+
+if action in ("generate", "generate-empty", "generate-scalars", "generate-quarterly", "generate-annual", "generate-halfyearly", "generate-int64", "generate-strings", "generate-dates", "generate-calendar", "generate-widths", "generate-fileops", "generate-calendar-series", "generate-series-elements", "generate-represented-elements", "generate-foreign-markers", "generate-arrays-unit", "generate-matrices-text", "generate-tensors", "generate-catalogs", "generate-workspace", "generate-text-arrays", "generate-represented-mvtseries", "generate-scalar-markers")
     layout = Dict{String,Any}(
         "enums" => sizeof.([C.class_t, C.type_t, C.frequency_t, C.axis_type_t]),
     )

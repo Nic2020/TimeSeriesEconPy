@@ -491,3 +491,38 @@ flat; wrappers reload as the same wrapper and re-materialise to the stored
 bytes). `verify-wheel` applies the same checks to the objects Python writes
 under the same names, where the foreign Int64 `Bool` row is written in the
 canonical Int8 encoding and empty wrappers omit the redundant element token.
+
+## Scalar marker fixture (reference only)
+
+`julia_scalar_markers.daec` and its TOML provenance are generated with
+`generate-scalar-markers` and checked with `verify-scalar-markers`; it is a
+reference fixture and is not part of `verify-wheel` because Python writes none
+of these forms yet. Its `sm_*` objects are the scalars Julia's own writer
+stores that Python does not read: Int128/UInt128 and ComplexF16 widths;
+`Symbol` (including empty, multibyte, spaced and invalid-UTF-8 names),
+`SubString`, another `AbstractString` (stored without a terminator), invalid
+UTF-8 and embedded-NUL `String`s; `Date`/`DateTime` from year -300000 to
+300000; `Rational{T}` for Int8/Int16/Int32/Int64/Int128/UInt8/Bool
+parameters including `1//0`; integer `Complex{T}` up to the Int128 extremes;
+and `Irrational`; plus ordinary Int64/Float64/ComplexF64/string/date payloads
+stored through the C entry point with an injected `jtype` (`Date` on an
+integer, `Rational{Int8}` bounds, `Complex{Int64}` above 2^53, element tokens,
+`BigInt`/`BigFloat`, a qualified and a spaced spelling, an unknown name and
+`error("evaluated")`). The generator loads every object with the pinned Julia
+loader and materialises the outcome as siblings: `<name>_type` and
+`<name>_value` (the loaded type and a canonical text: integers and rationals
+in decimal, floats as little-endian hex, calendar values by component),
+`<name>_julia` with `<name>_rewrite` (Julia's own writer re-storing the loaded
+value, and what that re-stored object loads as) where the writer can store it
+(it cannot store `BigInt`/`BigFloat`), and `<name>_error` (the exception
+type's name) where the load fails. Recorded facts: `Rational{T}(x::Float64)`
+is Julia's tolerance-zero `rationalize`, so `float(1 // 3)` reloads as
+`6004799503160661//18014398509481984` under Int64 but `1//3` under Int32,
+and partial quotients above 2^53 round in its Float64 loop (`3 // 2^62`
+reloads as `3//4611686018427387649`); `unix2datetime` truncates, and a
+millisecond beyond 2^53 ms is lost by Julia's own writer; Julia's rewrite of
+an Int64-payload `Complex{Int64}` above 2^53, of `typemax(Int64)//1` and of
+`-128//1` under Int8 does not reproduce what it loaded. `tests/dataecon/
+test_scalar_markers_fixture.py` checks today's refusals, the readable
+attributes, the Workspace skip-and-report outcome and that the exact
+reconstruction helpers reproduce every materialised outcome.

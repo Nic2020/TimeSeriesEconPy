@@ -148,6 +148,12 @@ def build_extensions_inplace() -> list[Path]:
             # condition (callers validate inputs before invoking).
             define_macros=[("NPY_NO_DEPRECATED_API", "NPY_1_7_API_VERSION")],
         )
+        if module == "tsecon._stats_kernels_cy" and sys.platform != "win32":
+            # The statistics reference tests require separately rounded
+            # multiply/add operations. Pass this to the GCC/Clang compilers
+            # used by our Unix builds; the Windows build uses MSVC's default
+            # precise mode. Leave unrelated extensions' compiler policy alone.
+            extension.extra_compile_args.append("-ffp-contract=off")
         if module == "tsecon.dataecon._native":
             _configure_dataecon(extension)
         extensions.append(extension)

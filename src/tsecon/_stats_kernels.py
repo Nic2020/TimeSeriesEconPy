@@ -93,8 +93,13 @@ throughout, every scaled intermediate is the unscaled one times the same
 power of two and rounds the same way, so the result is unchanged bit for
 bit; ``test_stats_kernels.py`` checks this on seeded inputs across
 magnitudes ``1e-100`` to ``1e100`` (evidence over that domain, not a proof
-over all inputs). The scaling changes the result only where the unscaled
-arithmetic left the normal range: centred values near ``1e-158`` square
+over all inputs). That check models one rounding per operation, which is
+the policy selected for the compiled statistics kernel: its Unix builds use
+``-ffp-contract=off`` to prevent multiply/add contraction, and Windows builds
+use MSVC's default precise mode. The per-operation test failed on arm64
+macOS before this explicit Unix compiler flag was added. The scaling
+changes the result only where the unscaled arithmetic left the normal
+range: centred values near ``1e-158`` square
 to subnormals (about 26 significant bits instead of 53) and the two
 summation orders then disagree at that reduced precision; sums or squares
 near ``1e308``/``1e155`` overflow to ``inf``. One rounding effect remains:

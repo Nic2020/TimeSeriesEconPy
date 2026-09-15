@@ -345,6 +345,11 @@ class TestCorrelationScaling:
         # ``np.corrcoef`` scalar bit for bit and the Cython kernel equals a
         # transcription of its unscaled loop. Checked on 200 seeded inputs at
         # magnitudes 1e-100..1e100: evidence over that domain, not a proof.
+        # The transcription rounds every operation separately, so the
+        # Unix statistics builds use ``-ffp-contract=off`` (hatch_build.py);
+        # Windows uses MSVC's precise mode. Without that Unix flag,
+        # a compiler that fused ``s += a * b`` into one rounding (Apple clang
+        # by default) moves 103 of these 200 results by one ulp.
         rng = np.random.default_rng(seed=20260915)
         for _ in range(200):
             n = int(rng.integers(2, 300))

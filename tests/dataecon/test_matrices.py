@@ -406,7 +406,10 @@ def test_structure_markers_need_a_square_matrix():
         ("Vector{Int64}", 1, "identity"),
         ("Array{Int64,1}", 1, "identity"),
         ("Array{Int64, 1}", 1, "identity"),
+        ("Array{Int64}", 1, "identity"),
         ("Vector{Int16}", 1, "element"),
+        ("Array{Int16}", 1, "element"),
+        ("Vector{Complex{Float64}}", 1, "element"),
         ("Matrix", 2, "identity"),
         ("AbstractMatrix", 2, "identity"),
         ("Matrix{Float64}", 2, "element"),
@@ -427,6 +430,14 @@ def test_supported_array_object_markers(token, ndim, kind):
 def test_unsupported_array_object_markers_are_refused(token):
     with pytest.raises(TypeError, match="whole-object reconstruction marker"):
         StoredArray(np.ones(2, dtype="<i8"), StoredElement.numeric("<i8"), object_marker=token)
+
+
+def test_rank_free_array_token_applies_to_plain_vectors_only():
+    # `Array{T}` was verified on plain vectors; a matrix keeps the ranked spellings.
+    with pytest.raises(TypeError, match="whole-object reconstruction marker"):
+        StoredArray(
+            np.ones((2, 2), dtype="<i8"), StoredElement.numeric("<i8"), object_marker="Array{Int64}"
+        )
 
 
 # ---- native round trips ----------------------------------------------------

@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from tsecon.dataecon import DataEconError, _codec, open_dataecon
+from tsecon.dataecon import DataEconError, StoredScalar, _codec, _scalars, open_dataecon
 from tsecon.dataecon._codec import decode_scalar, encode_scalar, validate_scalar_metadata
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -36,13 +36,18 @@ CASES = [
     ("str_long", "x" * 1000),
     ("str_long_utf8", "é" * 500),
 ]
-# Julia-written payloads outside the supported subset: Python refuses them
-# instead of truncating or guessing (a lossless representation is future work).
+# Julia-written payloads outside the plain str subset read as a StoredScalar
+# holding every stored byte (Julia truncates at NUL or returns invalid bytes
+# unchecked; Python never truncates or guesses): the exact payload, whether
+# to_str() decodes it, and the interpreted value where one exists.
+STORED = {
+    "ctl_str_embedded_nul": (b"a\0b\0", None, False),  # Julia loads "a"
+    "ctl_str_invalid_utf8": (b"f\xffo\0", None, False),
+    "ctl_symbol": (b"hello\0", "Symbol", True),  # jtype="Symbol" reconstruction marker
+    "native_str_no_terminator": (b"hi", None, False),
+}
+# Malformed payloads no reader accepts.
 REJECTED = {
-    "ctl_str_embedded_nul": ValueError,  # Julia loads "a"; Python never truncates
-    "ctl_str_invalid_utf8": ValueError,  # Julia returns invalid bytes unchecked
-    "ctl_symbol": TypeError,  # jtype="Symbol" reconstruction marker
-    "native_str_no_terminator": ValueError,
     "native_str_empty_payload": ValueError,
     "native_str_with_frequency": TypeError,
 }
@@ -75,7 +80,7 @@ def test_string_codec_rejects_lone_surrogates(value):
 
 
 def test_string_codec_size_limit(monkeypatch):
-    monkeypatch.setattr(_codec, "MAX_BYTES", 8)
+    monkeypatch.setattr(_scalars, "MAX_BYTES", 8)
     assert encode_scalar("abcdefg")[2] == b"abcdefg\0"
     with pytest.raises(ValueError, match="size limit"):
         encode_scalar("abcdefgh")
@@ -115,9 +120,16 @@ def test_string_codec_rejects_subclass_without_conversion():
         (b"\xed\xa0\x80\0", "UTF-8"),
     ],
 )
-def test_string_decode_rejects_malformed_payloads(payload, match):
+def test_string_decode_keeps_raw_payloads_stored(payload, match):
+    # Not a single NUL-terminated valid UTF-8 string: the exact bytes are kept
+    # in a StoredScalar and the strict decode names the defect.
+    stored = decode_scalar(6, 0, payload)
+    assert type(stored) is StoredScalar
+    assert (stored.payload, stored.kind, stored.frequency, stored.marker) == (payload, 6, 0, None)
     with pytest.raises(ValueError, match=match):
-        decode_scalar(6, 0, payload)
+        stored.to_str()
+    with pytest.raises(ValueError, match=match):
+        stored.to_interpreted()
 
 
 def test_string_decode_accepts_only_nul_as_empty():
@@ -151,6 +163,14 @@ def test_julia_string_fixture_values_and_controls():
         for name, error in REJECTED.items():
             with pytest.raises(error):
                 db.read_scalar(name)
+        for name, (payload, marker, decodes) in STORED.items():
+            stored = db.read_scalar(name)
+            assert stored == StoredScalar(payload, 6, 0, marker)
+            if decodes:
+                assert_str(stored.to_interpreted(), payload[:-1].decode("utf-8"))
+            else:
+                with pytest.raises(ValueError):
+                    stored.to_str()
         assert_str(db.read_scalar("native_str_only_nul"), "")
     for actual, expected in results:
         assert_str(actual, expected)
@@ -244,9 +264,9 @@ def test_string_backend_validates_metadata_before_storage(
     ("sql", "error"),
     [
         ("UPDATE scalars SET value=NULL", ValueError),
-        ("UPDATE scalars SET value=X'6869'", ValueError),  # terminator removed
-        ("UPDATE scalars SET value=X'680069'", ValueError),  # interior NUL, no terminator
-        ("UPDATE scalars SET value=X'ff00'", ValueError),  # invalid UTF-8
+        ("UPDATE scalars SET value=X'6869'", b"hi"),  # terminator removed
+        ("UPDATE scalars SET value=X'680069'", b"h\0i"),  # interior NUL, no terminator
+        ("UPDATE scalars SET value=X'ff00'", b"\xff\0"),  # invalid UTF-8
         ("UPDATE scalars SET frequency=32", TypeError),
         ("UPDATE objects SET type=7", TypeError),
         ("UPDATE objects SET type=4", ValueError),  # eight-byte rule for numeric kinds
@@ -258,8 +278,15 @@ def test_string_malformed_storage(tmp_path, sql, error):
     with closing(sqlite3.connect(path)) as conn, conn:
         conn.execute(f"{sql} WHERE id=(SELECT id FROM objects WHERE name='str_ascii')")
     with open_dataecon(path, "a") as db:
-        with pytest.raises(error):
-            db.read_scalar("str_ascii")
+        if isinstance(error, bytes):
+            # Raw text is preserved byte for byte; its strict decode raises.
+            stored = db.read_scalar("str_ascii")
+            assert stored == StoredScalar(error, 6)
+            with pytest.raises(ValueError):
+                stored.to_str()
+        else:
+            with pytest.raises(error):
+                db.read_scalar("str_ascii")
         assert_str(db.read_scalar("str_latin"), "héllo wörld")
         db.write_scalar("good", "still fine")
         assert_str(db.read_scalar("good"), "still fine")
@@ -277,6 +304,18 @@ def test_string_rejects_all_reconstruction_attributes(tmp_path, key, value):
             (key, value),
         )
     with open_dataecon(path) as db:
-        with pytest.raises(TypeError, match="reconstruction"):
-            db.read_scalar("str_ascii")
+        if key == "jeltype":
+            # Julia's scalar loader ignores jeltype; so does Python.
+            assert_str(db.read_scalar("str_ascii"), "hello")
+        elif value is None:
+            with pytest.raises(TypeError, match="NULL reconstruction attribute"):
+                db.read_scalar("str_ascii")
+        else:
+            stored = db.read_scalar("str_ascii")
+            assert stored == StoredScalar(b"hello\0", 6, 0, value)
+            if value in ("String", "Symbol"):
+                assert_str(stored.to_interpreted(), "hello")
+            else:
+                with pytest.raises(TypeError, match="no supported interpretation"):
+                    stored.to_interpreted()
         assert_str(db.read_scalar("str_digits"), "7")

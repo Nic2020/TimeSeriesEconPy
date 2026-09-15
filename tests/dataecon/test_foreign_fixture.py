@@ -56,9 +56,10 @@ PRESERVED_SAMPLES = {
     "fx_m_Int128_Float64": ("Float64", None),
     "fx_e_ComplexF64_Int128": ("Int128", None),
 }
-# Loadable in Julia but outside Python's finite spelling table: refused unevaluated
-# (differently spaced whole-object spellings remain named parity work).
-JULIA_ONLY = {"fx_o_tseries_no_space", "fx_o_tseries_leading_space"}
+# Every loadable row now has a verified spelling in Python's finite table (the
+# no-space and leading-space TSeries identities were added with the shared
+# spelling work); the set stays as the hook for future Julia-only rows.
+JULIA_ONLY: set[str] = set()
 # Identity tokens on represented sources read as the unmarked stored family.
 CANONICAL_STORED = {
     "fx_m_Int128_Int128",

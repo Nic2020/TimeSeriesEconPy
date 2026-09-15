@@ -13,8 +13,10 @@ and ComplexF16 elements through `StoredSeries` and `StoredMVTSeries` (see
 [Represented multivariate series](#represented-multivariate-series)).
 Plain arrays of one to five dimensions carry numeric, Boolean, represented
 and text elements; catalogs, attributes and whole `Workspace` trees have their
-own sections below. Int128/UInt128/ComplexF16 scalars and marker-reconstructed
-Julia scalar types (`Symbol`, `Rational`, `Date`, ...) are not supported yet.
+own sections below. Int128/UInt128/ComplexF16 scalars, raw text and Julia's
+marker-reconstructed scalar types (`Symbol`, `Rational`, `Date`, integer
+`Complex`, ...) travel as `StoredScalar` with explicit interpretation (see
+[Marker-mapped, wide and exceptional scalars](#marker-mapped-wide-and-exceptional-scalars)).
 Existing JSON I/O is unchanged.
 
 Native DataEcon support is configured in the wheel workflow for CPython 3.11–3.13:
@@ -1869,22 +1871,201 @@ with open_dataecon("marked.daec") as db:
   them as frequency types such as `Weekly{0}`, `Weekly{8}` or `Quarterly{0}`.
 - Empty date and duration series write Julia's exact marker and read with or
   without it; the pinned Julia loader fails on either form.
-- Reconstruction markers outside the finite table described in the next
-  section (`Rational{Int64}`, `Complex{Int64}`, `Date`, `DateTime`, `Symbol`,
-  abstract names such as `Real` or `MIT{Quarterly}` without its parameter,
-  qualified or differently spaced spellings, and whole-object tokens other
-  than the exact `TSeries` and empty `Vector` forms) are refused with
-  `TypeError`. Julia loads several of them; supporting them is planned parity
-  work, not an approved exclusion.
-- Int128, UInt128 and ComplexF16 scalars and wider-than-64-bit element widths
-  other than these three represented families remain unsupported.
-- Whole-object spellings on a multivariate object outside the exact identity
-  table (`MVTSeries{Monthly,Int64}` without the space, the qualified
-  `TimeSeriesEcon.MVTSeries`, `AbstractArray`, an alias inside the parameter
-  such as `Complex{Float16}`) are refused although Julia loads them; they are
-  part of the same planned marker-spelling work as the series tokens above.
+- Series reconstruction markers outside the finite table described in the
+  next section (`Rational{Int64}`, `Complex{Int64}`, `Date`, `DateTime` and
+  `Symbol` as *element* markers, abstract names such as `Real`,
+  `MIT{Quarterly}` without its parameter, and spellings other than the
+  individually verified ones) are refused with `TypeError`. Julia loads
+  several of them; supporting them is planned parity work, not an approved
+  exclusion. The same names on a *scalar* are interpreted (see
+  [Marker-mapped, wide and exceptional scalars](#marker-mapped-wide-and-exceptional-scalars)).
+- Wider-than-64-bit element widths other than the three represented families
+  remain unsupported.
+- Whole-object spellings on a multivariate object outside the verified
+  identity table (`Base.MVTSeries`, a three-parameter form without spaces,
+  an alias inside a three-parameter form) are refused although Julia may
+  load them; they are part of the same finite-spelling policy as the series
+  tokens above.
 - Marker text is never evaluated: markers are compared with a finite table of
   tokens.
+
+## Marker-mapped, wide and exceptional scalars
+
+Julia's scalar writer stores every value through one of six native families
+(integer, unsigned, date, float, complex, string) and, when the Julia type
+differs from that family, adds a `jtype` attribute that its loader evaluates
+to rebuild the type: a `Symbol` is a string plus `Symbol`, a `Date` is Float64
+unix seconds plus `Date`, a `Rational{Int64}` is `float(p//q)` plus its
+marker, an integer `Complex{Int8}` is two Float64 plus `Complex{Int8}`.
+`Int128`/`UInt128` and `ComplexF16` are stored at their own width with no
+marker, and a `String` may hold bytes that are not UTF-8 or an interior NUL.
+None of these has a faithful plain Python value, so `read_scalar` returns
+them as a `StoredScalar`: the exact payload bytes, native type code, frequency
+code and marker text, never converted and never evaluated. Ordinary scalars
+(every width with a NumPy type, clean strings, dates and durations) read
+exactly as before.
+
+```python
+import datetime as dt
+from fractions import Fraction
+from tsecon.dataecon import IntegerComplex, StoredScalar, open_dataecon
+
+with open_dataecon("scalars-example.daec", "a") as db:
+    db.write_scalar("share", Fraction(1, 2))               # Float64 + "Rational{Int64}"
+    db.write_scalar("day", dt.date(2024, 3, 15))           # Float64 unix seconds + "Date"
+    db.write_scalar("stamp", dt.datetime(2024, 3, 15, 13, 45, 30, 123000))  # + "DateTime"
+    db.write_scalar("z", IntegerComplex(2**54, 1))         # two Float64 + "Complex{Int64}"
+    db.write_scalar("label", StoredScalar.symbol("gdp"))   # UTF-8 + "Symbol"
+    db.write_scalar("big", StoredScalar.int128(-(2**127))) # sixteen bytes, no marker
+    db.write_scalar("plain", 2.5)                          # unchanged: a plain Float64
+    share = db.read_scalar("share")
+    assert isinstance(share, StoredScalar)
+    assert share.marker == "Rational{Int64}"
+    assert share.to_fraction() == Fraction(1, 2)
+    assert db.read_scalar("day").to_date() == dt.date(2024, 3, 15)
+    assert db.read_scalar("stamp").to_datetime() == dt.datetime(2024, 3, 15, 13, 45, 30, 123000)
+    assert db.read_scalar("z").to_integer_complex() == IntegerComplex(2**54, 1)
+    assert db.read_scalar("label").to_interpreted() == "gdp"
+    assert db.read_scalar("big").to_int() == -(2**127)
+    assert db.read_scalar("plain") == 2.5
+    assert db.get_attributes("share") == {"jtype": "Rational{Int64}"}
+```
+
+**Writes are accepted only when Julia rebuilds the requested value.** A
+`fractions.Fraction` is stored the way Julia's writer stores the rational
+(`Float64(p) / Float64(q)` plus `Rational{Int64}`) and accepted when the
+pinned loader's continued-fraction reconstruction of that float gives the same
+fraction back; that is a different test from Float64 exactness or a
+denominator bound. `1/2`, `3/8` and `2**54` pass; `1/3` does not (Julia
+reloads `6004799503160661//18014398509481984`), and neither does `3/2**62`
+under any parameter (Julia's own partial quotients round above `2**53`).
+`StoredScalar.fraction(value, exact=False)` stores the float anyway with the
+loss explicit, still refusing a float Julia cannot load at all, and
+`parameter="Int32"` and the other bit-integer parameters apply their own
+bounds (`1/3` under `Int32` reloads as `1//3`). Dates use the same rule:
+`datetime.date` and naive millisecond `datetime.datetime` values are stored as
+unix seconds and checked against `unix2datetime`; timezone-aware values raise
+`TypeError` and sub-millisecond values `ValueError`, so nothing is rounded
+silently. `StoredScalar.calendar_date` / `calendar_datetime` cover every
+proleptic year (year zero and negatives included) and refuse the instants
+beyond `2**53` milliseconds that Julia's Float64 storage would reload
+differently. Integer complex values (`IntegerComplex` or
+`StoredScalar.integer_complex(re, im, parameter=...)`) need each component
+exactly representable in Float64 and within the parameter: `2**54 + 1im`
+round-trips, `2**53 + 1` does not, and there is no blanket `2**53` cutoff.
+
+```python
+from tsecon.dataecon import StoredScalar
+
+exact = StoredScalar.fraction(Fraction(2**54))
+assert exact.to_fraction() == Fraction(2**54)
+try:
+    StoredScalar.fraction(Fraction(1, 3))
+except ValueError:
+    pass  # Julia would reload a different fraction; nothing is stored
+lossy = StoredScalar.fraction(Fraction(1, 3), exact=False)
+assert lossy.to_fraction() == Fraction(6004799503160661, 18014398509481984)
+assert StoredScalar.fraction(Fraction(1, 3), parameter="Int32").to_fraction() == Fraction(1, 3)
+year_zero = StoredScalar.calendar_date(0, 1, 1)
+assert year_zero.to_calendar() == (0, 1, 1)
+assert str(year_zero.to_datetime64()) == "0000-01-01"
+try:
+    StoredScalar.calendar_datetime(300000, 6, 1, 12, 0, 0, 5)
+except ValueError:
+    pass  # beyond 2**53 ms Julia reloads .004: refused rather than stored lossily
+```
+
+**Interpretation is explicit and finite.** `to_interpreted()` returns the
+value the pinned Julia loader builds: `str` for the text markers (`Symbol`,
+`SubString{String}`, `AbstractString`, `String`, and integer payloads under
+`Symbol`), `datetime.date`/`datetime.datetime` for `Date`/`DateTime` in years
+1..9999 (`to_calendar()` gives the exact components for any year and
+`to_datetime64()` the exact NumPy value, whose calendar numbers years as
+Julia does), `Fraction` for `Rational{T}` and the bare `Rational`,
+`IntegerComplex` for integer `Complex{T}` and the bare `Complex` on integer
+payloads, and the converted Python/NumPy value for the numeric element tokens
+(`Int64`, `Float32`, `Bool`, `Int128`, `MIT{F}`, ...), the abstract names
+`Any`, `Number`, `Real`, `Integer`, `Signed`, `Unsigned`, `AbstractFloat` and
+`BigInt` (an exact `int`), and the verified alternative spellings
+(`Dates.Date`, `Base.Int64`, `Core.Int64`, `TimeSeriesEcon.Int64`, ` Int64 `,
+`Rational{Int}`, `Complex{Int}`, ...). Every route reproduces Julia's own
+arithmetic: `Rational{Int64}` on `1/3` gives `6004799503160661//18014398509481984`,
+`Rational{Int32}` gives `1//3`, `3 * 2.0**-62` gives `3//4611686018427387649`,
+`Integer` on `2.0` gives `2`, `Signed` on a `UInt8` gives an `np.int8`, and
+`Complex{Int64}` on an Int64 payload keeps `2**53 + 1` exactly. Where Julia's
+loader fails (`InexactError`, `OverflowError`, `MethodError`) the reader
+raises `ValueError` for a value it refuses or `TypeError` for a route it
+lacks. `+/-1//0`, which Julia loads, has no `Fraction`: `to_fraction()`
+raises and `to_float()` returns the signed infinity. A `BigFloat` marker is
+preserved but not interpreted (its Float64 or integer payload is exactly the
+value, readable through `to_float()`/`to_int()`); a `Symbol` on a float,
+complex or date payload names Julia's printed form and is not reproduced;
+`Irrational`, `Complex{Rational{T}}`, unknown names and evaluable text are
+preserved opaquely and raise `TypeError` on interpretation, never echoing or
+running the marker text.
+
+The interpretation table does not yet cover every stored payload family.
+Calendar markers currently accept Float64, ComplexF64 with a zero imaginary
+part, signed integers through Int64, and unsigned integers through UInt32.
+Rational markers accept integer, Float64 and real-valued ComplexF64 payloads;
+narrow floating-point reconstruction remains unavailable. Other unfinished
+routes include abstract numeric markers on date/duration payloads and
+`Complex{Rational{T}}`. Reconstructing an `MIT` from an integer payload also
+currently applies the native date window, so some codes Julia can reconstruct
+are refused. These limitations do not prevent preserving and rewriting the
+stored scalar; they remain gaps in explicit interpretation.
+
+```python
+import struct
+import numpy as np
+
+half = StoredScalar(b"\x00\x00\x00\x00\x00\x00\xe0\x3f", 4, 0, "Rational{Int64}")
+assert half.to_interpreted() == Fraction(1, 2)
+third_int32 = StoredScalar(struct.pack("<d", 1 / 3), 4, 0, "Rational{Int32}")
+assert third_int32.to_fraction() == Fraction(1, 3)
+inf = StoredScalar(struct.pack("<d", float("inf")), 4, 0, "Rational{Int64}")
+assert inf.to_float() == float("inf")
+signed = StoredScalar(b"\x03", 2, 0, "Signed")
+assert signed.to_interpreted() == np.int8(3)
+custom = StoredScalar(struct.pack("<d", 1.5), 4, 0, "MyPackage.MyType")
+try:
+    custom.to_interpreted()
+except TypeError:
+    pass  # opaque: preserved and rewritable, never evaluated
+assert custom.marker == "MyPackage.MyType"
+```
+
+**Rewrites preserve the stored object byte for byte.** Writing a
+`StoredScalar` back stores its payload, type, frequency and marker exactly,
+including markers Julia's own writer cannot reproduce (`BigInt`, `BigFloat`,
+a `Rational{Int8}` holding `-128//1`, an unknown type) and text Julia would
+truncate. Raw bytes are built with `StoredScalar.raw_text(data)`; an interior
+NUL needs `allow_nul=True` because Julia's loader reads such a string only up
+to the NUL. A `jeltype` attribute on a scalar is ignored by Julia's loader and
+by this reader. The marker is written after the value, so a failed marker
+write leaves the plain value readable without it (no rollback), the same
+residue rule as the series writers. Whole `Workspace` trees carry every one of
+these forms through `write_workspace`/`read_workspace` without skipped
+members; a `Fraction` member that Julia would reload differently is reported
+as an invalid member (or raised with `strict=True`) rather than stored lossily.
+
+```python
+custom = StoredScalar(struct.pack("<d", 1.5), 4, 0, "MyPackage.MyType")
+with open_dataecon("scalars-example.daec", "a") as db:
+    db.write_scalar("raw", StoredScalar.raw_text(b"f\xffo"))
+    db.write_scalar("nul", StoredScalar.raw_text(b"a\0b", allow_nul=True))
+    db.write_scalar("custom", custom)
+    db.write_scalar("share", Fraction(1, 2))
+    for name in ("share", "raw", "nul", "custom"):
+        db.write_scalar(f"{name}_copy", db.read_scalar(name))
+    assert db.read_scalar("raw_copy") == db.read_scalar("raw")
+    assert db.read_scalar("custom_copy").marker == "MyPackage.MyType"
+    try:
+        db.read_scalar("raw").to_str()
+    except ValueError:
+        pass  # not UTF-8: the bytes stay available through .payload
+    assert db.read_scalar("raw").payload == b"f\xffo\x00"
+```
 
 ## Foreign reconstruction markers: storage versus interpretation
 
@@ -1897,10 +2078,16 @@ an `Int64` marker on Int16 bytes or a `Float64` marker on Int64 bytes, and
 converts the values while loading. Julia evaluates the marker text; Python
 never does. Markers are compared with a finite table of tokens (the fourteen
 ordinary element names, `Int128`, `UInt128` and `ComplexF16`, the 64 exact
-`MIT{F}`/`Duration{F}` spellings, and the aliases `Int`, `UInt` and
-`Complex{Float16}`), plus the whole-object tokens `TSeries`, the exactly
-spelled `TSeries{F, T}` and `TSeries{F, T, Vector{T}}` naming the stored
-series, and `Vector`/`Vector{Float64}` on empty numeric payloads.
+`MIT{F}`/`Duration{F}` spellings, and the aliases `Int`, `UInt`,
+`Complex{Float16}`, `Complex{Float32}` and `Complex{Float64}`), plus the
+whole-object identity tokens `TSeries`, `TimeSeriesEcon.TSeries`,
+`AbstractVector`, `Any`, `TSeries{F}` and the exactly spelled `TSeries{F, T}`
+/ `TSeries{F,T}` / `TSeries{F, T, Vector{T}}` naming the stored series, and on
+empty numeric or wide payloads the typed-empty tokens `Vector`, `Array`,
+`Vector{Any}` and `Vector{T}` / `Array{T}` / `Array{T,1}` / `Array{T, 1}`
+for every element name. Each spelling was verified individually against the
+pinned loader; no general grammar is applied, so an unlisted spacing or
+qualifier stays refused.
 
 **Reads preserve storage.** A supported foreign marker never converts on read.
 `read_series` returns a `StoredSeries` whose descriptor keeps the stored kind,
@@ -2057,6 +2244,10 @@ empty = StoredSeries(
     mm(2024, 11), np.empty(0, dtype="<f8"), StoredElement.numeric("<f8"), object_marker="Vector"
 )
 assert isinstance(empty.to_interpreted(), np.ndarray)
+typed_empty = StoredSeries(
+    mm(2024, 11), np.empty(0, dtype="<i8"), StoredElement.numeric("<i8"), object_marker="Array{Bool, 1}"
+)
+assert typed_empty.to_interpreted().dtype == np.dtype(bool)  # Julia's empty Vector{Bool}
 ```
 
 **Empty payloads.** An empty numeric payload has no stored width, so a foreign

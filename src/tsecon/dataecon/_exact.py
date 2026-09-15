@@ -10,8 +10,8 @@ reader can state exactly what the pinned Julia would load, or that it would
 raise, without evaluating any marker text: every parameter comes from the
 finite tables below and every value is a plain Python integer, float or tuple.
 Which Python objects such values become in the public API is a separate choice;
-this module makes none, touches no native code and is not imported by the
-public read or write methods.
+this module makes none and touches no native code; :mod:`._scalars` builds the
+public ``StoredScalar`` on top of it.
 
 Julia's own rules, transcribed from ``base/rational.jl``, ``base/float.jl``
 and ``stdlib/Dates`` at the pinned version:
@@ -163,15 +163,20 @@ def _convergents(value: float, low: int, high: int) -> tuple[int, int]:
     return (p, q) if pushed is None else pushed
 
 
-def _julia_float(num: int, den: int) -> float:
+def julia_float(num: int, den: int) -> float:
     """Return Julia's ``Float64(::Rational)``: ``Float64(num) / Float64(den)``.
 
-    A zero denominator gives the signed infinity; ``Float64(n)`` of a bit
-    integer rounds to nearest-even, as ``float(int)`` does.
+    This is also the Float64 Julia's writer stores for a ``Rational`` scalar
+    (two roundings, not the correctly rounded quotient). A zero denominator
+    gives the signed infinity; ``Float64(n)`` of a bit integer rounds to
+    nearest-even, as ``float(int)`` does.
     """
     if den == 0:
         return math.copysign(math.inf, num)
     return float(num) / float(den)
+
+
+_julia_float = julia_float
 
 
 def rationalize(value: float, parameter: str) -> tuple[int, int]:

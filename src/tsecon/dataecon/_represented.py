@@ -74,6 +74,7 @@ __all__ = [
     "check_column_names",
     "element_tolist",
     "julia_frequency_name",
+    "pack_complexf16",
     "pack_elements",
 ]
 
@@ -295,7 +296,8 @@ def _float16_bits(component: float) -> np.uint16:
     return narrowed.view(np.uint16)
 
 
-def _pack_complexf16(items: Iterable[object]) -> np.ndarray[Any, Any]:
+def pack_complexf16(items: Iterable[object]) -> np.ndarray[Any, Any]:
+    """Pack exact ``complex`` values or ``(float16, float16)`` pairs into a ComplexF16 carrier."""
     real_bits: list[np.uint16] = []
     imag_bits: list[np.uint16] = []
     for item in items:
@@ -607,7 +609,7 @@ def pack_elements(element: StoredElement, items: Iterable[object]) -> np.ndarray
     if element.kind in _DATE_KINDS:
         return _pack_codes(items, element)
     if element.kind == "complexf16":
-        return _pack_complexf16(items)
+        return pack_complexf16(items)
     if element.kind == "numeric":
         raise TypeError(
             "Build ordinary numeric stored values from an explicit NumPy array of the "

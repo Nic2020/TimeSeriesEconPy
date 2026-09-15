@@ -24,8 +24,13 @@ through ``write_workspace``/``read_workspace`` (nested Workspaces are
 catalogs; members that cannot be stored or loaded are reported, or raised
 with ``strict=True``) and the one-call ``save_workspace``/``load_workspace``
 file forms. The native extension loads on first use; importing the core
-package does not require it. Marker-mapped scalars (``Symbol``, ``Rational``,
-``Date``, ...) and Int128/UInt128/ComplexF16 scalars are not supported yet.
+package does not require it. Scalars outside the familiar Python/NumPy
+values (Int128/UInt128/ComplexF16 widths, raw or NUL-bearing text and every
+marker-bearing scalar such as Julia's ``Symbol``, ``Date``, ``Rational`` or
+integer ``Complex``) read as a ``StoredScalar`` holding the exact stored form
+with explicit interpretation, and ``fractions.Fraction``, ``datetime.date``,
+``datetime.datetime`` and ``IntegerComplex`` values are written in the
+storage Julia's own writer produces.
 """
 
 from __future__ import annotations
@@ -55,7 +60,7 @@ from ._codec import (
     decode_scalar,
     decode_series,
     encode_array,
-    encode_scalar,
+    encode_marked_scalar,
     encode_series,
 )
 from ._errors import DataEconError
@@ -67,6 +72,7 @@ from ._represented import (
     StoredMVTSeries,
     StoredSeries,
 )
+from ._scalars import IntegerComplex, StoredScalar
 from ._workspace import (
     LoadedWorkspace,
     SkippedMember,
@@ -88,6 +94,7 @@ __all__ = [
     "ArrayValue",
     "DataEconError",
     "DataEconFile",
+    "IntegerComplex",
     "LoadedWorkspace",
     "ObjectInfo",
     "ScalarResult",
@@ -97,6 +104,7 @@ __all__ = [
     "StoredArray",
     "StoredElement",
     "StoredMVTSeries",
+    "StoredScalar",
     "StoredSeries",
     "StoredText",
     "WorkspaceReport",
@@ -600,15 +608,29 @@ class DataEconFile:
         pass through floating point; narrow floats keep their stored bits;
         strings are decoded strictly as UTF-8. Dates are validated against the
         reliable native range of their frequency; Unit dates are plain 64-bit
-        codes and are not range-checked. Int128, UInt128 and ComplexF16
-        objects, which Julia can write, raise ``ValueError`` until a Python
-        representation is chosen; a stored Julia ``Bool`` reads as ``np.int8``,
-        exactly as Julia itself reloads it.
+        codes and are not range-checked. A stored Julia ``Bool`` reads as
+        ``np.int8``, exactly as Julia itself reloads it.
+
+        Everything else returns a :class:`StoredScalar` holding the exact
+        stored form (payload bytes, type code, frequency and ``jtype`` text):
+        sixteen-byte Int128/UInt128 and four-byte ComplexF16 objects, text that
+        is not a single NUL-terminated valid UTF-8 string (Julia's own loader
+        truncates or misreads such payloads; Python keeps every byte), and any
+        scalar carrying a ``jtype`` reconstruction marker (Julia's ``Symbol``,
+        ``SubString{String}``, ``Date``, ``DateTime``, ``Rational{T}``,
+        integer ``Complex{T}``, ``BigInt``, ``Irrational`` and custom types,
+        or a foreign marker on an ordinary payload). The marker text is never
+        evaluated; ``StoredScalar.to_interpreted()`` and the typed accessors
+        (``to_int``, ``to_fraction``, ``to_date``, ``to_datetime64``, ...)
+        convert explicitly through a finite table, raising ``ValueError``
+        where Julia's loader would fail and ``TypeError`` where no
+        interpretation is supported. A ``jeltype`` attribute on a scalar is
+        ignored, as Julia's loader ignores it.
         """
         with self._lock:
             self._require_open()
-            payload, metadata, _ = self._handle.read_scalar(_object_path(name))
-            return decode_scalar(metadata[1], metadata[2], payload)
+            payload, metadata, _, marker = self._handle.read_scalar(_object_path(name))
+            return decode_scalar(metadata[1], metadata[2], payload, marker)
 
     def write_scalar(self, name: str, value: ScalarValue, *, overwrite: bool = False) -> None:
         """Write a scalar by path; by default an existing name fails and is never replaced.
@@ -634,19 +656,37 @@ class DataEconFile:
         scalar is stored at its own width from its own bytes, so precision is
         whatever the caller already chose and nothing is widened. Booleans are
         normalized to Int8 zero/one without a marker, like Julia, and read
-        back as np.int8. Arrays, bytes, Decimal, Fraction, subclasses and other types are
+        back as np.int8. Arrays, bytes, Decimal, subclasses and other types are
         rejected without implicit conversion. Out-of-range integers or
         durations, dates outside the reliable native range of their frequency,
         and strings containing NUL or lone surrogates raise ValueError. Native
         failures may leave a partial object; no rollback is promised.
+
+        Julia's marker-mapped scalars are written in the storage its own
+        writer produces, each accepted only when the pinned Julia loader
+        rebuilds the requested value: ``fractions.Fraction`` as Float64 plus
+        ``Rational{Int64}`` (``ValueError`` names
+        ``StoredScalar.fraction(value, exact=False)`` when Julia would reload
+        a different fraction), an exact ``datetime.date`` or naive
+        millisecond ``datetime.datetime`` as Float64 unix seconds plus
+        ``Date``/``DateTime`` (timezone-aware values ``TypeError``,
+        sub-millisecond values ``ValueError``), and :class:`IntegerComplex` as
+        two Float64 plus ``Complex{Int64}``. A :class:`StoredScalar` writes
+        its payload, type, frequency and marker exactly, so a read value is
+        rewritten byte for byte even where Julia's own writer cannot
+        reproduce it; its constructors cover Int128/UInt128, ComplexF16,
+        ``Symbol``, raw text, other Rational/Complex parameters and calendar
+        dates outside ``datetime``'s years. The marker is stored after the
+        value; a failed marker write leaves the plain value readable without
+        it (no rollback).
         """
         with self._lock:
             self._require_open()
             parent, leaf = _parent_and_leaf(name)
-            kind, frequency, payload = encode_scalar(value)
+            kind, frequency, payload, marker = encode_marked_scalar(value)
             self._require_writable()
             self._handle.write_scalar(
-                leaf, kind, frequency, payload, bool(overwrite), parent=parent
+                leaf, kind, frequency, payload, bool(overwrite), parent=parent, marker=marker
             )
 
     def delete(self, name: str, *, recursive: bool = False) -> None:

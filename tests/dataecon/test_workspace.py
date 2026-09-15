@@ -8,6 +8,7 @@ Destructive operations run on fresh temporary files, fresh in-memory
 databases and copies of the Julia fixture.
 """
 
+import datetime as dt
 import hashlib
 import importlib.util
 import json
@@ -26,10 +27,12 @@ import tsecon.dataecon as de
 from tsecon import Duration, MITRange, MVTSeries, TSeries, Workspace, mm, qq, yy
 from tsecon.dataecon import (
     DataEconError,
+    IntegerComplex,
     LoadedWorkspace,
     SkippedMember,
     StoredArray,
     StoredElement,
+    StoredScalar,
     StoredSeries,
     StoredText,
     WorkspaceReport,
@@ -250,10 +253,15 @@ def test_report_types():
         (np.int8(1), "scalar"),
         (np.bool_(True), "scalar"),
         (np.float64(1.0), "scalar"),
+        (Fraction(1, 2), "scalar"),
+        (dt.date(2024, 1, 2), "scalar"),
+        (dt.datetime(2024, 1, 2, 3), "scalar"),
+        (IntegerComplex(1, 2), "scalar"),
+        (StoredScalar(b"x\0", 6, 0, "Symbol"), "scalar"),
         (None, None),
         ({"a": 1}, None),
         ({1, 2}, None),
-        (Fraction(1, 2), None),
+        (Fraction, None),
         (Monthly(), None),
         (object(), None),
         (b"bytes", None),
@@ -414,15 +422,18 @@ def test_empty_workspaces_and_catalogs():
 def test_unsupported_members_are_reported_and_siblings_kept():
     with open_dataecon_memory() as db:
         ws = Workspace(before=1, bad=object(), after=2)
-        ws.sub = Workspace(ok=1, none=None, fraction=Fraction(1, 2), later=[1, 2], ok2=2)
+        ws.sub = Workspace(ok=1, none=None, fraction=Fraction(1, 3), later=[1, 2], ok2=2)
         report = db.write_workspace(ws)
+        # A Fraction is a scalar family; 1/3 is refused by its own exactness rule
+        # (Julia would reload a different rational), so it is reported as invalid.
         assert [(s.path, s.category, s.subtree) for s in report.skipped] == [
             ("/bad", "unsupported", False),
             ("/sub/none", "unsupported", False),
-            ("/sub/fraction", "unsupported", False),
+            ("/sub/fraction", "invalid", False),
             ("/sub/later", "unsupported", False),  # a list of numbers is not text
         ]
-        assert all(s.reason.startswith("TypeError: ") for s in report.skipped)
+        assert all(s.reason.startswith("TypeError: ") for s in report.skipped[:2])
+        assert report.skipped[2].reason.startswith("ValueError: Julia would reload 1/3")
         assert "object" in report.skipped[0].reason
         assert "plain Python strings" in report.skipped[3].reason
         assert report.count == 5
@@ -575,24 +586,26 @@ def test_read_reports_unsupported_marked_and_malformed_members(tmp_path):
         conn.execute("UPDATE objects SET class = 4, type = 31 WHERE id = ?", (ids["/sub/bad"],))
     with open_dataecon(path) as db:
         ws, report = db.read_workspace()
+        # The marked scalar is loaded in its stored form (Julia's Symbol route);
+        # the native-only type and the malformed payload are reported.
         assert [(s.path, s.category, s.subtree) for s in report.skipped] == [
-            ("/marked", "unsupported", False),
             ("/native_only", "unsupported", False),
             ("/short", "invalid", False),
             ("/sub/bad", "unsupported", False),
         ]
-        assert "reconstruction attributes" in report.skipped[0].reason
-        assert "native-only" in report.skipped[1].reason
-        assert report.skipped[2].reason.startswith("ValueError: ")
-        assert report.count == 4
-        assert list(ws.keys()) == ["a", "sub", "z"]
+        assert "native-only" in report.skipped[0].reason
+        assert report.skipped[1].reason.startswith("ValueError: ")
+        assert report.count == 5
+        assert list(ws.keys()) == ["a", "marked", "sub", "z"]
         assert list(ws.sub.keys()) == ["ok"]
         assert ws.a == 1
+        assert ws.marked == StoredScalar((2).to_bytes(8, "little", signed=True), 1, 0, "Symbol")
+        assert ws.marked.to_interpreted() == "2"
         assert ws.sub.ok == 1
         assert ws.z == 6
-        with pytest.raises(TypeError, match="reconstruction attributes") as info:
+        with pytest.raises(TypeError, match="native-only") as info:
             db.read_workspace(strict=True)
-        assert info.value.__notes__ == ["Workspace member '/marked'"]
+        assert info.value.__notes__ == ["Workspace member '/native_only'"]
         # A failing member inside a catalog leaves the catalog and its siblings.
         sub, rep = db.read_workspace("/sub")
         assert [s.path for s in rep.skipped] == ["/sub/bad"]
@@ -914,15 +927,16 @@ def test_julia_workspace_fixture(tmp_path):
     expected = mixed_workspace()
     for name in ("vt", "va"):  # Julia's writer cannot store these forms
         del expected[name]
-    julia_only = ["date", "r", "sym"]
     with open_dataecon(fixture) as db:
         ws, report = db.read_workspace()
-        # Julia's marked scalars (Date, Rational, Symbol) are reported, never dropped silently.
-        assert [(s.path, s.category, s.subtree) for s in report.skipped] == [
-            (f"/{name}", "unsupported", False) for name in julia_only
-        ]
-        assert all("reconstruction attributes" in s.reason for s in report.skipped)
-        assert report.count == 35
+        # Julia's marked scalars (Date, Rational, Symbol) load in their stored form.
+        assert report == WorkspaceReport("/", 38, ())
+        assert ws.date.to_interpreted() == dt.date(2020, 1, 15)
+        assert ws.r.to_interpreted() == Fraction(1, 2)
+        assert ws.sym.to_interpreted() == "symbol"
+        assert [s.marker for s in (ws.date, ws.r, ws.sym)] == ["Date", "Rational{Int64}", "Symbol"]
+        for name in ("date", "r", "sym"):
+            expected[name] = ws[name]
         assert list(ws.keys()) == byte_sorted(expected.keys())
         for name in ("f", "i", "c", "s", "d", "dur"):
             assert ws[name] == expected[name]
@@ -952,8 +966,7 @@ def test_julia_workspace_fixture(tmp_path):
         assert db.get_attribute("/f", "note") == "user attribute"  # not part of the Workspace
         assert db.get_attributes("/tse") == {"jeltype": "Float64"}  # Julia's own marker
         assert db.get_attributes("/sym") == {"jtype": "Symbol"}
-        with pytest.raises(TypeError, match="reconstruction attributes"):
-            db.read_workspace(strict=True)
+        assert db.read_workspace(strict=True).report == report
         # Complete stored inventory, catalogs included, straight from the file.
         assert stored_inventory(db) == {
             **{p: ct for p, ct in MIXED_INVENTORY.items() if p not in ("/vt", "/va")},
@@ -962,12 +975,12 @@ def test_julia_workspace_fixture(tmp_path):
             "/date": (1, 4),
         }
     # Python's rewrite of what it loaded stores the same rows (paths, depths,
-    # classes, types, marker attributes) except the three marked scalars it cannot
-    # write and the user attribute, and Julia's redundant empty-Float64 marker.
+    # classes, types, marker attributes, the three marked scalars included)
+    # except the user attribute and Julia's redundant empty-Float64 marker.
     rewritten = tmp_path / "rewritten.daec"
     with open_dataecon(rewritten, "w") as db:
-        assert db.write_workspace(ws) == WorkspaceReport("/", 35, ())
-    info, attrs = raw_rows(fixture, exclude={"/sym", "/r", "/date"})
+        assert db.write_workspace(ws) == WorkspaceReport("/", 38, ())
+    info, attrs = raw_rows(fixture)
     assert raw_rows(rewritten) == (
         info,
         [

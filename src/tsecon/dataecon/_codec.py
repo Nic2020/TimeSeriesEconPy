@@ -4,7 +4,12 @@
 Scalars: Float16/32/64, Int8/16/32/64, UInt8/16/32/64, Complex64/128, UTF-8
 strings, and MIT dates or Durations over the unit, daily, business-daily,
 weekly (every end day), monthly, quarterly, half-yearly and annual
-frequencies. Series and MVTSeries also support represented MIT/Duration,
+frequencies; Int128/UInt128/ComplexF16 widths, raw text and marker-bearing
+scalars (``Symbol``, ``Date``, ``Rational{T}``, integer ``Complex{T}``, ...)
+travel as ``StoredScalar`` with explicit interpretation, and ``Fraction``,
+``datetime.date``/``datetime.datetime`` and ``IntegerComplex`` inputs are
+written in the exact storage Julia's own writer produces. Series and
+MVTSeries also support represented MIT/Duration,
 Int128/UInt128 and ComplexF16 elements over every core axis frequency (daily,
 business-daily and weekly axes use the verified calendar windows), and
 preserve Julia's finite reconstruction markers (``jeltype``/``jtype``) as
@@ -13,8 +18,10 @@ stored form plus explicit interpretation. No marker text is evaluated.
 
 from __future__ import annotations
 
+import datetime as dt
 import struct
 import sys
+from fractions import Fraction
 from typing import Any, Literal, NamedTuple, TypeAlias, cast
 
 import numpy as np
@@ -67,6 +74,19 @@ from ._represented import (
     resolve_interpretation,
     resolve_mvtseries_interpretation,
 )
+from ._scalars import (
+    NUMERIC_WIDTHS,
+    IntegerComplex,
+    StoredScalar,
+    encode_text,
+    is_stored_form,
+    plain_numeric,
+    plain_text,
+    scalar_frequency,
+    scalar_frequency_code,
+    validate_date_code,
+    validate_scalar_metadata,
+)
 
 __all__ = [
     "KIND_COMPLEX",
@@ -91,32 +111,15 @@ __all__ = [
     "_SCALAR_FREQUENCIES",
     "_SCALAR_MIN_DATES",
     "_SERIES_FREQUENCIES",
+    "scalar_frequency",
+    "scalar_frequency_code",
+    "validate_date_code",
+    "validate_scalar_metadata",
 ]
 
-# Scalar numeric widths per type code. Int128/UInt128 (16 bytes) and
-# ComplexF16 (4 bytes) remain unsupported for scalars; represented series
-# accept them through the separate _SERIES_WIDTHS table below.
-_NUMERIC_WIDTHS: dict[int, frozenset[int]] = {
-    KIND_INTEGER: frozenset({1, 2, 4, 8}),
-    KIND_UNSIGNED: frozenset({1, 2, 4, 8}),
-    KIND_FLOAT: frozenset({2, 4, 8}),
-    KIND_COMPLEX: frozenset({8, 16}),
-}
-# Read results by (type, nbytes): eight-byte Int64/Float64 and sixteen-byte
-# ComplexF64 return the exact-width built-ins; every other width returns the
-# sized NumPy scalar class (np.dtype("<i4").type is np.int32 on every platform).
-_NUMPY_RESULTS: dict[tuple[int, int], np.dtype[Any]] = {
-    (KIND_INTEGER, 1): np.dtype("<i1"),
-    (KIND_INTEGER, 2): np.dtype("<i2"),
-    (KIND_INTEGER, 4): np.dtype("<i4"),
-    (KIND_UNSIGNED, 1): np.dtype("<u1"),
-    (KIND_UNSIGNED, 2): np.dtype("<u2"),
-    (KIND_UNSIGNED, 4): np.dtype("<u4"),
-    (KIND_UNSIGNED, 8): np.dtype("<u8"),
-    (KIND_FLOAT, 2): np.dtype("<f2"),
-    (KIND_FLOAT, 4): np.dtype("<f4"),
-    (KIND_COMPLEX, 8): np.dtype("<c8"),
-}
+# Scalar numeric widths per type code (the wide Int128/UInt128/ComplexF16
+# widths read as StoredScalar) live in _scalars.NUMERIC_WIDTHS; ordinary
+# read results by (type, nbytes) come from _scalars.plain_numeric.
 # Exact NumPy scalar classes accepted on write, discovered through the dtype
 # type codes (signed b/h/i/l/q/p, unsigned B/H/I/L/Q/P, float e/f/d, complex
 # F/D) rather than through attribute names: the C-named classes (intc, uintc,
@@ -137,7 +140,7 @@ _NUMPY_CLASSES: dict[type, tuple[int, int]] = {
 _NUMPY_CLASSES_BY_ID: dict[int, tuple[type, tuple[int, int]]] = {
     id(cls): (cls, entry) for cls, entry in _NUMPY_CLASSES.items()
 }
-if any(width not in _NUMERIC_WIDTHS[kind] for kind, width in _NUMPY_CLASSES.values()):
+if any(width not in NUMERIC_WIDTHS[kind] for kind, width in _NUMPY_CLASSES.values()):
     raise ImportError("NumPy defines a scalar width outside the DataEcon width table.")
 
 
@@ -177,6 +180,11 @@ ScalarValue: TypeAlias = (
     | str
     | MIT
     | Duration
+    | StoredScalar
+    | Fraction
+    | dt.date
+    | dt.datetime
+    | IntegerComplex
 )
 ScalarResult: TypeAlias = (
     float
@@ -195,6 +203,7 @@ ScalarResult: TypeAlias = (
     | str
     | MIT
     | Duration
+    | StoredScalar
 )
 _SCALAR_SUPPORT = (
     "DataEcon scalar support covers Float16/32/64, Int8/16/32/64, UInt8/16/32/64, "
@@ -273,13 +282,8 @@ class TensorPayload(NamedTuple):
     object_marker: str | None
 
 
-# Series widths include the represented families; scalar acceptance is unchanged.
-_SERIES_WIDTHS = {
-    **_NUMERIC_WIDTHS,
-    KIND_INTEGER: _NUMERIC_WIDTHS[KIND_INTEGER] | {16},
-    KIND_UNSIGNED: _NUMERIC_WIDTHS[KIND_UNSIGNED] | {16},
-    KIND_COMPLEX: _NUMERIC_WIDTHS[KIND_COMPLEX] | {4},
-}
+# Series widths are the scalar widths, represented families included.
+_SERIES_WIDTHS = dict(NUMERIC_WIDTHS)
 _WIDE_ELEMENTS = {(1, 16): INT128, (2, 16): UINT128, (5, 4): COMPLEXF16}
 _WIDE_NAMES = {e.julia_name: e for e in _WIDE_ELEMENTS.values()}
 SeriesValue: TypeAlias = TSeries | StoredSeries | MVTSeries | StoredMVTSeries
@@ -448,88 +452,6 @@ def series_frequency(code: int) -> Frequency:
         raise TypeError(_SERIES_SUPPORT) from None
 
 
-def scalar_frequency(code: int) -> Frequency:
-    """Resolve a supported native frequency code for a date or duration scalar."""
-    try:
-        return _SCALAR_FREQUENCIES[code]
-    except KeyError:
-        raise TypeError(_SCALAR_SUPPORT) from None
-
-
-def scalar_frequency_code(frequency: object) -> int:
-    """Return the canonical native code for a supported core frequency object."""
-    code = next((code for code, freq in _SCALAR_FREQUENCIES.items() if freq == frequency), None)
-    if code is None:
-        raise TypeError(_SCALAR_SUPPORT)
-    return code
-
-
-def validate_date_code(frequency: int, code: int) -> None:
-    """Require a date code the native codec decodes exactly for this frequency.
-
-    Unit codes are plain signed 64-bit integers with no date bound. Calendar and
-    year/period codes must lie inside their verified native windows; the backend
-    then confirms the native round trip for those frequencies.
-    """
-    scalar_frequency(frequency)
-    if frequency == UNIT_FREQUENCY:
-        if not MIN_INT64 <= code <= MAX_INT64:
-            raise ValueError("Unit date codes must fit the signed 64-bit range.")
-        return
-    if frequency in _CALENDAR_RANGES:
-        minimum, maximum = _CALENDAR_RANGES[frequency]
-    else:
-        minimum, maximum = _SCALAR_MIN_DATES[frequency], MAX_DATE
-    if not minimum <= code <= maximum:
-        raise ValueError("Date is outside the reliable native date range for its frequency.")
-
-
-def validate_scalar_metadata(metadata: ScalarMetadata) -> None:
-    """Validate scalar class, type, frequency and length before dereferencing native memory."""
-    cls, kind, frequency, nbytes = metadata
-    if cls != 1:
-        raise TypeError(_SCALAR_SUPPORT)
-    if kind == KIND_STRING:
-        if frequency != 0:
-            raise TypeError("DataEcon string scalars carry no frequency.")
-        if not 1 <= nbytes <= MAX_BYTES:
-            raise ValueError(
-                "DataEcon string scalars require a NUL-terminated payload within the size limit."
-            )
-        return
-    if kind == KIND_DATE or (kind == KIND_INTEGER and frequency != 0):
-        scalar_frequency(frequency)
-        if nbytes != 8:
-            raise ValueError("DataEcon date and duration scalars require exactly eight bytes.")
-        return
-    if kind not in _NUMERIC_WIDTHS:
-        raise TypeError(_SCALAR_SUPPORT)
-    if frequency != 0:
-        raise TypeError("DataEcon numeric scalars carry no frequency.")
-    if nbytes not in _NUMERIC_WIDTHS[kind]:
-        raise ValueError(
-            "DataEcon numeric scalar payload width is not supported for its type; "
-            "supported widths are eight bytes for Int64/Float64, 1/2/4 for narrower "
-            "integers, 2/4 for narrower floats and 8/16 for complex values."
-        )
-
-
-def _encode_text(value: str) -> bytes:
-    if "\0" in value:
-        raise ValueError(
-            "DataEcon strings cannot contain NUL; the native format is NUL-terminated."
-        )
-    try:
-        encoded = value.encode("utf-8")
-    except UnicodeEncodeError:
-        raise ValueError(
-            "DataEcon strings must be encodable as UTF-8 (no lone surrogates)."
-        ) from None
-    if len(encoded) >= MAX_BYTES:
-        raise ValueError("DataEcon string exceeds the payload size limit.")
-    return encoded + b"\0"
-
-
 def _encode_int64(value: int) -> bytes:
     if not MIN_INT64 <= value <= MAX_INT64:
         raise ValueError("write_scalar integers must fit the signed 64-bit range.")
@@ -570,7 +492,7 @@ def encode_scalar(value: ScalarValue) -> tuple[int, int, bytes]:
         if len(packed) != width:
             raise ValueError("NumPy scalar bytes do not match its declared width.")
     elif type(value) is str:
-        kind, frequency, packed = KIND_STRING, 0, _encode_text(value)
+        kind, frequency, packed = KIND_STRING, 0, encode_text(value)
     elif type(value) is MIT:
         frequency = scalar_frequency_code(value.frequency)
         validate_date_code(frequency, value.value)
@@ -585,26 +507,32 @@ def encode_scalar(value: ScalarValue) -> tuple[int, int, bytes]:
             "write_scalar requires a Python bool, float, int, complex or str, "
             "an exact NumPy bool_, "
             "float16/32/64, int8/16/32/64, uint8/16/32/64 or complex64/128 scalar, "
-            "an MIT or a Duration."
+            "an MIT or a Duration, a fractions.Fraction, an exact datetime.date or "
+            "datetime.datetime, an IntegerComplex or a StoredScalar."
         )
     return kind, frequency, packed
 
 
-def decode_scalar(kind: int, frequency: int, payload: bytes) -> ScalarResult:
-    """Return an independent core value from validated metadata and a byte snapshot."""
+def decode_scalar(
+    kind: int, frequency: int, payload: bytes, marker: str | None = None
+) -> ScalarResult:
+    """Return an independent core value from validated metadata and a byte snapshot.
+
+    Ordinary unmarked encodings decode to plain values. A ``jtype`` marker, a
+    sixteen-byte integer or four-byte complex width, or a text payload that is
+    not a single NUL-terminated valid UTF-8 string returns a ``StoredScalar``
+    holding the exact stored form; nothing is converted or evaluated.
+    """
     validate_scalar_metadata((1, kind, frequency, len(payload)))
     if sys.byteorder != "little":
         raise RuntimeError("DataEcon interchange requires a little-endian host.")
+    if is_stored_form(kind, payload, marker):
+        return StoredScalar(payload, kind, frequency, marker)
     if kind == KIND_STRING:
-        if payload[-1] != 0 or b"\0" in payload[:-1]:
-            raise ValueError("DataEcon string payload is not a single NUL-terminated string.")
-        try:
-            return payload[:-1].decode("utf-8")
-        except UnicodeDecodeError:
-            raise ValueError("DataEcon string payload is not valid UTF-8.") from None
+        return plain_text(payload)
     if (frequency == 0 and kind != KIND_INTEGER) or len(payload) != 8:
         # Float, complex and every narrow width; Int64 and dates/durations follow.
-        return _decode_numeric(kind, payload)
+        return cast(ScalarResult, plain_numeric(kind, payload))
     number = int(struct.unpack("<q", payload)[0])
     if frequency == 0:
         return number
@@ -614,16 +542,32 @@ def decode_scalar(kind: int, frequency: int, payload: bytes) -> ScalarResult:
     return Duration(scalar_frequency(frequency), number)
 
 
-def _decode_numeric(kind: int, payload: bytes) -> ScalarResult:
-    """Decode a validated frequency-free numeric payload other than Int64."""
-    if kind == KIND_FLOAT and len(payload) == 8:
-        return float(struct.unpack("<d", payload)[0])
-    if kind == KIND_COMPLEX and len(payload) == 16:
-        real, imag = struct.unpack("<dd", payload)
-        return complex(real, imag)
-    # The NumPy scalar copies its bytes out of the payload snapshot.
-    result: np.generic = np.frombuffer(payload, dtype=_NUMPY_RESULTS[(kind, len(payload))])[0]
-    return result  # type: ignore[return-value]
+def encode_marked_scalar(value: ScalarValue) -> tuple[int, int, bytes, str | None]:
+    """Return the native type code, frequency, owned payload and ``jtype`` marker.
+
+    A ``StoredScalar`` writes its exact stored form. ``fractions.Fraction``,
+    exact ``datetime.date``/``datetime.datetime`` and ``IntegerComplex``
+    inputs build the storage Julia's own writer produces (``float(p//q)``
+    plus ``Rational{Int64}``, unix seconds plus ``Date``/``DateTime``, two
+    Float64 plus ``Complex{Int64}``), each accepted only when the pinned Julia
+    loader rebuilds the requested value; the ``StoredScalar`` constructors
+    expose the other parameters and the explicit lossy option. Every other
+    input follows :func:`encode_scalar` unmarked.
+    """
+    if type(value) is StoredScalar:
+        return value.kind, value.frequency, value.payload, value.marker
+    if type(value) is Fraction:
+        stored = StoredScalar.fraction(value)
+    elif type(value) is dt.date:
+        stored = StoredScalar.date(value)
+    elif type(value) is dt.datetime:
+        stored = StoredScalar.datetime(value)
+    elif type(value) is IntegerComplex:
+        stored = StoredScalar.integer_complex(value)
+    else:
+        kind, frequency, payload = encode_scalar(value)
+        return kind, frequency, payload, None
+    return stored.kind, stored.frequency, stored.payload, stored.marker
 
 
 def validate_metadata(metadata: Metadata) -> None:

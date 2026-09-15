@@ -1,0 +1,6572 @@
+julia_version = "1.12.5"
+pin = "fc0a0d01aed4903ea6c64b12d78d0bdf68468df6"
+
+[[rows]]
+hex = "03"
+kind = 1
+name = "i8_3__Rational"
+nbytes = 1
+payload = "i8_3"
+token = "Rational"
+type = "Rational{Int8}"
+value = "3//1"
+[[rows]]
+hex = "03"
+kind = 1
+name = "i8_3__Rational_Int_"
+nbytes = 1
+payload = "i8_3"
+token = "Rational{Int}"
+type = "Rational{Int64}"
+value = "3//1"
+[[rows]]
+hex = "03"
+kind = 1
+name = "i8_3__Complex_Int_"
+nbytes = 1
+payload = "i8_3"
+token = "Complex{Int}"
+type = "Complex{Int64}"
+value = "3,0"
+[[rows]]
+hex = "03"
+kind = 1
+name = "i8_3__Complex"
+nbytes = 1
+payload = "i8_3"
+token = "Complex"
+type = "Complex{Int8}"
+value = "3,0"
+[[rows]]
+hex = "03"
+kind = 1
+name = "i8_3__Any"
+nbytes = 1
+payload = "i8_3"
+token = "Any"
+type = "Int8"
+value = "3"
+[[rows]]
+hex = "03"
+kind = 1
+name = "i8_3__Real"
+nbytes = 1
+payload = "i8_3"
+token = "Real"
+type = "Int8"
+value = "3"
+[[rows]]
+hex = "03"
+kind = 1
+name = "i8_3__Number"
+nbytes = 1
+payload = "i8_3"
+token = "Number"
+type = "Int8"
+value = "3"
+[[rows]]
+hex = "03"
+kind = 1
+name = "i8_3__Integer"
+nbytes = 1
+payload = "i8_3"
+token = "Integer"
+type = "Int8"
+value = "3"
+[[rows]]
+hex = "03"
+kind = 1
+name = "i8_3__Signed"
+nbytes = 1
+payload = "i8_3"
+token = "Signed"
+type = "Int8"
+value = "3"
+[[rows]]
+hex = "03"
+kind = 1
+name = "i8_3__Unsigned"
+nbytes = 1
+payload = "i8_3"
+token = "Unsigned"
+type = "UInt8"
+value = "3"
+[[rows]]
+hex = "03"
+kind = 1
+name = "i8_3__AbstractFloat"
+nbytes = 1
+payload = "i8_3"
+token = "AbstractFloat"
+type = "Float64"
+value = "0000000000000840"
+[[rows]]
+hex = "03"
+kind = 1
+name = "i8_3__Symbol"
+nbytes = 1
+payload = "i8_3"
+token = "Symbol"
+type = "Symbol"
+value = "3"
+[[rows]]
+error = "MethodError"
+hex = "03"
+kind = 1
+name = "i8_3__String"
+nbytes = 1
+payload = "i8_3"
+token = "String"
+[[rows]]
+hex = "03"
+kind = 1
+name = "i8_3__Date"
+nbytes = 1
+payload = "i8_3"
+token = "Date"
+type = "Date"
+value = "1970-1-1"
+[[rows]]
+hex = "03"
+kind = 1
+name = "i8_3__DateTime"
+nbytes = 1
+payload = "i8_3"
+token = "DateTime"
+type = "DateTime"
+value = "1970-1-1T0:0:3.0"
+[[rows]]
+hex = "03"
+kind = 1
+name = "i8_3__Dates_DateTime"
+nbytes = 1
+payload = "i8_3"
+token = "Dates.DateTime"
+type = "DateTime"
+value = "1970-1-1T0:0:3.0"
+[[rows]]
+hex = "03"
+kind = 1
+name = "i8_3__Base_Float64"
+nbytes = 1
+payload = "i8_3"
+token = "Base.Float64"
+type = "Float64"
+value = "0000000000000840"
+[[rows]]
+hex = "03"
+kind = 1
+name = "i8_3__Core_Int64"
+nbytes = 1
+payload = "i8_3"
+token = "Core.Int64"
+type = "Int64"
+value = "3"
+[[rows]]
+hex = "03"
+kind = 1
+name = "i8_3__TimeSeriesEcon_Int64"
+nbytes = 1
+payload = "i8_3"
+token = "TimeSeriesEcon.Int64"
+type = "Int64"
+value = "3"
+[[rows]]
+hex = "03"
+kind = 1
+name = "i8_3__Float64_"
+nbytes = 1
+payload = "i8_3"
+token = "Float64 "
+type = "Float64"
+value = "0000000000000840"
+[[rows]]
+hex = "03"
+kind = 1
+name = "i8_3__BigInt"
+nbytes = 1
+payload = "i8_3"
+token = "BigInt"
+type = "BigInt"
+value = "3"
+[[rows]]
+hex = "03"
+kind = 1
+name = "i8_3__BigFloat"
+nbytes = 1
+payload = "i8_3"
+token = "BigFloat"
+type = "BigFloat"
+value = "3.0"
+[[rows]]
+hex = "03"
+kind = 1
+name = "i8_3__Int"
+nbytes = 1
+payload = "i8_3"
+token = "Int"
+type = "Int64"
+value = "3"
+[[rows]]
+hex = "03"
+kind = 1
+name = "i8_3__UInt"
+nbytes = 1
+payload = "i8_3"
+token = "UInt"
+type = "UInt64"
+value = "3"
+[[rows]]
+hex = "03"
+kind = 1
+name = "i8_3__Complex_Float64_"
+nbytes = 1
+payload = "i8_3"
+token = "Complex{Float64}"
+type = "ComplexF64"
+value = "00000000000008400000000000000000"
+[[rows]]
+hex = "03"
+kind = 1
+name = "i8_3__Complex_Float32_"
+nbytes = 1
+payload = "i8_3"
+token = "Complex{Float32}"
+type = "ComplexF32"
+value = "0000404000000000"
+[[rows]]
+hex = "03"
+kind = 1
+name = "i8_3__Complex_Float16_"
+nbytes = 1
+payload = "i8_3"
+token = "Complex{Float16}"
+type = "ComplexF16"
+value = "00420000"
+[[rows]]
+hex = "03"
+kind = 1
+name = "i8_3__MIT_Monthly_"
+nbytes = 1
+payload = "i8_3"
+token = "MIT{Monthly}"
+type = "MIT{Monthly}"
+value = "0M4"
+[[rows]]
+error = "MethodError"
+hex = "03"
+kind = 1
+name = "i8_3__Duration_Monthly_"
+nbytes = 1
+payload = "i8_3"
+token = "Duration{Monthly}"
+[[rows]]
+error = "InexactError"
+hex = "03"
+kind = 1
+name = "i8_3__Bool"
+nbytes = 1
+payload = "i8_3"
+token = "Bool"
+[[rows]]
+hex = "fd"
+kind = 1
+name = "i8_neg3__Rational"
+nbytes = 1
+payload = "i8_neg3"
+token = "Rational"
+type = "Rational{Int8}"
+value = "-3//1"
+[[rows]]
+hex = "fd"
+kind = 1
+name = "i8_neg3__Rational_Int_"
+nbytes = 1
+payload = "i8_neg3"
+token = "Rational{Int}"
+type = "Rational{Int64}"
+value = "-3//1"
+[[rows]]
+hex = "fd"
+kind = 1
+name = "i8_neg3__Complex_Int_"
+nbytes = 1
+payload = "i8_neg3"
+token = "Complex{Int}"
+type = "Complex{Int64}"
+value = "-3,0"
+[[rows]]
+hex = "fd"
+kind = 1
+name = "i8_neg3__Complex"
+nbytes = 1
+payload = "i8_neg3"
+token = "Complex"
+type = "Complex{Int8}"
+value = "-3,0"
+[[rows]]
+hex = "fd"
+kind = 1
+name = "i8_neg3__Any"
+nbytes = 1
+payload = "i8_neg3"
+token = "Any"
+type = "Int8"
+value = "-3"
+[[rows]]
+hex = "fd"
+kind = 1
+name = "i8_neg3__Real"
+nbytes = 1
+payload = "i8_neg3"
+token = "Real"
+type = "Int8"
+value = "-3"
+[[rows]]
+hex = "fd"
+kind = 1
+name = "i8_neg3__Number"
+nbytes = 1
+payload = "i8_neg3"
+token = "Number"
+type = "Int8"
+value = "-3"
+[[rows]]
+hex = "fd"
+kind = 1
+name = "i8_neg3__Integer"
+nbytes = 1
+payload = "i8_neg3"
+token = "Integer"
+type = "Int8"
+value = "-3"
+[[rows]]
+hex = "fd"
+kind = 1
+name = "i8_neg3__Signed"
+nbytes = 1
+payload = "i8_neg3"
+token = "Signed"
+type = "Int8"
+value = "-3"
+[[rows]]
+error = "InexactError"
+hex = "fd"
+kind = 1
+name = "i8_neg3__Unsigned"
+nbytes = 1
+payload = "i8_neg3"
+token = "Unsigned"
+[[rows]]
+hex = "fd"
+kind = 1
+name = "i8_neg3__AbstractFloat"
+nbytes = 1
+payload = "i8_neg3"
+token = "AbstractFloat"
+type = "Float64"
+value = "00000000000008c0"
+[[rows]]
+hex = "fd"
+kind = 1
+name = "i8_neg3__Symbol"
+nbytes = 1
+payload = "i8_neg3"
+token = "Symbol"
+type = "Symbol"
+value = "-3"
+[[rows]]
+error = "MethodError"
+hex = "fd"
+kind = 1
+name = "i8_neg3__String"
+nbytes = 1
+payload = "i8_neg3"
+token = "String"
+[[rows]]
+hex = "fd"
+kind = 1
+name = "i8_neg3__Date"
+nbytes = 1
+payload = "i8_neg3"
+token = "Date"
+type = "Date"
+value = "1969-12-31"
+[[rows]]
+hex = "fd"
+kind = 1
+name = "i8_neg3__DateTime"
+nbytes = 1
+payload = "i8_neg3"
+token = "DateTime"
+type = "DateTime"
+value = "1969-12-31T23:59:57.0"
+[[rows]]
+hex = "fd"
+kind = 1
+name = "i8_neg3__Dates_DateTime"
+nbytes = 1
+payload = "i8_neg3"
+token = "Dates.DateTime"
+type = "DateTime"
+value = "1969-12-31T23:59:57.0"
+[[rows]]
+hex = "fd"
+kind = 1
+name = "i8_neg3__Base_Float64"
+nbytes = 1
+payload = "i8_neg3"
+token = "Base.Float64"
+type = "Float64"
+value = "00000000000008c0"
+[[rows]]
+hex = "fd"
+kind = 1
+name = "i8_neg3__Core_Int64"
+nbytes = 1
+payload = "i8_neg3"
+token = "Core.Int64"
+type = "Int64"
+value = "-3"
+[[rows]]
+hex = "fd"
+kind = 1
+name = "i8_neg3__TimeSeriesEcon_Int64"
+nbytes = 1
+payload = "i8_neg3"
+token = "TimeSeriesEcon.Int64"
+type = "Int64"
+value = "-3"
+[[rows]]
+hex = "fd"
+kind = 1
+name = "i8_neg3__Float64_"
+nbytes = 1
+payload = "i8_neg3"
+token = "Float64 "
+type = "Float64"
+value = "00000000000008c0"
+[[rows]]
+hex = "fd"
+kind = 1
+name = "i8_neg3__BigInt"
+nbytes = 1
+payload = "i8_neg3"
+token = "BigInt"
+type = "BigInt"
+value = "-3"
+[[rows]]
+hex = "fd"
+kind = 1
+name = "i8_neg3__BigFloat"
+nbytes = 1
+payload = "i8_neg3"
+token = "BigFloat"
+type = "BigFloat"
+value = "-3.0"
+[[rows]]
+hex = "fd"
+kind = 1
+name = "i8_neg3__Int"
+nbytes = 1
+payload = "i8_neg3"
+token = "Int"
+type = "Int64"
+value = "-3"
+[[rows]]
+error = "InexactError"
+hex = "fd"
+kind = 1
+name = "i8_neg3__UInt"
+nbytes = 1
+payload = "i8_neg3"
+token = "UInt"
+[[rows]]
+hex = "fd"
+kind = 1
+name = "i8_neg3__Complex_Float64_"
+nbytes = 1
+payload = "i8_neg3"
+token = "Complex{Float64}"
+type = "ComplexF64"
+value = "00000000000008c00000000000000000"
+[[rows]]
+hex = "fd"
+kind = 1
+name = "i8_neg3__Complex_Float32_"
+nbytes = 1
+payload = "i8_neg3"
+token = "Complex{Float32}"
+type = "ComplexF32"
+value = "000040c000000000"
+[[rows]]
+hex = "fd"
+kind = 1
+name = "i8_neg3__Complex_Float16_"
+nbytes = 1
+payload = "i8_neg3"
+token = "Complex{Float16}"
+type = "ComplexF16"
+value = "00c20000"
+[[rows]]
+hex = "fd"
+kind = 1
+name = "i8_neg3__MIT_Monthly_"
+nbytes = 1
+payload = "i8_neg3"
+token = "MIT{Monthly}"
+type = "MIT{Monthly}"
+value = "-1M10"
+[[rows]]
+error = "MethodError"
+hex = "fd"
+kind = 1
+name = "i8_neg3__Duration_Monthly_"
+nbytes = 1
+payload = "i8_neg3"
+token = "Duration{Monthly}"
+[[rows]]
+error = "InexactError"
+hex = "fd"
+kind = 1
+name = "i8_neg3__Bool"
+nbytes = 1
+payload = "i8_neg3"
+token = "Bool"
+[[rows]]
+hex = "2c01"
+kind = 1
+name = "i16_300__Rational"
+nbytes = 2
+payload = "i16_300"
+token = "Rational"
+type = "Rational{Int16}"
+value = "300//1"
+[[rows]]
+hex = "2c01"
+kind = 1
+name = "i16_300__Rational_Int_"
+nbytes = 2
+payload = "i16_300"
+token = "Rational{Int}"
+type = "Rational{Int64}"
+value = "300//1"
+[[rows]]
+hex = "2c01"
+kind = 1
+name = "i16_300__Complex_Int_"
+nbytes = 2
+payload = "i16_300"
+token = "Complex{Int}"
+type = "Complex{Int64}"
+value = "300,0"
+[[rows]]
+hex = "2c01"
+kind = 1
+name = "i16_300__Complex"
+nbytes = 2
+payload = "i16_300"
+token = "Complex"
+type = "Complex{Int16}"
+value = "300,0"
+[[rows]]
+hex = "2c01"
+kind = 1
+name = "i16_300__Any"
+nbytes = 2
+payload = "i16_300"
+token = "Any"
+type = "Int16"
+value = "300"
+[[rows]]
+hex = "2c01"
+kind = 1
+name = "i16_300__Real"
+nbytes = 2
+payload = "i16_300"
+token = "Real"
+type = "Int16"
+value = "300"
+[[rows]]
+hex = "2c01"
+kind = 1
+name = "i16_300__Number"
+nbytes = 2
+payload = "i16_300"
+token = "Number"
+type = "Int16"
+value = "300"
+[[rows]]
+hex = "2c01"
+kind = 1
+name = "i16_300__Integer"
+nbytes = 2
+payload = "i16_300"
+token = "Integer"
+type = "Int16"
+value = "300"
+[[rows]]
+hex = "2c01"
+kind = 1
+name = "i16_300__Signed"
+nbytes = 2
+payload = "i16_300"
+token = "Signed"
+type = "Int16"
+value = "300"
+[[rows]]
+hex = "2c01"
+kind = 1
+name = "i16_300__Unsigned"
+nbytes = 2
+payload = "i16_300"
+token = "Unsigned"
+type = "UInt16"
+value = "300"
+[[rows]]
+hex = "2c01"
+kind = 1
+name = "i16_300__AbstractFloat"
+nbytes = 2
+payload = "i16_300"
+token = "AbstractFloat"
+type = "Float64"
+value = "0000000000c07240"
+[[rows]]
+hex = "2c01"
+kind = 1
+name = "i16_300__Symbol"
+nbytes = 2
+payload = "i16_300"
+token = "Symbol"
+type = "Symbol"
+value = "300"
+[[rows]]
+error = "MethodError"
+hex = "2c01"
+kind = 1
+name = "i16_300__String"
+nbytes = 2
+payload = "i16_300"
+token = "String"
+[[rows]]
+hex = "2c01"
+kind = 1
+name = "i16_300__Date"
+nbytes = 2
+payload = "i16_300"
+token = "Date"
+type = "Date"
+value = "1970-1-1"
+[[rows]]
+hex = "2c01"
+kind = 1
+name = "i16_300__DateTime"
+nbytes = 2
+payload = "i16_300"
+token = "DateTime"
+type = "DateTime"
+value = "1970-1-1T0:5:0.0"
+[[rows]]
+hex = "2c01"
+kind = 1
+name = "i16_300__Dates_DateTime"
+nbytes = 2
+payload = "i16_300"
+token = "Dates.DateTime"
+type = "DateTime"
+value = "1970-1-1T0:5:0.0"
+[[rows]]
+hex = "2c01"
+kind = 1
+name = "i16_300__Base_Float64"
+nbytes = 2
+payload = "i16_300"
+token = "Base.Float64"
+type = "Float64"
+value = "0000000000c07240"
+[[rows]]
+hex = "2c01"
+kind = 1
+name = "i16_300__Core_Int64"
+nbytes = 2
+payload = "i16_300"
+token = "Core.Int64"
+type = "Int64"
+value = "300"
+[[rows]]
+hex = "2c01"
+kind = 1
+name = "i16_300__TimeSeriesEcon_Int64"
+nbytes = 2
+payload = "i16_300"
+token = "TimeSeriesEcon.Int64"
+type = "Int64"
+value = "300"
+[[rows]]
+hex = "2c01"
+kind = 1
+name = "i16_300__Float64_"
+nbytes = 2
+payload = "i16_300"
+token = "Float64 "
+type = "Float64"
+value = "0000000000c07240"
+[[rows]]
+hex = "2c01"
+kind = 1
+name = "i16_300__BigInt"
+nbytes = 2
+payload = "i16_300"
+token = "BigInt"
+type = "BigInt"
+value = "300"
+[[rows]]
+hex = "2c01"
+kind = 1
+name = "i16_300__BigFloat"
+nbytes = 2
+payload = "i16_300"
+token = "BigFloat"
+type = "BigFloat"
+value = "300.0"
+[[rows]]
+hex = "2c01"
+kind = 1
+name = "i16_300__Int"
+nbytes = 2
+payload = "i16_300"
+token = "Int"
+type = "Int64"
+value = "300"
+[[rows]]
+hex = "2c01"
+kind = 1
+name = "i16_300__UInt"
+nbytes = 2
+payload = "i16_300"
+token = "UInt"
+type = "UInt64"
+value = "300"
+[[rows]]
+hex = "2c01"
+kind = 1
+name = "i16_300__Complex_Float64_"
+nbytes = 2
+payload = "i16_300"
+token = "Complex{Float64}"
+type = "ComplexF64"
+value = "0000000000c072400000000000000000"
+[[rows]]
+hex = "2c01"
+kind = 1
+name = "i16_300__Complex_Float32_"
+nbytes = 2
+payload = "i16_300"
+token = "Complex{Float32}"
+type = "ComplexF32"
+value = "0000964300000000"
+[[rows]]
+hex = "2c01"
+kind = 1
+name = "i16_300__Complex_Float16_"
+nbytes = 2
+payload = "i16_300"
+token = "Complex{Float16}"
+type = "ComplexF16"
+value = "b05c0000"
+[[rows]]
+hex = "2c01"
+kind = 1
+name = "i16_300__MIT_Monthly_"
+nbytes = 2
+payload = "i16_300"
+token = "MIT{Monthly}"
+type = "MIT{Monthly}"
+value = "25M1"
+[[rows]]
+error = "MethodError"
+hex = "2c01"
+kind = 1
+name = "i16_300__Duration_Monthly_"
+nbytes = 2
+payload = "i16_300"
+token = "Duration{Monthly}"
+[[rows]]
+error = "InexactError"
+hex = "2c01"
+kind = 1
+name = "i16_300__Bool"
+nbytes = 2
+payload = "i16_300"
+token = "Bool"
+[[rows]]
+hex = "07000000"
+kind = 1
+name = "i32_7__Rational"
+nbytes = 4
+payload = "i32_7"
+token = "Rational"
+type = "Rational{Int32}"
+value = "7//1"
+[[rows]]
+hex = "07000000"
+kind = 1
+name = "i32_7__Rational_Int_"
+nbytes = 4
+payload = "i32_7"
+token = "Rational{Int}"
+type = "Rational{Int64}"
+value = "7//1"
+[[rows]]
+hex = "07000000"
+kind = 1
+name = "i32_7__Complex_Int_"
+nbytes = 4
+payload = "i32_7"
+token = "Complex{Int}"
+type = "Complex{Int64}"
+value = "7,0"
+[[rows]]
+hex = "07000000"
+kind = 1
+name = "i32_7__Complex"
+nbytes = 4
+payload = "i32_7"
+token = "Complex"
+type = "Complex{Int32}"
+value = "7,0"
+[[rows]]
+hex = "07000000"
+kind = 1
+name = "i32_7__Any"
+nbytes = 4
+payload = "i32_7"
+token = "Any"
+type = "Int32"
+value = "7"
+[[rows]]
+hex = "07000000"
+kind = 1
+name = "i32_7__Real"
+nbytes = 4
+payload = "i32_7"
+token = "Real"
+type = "Int32"
+value = "7"
+[[rows]]
+hex = "07000000"
+kind = 1
+name = "i32_7__Number"
+nbytes = 4
+payload = "i32_7"
+token = "Number"
+type = "Int32"
+value = "7"
+[[rows]]
+hex = "07000000"
+kind = 1
+name = "i32_7__Integer"
+nbytes = 4
+payload = "i32_7"
+token = "Integer"
+type = "Int32"
+value = "7"
+[[rows]]
+hex = "07000000"
+kind = 1
+name = "i32_7__Signed"
+nbytes = 4
+payload = "i32_7"
+token = "Signed"
+type = "Int32"
+value = "7"
+[[rows]]
+hex = "07000000"
+kind = 1
+name = "i32_7__Unsigned"
+nbytes = 4
+payload = "i32_7"
+token = "Unsigned"
+type = "UInt32"
+value = "7"
+[[rows]]
+hex = "07000000"
+kind = 1
+name = "i32_7__AbstractFloat"
+nbytes = 4
+payload = "i32_7"
+token = "AbstractFloat"
+type = "Float64"
+value = "0000000000001c40"
+[[rows]]
+hex = "07000000"
+kind = 1
+name = "i32_7__Symbol"
+nbytes = 4
+payload = "i32_7"
+token = "Symbol"
+type = "Symbol"
+value = "7"
+[[rows]]
+error = "MethodError"
+hex = "07000000"
+kind = 1
+name = "i32_7__String"
+nbytes = 4
+payload = "i32_7"
+token = "String"
+[[rows]]
+hex = "07000000"
+kind = 1
+name = "i32_7__Date"
+nbytes = 4
+payload = "i32_7"
+token = "Date"
+type = "Date"
+value = "1970-1-1"
+[[rows]]
+hex = "07000000"
+kind = 1
+name = "i32_7__DateTime"
+nbytes = 4
+payload = "i32_7"
+token = "DateTime"
+type = "DateTime"
+value = "1970-1-1T0:0:7.0"
+[[rows]]
+hex = "07000000"
+kind = 1
+name = "i32_7__Dates_DateTime"
+nbytes = 4
+payload = "i32_7"
+token = "Dates.DateTime"
+type = "DateTime"
+value = "1970-1-1T0:0:7.0"
+[[rows]]
+hex = "07000000"
+kind = 1
+name = "i32_7__Base_Float64"
+nbytes = 4
+payload = "i32_7"
+token = "Base.Float64"
+type = "Float64"
+value = "0000000000001c40"
+[[rows]]
+hex = "07000000"
+kind = 1
+name = "i32_7__Core_Int64"
+nbytes = 4
+payload = "i32_7"
+token = "Core.Int64"
+type = "Int64"
+value = "7"
+[[rows]]
+hex = "07000000"
+kind = 1
+name = "i32_7__TimeSeriesEcon_Int64"
+nbytes = 4
+payload = "i32_7"
+token = "TimeSeriesEcon.Int64"
+type = "Int64"
+value = "7"
+[[rows]]
+hex = "07000000"
+kind = 1
+name = "i32_7__Float64_"
+nbytes = 4
+payload = "i32_7"
+token = "Float64 "
+type = "Float64"
+value = "0000000000001c40"
+[[rows]]
+hex = "07000000"
+kind = 1
+name = "i32_7__BigInt"
+nbytes = 4
+payload = "i32_7"
+token = "BigInt"
+type = "BigInt"
+value = "7"
+[[rows]]
+hex = "07000000"
+kind = 1
+name = "i32_7__BigFloat"
+nbytes = 4
+payload = "i32_7"
+token = "BigFloat"
+type = "BigFloat"
+value = "7.0"
+[[rows]]
+hex = "07000000"
+kind = 1
+name = "i32_7__Int"
+nbytes = 4
+payload = "i32_7"
+token = "Int"
+type = "Int64"
+value = "7"
+[[rows]]
+hex = "07000000"
+kind = 1
+name = "i32_7__UInt"
+nbytes = 4
+payload = "i32_7"
+token = "UInt"
+type = "UInt64"
+value = "7"
+[[rows]]
+hex = "07000000"
+kind = 1
+name = "i32_7__Complex_Float64_"
+nbytes = 4
+payload = "i32_7"
+token = "Complex{Float64}"
+type = "ComplexF64"
+value = "0000000000001c400000000000000000"
+[[rows]]
+hex = "07000000"
+kind = 1
+name = "i32_7__Complex_Float32_"
+nbytes = 4
+payload = "i32_7"
+token = "Complex{Float32}"
+type = "ComplexF32"
+value = "0000e04000000000"
+[[rows]]
+hex = "07000000"
+kind = 1
+name = "i32_7__Complex_Float16_"
+nbytes = 4
+payload = "i32_7"
+token = "Complex{Float16}"
+type = "ComplexF16"
+value = "00470000"
+[[rows]]
+hex = "07000000"
+kind = 1
+name = "i32_7__MIT_Monthly_"
+nbytes = 4
+payload = "i32_7"
+token = "MIT{Monthly}"
+type = "MIT{Monthly}"
+value = "0M8"
+[[rows]]
+error = "MethodError"
+hex = "07000000"
+kind = 1
+name = "i32_7__Duration_Monthly_"
+nbytes = 4
+payload = "i32_7"
+token = "Duration{Monthly}"
+[[rows]]
+error = "InexactError"
+hex = "07000000"
+kind = 1
+name = "i32_7__Bool"
+nbytes = 4
+payload = "i32_7"
+token = "Bool"
+[[rows]]
+hex = "0300000000000000"
+kind = 1
+name = "i64_3__Rational"
+nbytes = 8
+payload = "i64_3"
+token = "Rational"
+type = "Rational{Int64}"
+value = "3//1"
+[[rows]]
+hex = "0300000000000000"
+kind = 1
+name = "i64_3__Rational_Int_"
+nbytes = 8
+payload = "i64_3"
+token = "Rational{Int}"
+type = "Rational{Int64}"
+value = "3//1"
+[[rows]]
+hex = "0300000000000000"
+kind = 1
+name = "i64_3__Complex_Int_"
+nbytes = 8
+payload = "i64_3"
+token = "Complex{Int}"
+type = "Complex{Int64}"
+value = "3,0"
+[[rows]]
+hex = "0300000000000000"
+kind = 1
+name = "i64_3__Complex"
+nbytes = 8
+payload = "i64_3"
+token = "Complex"
+type = "Complex{Int64}"
+value = "3,0"
+[[rows]]
+hex = "0300000000000000"
+kind = 1
+name = "i64_3__Any"
+nbytes = 8
+payload = "i64_3"
+token = "Any"
+type = "Int64"
+value = "3"
+[[rows]]
+hex = "0300000000000000"
+kind = 1
+name = "i64_3__Real"
+nbytes = 8
+payload = "i64_3"
+token = "Real"
+type = "Int64"
+value = "3"
+[[rows]]
+hex = "0300000000000000"
+kind = 1
+name = "i64_3__Number"
+nbytes = 8
+payload = "i64_3"
+token = "Number"
+type = "Int64"
+value = "3"
+[[rows]]
+hex = "0300000000000000"
+kind = 1
+name = "i64_3__Integer"
+nbytes = 8
+payload = "i64_3"
+token = "Integer"
+type = "Int64"
+value = "3"
+[[rows]]
+hex = "0300000000000000"
+kind = 1
+name = "i64_3__Signed"
+nbytes = 8
+payload = "i64_3"
+token = "Signed"
+type = "Int64"
+value = "3"
+[[rows]]
+hex = "0300000000000000"
+kind = 1
+name = "i64_3__Unsigned"
+nbytes = 8
+payload = "i64_3"
+token = "Unsigned"
+type = "UInt64"
+value = "3"
+[[rows]]
+hex = "0300000000000000"
+kind = 1
+name = "i64_3__AbstractFloat"
+nbytes = 8
+payload = "i64_3"
+token = "AbstractFloat"
+type = "Float64"
+value = "0000000000000840"
+[[rows]]
+hex = "0300000000000000"
+kind = 1
+name = "i64_3__Symbol"
+nbytes = 8
+payload = "i64_3"
+token = "Symbol"
+type = "Symbol"
+value = "3"
+[[rows]]
+error = "MethodError"
+hex = "0300000000000000"
+kind = 1
+name = "i64_3__String"
+nbytes = 8
+payload = "i64_3"
+token = "String"
+[[rows]]
+hex = "0300000000000000"
+kind = 1
+name = "i64_3__Date"
+nbytes = 8
+payload = "i64_3"
+token = "Date"
+type = "Date"
+value = "1970-1-1"
+[[rows]]
+hex = "0300000000000000"
+kind = 1
+name = "i64_3__DateTime"
+nbytes = 8
+payload = "i64_3"
+token = "DateTime"
+type = "DateTime"
+value = "1970-1-1T0:0:3.0"
+[[rows]]
+hex = "0300000000000000"
+kind = 1
+name = "i64_3__Dates_DateTime"
+nbytes = 8
+payload = "i64_3"
+token = "Dates.DateTime"
+type = "DateTime"
+value = "1970-1-1T0:0:3.0"
+[[rows]]
+hex = "0300000000000000"
+kind = 1
+name = "i64_3__Base_Float64"
+nbytes = 8
+payload = "i64_3"
+token = "Base.Float64"
+type = "Float64"
+value = "0000000000000840"
+[[rows]]
+hex = "0300000000000000"
+kind = 1
+name = "i64_3__Core_Int64"
+nbytes = 8
+payload = "i64_3"
+token = "Core.Int64"
+type = "Int64"
+value = "3"
+[[rows]]
+hex = "0300000000000000"
+kind = 1
+name = "i64_3__TimeSeriesEcon_Int64"
+nbytes = 8
+payload = "i64_3"
+token = "TimeSeriesEcon.Int64"
+type = "Int64"
+value = "3"
+[[rows]]
+hex = "0300000000000000"
+kind = 1
+name = "i64_3__Float64_"
+nbytes = 8
+payload = "i64_3"
+token = "Float64 "
+type = "Float64"
+value = "0000000000000840"
+[[rows]]
+hex = "0300000000000000"
+kind = 1
+name = "i64_3__BigInt"
+nbytes = 8
+payload = "i64_3"
+token = "BigInt"
+type = "BigInt"
+value = "3"
+[[rows]]
+hex = "0300000000000000"
+kind = 1
+name = "i64_3__BigFloat"
+nbytes = 8
+payload = "i64_3"
+token = "BigFloat"
+type = "BigFloat"
+value = "3.0"
+[[rows]]
+hex = "0300000000000000"
+kind = 1
+name = "i64_3__Int"
+nbytes = 8
+payload = "i64_3"
+token = "Int"
+type = "Int64"
+value = "3"
+[[rows]]
+hex = "0300000000000000"
+kind = 1
+name = "i64_3__UInt"
+nbytes = 8
+payload = "i64_3"
+token = "UInt"
+type = "UInt64"
+value = "3"
+[[rows]]
+hex = "0300000000000000"
+kind = 1
+name = "i64_3__Complex_Float64_"
+nbytes = 8
+payload = "i64_3"
+token = "Complex{Float64}"
+type = "ComplexF64"
+value = "00000000000008400000000000000000"
+[[rows]]
+hex = "0300000000000000"
+kind = 1
+name = "i64_3__Complex_Float32_"
+nbytes = 8
+payload = "i64_3"
+token = "Complex{Float32}"
+type = "ComplexF32"
+value = "0000404000000000"
+[[rows]]
+hex = "0300000000000000"
+kind = 1
+name = "i64_3__Complex_Float16_"
+nbytes = 8
+payload = "i64_3"
+token = "Complex{Float16}"
+type = "ComplexF16"
+value = "00420000"
+[[rows]]
+hex = "0300000000000000"
+kind = 1
+name = "i64_3__MIT_Monthly_"
+nbytes = 8
+payload = "i64_3"
+token = "MIT{Monthly}"
+type = "MIT{Monthly}"
+value = "0M4"
+[[rows]]
+hex = "0300000000000000"
+kind = 1
+name = "i64_3__Duration_Monthly_"
+nbytes = 8
+payload = "i64_3"
+token = "Duration{Monthly}"
+type = "Duration{Monthly}"
+value = "3"
+[[rows]]
+error = "InexactError"
+hex = "0300000000000000"
+kind = 1
+name = "i64_3__Bool"
+nbytes = 8
+payload = "i64_3"
+token = "Bool"
+[[rows]]
+hex = "fdffffffffffffff"
+kind = 1
+name = "i64_neg3__Rational"
+nbytes = 8
+payload = "i64_neg3"
+token = "Rational"
+type = "Rational{Int64}"
+value = "-3//1"
+[[rows]]
+hex = "fdffffffffffffff"
+kind = 1
+name = "i64_neg3__Rational_Int_"
+nbytes = 8
+payload = "i64_neg3"
+token = "Rational{Int}"
+type = "Rational{Int64}"
+value = "-3//1"
+[[rows]]
+hex = "fdffffffffffffff"
+kind = 1
+name = "i64_neg3__Complex_Int_"
+nbytes = 8
+payload = "i64_neg3"
+token = "Complex{Int}"
+type = "Complex{Int64}"
+value = "-3,0"
+[[rows]]
+hex = "fdffffffffffffff"
+kind = 1
+name = "i64_neg3__Complex"
+nbytes = 8
+payload = "i64_neg3"
+token = "Complex"
+type = "Complex{Int64}"
+value = "-3,0"
+[[rows]]
+hex = "fdffffffffffffff"
+kind = 1
+name = "i64_neg3__Any"
+nbytes = 8
+payload = "i64_neg3"
+token = "Any"
+type = "Int64"
+value = "-3"
+[[rows]]
+hex = "fdffffffffffffff"
+kind = 1
+name = "i64_neg3__Real"
+nbytes = 8
+payload = "i64_neg3"
+token = "Real"
+type = "Int64"
+value = "-3"
+[[rows]]
+hex = "fdffffffffffffff"
+kind = 1
+name = "i64_neg3__Number"
+nbytes = 8
+payload = "i64_neg3"
+token = "Number"
+type = "Int64"
+value = "-3"
+[[rows]]
+hex = "fdffffffffffffff"
+kind = 1
+name = "i64_neg3__Integer"
+nbytes = 8
+payload = "i64_neg3"
+token = "Integer"
+type = "Int64"
+value = "-3"
+[[rows]]
+hex = "fdffffffffffffff"
+kind = 1
+name = "i64_neg3__Signed"
+nbytes = 8
+payload = "i64_neg3"
+token = "Signed"
+type = "Int64"
+value = "-3"
+[[rows]]
+error = "InexactError"
+hex = "fdffffffffffffff"
+kind = 1
+name = "i64_neg3__Unsigned"
+nbytes = 8
+payload = "i64_neg3"
+token = "Unsigned"
+[[rows]]
+hex = "fdffffffffffffff"
+kind = 1
+name = "i64_neg3__AbstractFloat"
+nbytes = 8
+payload = "i64_neg3"
+token = "AbstractFloat"
+type = "Float64"
+value = "00000000000008c0"
+[[rows]]
+hex = "fdffffffffffffff"
+kind = 1
+name = "i64_neg3__Symbol"
+nbytes = 8
+payload = "i64_neg3"
+token = "Symbol"
+type = "Symbol"
+value = "-3"
+[[rows]]
+error = "MethodError"
+hex = "fdffffffffffffff"
+kind = 1
+name = "i64_neg3__String"
+nbytes = 8
+payload = "i64_neg3"
+token = "String"
+[[rows]]
+hex = "fdffffffffffffff"
+kind = 1
+name = "i64_neg3__Date"
+nbytes = 8
+payload = "i64_neg3"
+token = "Date"
+type = "Date"
+value = "1969-12-31"
+[[rows]]
+hex = "fdffffffffffffff"
+kind = 1
+name = "i64_neg3__DateTime"
+nbytes = 8
+payload = "i64_neg3"
+token = "DateTime"
+type = "DateTime"
+value = "1969-12-31T23:59:57.0"
+[[rows]]
+hex = "fdffffffffffffff"
+kind = 1
+name = "i64_neg3__Dates_DateTime"
+nbytes = 8
+payload = "i64_neg3"
+token = "Dates.DateTime"
+type = "DateTime"
+value = "1969-12-31T23:59:57.0"
+[[rows]]
+hex = "fdffffffffffffff"
+kind = 1
+name = "i64_neg3__Base_Float64"
+nbytes = 8
+payload = "i64_neg3"
+token = "Base.Float64"
+type = "Float64"
+value = "00000000000008c0"
+[[rows]]
+hex = "fdffffffffffffff"
+kind = 1
+name = "i64_neg3__Core_Int64"
+nbytes = 8
+payload = "i64_neg3"
+token = "Core.Int64"
+type = "Int64"
+value = "-3"
+[[rows]]
+hex = "fdffffffffffffff"
+kind = 1
+name = "i64_neg3__TimeSeriesEcon_Int64"
+nbytes = 8
+payload = "i64_neg3"
+token = "TimeSeriesEcon.Int64"
+type = "Int64"
+value = "-3"
+[[rows]]
+hex = "fdffffffffffffff"
+kind = 1
+name = "i64_neg3__Float64_"
+nbytes = 8
+payload = "i64_neg3"
+token = "Float64 "
+type = "Float64"
+value = "00000000000008c0"
+[[rows]]
+hex = "fdffffffffffffff"
+kind = 1
+name = "i64_neg3__BigInt"
+nbytes = 8
+payload = "i64_neg3"
+token = "BigInt"
+type = "BigInt"
+value = "-3"
+[[rows]]
+hex = "fdffffffffffffff"
+kind = 1
+name = "i64_neg3__BigFloat"
+nbytes = 8
+payload = "i64_neg3"
+token = "BigFloat"
+type = "BigFloat"
+value = "-3.0"
+[[rows]]
+hex = "fdffffffffffffff"
+kind = 1
+name = "i64_neg3__Int"
+nbytes = 8
+payload = "i64_neg3"
+token = "Int"
+type = "Int64"
+value = "-3"
+[[rows]]
+error = "InexactError"
+hex = "fdffffffffffffff"
+kind = 1
+name = "i64_neg3__UInt"
+nbytes = 8
+payload = "i64_neg3"
+token = "UInt"
+[[rows]]
+hex = "fdffffffffffffff"
+kind = 1
+name = "i64_neg3__Complex_Float64_"
+nbytes = 8
+payload = "i64_neg3"
+token = "Complex{Float64}"
+type = "ComplexF64"
+value = "00000000000008c00000000000000000"
+[[rows]]
+hex = "fdffffffffffffff"
+kind = 1
+name = "i64_neg3__Complex_Float32_"
+nbytes = 8
+payload = "i64_neg3"
+token = "Complex{Float32}"
+type = "ComplexF32"
+value = "000040c000000000"
+[[rows]]
+hex = "fdffffffffffffff"
+kind = 1
+name = "i64_neg3__Complex_Float16_"
+nbytes = 8
+payload = "i64_neg3"
+token = "Complex{Float16}"
+type = "ComplexF16"
+value = "00c20000"
+[[rows]]
+hex = "fdffffffffffffff"
+kind = 1
+name = "i64_neg3__MIT_Monthly_"
+nbytes = 8
+payload = "i64_neg3"
+token = "MIT{Monthly}"
+type = "MIT{Monthly}"
+value = "-1M10"
+[[rows]]
+hex = "fdffffffffffffff"
+kind = 1
+name = "i64_neg3__Duration_Monthly_"
+nbytes = 8
+payload = "i64_neg3"
+token = "Duration{Monthly}"
+type = "Duration{Monthly}"
+value = "-3"
+[[rows]]
+error = "InexactError"
+hex = "fdffffffffffffff"
+kind = 1
+name = "i64_neg3__Bool"
+nbytes = 8
+payload = "i64_neg3"
+token = "Bool"
+[[rows]]
+hex = "0100000000002000"
+kind = 1
+name = "i64_2p53p1__Rational"
+nbytes = 8
+payload = "i64_2p53p1"
+token = "Rational"
+type = "Rational{Int64}"
+value = "9007199254740993//1"
+[[rows]]
+hex = "0100000000002000"
+kind = 1
+name = "i64_2p53p1__Rational_Int_"
+nbytes = 8
+payload = "i64_2p53p1"
+token = "Rational{Int}"
+type = "Rational{Int64}"
+value = "9007199254740993//1"
+[[rows]]
+hex = "0100000000002000"
+kind = 1
+name = "i64_2p53p1__Complex_Int_"
+nbytes = 8
+payload = "i64_2p53p1"
+token = "Complex{Int}"
+type = "Complex{Int64}"
+value = "9007199254740993,0"
+[[rows]]
+hex = "0100000000002000"
+kind = 1
+name = "i64_2p53p1__Complex"
+nbytes = 8
+payload = "i64_2p53p1"
+token = "Complex"
+type = "Complex{Int64}"
+value = "9007199254740993,0"
+[[rows]]
+hex = "0100000000002000"
+kind = 1
+name = "i64_2p53p1__Any"
+nbytes = 8
+payload = "i64_2p53p1"
+token = "Any"
+type = "Int64"
+value = "9007199254740993"
+[[rows]]
+hex = "0100000000002000"
+kind = 1
+name = "i64_2p53p1__Real"
+nbytes = 8
+payload = "i64_2p53p1"
+token = "Real"
+type = "Int64"
+value = "9007199254740993"
+[[rows]]
+hex = "0100000000002000"
+kind = 1
+name = "i64_2p53p1__Number"
+nbytes = 8
+payload = "i64_2p53p1"
+token = "Number"
+type = "Int64"
+value = "9007199254740993"
+[[rows]]
+hex = "0100000000002000"
+kind = 1
+name = "i64_2p53p1__Integer"
+nbytes = 8
+payload = "i64_2p53p1"
+token = "Integer"
+type = "Int64"
+value = "9007199254740993"
+[[rows]]
+hex = "0100000000002000"
+kind = 1
+name = "i64_2p53p1__Signed"
+nbytes = 8
+payload = "i64_2p53p1"
+token = "Signed"
+type = "Int64"
+value = "9007199254740993"
+[[rows]]
+hex = "0100000000002000"
+kind = 1
+name = "i64_2p53p1__Unsigned"
+nbytes = 8
+payload = "i64_2p53p1"
+token = "Unsigned"
+type = "UInt64"
+value = "9007199254740993"
+[[rows]]
+hex = "0100000000002000"
+kind = 1
+name = "i64_2p53p1__AbstractFloat"
+nbytes = 8
+payload = "i64_2p53p1"
+token = "AbstractFloat"
+type = "Float64"
+value = "0000000000004043"
+[[rows]]
+hex = "0100000000002000"
+kind = 1
+name = "i64_2p53p1__Symbol"
+nbytes = 8
+payload = "i64_2p53p1"
+token = "Symbol"
+type = "Symbol"
+value = "9007199254740993"
+[[rows]]
+error = "MethodError"
+hex = "0100000000002000"
+kind = 1
+name = "i64_2p53p1__String"
+nbytes = 8
+payload = "i64_2p53p1"
+token = "String"
+[[rows]]
+hex = "0100000000002000"
+kind = 1
+name = "i64_2p53p1__Date"
+nbytes = 8
+payload = "i64_2p53p1"
+token = "Date"
+type = "Date"
+value = "285428751-11-12"
+[[rows]]
+hex = "0100000000002000"
+kind = 1
+name = "i64_2p53p1__DateTime"
+nbytes = 8
+payload = "i64_2p53p1"
+token = "DateTime"
+type = "DateTime"
+value = "285428751-11-12T7:36:33.0"
+[[rows]]
+hex = "0100000000002000"
+kind = 1
+name = "i64_2p53p1__Dates_DateTime"
+nbytes = 8
+payload = "i64_2p53p1"
+token = "Dates.DateTime"
+type = "DateTime"
+value = "285428751-11-12T7:36:33.0"
+[[rows]]
+hex = "0100000000002000"
+kind = 1
+name = "i64_2p53p1__Base_Float64"
+nbytes = 8
+payload = "i64_2p53p1"
+token = "Base.Float64"
+type = "Float64"
+value = "0000000000004043"
+[[rows]]
+hex = "0100000000002000"
+kind = 1
+name = "i64_2p53p1__Core_Int64"
+nbytes = 8
+payload = "i64_2p53p1"
+token = "Core.Int64"
+type = "Int64"
+value = "9007199254740993"
+[[rows]]
+hex = "0100000000002000"
+kind = 1
+name = "i64_2p53p1__TimeSeriesEcon_Int64"
+nbytes = 8
+payload = "i64_2p53p1"
+token = "TimeSeriesEcon.Int64"
+type = "Int64"
+value = "9007199254740993"
+[[rows]]
+hex = "0100000000002000"
+kind = 1
+name = "i64_2p53p1__Float64_"
+nbytes = 8
+payload = "i64_2p53p1"
+token = "Float64 "
+type = "Float64"
+value = "0000000000004043"
+[[rows]]
+hex = "0100000000002000"
+kind = 1
+name = "i64_2p53p1__BigInt"
+nbytes = 8
+payload = "i64_2p53p1"
+token = "BigInt"
+type = "BigInt"
+value = "9007199254740993"
+[[rows]]
+hex = "0100000000002000"
+kind = 1
+name = "i64_2p53p1__BigFloat"
+nbytes = 8
+payload = "i64_2p53p1"
+token = "BigFloat"
+type = "BigFloat"
+value = "9.007199254740993e+15"
+[[rows]]
+hex = "0100000000002000"
+kind = 1
+name = "i64_2p53p1__Int"
+nbytes = 8
+payload = "i64_2p53p1"
+token = "Int"
+type = "Int64"
+value = "9007199254740993"
+[[rows]]
+hex = "0100000000002000"
+kind = 1
+name = "i64_2p53p1__UInt"
+nbytes = 8
+payload = "i64_2p53p1"
+token = "UInt"
+type = "UInt64"
+value = "9007199254740993"
+[[rows]]
+hex = "0100000000002000"
+kind = 1
+name = "i64_2p53p1__Complex_Float64_"
+nbytes = 8
+payload = "i64_2p53p1"
+token = "Complex{Float64}"
+type = "ComplexF64"
+value = "00000000000040430000000000000000"
+[[rows]]
+hex = "0100000000002000"
+kind = 1
+name = "i64_2p53p1__Complex_Float32_"
+nbytes = 8
+payload = "i64_2p53p1"
+token = "Complex{Float32}"
+type = "ComplexF32"
+value = "0000005a00000000"
+[[rows]]
+hex = "0100000000002000"
+kind = 1
+name = "i64_2p53p1__Complex_Float16_"
+nbytes = 8
+payload = "i64_2p53p1"
+token = "Complex{Float16}"
+type = "ComplexF16"
+value = "007c0000"
+[[rows]]
+hex = "0100000000002000"
+kind = 1
+name = "i64_2p53p1__MIT_Monthly_"
+nbytes = 8
+payload = "i64_2p53p1"
+token = "MIT{Monthly}"
+type = "MIT{Monthly}"
+value = "750599937895082M10"
+[[rows]]
+hex = "0100000000002000"
+kind = 1
+name = "i64_2p53p1__Duration_Monthly_"
+nbytes = 8
+payload = "i64_2p53p1"
+token = "Duration{Monthly}"
+type = "Duration{Monthly}"
+value = "9007199254740993"
+[[rows]]
+error = "InexactError"
+hex = "0100000000002000"
+kind = 1
+name = "i64_2p53p1__Bool"
+nbytes = 8
+payload = "i64_2p53p1"
+token = "Bool"
+[[rows]]
+hex = "00000000000000004000000000000000"
+kind = 1
+name = "i128_2p70__Rational"
+nbytes = 16
+payload = "i128_2p70"
+token = "Rational"
+type = "Rational{Int128}"
+value = "1180591620717411303424//1"
+[[rows]]
+error = "InexactError"
+hex = "00000000000000004000000000000000"
+kind = 1
+name = "i128_2p70__Rational_Int_"
+nbytes = 16
+payload = "i128_2p70"
+token = "Rational{Int}"
+[[rows]]
+error = "InexactError"
+hex = "00000000000000004000000000000000"
+kind = 1
+name = "i128_2p70__Complex_Int_"
+nbytes = 16
+payload = "i128_2p70"
+token = "Complex{Int}"
+[[rows]]
+hex = "00000000000000004000000000000000"
+kind = 1
+name = "i128_2p70__Complex"
+nbytes = 16
+payload = "i128_2p70"
+token = "Complex"
+type = "Complex{Int128}"
+value = "1180591620717411303424,0"
+[[rows]]
+hex = "00000000000000004000000000000000"
+kind = 1
+name = "i128_2p70__Any"
+nbytes = 16
+payload = "i128_2p70"
+token = "Any"
+type = "Int128"
+value = "1180591620717411303424"
+[[rows]]
+hex = "00000000000000004000000000000000"
+kind = 1
+name = "i128_2p70__Real"
+nbytes = 16
+payload = "i128_2p70"
+token = "Real"
+type = "Int128"
+value = "1180591620717411303424"
+[[rows]]
+hex = "00000000000000004000000000000000"
+kind = 1
+name = "i128_2p70__Number"
+nbytes = 16
+payload = "i128_2p70"
+token = "Number"
+type = "Int128"
+value = "1180591620717411303424"
+[[rows]]
+hex = "00000000000000004000000000000000"
+kind = 1
+name = "i128_2p70__Integer"
+nbytes = 16
+payload = "i128_2p70"
+token = "Integer"
+type = "Int128"
+value = "1180591620717411303424"
+[[rows]]
+hex = "00000000000000004000000000000000"
+kind = 1
+name = "i128_2p70__Signed"
+nbytes = 16
+payload = "i128_2p70"
+token = "Signed"
+type = "Int128"
+value = "1180591620717411303424"
+[[rows]]
+hex = "00000000000000004000000000000000"
+kind = 1
+name = "i128_2p70__Unsigned"
+nbytes = 16
+payload = "i128_2p70"
+token = "Unsigned"
+type = "UInt128"
+value = "1180591620717411303424"
+[[rows]]
+hex = "00000000000000004000000000000000"
+kind = 1
+name = "i128_2p70__AbstractFloat"
+nbytes = 16
+payload = "i128_2p70"
+token = "AbstractFloat"
+type = "Float64"
+value = "0000000000005044"
+[[rows]]
+hex = "00000000000000004000000000000000"
+kind = 1
+name = "i128_2p70__Symbol"
+nbytes = 16
+payload = "i128_2p70"
+token = "Symbol"
+type = "Symbol"
+value = "1180591620717411303424"
+[[rows]]
+error = "MethodError"
+hex = "00000000000000004000000000000000"
+kind = 1
+name = "i128_2p70__String"
+nbytes = 16
+payload = "i128_2p70"
+token = "String"
+[[rows]]
+error = "InexactError"
+hex = "00000000000000004000000000000000"
+kind = 1
+name = "i128_2p70__Date"
+nbytes = 16
+payload = "i128_2p70"
+token = "Date"
+[[rows]]
+error = "InexactError"
+hex = "00000000000000004000000000000000"
+kind = 1
+name = "i128_2p70__DateTime"
+nbytes = 16
+payload = "i128_2p70"
+token = "DateTime"
+[[rows]]
+error = "InexactError"
+hex = "00000000000000004000000000000000"
+kind = 1
+name = "i128_2p70__Dates_DateTime"
+nbytes = 16
+payload = "i128_2p70"
+token = "Dates.DateTime"
+[[rows]]
+hex = "00000000000000004000000000000000"
+kind = 1
+name = "i128_2p70__Base_Float64"
+nbytes = 16
+payload = "i128_2p70"
+token = "Base.Float64"
+type = "Float64"
+value = "0000000000005044"
+[[rows]]
+error = "InexactError"
+hex = "00000000000000004000000000000000"
+kind = 1
+name = "i128_2p70__Core_Int64"
+nbytes = 16
+payload = "i128_2p70"
+token = "Core.Int64"
+[[rows]]
+error = "InexactError"
+hex = "00000000000000004000000000000000"
+kind = 1
+name = "i128_2p70__TimeSeriesEcon_Int64"
+nbytes = 16
+payload = "i128_2p70"
+token = "TimeSeriesEcon.Int64"
+[[rows]]
+hex = "00000000000000004000000000000000"
+kind = 1
+name = "i128_2p70__Float64_"
+nbytes = 16
+payload = "i128_2p70"
+token = "Float64 "
+type = "Float64"
+value = "0000000000005044"
+[[rows]]
+hex = "00000000000000004000000000000000"
+kind = 1
+name = "i128_2p70__BigInt"
+nbytes = 16
+payload = "i128_2p70"
+token = "BigInt"
+type = "BigInt"
+value = "1180591620717411303424"
+[[rows]]
+hex = "00000000000000004000000000000000"
+kind = 1
+name = "i128_2p70__BigFloat"
+nbytes = 16
+payload = "i128_2p70"
+token = "BigFloat"
+type = "BigFloat"
+value = "1.180591620717411303424e+21"
+[[rows]]
+error = "InexactError"
+hex = "00000000000000004000000000000000"
+kind = 1
+name = "i128_2p70__Int"
+nbytes = 16
+payload = "i128_2p70"
+token = "Int"
+[[rows]]
+error = "InexactError"
+hex = "00000000000000004000000000000000"
+kind = 1
+name = "i128_2p70__UInt"
+nbytes = 16
+payload = "i128_2p70"
+token = "UInt"
+[[rows]]
+hex = "00000000000000004000000000000000"
+kind = 1
+name = "i128_2p70__Complex_Float64_"
+nbytes = 16
+payload = "i128_2p70"
+token = "Complex{Float64}"
+type = "ComplexF64"
+value = "00000000000050440000000000000000"
+[[rows]]
+hex = "00000000000000004000000000000000"
+kind = 1
+name = "i128_2p70__Complex_Float32_"
+nbytes = 16
+payload = "i128_2p70"
+token = "Complex{Float32}"
+type = "ComplexF32"
+value = "0000806200000000"
+[[rows]]
+hex = "00000000000000004000000000000000"
+kind = 1
+name = "i128_2p70__Complex_Float16_"
+nbytes = 16
+payload = "i128_2p70"
+token = "Complex{Float16}"
+type = "ComplexF16"
+value = "007c0000"
+[[rows]]
+error = "InexactError"
+hex = "00000000000000004000000000000000"
+kind = 1
+name = "i128_2p70__MIT_Monthly_"
+nbytes = 16
+payload = "i128_2p70"
+token = "MIT{Monthly}"
+[[rows]]
+error = "MethodError"
+hex = "00000000000000004000000000000000"
+kind = 1
+name = "i128_2p70__Duration_Monthly_"
+nbytes = 16
+payload = "i128_2p70"
+token = "Duration{Monthly}"
+[[rows]]
+error = "InexactError"
+hex = "00000000000000004000000000000000"
+kind = 1
+name = "i128_2p70__Bool"
+nbytes = 16
+payload = "i128_2p70"
+token = "Bool"
+[[rows]]
+hex = "fbffffffffffffffffffffffffffffff"
+kind = 1
+name = "i128_neg5__Rational"
+nbytes = 16
+payload = "i128_neg5"
+token = "Rational"
+type = "Rational{Int128}"
+value = "-5//1"
+[[rows]]
+hex = "fbffffffffffffffffffffffffffffff"
+kind = 1
+name = "i128_neg5__Rational_Int_"
+nbytes = 16
+payload = "i128_neg5"
+token = "Rational{Int}"
+type = "Rational{Int64}"
+value = "-5//1"
+[[rows]]
+hex = "fbffffffffffffffffffffffffffffff"
+kind = 1
+name = "i128_neg5__Complex_Int_"
+nbytes = 16
+payload = "i128_neg5"
+token = "Complex{Int}"
+type = "Complex{Int64}"
+value = "-5,0"
+[[rows]]
+hex = "fbffffffffffffffffffffffffffffff"
+kind = 1
+name = "i128_neg5__Complex"
+nbytes = 16
+payload = "i128_neg5"
+token = "Complex"
+type = "Complex{Int128}"
+value = "-5,0"
+[[rows]]
+hex = "fbffffffffffffffffffffffffffffff"
+kind = 1
+name = "i128_neg5__Any"
+nbytes = 16
+payload = "i128_neg5"
+token = "Any"
+type = "Int128"
+value = "-5"
+[[rows]]
+hex = "fbffffffffffffffffffffffffffffff"
+kind = 1
+name = "i128_neg5__Real"
+nbytes = 16
+payload = "i128_neg5"
+token = "Real"
+type = "Int128"
+value = "-5"
+[[rows]]
+hex = "fbffffffffffffffffffffffffffffff"
+kind = 1
+name = "i128_neg5__Number"
+nbytes = 16
+payload = "i128_neg5"
+token = "Number"
+type = "Int128"
+value = "-5"
+[[rows]]
+hex = "fbffffffffffffffffffffffffffffff"
+kind = 1
+name = "i128_neg5__Integer"
+nbytes = 16
+payload = "i128_neg5"
+token = "Integer"
+type = "Int128"
+value = "-5"
+[[rows]]
+hex = "fbffffffffffffffffffffffffffffff"
+kind = 1
+name = "i128_neg5__Signed"
+nbytes = 16
+payload = "i128_neg5"
+token = "Signed"
+type = "Int128"
+value = "-5"
+[[rows]]
+error = "InexactError"
+hex = "fbffffffffffffffffffffffffffffff"
+kind = 1
+name = "i128_neg5__Unsigned"
+nbytes = 16
+payload = "i128_neg5"
+token = "Unsigned"
+[[rows]]
+hex = "fbffffffffffffffffffffffffffffff"
+kind = 1
+name = "i128_neg5__AbstractFloat"
+nbytes = 16
+payload = "i128_neg5"
+token = "AbstractFloat"
+type = "Float64"
+value = "00000000000014c0"
+[[rows]]
+hex = "fbffffffffffffffffffffffffffffff"
+kind = 1
+name = "i128_neg5__Symbol"
+nbytes = 16
+payload = "i128_neg5"
+token = "Symbol"
+type = "Symbol"
+value = "-5"
+[[rows]]
+error = "MethodError"
+hex = "fbffffffffffffffffffffffffffffff"
+kind = 1
+name = "i128_neg5__String"
+nbytes = 16
+payload = "i128_neg5"
+token = "String"
+[[rows]]
+hex = "fbffffffffffffffffffffffffffffff"
+kind = 1
+name = "i128_neg5__Date"
+nbytes = 16
+payload = "i128_neg5"
+token = "Date"
+type = "Date"
+value = "1969-12-31"
+[[rows]]
+hex = "fbffffffffffffffffffffffffffffff"
+kind = 1
+name = "i128_neg5__DateTime"
+nbytes = 16
+payload = "i128_neg5"
+token = "DateTime"
+type = "DateTime"
+value = "1969-12-31T23:59:55.0"
+[[rows]]
+hex = "fbffffffffffffffffffffffffffffff"
+kind = 1
+name = "i128_neg5__Dates_DateTime"
+nbytes = 16
+payload = "i128_neg5"
+token = "Dates.DateTime"
+type = "DateTime"
+value = "1969-12-31T23:59:55.0"
+[[rows]]
+hex = "fbffffffffffffffffffffffffffffff"
+kind = 1
+name = "i128_neg5__Base_Float64"
+nbytes = 16
+payload = "i128_neg5"
+token = "Base.Float64"
+type = "Float64"
+value = "00000000000014c0"
+[[rows]]
+hex = "fbffffffffffffffffffffffffffffff"
+kind = 1
+name = "i128_neg5__Core_Int64"
+nbytes = 16
+payload = "i128_neg5"
+token = "Core.Int64"
+type = "Int64"
+value = "-5"
+[[rows]]
+hex = "fbffffffffffffffffffffffffffffff"
+kind = 1
+name = "i128_neg5__TimeSeriesEcon_Int64"
+nbytes = 16
+payload = "i128_neg5"
+token = "TimeSeriesEcon.Int64"
+type = "Int64"
+value = "-5"
+[[rows]]
+hex = "fbffffffffffffffffffffffffffffff"
+kind = 1
+name = "i128_neg5__Float64_"
+nbytes = 16
+payload = "i128_neg5"
+token = "Float64 "
+type = "Float64"
+value = "00000000000014c0"
+[[rows]]
+hex = "fbffffffffffffffffffffffffffffff"
+kind = 1
+name = "i128_neg5__BigInt"
+nbytes = 16
+payload = "i128_neg5"
+token = "BigInt"
+type = "BigInt"
+value = "-5"
+[[rows]]
+hex = "fbffffffffffffffffffffffffffffff"
+kind = 1
+name = "i128_neg5__BigFloat"
+nbytes = 16
+payload = "i128_neg5"
+token = "BigFloat"
+type = "BigFloat"
+value = "-5.0"
+[[rows]]
+hex = "fbffffffffffffffffffffffffffffff"
+kind = 1
+name = "i128_neg5__Int"
+nbytes = 16
+payload = "i128_neg5"
+token = "Int"
+type = "Int64"
+value = "-5"
+[[rows]]
+error = "InexactError"
+hex = "fbffffffffffffffffffffffffffffff"
+kind = 1
+name = "i128_neg5__UInt"
+nbytes = 16
+payload = "i128_neg5"
+token = "UInt"
+[[rows]]
+hex = "fbffffffffffffffffffffffffffffff"
+kind = 1
+name = "i128_neg5__Complex_Float64_"
+nbytes = 16
+payload = "i128_neg5"
+token = "Complex{Float64}"
+type = "ComplexF64"
+value = "00000000000014c00000000000000000"
+[[rows]]
+hex = "fbffffffffffffffffffffffffffffff"
+kind = 1
+name = "i128_neg5__Complex_Float32_"
+nbytes = 16
+payload = "i128_neg5"
+token = "Complex{Float32}"
+type = "ComplexF32"
+value = "0000a0c000000000"
+[[rows]]
+hex = "fbffffffffffffffffffffffffffffff"
+kind = 1
+name = "i128_neg5__Complex_Float16_"
+nbytes = 16
+payload = "i128_neg5"
+token = "Complex{Float16}"
+type = "ComplexF16"
+value = "00c50000"
+[[rows]]
+hex = "fbffffffffffffffffffffffffffffff"
+kind = 1
+name = "i128_neg5__MIT_Monthly_"
+nbytes = 16
+payload = "i128_neg5"
+token = "MIT{Monthly}"
+type = "MIT{Monthly}"
+value = "-1M8"
+[[rows]]
+error = "MethodError"
+hex = "fbffffffffffffffffffffffffffffff"
+kind = 1
+name = "i128_neg5__Duration_Monthly_"
+nbytes = 16
+payload = "i128_neg5"
+token = "Duration{Monthly}"
+[[rows]]
+error = "InexactError"
+hex = "fbffffffffffffffffffffffffffffff"
+kind = 1
+name = "i128_neg5__Bool"
+nbytes = 16
+payload = "i128_neg5"
+token = "Bool"
+[[rows]]
+hex = "03"
+kind = 2
+name = "u8_3__Rational"
+nbytes = 1
+payload = "u8_3"
+token = "Rational"
+type = "Rational{UInt8}"
+value = "3//1"
+[[rows]]
+hex = "03"
+kind = 2
+name = "u8_3__Rational_Int_"
+nbytes = 1
+payload = "u8_3"
+token = "Rational{Int}"
+type = "Rational{Int64}"
+value = "3//1"
+[[rows]]
+hex = "03"
+kind = 2
+name = "u8_3__Complex_Int_"
+nbytes = 1
+payload = "u8_3"
+token = "Complex{Int}"
+type = "Complex{Int64}"
+value = "3,0"
+[[rows]]
+hex = "03"
+kind = 2
+name = "u8_3__Complex"
+nbytes = 1
+payload = "u8_3"
+token = "Complex"
+type = "Complex{UInt8}"
+value = "3,0"
+[[rows]]
+hex = "03"
+kind = 2
+name = "u8_3__Any"
+nbytes = 1
+payload = "u8_3"
+token = "Any"
+type = "UInt8"
+value = "3"
+[[rows]]
+hex = "03"
+kind = 2
+name = "u8_3__Real"
+nbytes = 1
+payload = "u8_3"
+token = "Real"
+type = "UInt8"
+value = "3"
+[[rows]]
+hex = "03"
+kind = 2
+name = "u8_3__Number"
+nbytes = 1
+payload = "u8_3"
+token = "Number"
+type = "UInt8"
+value = "3"
+[[rows]]
+hex = "03"
+kind = 2
+name = "u8_3__Integer"
+nbytes = 1
+payload = "u8_3"
+token = "Integer"
+type = "UInt8"
+value = "3"
+[[rows]]
+hex = "03"
+kind = 2
+name = "u8_3__Signed"
+nbytes = 1
+payload = "u8_3"
+token = "Signed"
+type = "Int8"
+value = "3"
+[[rows]]
+hex = "03"
+kind = 2
+name = "u8_3__Unsigned"
+nbytes = 1
+payload = "u8_3"
+token = "Unsigned"
+type = "UInt8"
+value = "3"
+[[rows]]
+hex = "03"
+kind = 2
+name = "u8_3__AbstractFloat"
+nbytes = 1
+payload = "u8_3"
+token = "AbstractFloat"
+type = "Float64"
+value = "0000000000000840"
+[[rows]]
+hex = "03"
+kind = 2
+name = "u8_3__Symbol"
+nbytes = 1
+payload = "u8_3"
+token = "Symbol"
+type = "Symbol"
+value = "3"
+[[rows]]
+error = "MethodError"
+hex = "03"
+kind = 2
+name = "u8_3__String"
+nbytes = 1
+payload = "u8_3"
+token = "String"
+[[rows]]
+hex = "03"
+kind = 2
+name = "u8_3__Date"
+nbytes = 1
+payload = "u8_3"
+token = "Date"
+type = "Date"
+value = "1970-1-1"
+[[rows]]
+hex = "03"
+kind = 2
+name = "u8_3__DateTime"
+nbytes = 1
+payload = "u8_3"
+token = "DateTime"
+type = "DateTime"
+value = "1970-1-1T0:0:3.0"
+[[rows]]
+hex = "03"
+kind = 2
+name = "u8_3__Dates_DateTime"
+nbytes = 1
+payload = "u8_3"
+token = "Dates.DateTime"
+type = "DateTime"
+value = "1970-1-1T0:0:3.0"
+[[rows]]
+hex = "03"
+kind = 2
+name = "u8_3__Base_Float64"
+nbytes = 1
+payload = "u8_3"
+token = "Base.Float64"
+type = "Float64"
+value = "0000000000000840"
+[[rows]]
+hex = "03"
+kind = 2
+name = "u8_3__Core_Int64"
+nbytes = 1
+payload = "u8_3"
+token = "Core.Int64"
+type = "Int64"
+value = "3"
+[[rows]]
+hex = "03"
+kind = 2
+name = "u8_3__TimeSeriesEcon_Int64"
+nbytes = 1
+payload = "u8_3"
+token = "TimeSeriesEcon.Int64"
+type = "Int64"
+value = "3"
+[[rows]]
+hex = "03"
+kind = 2
+name = "u8_3__Float64_"
+nbytes = 1
+payload = "u8_3"
+token = "Float64 "
+type = "Float64"
+value = "0000000000000840"
+[[rows]]
+hex = "03"
+kind = 2
+name = "u8_3__BigInt"
+nbytes = 1
+payload = "u8_3"
+token = "BigInt"
+type = "BigInt"
+value = "3"
+[[rows]]
+hex = "03"
+kind = 2
+name = "u8_3__BigFloat"
+nbytes = 1
+payload = "u8_3"
+token = "BigFloat"
+type = "BigFloat"
+value = "3.0"
+[[rows]]
+hex = "03"
+kind = 2
+name = "u8_3__Int"
+nbytes = 1
+payload = "u8_3"
+token = "Int"
+type = "Int64"
+value = "3"
+[[rows]]
+hex = "03"
+kind = 2
+name = "u8_3__UInt"
+nbytes = 1
+payload = "u8_3"
+token = "UInt"
+type = "UInt64"
+value = "3"
+[[rows]]
+hex = "03"
+kind = 2
+name = "u8_3__Complex_Float64_"
+nbytes = 1
+payload = "u8_3"
+token = "Complex{Float64}"
+type = "ComplexF64"
+value = "00000000000008400000000000000000"
+[[rows]]
+hex = "03"
+kind = 2
+name = "u8_3__Complex_Float32_"
+nbytes = 1
+payload = "u8_3"
+token = "Complex{Float32}"
+type = "ComplexF32"
+value = "0000404000000000"
+[[rows]]
+hex = "03"
+kind = 2
+name = "u8_3__Complex_Float16_"
+nbytes = 1
+payload = "u8_3"
+token = "Complex{Float16}"
+type = "ComplexF16"
+value = "00420000"
+[[rows]]
+hex = "03"
+kind = 2
+name = "u8_3__MIT_Monthly_"
+nbytes = 1
+payload = "u8_3"
+token = "MIT{Monthly}"
+type = "MIT{Monthly}"
+value = "0M4"
+[[rows]]
+error = "MethodError"
+hex = "03"
+kind = 2
+name = "u8_3__Duration_Monthly_"
+nbytes = 1
+payload = "u8_3"
+token = "Duration{Monthly}"
+[[rows]]
+error = "InexactError"
+hex = "03"
+kind = 2
+name = "u8_3__Bool"
+nbytes = 1
+payload = "u8_3"
+token = "Bool"
+[[rows]]
+hex = "ffffffffffffffff"
+kind = 2
+name = "u64_max__Rational"
+nbytes = 8
+payload = "u64_max"
+token = "Rational"
+type = "Rational{UInt64}"
+value = "18446744073709551615//1"
+[[rows]]
+error = "InexactError"
+hex = "ffffffffffffffff"
+kind = 2
+name = "u64_max__Rational_Int_"
+nbytes = 8
+payload = "u64_max"
+token = "Rational{Int}"
+[[rows]]
+error = "InexactError"
+hex = "ffffffffffffffff"
+kind = 2
+name = "u64_max__Complex_Int_"
+nbytes = 8
+payload = "u64_max"
+token = "Complex{Int}"
+[[rows]]
+hex = "ffffffffffffffff"
+kind = 2
+name = "u64_max__Complex"
+nbytes = 8
+payload = "u64_max"
+token = "Complex"
+type = "Complex{UInt64}"
+value = "18446744073709551615,0"
+[[rows]]
+hex = "ffffffffffffffff"
+kind = 2
+name = "u64_max__Any"
+nbytes = 8
+payload = "u64_max"
+token = "Any"
+type = "UInt64"
+value = "18446744073709551615"
+[[rows]]
+hex = "ffffffffffffffff"
+kind = 2
+name = "u64_max__Real"
+nbytes = 8
+payload = "u64_max"
+token = "Real"
+type = "UInt64"
+value = "18446744073709551615"
+[[rows]]
+hex = "ffffffffffffffff"
+kind = 2
+name = "u64_max__Number"
+nbytes = 8
+payload = "u64_max"
+token = "Number"
+type = "UInt64"
+value = "18446744073709551615"
+[[rows]]
+hex = "ffffffffffffffff"
+kind = 2
+name = "u64_max__Integer"
+nbytes = 8
+payload = "u64_max"
+token = "Integer"
+type = "UInt64"
+value = "18446744073709551615"
+[[rows]]
+error = "InexactError"
+hex = "ffffffffffffffff"
+kind = 2
+name = "u64_max__Signed"
+nbytes = 8
+payload = "u64_max"
+token = "Signed"
+[[rows]]
+hex = "ffffffffffffffff"
+kind = 2
+name = "u64_max__Unsigned"
+nbytes = 8
+payload = "u64_max"
+token = "Unsigned"
+type = "UInt64"
+value = "18446744073709551615"
+[[rows]]
+hex = "ffffffffffffffff"
+kind = 2
+name = "u64_max__AbstractFloat"
+nbytes = 8
+payload = "u64_max"
+token = "AbstractFloat"
+type = "Float64"
+value = "000000000000f043"
+[[rows]]
+hex = "ffffffffffffffff"
+kind = 2
+name = "u64_max__Symbol"
+nbytes = 8
+payload = "u64_max"
+token = "Symbol"
+type = "Symbol"
+value = "18446744073709551615"
+[[rows]]
+error = "MethodError"
+hex = "ffffffffffffffff"
+kind = 2
+name = "u64_max__String"
+nbytes = 8
+payload = "u64_max"
+token = "String"
+[[rows]]
+error = "InexactError"
+hex = "ffffffffffffffff"
+kind = 2
+name = "u64_max__Date"
+nbytes = 8
+payload = "u64_max"
+token = "Date"
+[[rows]]
+error = "InexactError"
+hex = "ffffffffffffffff"
+kind = 2
+name = "u64_max__DateTime"
+nbytes = 8
+payload = "u64_max"
+token = "DateTime"
+[[rows]]
+error = "InexactError"
+hex = "ffffffffffffffff"
+kind = 2
+name = "u64_max__Dates_DateTime"
+nbytes = 8
+payload = "u64_max"
+token = "Dates.DateTime"
+[[rows]]
+hex = "ffffffffffffffff"
+kind = 2
+name = "u64_max__Base_Float64"
+nbytes = 8
+payload = "u64_max"
+token = "Base.Float64"
+type = "Float64"
+value = "000000000000f043"
+[[rows]]
+error = "InexactError"
+hex = "ffffffffffffffff"
+kind = 2
+name = "u64_max__Core_Int64"
+nbytes = 8
+payload = "u64_max"
+token = "Core.Int64"
+[[rows]]
+error = "InexactError"
+hex = "ffffffffffffffff"
+kind = 2
+name = "u64_max__TimeSeriesEcon_Int64"
+nbytes = 8
+payload = "u64_max"
+token = "TimeSeriesEcon.Int64"
+[[rows]]
+hex = "ffffffffffffffff"
+kind = 2
+name = "u64_max__Float64_"
+nbytes = 8
+payload = "u64_max"
+token = "Float64 "
+type = "Float64"
+value = "000000000000f043"
+[[rows]]
+hex = "ffffffffffffffff"
+kind = 2
+name = "u64_max__BigInt"
+nbytes = 8
+payload = "u64_max"
+token = "BigInt"
+type = "BigInt"
+value = "18446744073709551615"
+[[rows]]
+hex = "ffffffffffffffff"
+kind = 2
+name = "u64_max__BigFloat"
+nbytes = 8
+payload = "u64_max"
+token = "BigFloat"
+type = "BigFloat"
+value = "1.8446744073709551615e+19"
+[[rows]]
+error = "InexactError"
+hex = "ffffffffffffffff"
+kind = 2
+name = "u64_max__Int"
+nbytes = 8
+payload = "u64_max"
+token = "Int"
+[[rows]]
+hex = "ffffffffffffffff"
+kind = 2
+name = "u64_max__UInt"
+nbytes = 8
+payload = "u64_max"
+token = "UInt"
+type = "UInt64"
+value = "18446744073709551615"
+[[rows]]
+hex = "ffffffffffffffff"
+kind = 2
+name = "u64_max__Complex_Float64_"
+nbytes = 8
+payload = "u64_max"
+token = "Complex{Float64}"
+type = "ComplexF64"
+value = "000000000000f0430000000000000000"
+[[rows]]
+hex = "ffffffffffffffff"
+kind = 2
+name = "u64_max__Complex_Float32_"
+nbytes = 8
+payload = "u64_max"
+token = "Complex{Float32}"
+type = "ComplexF32"
+value = "0000805f00000000"
+[[rows]]
+hex = "ffffffffffffffff"
+kind = 2
+name = "u64_max__Complex_Float16_"
+nbytes = 8
+payload = "u64_max"
+token = "Complex{Float16}"
+type = "ComplexF16"
+value = "007c0000"
+[[rows]]
+error = "InexactError"
+hex = "ffffffffffffffff"
+kind = 2
+name = "u64_max__MIT_Monthly_"
+nbytes = 8
+payload = "u64_max"
+token = "MIT{Monthly}"
+[[rows]]
+error = "MethodError"
+hex = "ffffffffffffffff"
+kind = 2
+name = "u64_max__Duration_Monthly_"
+nbytes = 8
+payload = "u64_max"
+token = "Duration{Monthly}"
+[[rows]]
+error = "InexactError"
+hex = "ffffffffffffffff"
+kind = 2
+name = "u64_max__Bool"
+nbytes = 8
+payload = "u64_max"
+token = "Bool"
+[[rows]]
+hex = "00000000000000000100000000000000"
+kind = 2
+name = "u128_2p64__Rational"
+nbytes = 16
+payload = "u128_2p64"
+token = "Rational"
+type = "Rational{UInt128}"
+value = "18446744073709551616//1"
+[[rows]]
+error = "InexactError"
+hex = "00000000000000000100000000000000"
+kind = 2
+name = "u128_2p64__Rational_Int_"
+nbytes = 16
+payload = "u128_2p64"
+token = "Rational{Int}"
+[[rows]]
+error = "InexactError"
+hex = "00000000000000000100000000000000"
+kind = 2
+name = "u128_2p64__Complex_Int_"
+nbytes = 16
+payload = "u128_2p64"
+token = "Complex{Int}"
+[[rows]]
+hex = "00000000000000000100000000000000"
+kind = 2
+name = "u128_2p64__Complex"
+nbytes = 16
+payload = "u128_2p64"
+token = "Complex"
+type = "Complex{UInt128}"
+value = "18446744073709551616,0"
+[[rows]]
+hex = "00000000000000000100000000000000"
+kind = 2
+name = "u128_2p64__Any"
+nbytes = 16
+payload = "u128_2p64"
+token = "Any"
+type = "UInt128"
+value = "18446744073709551616"
+[[rows]]
+hex = "00000000000000000100000000000000"
+kind = 2
+name = "u128_2p64__Real"
+nbytes = 16
+payload = "u128_2p64"
+token = "Real"
+type = "UInt128"
+value = "18446744073709551616"
+[[rows]]
+hex = "00000000000000000100000000000000"
+kind = 2
+name = "u128_2p64__Number"
+nbytes = 16
+payload = "u128_2p64"
+token = "Number"
+type = "UInt128"
+value = "18446744073709551616"
+[[rows]]
+hex = "00000000000000000100000000000000"
+kind = 2
+name = "u128_2p64__Integer"
+nbytes = 16
+payload = "u128_2p64"
+token = "Integer"
+type = "UInt128"
+value = "18446744073709551616"
+[[rows]]
+hex = "00000000000000000100000000000000"
+kind = 2
+name = "u128_2p64__Signed"
+nbytes = 16
+payload = "u128_2p64"
+token = "Signed"
+type = "Int128"
+value = "18446744073709551616"
+[[rows]]
+hex = "00000000000000000100000000000000"
+kind = 2
+name = "u128_2p64__Unsigned"
+nbytes = 16
+payload = "u128_2p64"
+token = "Unsigned"
+type = "UInt128"
+value = "18446744073709551616"
+[[rows]]
+hex = "00000000000000000100000000000000"
+kind = 2
+name = "u128_2p64__AbstractFloat"
+nbytes = 16
+payload = "u128_2p64"
+token = "AbstractFloat"
+type = "Float64"
+value = "000000000000f043"
+[[rows]]
+hex = "00000000000000000100000000000000"
+kind = 2
+name = "u128_2p64__Symbol"
+nbytes = 16
+payload = "u128_2p64"
+token = "Symbol"
+type = "Symbol"
+value = "18446744073709551616"
+[[rows]]
+error = "MethodError"
+hex = "00000000000000000100000000000000"
+kind = 2
+name = "u128_2p64__String"
+nbytes = 16
+payload = "u128_2p64"
+token = "String"
+[[rows]]
+error = "InexactError"
+hex = "00000000000000000100000000000000"
+kind = 2
+name = "u128_2p64__Date"
+nbytes = 16
+payload = "u128_2p64"
+token = "Date"
+[[rows]]
+error = "InexactError"
+hex = "00000000000000000100000000000000"
+kind = 2
+name = "u128_2p64__DateTime"
+nbytes = 16
+payload = "u128_2p64"
+token = "DateTime"
+[[rows]]
+error = "InexactError"
+hex = "00000000000000000100000000000000"
+kind = 2
+name = "u128_2p64__Dates_DateTime"
+nbytes = 16
+payload = "u128_2p64"
+token = "Dates.DateTime"
+[[rows]]
+hex = "00000000000000000100000000000000"
+kind = 2
+name = "u128_2p64__Base_Float64"
+nbytes = 16
+payload = "u128_2p64"
+token = "Base.Float64"
+type = "Float64"
+value = "000000000000f043"
+[[rows]]
+error = "InexactError"
+hex = "00000000000000000100000000000000"
+kind = 2
+name = "u128_2p64__Core_Int64"
+nbytes = 16
+payload = "u128_2p64"
+token = "Core.Int64"
+[[rows]]
+error = "InexactError"
+hex = "00000000000000000100000000000000"
+kind = 2
+name = "u128_2p64__TimeSeriesEcon_Int64"
+nbytes = 16
+payload = "u128_2p64"
+token = "TimeSeriesEcon.Int64"
+[[rows]]
+hex = "00000000000000000100000000000000"
+kind = 2
+name = "u128_2p64__Float64_"
+nbytes = 16
+payload = "u128_2p64"
+token = "Float64 "
+type = "Float64"
+value = "000000000000f043"
+[[rows]]
+hex = "00000000000000000100000000000000"
+kind = 2
+name = "u128_2p64__BigInt"
+nbytes = 16
+payload = "u128_2p64"
+token = "BigInt"
+type = "BigInt"
+value = "18446744073709551616"
+[[rows]]
+hex = "00000000000000000100000000000000"
+kind = 2
+name = "u128_2p64__BigFloat"
+nbytes = 16
+payload = "u128_2p64"
+token = "BigFloat"
+type = "BigFloat"
+value = "1.8446744073709551616e+19"
+[[rows]]
+error = "InexactError"
+hex = "00000000000000000100000000000000"
+kind = 2
+name = "u128_2p64__Int"
+nbytes = 16
+payload = "u128_2p64"
+token = "Int"
+[[rows]]
+error = "InexactError"
+hex = "00000000000000000100000000000000"
+kind = 2
+name = "u128_2p64__UInt"
+nbytes = 16
+payload = "u128_2p64"
+token = "UInt"
+[[rows]]
+hex = "00000000000000000100000000000000"
+kind = 2
+name = "u128_2p64__Complex_Float64_"
+nbytes = 16
+payload = "u128_2p64"
+token = "Complex{Float64}"
+type = "ComplexF64"
+value = "000000000000f0430000000000000000"
+[[rows]]
+hex = "00000000000000000100000000000000"
+kind = 2
+name = "u128_2p64__Complex_Float32_"
+nbytes = 16
+payload = "u128_2p64"
+token = "Complex{Float32}"
+type = "ComplexF32"
+value = "0000805f00000000"
+[[rows]]
+hex = "00000000000000000100000000000000"
+kind = 2
+name = "u128_2p64__Complex_Float16_"
+nbytes = 16
+payload = "u128_2p64"
+token = "Complex{Float16}"
+type = "ComplexF16"
+value = "007c0000"
+[[rows]]
+error = "InexactError"
+hex = "00000000000000000100000000000000"
+kind = 2
+name = "u128_2p64__MIT_Monthly_"
+nbytes = 16
+payload = "u128_2p64"
+token = "MIT{Monthly}"
+[[rows]]
+error = "MethodError"
+hex = "00000000000000000100000000000000"
+kind = 2
+name = "u128_2p64__Duration_Monthly_"
+nbytes = 16
+payload = "u128_2p64"
+token = "Duration{Monthly}"
+[[rows]]
+error = "InexactError"
+hex = "00000000000000000100000000000000"
+kind = 2
+name = "u128_2p64__Bool"
+nbytes = 16
+payload = "u128_2p64"
+token = "Bool"
+[[rows]]
+error = "MethodError"
+hex = "003e"
+kind = 4
+name = "f16_1p5__Rational"
+nbytes = 2
+payload = "f16_1p5"
+token = "Rational"
+[[rows]]
+hex = "003e"
+kind = 4
+name = "f16_1p5__Rational_Int_"
+nbytes = 2
+payload = "f16_1p5"
+token = "Rational{Int}"
+type = "Rational{Int64}"
+value = "3//2"
+[[rows]]
+error = "InexactError"
+hex = "003e"
+kind = 4
+name = "f16_1p5__Complex_Int_"
+nbytes = 2
+payload = "f16_1p5"
+token = "Complex{Int}"
+[[rows]]
+hex = "003e"
+kind = 4
+name = "f16_1p5__Complex"
+nbytes = 2
+payload = "f16_1p5"
+token = "Complex"
+type = "ComplexF16"
+value = "003e0000"
+[[rows]]
+hex = "003e"
+kind = 4
+name = "f16_1p5__Any"
+nbytes = 2
+payload = "f16_1p5"
+token = "Any"
+type = "Float16"
+value = "003e"
+[[rows]]
+hex = "003e"
+kind = 4
+name = "f16_1p5__Real"
+nbytes = 2
+payload = "f16_1p5"
+token = "Real"
+type = "Float16"
+value = "003e"
+[[rows]]
+hex = "003e"
+kind = 4
+name = "f16_1p5__Number"
+nbytes = 2
+payload = "f16_1p5"
+token = "Number"
+type = "Float16"
+value = "003e"
+[[rows]]
+error = "InexactError"
+hex = "003e"
+kind = 4
+name = "f16_1p5__Integer"
+nbytes = 2
+payload = "f16_1p5"
+token = "Integer"
+[[rows]]
+error = "InexactError"
+hex = "003e"
+kind = 4
+name = "f16_1p5__Signed"
+nbytes = 2
+payload = "f16_1p5"
+token = "Signed"
+[[rows]]
+error = "InexactError"
+hex = "003e"
+kind = 4
+name = "f16_1p5__Unsigned"
+nbytes = 2
+payload = "f16_1p5"
+token = "Unsigned"
+[[rows]]
+hex = "003e"
+kind = 4
+name = "f16_1p5__AbstractFloat"
+nbytes = 2
+payload = "f16_1p5"
+token = "AbstractFloat"
+type = "Float16"
+value = "003e"
+[[rows]]
+hex = "003e"
+kind = 4
+name = "f16_1p5__Symbol"
+nbytes = 2
+payload = "f16_1p5"
+token = "Symbol"
+type = "Symbol"
+value = "1.5"
+[[rows]]
+error = "MethodError"
+hex = "003e"
+kind = 4
+name = "f16_1p5__String"
+nbytes = 2
+payload = "f16_1p5"
+token = "String"
+[[rows]]
+hex = "003e"
+kind = 4
+name = "f16_1p5__Date"
+nbytes = 2
+payload = "f16_1p5"
+token = "Date"
+type = "Date"
+value = "1970-1-1"
+[[rows]]
+hex = "003e"
+kind = 4
+name = "f16_1p5__DateTime"
+nbytes = 2
+payload = "f16_1p5"
+token = "DateTime"
+type = "DateTime"
+value = "1970-1-1T0:0:1.500"
+[[rows]]
+hex = "003e"
+kind = 4
+name = "f16_1p5__Dates_DateTime"
+nbytes = 2
+payload = "f16_1p5"
+token = "Dates.DateTime"
+type = "DateTime"
+value = "1970-1-1T0:0:1.500"
+[[rows]]
+hex = "003e"
+kind = 4
+name = "f16_1p5__Base_Float64"
+nbytes = 2
+payload = "f16_1p5"
+token = "Base.Float64"
+type = "Float64"
+value = "000000000000f83f"
+[[rows]]
+error = "InexactError"
+hex = "003e"
+kind = 4
+name = "f16_1p5__Core_Int64"
+nbytes = 2
+payload = "f16_1p5"
+token = "Core.Int64"
+[[rows]]
+error = "InexactError"
+hex = "003e"
+kind = 4
+name = "f16_1p5__TimeSeriesEcon_Int64"
+nbytes = 2
+payload = "f16_1p5"
+token = "TimeSeriesEcon.Int64"
+[[rows]]
+hex = "003e"
+kind = 4
+name = "f16_1p5__Float64_"
+nbytes = 2
+payload = "f16_1p5"
+token = "Float64 "
+type = "Float64"
+value = "000000000000f83f"
+[[rows]]
+error = "InexactError"
+hex = "003e"
+kind = 4
+name = "f16_1p5__BigInt"
+nbytes = 2
+payload = "f16_1p5"
+token = "BigInt"
+[[rows]]
+hex = "003e"
+kind = 4
+name = "f16_1p5__BigFloat"
+nbytes = 2
+payload = "f16_1p5"
+token = "BigFloat"
+type = "BigFloat"
+value = "1.5"
+[[rows]]
+error = "InexactError"
+hex = "003e"
+kind = 4
+name = "f16_1p5__Int"
+nbytes = 2
+payload = "f16_1p5"
+token = "Int"
+[[rows]]
+error = "InexactError"
+hex = "003e"
+kind = 4
+name = "f16_1p5__UInt"
+nbytes = 2
+payload = "f16_1p5"
+token = "UInt"
+[[rows]]
+hex = "003e"
+kind = 4
+name = "f16_1p5__Complex_Float64_"
+nbytes = 2
+payload = "f16_1p5"
+token = "Complex{Float64}"
+type = "ComplexF64"
+value = "000000000000f83f0000000000000000"
+[[rows]]
+hex = "003e"
+kind = 4
+name = "f16_1p5__Complex_Float32_"
+nbytes = 2
+payload = "f16_1p5"
+token = "Complex{Float32}"
+type = "ComplexF32"
+value = "0000c03f00000000"
+[[rows]]
+hex = "003e"
+kind = 4
+name = "f16_1p5__Complex_Float16_"
+nbytes = 2
+payload = "f16_1p5"
+token = "Complex{Float16}"
+type = "ComplexF16"
+value = "003e0000"
+[[rows]]
+error = "MethodError"
+hex = "003e"
+kind = 4
+name = "f16_1p5__MIT_Monthly_"
+nbytes = 2
+payload = "f16_1p5"
+token = "MIT{Monthly}"
+[[rows]]
+error = "MethodError"
+hex = "003e"
+kind = 4
+name = "f16_1p5__Duration_Monthly_"
+nbytes = 2
+payload = "f16_1p5"
+token = "Duration{Monthly}"
+[[rows]]
+error = "InexactError"
+hex = "003e"
+kind = 4
+name = "f16_1p5__Bool"
+nbytes = 2
+payload = "f16_1p5"
+token = "Bool"
+[[rows]]
+hex = "0000c03f"
+kind = 4
+name = "f32_1p5__Rational"
+nbytes = 4
+payload = "f32_1p5"
+token = "Rational"
+type = "Rational{Int64}"
+value = "3//2"
+[[rows]]
+hex = "0000c03f"
+kind = 4
+name = "f32_1p5__Rational_Int_"
+nbytes = 4
+payload = "f32_1p5"
+token = "Rational{Int}"
+type = "Rational{Int64}"
+value = "3//2"
+[[rows]]
+error = "InexactError"
+hex = "0000c03f"
+kind = 4
+name = "f32_1p5__Complex_Int_"
+nbytes = 4
+payload = "f32_1p5"
+token = "Complex{Int}"
+[[rows]]
+hex = "0000c03f"
+kind = 4
+name = "f32_1p5__Complex"
+nbytes = 4
+payload = "f32_1p5"
+token = "Complex"
+type = "ComplexF32"
+value = "0000c03f00000000"
+[[rows]]
+hex = "0000c03f"
+kind = 4
+name = "f32_1p5__Any"
+nbytes = 4
+payload = "f32_1p5"
+token = "Any"
+type = "Float32"
+value = "0000c03f"
+[[rows]]
+hex = "0000c03f"
+kind = 4
+name = "f32_1p5__Real"
+nbytes = 4
+payload = "f32_1p5"
+token = "Real"
+type = "Float32"
+value = "0000c03f"
+[[rows]]
+hex = "0000c03f"
+kind = 4
+name = "f32_1p5__Number"
+nbytes = 4
+payload = "f32_1p5"
+token = "Number"
+type = "Float32"
+value = "0000c03f"
+[[rows]]
+error = "InexactError"
+hex = "0000c03f"
+kind = 4
+name = "f32_1p5__Integer"
+nbytes = 4
+payload = "f32_1p5"
+token = "Integer"
+[[rows]]
+error = "InexactError"
+hex = "0000c03f"
+kind = 4
+name = "f32_1p5__Signed"
+nbytes = 4
+payload = "f32_1p5"
+token = "Signed"
+[[rows]]
+error = "InexactError"
+hex = "0000c03f"
+kind = 4
+name = "f32_1p5__Unsigned"
+nbytes = 4
+payload = "f32_1p5"
+token = "Unsigned"
+[[rows]]
+hex = "0000c03f"
+kind = 4
+name = "f32_1p5__AbstractFloat"
+nbytes = 4
+payload = "f32_1p5"
+token = "AbstractFloat"
+type = "Float32"
+value = "0000c03f"
+[[rows]]
+hex = "0000c03f"
+kind = 4
+name = "f32_1p5__Symbol"
+nbytes = 4
+payload = "f32_1p5"
+token = "Symbol"
+type = "Symbol"
+value = "1.5"
+[[rows]]
+error = "MethodError"
+hex = "0000c03f"
+kind = 4
+name = "f32_1p5__String"
+nbytes = 4
+payload = "f32_1p5"
+token = "String"
+[[rows]]
+hex = "0000c03f"
+kind = 4
+name = "f32_1p5__Date"
+nbytes = 4
+payload = "f32_1p5"
+token = "Date"
+type = "Date"
+value = "1970-1-1"
+[[rows]]
+hex = "0000c03f"
+kind = 4
+name = "f32_1p5__DateTime"
+nbytes = 4
+payload = "f32_1p5"
+token = "DateTime"
+type = "DateTime"
+value = "1970-1-1T0:0:1.500"
+[[rows]]
+hex = "0000c03f"
+kind = 4
+name = "f32_1p5__Dates_DateTime"
+nbytes = 4
+payload = "f32_1p5"
+token = "Dates.DateTime"
+type = "DateTime"
+value = "1970-1-1T0:0:1.500"
+[[rows]]
+hex = "0000c03f"
+kind = 4
+name = "f32_1p5__Base_Float64"
+nbytes = 4
+payload = "f32_1p5"
+token = "Base.Float64"
+type = "Float64"
+value = "000000000000f83f"
+[[rows]]
+error = "InexactError"
+hex = "0000c03f"
+kind = 4
+name = "f32_1p5__Core_Int64"
+nbytes = 4
+payload = "f32_1p5"
+token = "Core.Int64"
+[[rows]]
+error = "InexactError"
+hex = "0000c03f"
+kind = 4
+name = "f32_1p5__TimeSeriesEcon_Int64"
+nbytes = 4
+payload = "f32_1p5"
+token = "TimeSeriesEcon.Int64"
+[[rows]]
+hex = "0000c03f"
+kind = 4
+name = "f32_1p5__Float64_"
+nbytes = 4
+payload = "f32_1p5"
+token = "Float64 "
+type = "Float64"
+value = "000000000000f83f"
+[[rows]]
+error = "InexactError"
+hex = "0000c03f"
+kind = 4
+name = "f32_1p5__BigInt"
+nbytes = 4
+payload = "f32_1p5"
+token = "BigInt"
+[[rows]]
+hex = "0000c03f"
+kind = 4
+name = "f32_1p5__BigFloat"
+nbytes = 4
+payload = "f32_1p5"
+token = "BigFloat"
+type = "BigFloat"
+value = "1.5"
+[[rows]]
+error = "InexactError"
+hex = "0000c03f"
+kind = 4
+name = "f32_1p5__Int"
+nbytes = 4
+payload = "f32_1p5"
+token = "Int"
+[[rows]]
+error = "InexactError"
+hex = "0000c03f"
+kind = 4
+name = "f32_1p5__UInt"
+nbytes = 4
+payload = "f32_1p5"
+token = "UInt"
+[[rows]]
+hex = "0000c03f"
+kind = 4
+name = "f32_1p5__Complex_Float64_"
+nbytes = 4
+payload = "f32_1p5"
+token = "Complex{Float64}"
+type = "ComplexF64"
+value = "000000000000f83f0000000000000000"
+[[rows]]
+hex = "0000c03f"
+kind = 4
+name = "f32_1p5__Complex_Float32_"
+nbytes = 4
+payload = "f32_1p5"
+token = "Complex{Float32}"
+type = "ComplexF32"
+value = "0000c03f00000000"
+[[rows]]
+hex = "0000c03f"
+kind = 4
+name = "f32_1p5__Complex_Float16_"
+nbytes = 4
+payload = "f32_1p5"
+token = "Complex{Float16}"
+type = "ComplexF16"
+value = "003e0000"
+[[rows]]
+error = "MethodError"
+hex = "0000c03f"
+kind = 4
+name = "f32_1p5__MIT_Monthly_"
+nbytes = 4
+payload = "f32_1p5"
+token = "MIT{Monthly}"
+[[rows]]
+error = "MethodError"
+hex = "0000c03f"
+kind = 4
+name = "f32_1p5__Duration_Monthly_"
+nbytes = 4
+payload = "f32_1p5"
+token = "Duration{Monthly}"
+[[rows]]
+error = "InexactError"
+hex = "0000c03f"
+kind = 4
+name = "f32_1p5__Bool"
+nbytes = 4
+payload = "f32_1p5"
+token = "Bool"
+[[rows]]
+hex = "0000000000000040"
+kind = 4
+name = "f64_2__Rational"
+nbytes = 8
+payload = "f64_2"
+token = "Rational"
+type = "Rational{Int64}"
+value = "2//1"
+[[rows]]
+hex = "0000000000000040"
+kind = 4
+name = "f64_2__Rational_Int_"
+nbytes = 8
+payload = "f64_2"
+token = "Rational{Int}"
+type = "Rational{Int64}"
+value = "2//1"
+[[rows]]
+hex = "0000000000000040"
+kind = 4
+name = "f64_2__Complex_Int_"
+nbytes = 8
+payload = "f64_2"
+token = "Complex{Int}"
+type = "Complex{Int64}"
+value = "2,0"
+[[rows]]
+hex = "0000000000000040"
+kind = 4
+name = "f64_2__Complex"
+nbytes = 8
+payload = "f64_2"
+token = "Complex"
+type = "ComplexF64"
+value = "00000000000000400000000000000000"
+[[rows]]
+hex = "0000000000000040"
+kind = 4
+name = "f64_2__Any"
+nbytes = 8
+payload = "f64_2"
+token = "Any"
+type = "Float64"
+value = "0000000000000040"
+[[rows]]
+hex = "0000000000000040"
+kind = 4
+name = "f64_2__Real"
+nbytes = 8
+payload = "f64_2"
+token = "Real"
+type = "Float64"
+value = "0000000000000040"
+[[rows]]
+hex = "0000000000000040"
+kind = 4
+name = "f64_2__Number"
+nbytes = 8
+payload = "f64_2"
+token = "Number"
+type = "Float64"
+value = "0000000000000040"
+[[rows]]
+hex = "0000000000000040"
+kind = 4
+name = "f64_2__Integer"
+nbytes = 8
+payload = "f64_2"
+token = "Integer"
+type = "Int64"
+value = "2"
+[[rows]]
+hex = "0000000000000040"
+kind = 4
+name = "f64_2__Signed"
+nbytes = 8
+payload = "f64_2"
+token = "Signed"
+type = "Int64"
+value = "2"
+[[rows]]
+hex = "0000000000000040"
+kind = 4
+name = "f64_2__Unsigned"
+nbytes = 8
+payload = "f64_2"
+token = "Unsigned"
+type = "UInt64"
+value = "2"
+[[rows]]
+hex = "0000000000000040"
+kind = 4
+name = "f64_2__AbstractFloat"
+nbytes = 8
+payload = "f64_2"
+token = "AbstractFloat"
+type = "Float64"
+value = "0000000000000040"
+[[rows]]
+hex = "0000000000000040"
+kind = 4
+name = "f64_2__Symbol"
+nbytes = 8
+payload = "f64_2"
+token = "Symbol"
+type = "Symbol"
+value = "2.0"
+[[rows]]
+error = "MethodError"
+hex = "0000000000000040"
+kind = 4
+name = "f64_2__String"
+nbytes = 8
+payload = "f64_2"
+token = "String"
+[[rows]]
+hex = "0000000000000040"
+kind = 4
+name = "f64_2__Date"
+nbytes = 8
+payload = "f64_2"
+token = "Date"
+type = "Date"
+value = "1970-1-1"
+[[rows]]
+hex = "0000000000000040"
+kind = 4
+name = "f64_2__DateTime"
+nbytes = 8
+payload = "f64_2"
+token = "DateTime"
+type = "DateTime"
+value = "1970-1-1T0:0:2.0"
+[[rows]]
+hex = "0000000000000040"
+kind = 4
+name = "f64_2__Dates_DateTime"
+nbytes = 8
+payload = "f64_2"
+token = "Dates.DateTime"
+type = "DateTime"
+value = "1970-1-1T0:0:2.0"
+[[rows]]
+hex = "0000000000000040"
+kind = 4
+name = "f64_2__Base_Float64"
+nbytes = 8
+payload = "f64_2"
+token = "Base.Float64"
+type = "Float64"
+value = "0000000000000040"
+[[rows]]
+hex = "0000000000000040"
+kind = 4
+name = "f64_2__Core_Int64"
+nbytes = 8
+payload = "f64_2"
+token = "Core.Int64"
+type = "Int64"
+value = "2"
+[[rows]]
+hex = "0000000000000040"
+kind = 4
+name = "f64_2__TimeSeriesEcon_Int64"
+nbytes = 8
+payload = "f64_2"
+token = "TimeSeriesEcon.Int64"
+type = "Int64"
+value = "2"
+[[rows]]
+hex = "0000000000000040"
+kind = 4
+name = "f64_2__Float64_"
+nbytes = 8
+payload = "f64_2"
+token = "Float64 "
+type = "Float64"
+value = "0000000000000040"
+[[rows]]
+hex = "0000000000000040"
+kind = 4
+name = "f64_2__BigInt"
+nbytes = 8
+payload = "f64_2"
+token = "BigInt"
+type = "BigInt"
+value = "2"
+[[rows]]
+hex = "0000000000000040"
+kind = 4
+name = "f64_2__BigFloat"
+nbytes = 8
+payload = "f64_2"
+token = "BigFloat"
+type = "BigFloat"
+value = "2.0"
+[[rows]]
+hex = "0000000000000040"
+kind = 4
+name = "f64_2__Int"
+nbytes = 8
+payload = "f64_2"
+token = "Int"
+type = "Int64"
+value = "2"
+[[rows]]
+hex = "0000000000000040"
+kind = 4
+name = "f64_2__UInt"
+nbytes = 8
+payload = "f64_2"
+token = "UInt"
+type = "UInt64"
+value = "2"
+[[rows]]
+hex = "0000000000000040"
+kind = 4
+name = "f64_2__Complex_Float64_"
+nbytes = 8
+payload = "f64_2"
+token = "Complex{Float64}"
+type = "ComplexF64"
+value = "00000000000000400000000000000000"
+[[rows]]
+hex = "0000000000000040"
+kind = 4
+name = "f64_2__Complex_Float32_"
+nbytes = 8
+payload = "f64_2"
+token = "Complex{Float32}"
+type = "ComplexF32"
+value = "0000004000000000"
+[[rows]]
+hex = "0000000000000040"
+kind = 4
+name = "f64_2__Complex_Float16_"
+nbytes = 8
+payload = "f64_2"
+token = "Complex{Float16}"
+type = "ComplexF16"
+value = "00400000"
+[[rows]]
+error = "MethodError"
+hex = "0000000000000040"
+kind = 4
+name = "f64_2__MIT_Monthly_"
+nbytes = 8
+payload = "f64_2"
+token = "MIT{Monthly}"
+[[rows]]
+error = "MethodError"
+hex = "0000000000000040"
+kind = 4
+name = "f64_2__Duration_Monthly_"
+nbytes = 8
+payload = "f64_2"
+token = "Duration{Monthly}"
+[[rows]]
+error = "InexactError"
+hex = "0000000000000040"
+kind = 4
+name = "f64_2__Bool"
+nbytes = 8
+payload = "f64_2"
+token = "Bool"
+[[rows]]
+hex = "000000000000f83f"
+kind = 4
+name = "f64_1p5__Rational"
+nbytes = 8
+payload = "f64_1p5"
+token = "Rational"
+type = "Rational{Int64}"
+value = "3//2"
+[[rows]]
+hex = "000000000000f83f"
+kind = 4
+name = "f64_1p5__Rational_Int_"
+nbytes = 8
+payload = "f64_1p5"
+token = "Rational{Int}"
+type = "Rational{Int64}"
+value = "3//2"
+[[rows]]
+error = "InexactError"
+hex = "000000000000f83f"
+kind = 4
+name = "f64_1p5__Complex_Int_"
+nbytes = 8
+payload = "f64_1p5"
+token = "Complex{Int}"
+[[rows]]
+hex = "000000000000f83f"
+kind = 4
+name = "f64_1p5__Complex"
+nbytes = 8
+payload = "f64_1p5"
+token = "Complex"
+type = "ComplexF64"
+value = "000000000000f83f0000000000000000"
+[[rows]]
+hex = "000000000000f83f"
+kind = 4
+name = "f64_1p5__Any"
+nbytes = 8
+payload = "f64_1p5"
+token = "Any"
+type = "Float64"
+value = "000000000000f83f"
+[[rows]]
+hex = "000000000000f83f"
+kind = 4
+name = "f64_1p5__Real"
+nbytes = 8
+payload = "f64_1p5"
+token = "Real"
+type = "Float64"
+value = "000000000000f83f"
+[[rows]]
+hex = "000000000000f83f"
+kind = 4
+name = "f64_1p5__Number"
+nbytes = 8
+payload = "f64_1p5"
+token = "Number"
+type = "Float64"
+value = "000000000000f83f"
+[[rows]]
+error = "InexactError"
+hex = "000000000000f83f"
+kind = 4
+name = "f64_1p5__Integer"
+nbytes = 8
+payload = "f64_1p5"
+token = "Integer"
+[[rows]]
+error = "InexactError"
+hex = "000000000000f83f"
+kind = 4
+name = "f64_1p5__Signed"
+nbytes = 8
+payload = "f64_1p5"
+token = "Signed"
+[[rows]]
+error = "InexactError"
+hex = "000000000000f83f"
+kind = 4
+name = "f64_1p5__Unsigned"
+nbytes = 8
+payload = "f64_1p5"
+token = "Unsigned"
+[[rows]]
+hex = "000000000000f83f"
+kind = 4
+name = "f64_1p5__AbstractFloat"
+nbytes = 8
+payload = "f64_1p5"
+token = "AbstractFloat"
+type = "Float64"
+value = "000000000000f83f"
+[[rows]]
+hex = "000000000000f83f"
+kind = 4
+name = "f64_1p5__Symbol"
+nbytes = 8
+payload = "f64_1p5"
+token = "Symbol"
+type = "Symbol"
+value = "1.5"
+[[rows]]
+error = "MethodError"
+hex = "000000000000f83f"
+kind = 4
+name = "f64_1p5__String"
+nbytes = 8
+payload = "f64_1p5"
+token = "String"
+[[rows]]
+hex = "000000000000f83f"
+kind = 4
+name = "f64_1p5__Date"
+nbytes = 8
+payload = "f64_1p5"
+token = "Date"
+type = "Date"
+value = "1970-1-1"
+[[rows]]
+hex = "000000000000f83f"
+kind = 4
+name = "f64_1p5__DateTime"
+nbytes = 8
+payload = "f64_1p5"
+token = "DateTime"
+type = "DateTime"
+value = "1970-1-1T0:0:1.500"
+[[rows]]
+hex = "000000000000f83f"
+kind = 4
+name = "f64_1p5__Dates_DateTime"
+nbytes = 8
+payload = "f64_1p5"
+token = "Dates.DateTime"
+type = "DateTime"
+value = "1970-1-1T0:0:1.500"
+[[rows]]
+hex = "000000000000f83f"
+kind = 4
+name = "f64_1p5__Base_Float64"
+nbytes = 8
+payload = "f64_1p5"
+token = "Base.Float64"
+type = "Float64"
+value = "000000000000f83f"
+[[rows]]
+error = "InexactError"
+hex = "000000000000f83f"
+kind = 4
+name = "f64_1p5__Core_Int64"
+nbytes = 8
+payload = "f64_1p5"
+token = "Core.Int64"
+[[rows]]
+error = "InexactError"
+hex = "000000000000f83f"
+kind = 4
+name = "f64_1p5__TimeSeriesEcon_Int64"
+nbytes = 8
+payload = "f64_1p5"
+token = "TimeSeriesEcon.Int64"
+[[rows]]
+hex = "000000000000f83f"
+kind = 4
+name = "f64_1p5__Float64_"
+nbytes = 8
+payload = "f64_1p5"
+token = "Float64 "
+type = "Float64"
+value = "000000000000f83f"
+[[rows]]
+error = "InexactError"
+hex = "000000000000f83f"
+kind = 4
+name = "f64_1p5__BigInt"
+nbytes = 8
+payload = "f64_1p5"
+token = "BigInt"
+[[rows]]
+hex = "000000000000f83f"
+kind = 4
+name = "f64_1p5__BigFloat"
+nbytes = 8
+payload = "f64_1p5"
+token = "BigFloat"
+type = "BigFloat"
+value = "1.5"
+[[rows]]
+error = "InexactError"
+hex = "000000000000f83f"
+kind = 4
+name = "f64_1p5__Int"
+nbytes = 8
+payload = "f64_1p5"
+token = "Int"
+[[rows]]
+error = "InexactError"
+hex = "000000000000f83f"
+kind = 4
+name = "f64_1p5__UInt"
+nbytes = 8
+payload = "f64_1p5"
+token = "UInt"
+[[rows]]
+hex = "000000000000f83f"
+kind = 4
+name = "f64_1p5__Complex_Float64_"
+nbytes = 8
+payload = "f64_1p5"
+token = "Complex{Float64}"
+type = "ComplexF64"
+value = "000000000000f83f0000000000000000"
+[[rows]]
+hex = "000000000000f83f"
+kind = 4
+name = "f64_1p5__Complex_Float32_"
+nbytes = 8
+payload = "f64_1p5"
+token = "Complex{Float32}"
+type = "ComplexF32"
+value = "0000c03f00000000"
+[[rows]]
+hex = "000000000000f83f"
+kind = 4
+name = "f64_1p5__Complex_Float16_"
+nbytes = 8
+payload = "f64_1p5"
+token = "Complex{Float16}"
+type = "ComplexF16"
+value = "003e0000"
+[[rows]]
+error = "MethodError"
+hex = "000000000000f83f"
+kind = 4
+name = "f64_1p5__MIT_Monthly_"
+nbytes = 8
+payload = "f64_1p5"
+token = "MIT{Monthly}"
+[[rows]]
+error = "MethodError"
+hex = "000000000000f83f"
+kind = 4
+name = "f64_1p5__Duration_Monthly_"
+nbytes = 8
+payload = "f64_1p5"
+token = "Duration{Monthly}"
+[[rows]]
+error = "InexactError"
+hex = "000000000000f83f"
+kind = 4
+name = "f64_1p5__Bool"
+nbytes = 8
+payload = "f64_1p5"
+token = "Bool"
+[[rows]]
+hex = "0000000000000080"
+kind = 4
+name = "f64_neg0__Rational"
+nbytes = 8
+payload = "f64_neg0"
+token = "Rational"
+type = "Rational{Int64}"
+value = "0//1"
+[[rows]]
+hex = "0000000000000080"
+kind = 4
+name = "f64_neg0__Rational_Int_"
+nbytes = 8
+payload = "f64_neg0"
+token = "Rational{Int}"
+type = "Rational{Int64}"
+value = "0//1"
+[[rows]]
+hex = "0000000000000080"
+kind = 4
+name = "f64_neg0__Complex_Int_"
+nbytes = 8
+payload = "f64_neg0"
+token = "Complex{Int}"
+type = "Complex{Int64}"
+value = "0,0"
+[[rows]]
+hex = "0000000000000080"
+kind = 4
+name = "f64_neg0__Complex"
+nbytes = 8
+payload = "f64_neg0"
+token = "Complex"
+type = "ComplexF64"
+value = "00000000000000800000000000000000"
+[[rows]]
+hex = "0000000000000080"
+kind = 4
+name = "f64_neg0__Any"
+nbytes = 8
+payload = "f64_neg0"
+token = "Any"
+type = "Float64"
+value = "0000000000000080"
+[[rows]]
+hex = "0000000000000080"
+kind = 4
+name = "f64_neg0__Real"
+nbytes = 8
+payload = "f64_neg0"
+token = "Real"
+type = "Float64"
+value = "0000000000000080"
+[[rows]]
+hex = "0000000000000080"
+kind = 4
+name = "f64_neg0__Number"
+nbytes = 8
+payload = "f64_neg0"
+token = "Number"
+type = "Float64"
+value = "0000000000000080"
+[[rows]]
+hex = "0000000000000080"
+kind = 4
+name = "f64_neg0__Integer"
+nbytes = 8
+payload = "f64_neg0"
+token = "Integer"
+type = "Int64"
+value = "0"
+[[rows]]
+hex = "0000000000000080"
+kind = 4
+name = "f64_neg0__Signed"
+nbytes = 8
+payload = "f64_neg0"
+token = "Signed"
+type = "Int64"
+value = "0"
+[[rows]]
+hex = "0000000000000080"
+kind = 4
+name = "f64_neg0__Unsigned"
+nbytes = 8
+payload = "f64_neg0"
+token = "Unsigned"
+type = "UInt64"
+value = "0"
+[[rows]]
+hex = "0000000000000080"
+kind = 4
+name = "f64_neg0__AbstractFloat"
+nbytes = 8
+payload = "f64_neg0"
+token = "AbstractFloat"
+type = "Float64"
+value = "0000000000000080"
+[[rows]]
+hex = "0000000000000080"
+kind = 4
+name = "f64_neg0__Symbol"
+nbytes = 8
+payload = "f64_neg0"
+token = "Symbol"
+type = "Symbol"
+value = "-0.0"
+[[rows]]
+error = "MethodError"
+hex = "0000000000000080"
+kind = 4
+name = "f64_neg0__String"
+nbytes = 8
+payload = "f64_neg0"
+token = "String"
+[[rows]]
+hex = "0000000000000080"
+kind = 4
+name = "f64_neg0__Date"
+nbytes = 8
+payload = "f64_neg0"
+token = "Date"
+type = "Date"
+value = "1970-1-1"
+[[rows]]
+hex = "0000000000000080"
+kind = 4
+name = "f64_neg0__DateTime"
+nbytes = 8
+payload = "f64_neg0"
+token = "DateTime"
+type = "DateTime"
+value = "1970-1-1T0:0:0.0"
+[[rows]]
+hex = "0000000000000080"
+kind = 4
+name = "f64_neg0__Dates_DateTime"
+nbytes = 8
+payload = "f64_neg0"
+token = "Dates.DateTime"
+type = "DateTime"
+value = "1970-1-1T0:0:0.0"
+[[rows]]
+hex = "0000000000000080"
+kind = 4
+name = "f64_neg0__Base_Float64"
+nbytes = 8
+payload = "f64_neg0"
+token = "Base.Float64"
+type = "Float64"
+value = "0000000000000080"
+[[rows]]
+hex = "0000000000000080"
+kind = 4
+name = "f64_neg0__Core_Int64"
+nbytes = 8
+payload = "f64_neg0"
+token = "Core.Int64"
+type = "Int64"
+value = "0"
+[[rows]]
+hex = "0000000000000080"
+kind = 4
+name = "f64_neg0__TimeSeriesEcon_Int64"
+nbytes = 8
+payload = "f64_neg0"
+token = "TimeSeriesEcon.Int64"
+type = "Int64"
+value = "0"
+[[rows]]
+hex = "0000000000000080"
+kind = 4
+name = "f64_neg0__Float64_"
+nbytes = 8
+payload = "f64_neg0"
+token = "Float64 "
+type = "Float64"
+value = "0000000000000080"
+[[rows]]
+hex = "0000000000000080"
+kind = 4
+name = "f64_neg0__BigInt"
+nbytes = 8
+payload = "f64_neg0"
+token = "BigInt"
+type = "BigInt"
+value = "0"
+[[rows]]
+hex = "0000000000000080"
+kind = 4
+name = "f64_neg0__BigFloat"
+nbytes = 8
+payload = "f64_neg0"
+token = "BigFloat"
+type = "BigFloat"
+value = "-0.0"
+[[rows]]
+hex = "0000000000000080"
+kind = 4
+name = "f64_neg0__Int"
+nbytes = 8
+payload = "f64_neg0"
+token = "Int"
+type = "Int64"
+value = "0"
+[[rows]]
+hex = "0000000000000080"
+kind = 4
+name = "f64_neg0__UInt"
+nbytes = 8
+payload = "f64_neg0"
+token = "UInt"
+type = "UInt64"
+value = "0"
+[[rows]]
+hex = "0000000000000080"
+kind = 4
+name = "f64_neg0__Complex_Float64_"
+nbytes = 8
+payload = "f64_neg0"
+token = "Complex{Float64}"
+type = "ComplexF64"
+value = "00000000000000800000000000000000"
+[[rows]]
+hex = "0000000000000080"
+kind = 4
+name = "f64_neg0__Complex_Float32_"
+nbytes = 8
+payload = "f64_neg0"
+token = "Complex{Float32}"
+type = "ComplexF32"
+value = "0000008000000000"
+[[rows]]
+hex = "0000000000000080"
+kind = 4
+name = "f64_neg0__Complex_Float16_"
+nbytes = 8
+payload = "f64_neg0"
+token = "Complex{Float16}"
+type = "ComplexF16"
+value = "00800000"
+[[rows]]
+error = "MethodError"
+hex = "0000000000000080"
+kind = 4
+name = "f64_neg0__MIT_Monthly_"
+nbytes = 8
+payload = "f64_neg0"
+token = "MIT{Monthly}"
+[[rows]]
+error = "MethodError"
+hex = "0000000000000080"
+kind = 4
+name = "f64_neg0__Duration_Monthly_"
+nbytes = 8
+payload = "f64_neg0"
+token = "Duration{Monthly}"
+[[rows]]
+hex = "0000000000000080"
+kind = 4
+name = "f64_neg0__Bool"
+nbytes = 8
+payload = "f64_neg0"
+token = "Bool"
+type = "Bool"
+value = "0"
+[[rows]]
+error = "InexactError"
+hex = "000000000000f87f"
+kind = 4
+name = "f64_nan__Rational"
+nbytes = 8
+payload = "f64_nan"
+token = "Rational"
+[[rows]]
+error = "InexactError"
+hex = "000000000000f87f"
+kind = 4
+name = "f64_nan__Rational_Int_"
+nbytes = 8
+payload = "f64_nan"
+token = "Rational{Int}"
+[[rows]]
+error = "InexactError"
+hex = "000000000000f87f"
+kind = 4
+name = "f64_nan__Complex_Int_"
+nbytes = 8
+payload = "f64_nan"
+token = "Complex{Int}"
+[[rows]]
+hex = "000000000000f87f"
+kind = 4
+name = "f64_nan__Complex"
+nbytes = 8
+payload = "f64_nan"
+token = "Complex"
+type = "ComplexF64"
+value = "000000000000f87f0000000000000000"
+[[rows]]
+hex = "000000000000f87f"
+kind = 4
+name = "f64_nan__Any"
+nbytes = 8
+payload = "f64_nan"
+token = "Any"
+type = "Float64"
+value = "000000000000f87f"
+[[rows]]
+hex = "000000000000f87f"
+kind = 4
+name = "f64_nan__Real"
+nbytes = 8
+payload = "f64_nan"
+token = "Real"
+type = "Float64"
+value = "000000000000f87f"
+[[rows]]
+hex = "000000000000f87f"
+kind = 4
+name = "f64_nan__Number"
+nbytes = 8
+payload = "f64_nan"
+token = "Number"
+type = "Float64"
+value = "000000000000f87f"
+[[rows]]
+error = "InexactError"
+hex = "000000000000f87f"
+kind = 4
+name = "f64_nan__Integer"
+nbytes = 8
+payload = "f64_nan"
+token = "Integer"
+[[rows]]
+error = "InexactError"
+hex = "000000000000f87f"
+kind = 4
+name = "f64_nan__Signed"
+nbytes = 8
+payload = "f64_nan"
+token = "Signed"
+[[rows]]
+error = "InexactError"
+hex = "000000000000f87f"
+kind = 4
+name = "f64_nan__Unsigned"
+nbytes = 8
+payload = "f64_nan"
+token = "Unsigned"
+[[rows]]
+hex = "000000000000f87f"
+kind = 4
+name = "f64_nan__AbstractFloat"
+nbytes = 8
+payload = "f64_nan"
+token = "AbstractFloat"
+type = "Float64"
+value = "000000000000f87f"
+[[rows]]
+hex = "000000000000f87f"
+kind = 4
+name = "f64_nan__Symbol"
+nbytes = 8
+payload = "f64_nan"
+token = "Symbol"
+type = "Symbol"
+value = "NaN"
+[[rows]]
+error = "MethodError"
+hex = "000000000000f87f"
+kind = 4
+name = "f64_nan__String"
+nbytes = 8
+payload = "f64_nan"
+token = "String"
+[[rows]]
+error = "InexactError"
+hex = "000000000000f87f"
+kind = 4
+name = "f64_nan__Date"
+nbytes = 8
+payload = "f64_nan"
+token = "Date"
+[[rows]]
+error = "InexactError"
+hex = "000000000000f87f"
+kind = 4
+name = "f64_nan__DateTime"
+nbytes = 8
+payload = "f64_nan"
+token = "DateTime"
+[[rows]]
+error = "InexactError"
+hex = "000000000000f87f"
+kind = 4
+name = "f64_nan__Dates_DateTime"
+nbytes = 8
+payload = "f64_nan"
+token = "Dates.DateTime"
+[[rows]]
+hex = "000000000000f87f"
+kind = 4
+name = "f64_nan__Base_Float64"
+nbytes = 8
+payload = "f64_nan"
+token = "Base.Float64"
+type = "Float64"
+value = "000000000000f87f"
+[[rows]]
+error = "InexactError"
+hex = "000000000000f87f"
+kind = 4
+name = "f64_nan__Core_Int64"
+nbytes = 8
+payload = "f64_nan"
+token = "Core.Int64"
+[[rows]]
+error = "InexactError"
+hex = "000000000000f87f"
+kind = 4
+name = "f64_nan__TimeSeriesEcon_Int64"
+nbytes = 8
+payload = "f64_nan"
+token = "TimeSeriesEcon.Int64"
+[[rows]]
+hex = "000000000000f87f"
+kind = 4
+name = "f64_nan__Float64_"
+nbytes = 8
+payload = "f64_nan"
+token = "Float64 "
+type = "Float64"
+value = "000000000000f87f"
+[[rows]]
+error = "InexactError"
+hex = "000000000000f87f"
+kind = 4
+name = "f64_nan__BigInt"
+nbytes = 8
+payload = "f64_nan"
+token = "BigInt"
+[[rows]]
+hex = "000000000000f87f"
+kind = 4
+name = "f64_nan__BigFloat"
+nbytes = 8
+payload = "f64_nan"
+token = "BigFloat"
+type = "BigFloat"
+value = "NaN"
+[[rows]]
+error = "InexactError"
+hex = "000000000000f87f"
+kind = 4
+name = "f64_nan__Int"
+nbytes = 8
+payload = "f64_nan"
+token = "Int"
+[[rows]]
+error = "InexactError"
+hex = "000000000000f87f"
+kind = 4
+name = "f64_nan__UInt"
+nbytes = 8
+payload = "f64_nan"
+token = "UInt"
+[[rows]]
+hex = "000000000000f87f"
+kind = 4
+name = "f64_nan__Complex_Float64_"
+nbytes = 8
+payload = "f64_nan"
+token = "Complex{Float64}"
+type = "ComplexF64"
+value = "000000000000f87f0000000000000000"
+[[rows]]
+hex = "000000000000f87f"
+kind = 4
+name = "f64_nan__Complex_Float32_"
+nbytes = 8
+payload = "f64_nan"
+token = "Complex{Float32}"
+type = "ComplexF32"
+value = "0000c07f00000000"
+[[rows]]
+hex = "000000000000f87f"
+kind = 4
+name = "f64_nan__Complex_Float16_"
+nbytes = 8
+payload = "f64_nan"
+token = "Complex{Float16}"
+type = "ComplexF16"
+value = "007e0000"
+[[rows]]
+error = "MethodError"
+hex = "000000000000f87f"
+kind = 4
+name = "f64_nan__MIT_Monthly_"
+nbytes = 8
+payload = "f64_nan"
+token = "MIT{Monthly}"
+[[rows]]
+error = "MethodError"
+hex = "000000000000f87f"
+kind = 4
+name = "f64_nan__Duration_Monthly_"
+nbytes = 8
+payload = "f64_nan"
+token = "Duration{Monthly}"
+[[rows]]
+error = "InexactError"
+hex = "000000000000f87f"
+kind = 4
+name = "f64_nan__Bool"
+nbytes = 8
+payload = "f64_nan"
+token = "Bool"
+[[rows]]
+hex = "000000000000f07f"
+kind = 4
+name = "f64_inf__Rational"
+nbytes = 8
+payload = "f64_inf"
+token = "Rational"
+type = "Rational{Int64}"
+value = "1//0"
+[[rows]]
+hex = "000000000000f07f"
+kind = 4
+name = "f64_inf__Rational_Int_"
+nbytes = 8
+payload = "f64_inf"
+token = "Rational{Int}"
+type = "Rational{Int64}"
+value = "1//0"
+[[rows]]
+error = "InexactError"
+hex = "000000000000f07f"
+kind = 4
+name = "f64_inf__Complex_Int_"
+nbytes = 8
+payload = "f64_inf"
+token = "Complex{Int}"
+[[rows]]
+hex = "000000000000f07f"
+kind = 4
+name = "f64_inf__Complex"
+nbytes = 8
+payload = "f64_inf"
+token = "Complex"
+type = "ComplexF64"
+value = "000000000000f07f0000000000000000"
+[[rows]]
+hex = "000000000000f07f"
+kind = 4
+name = "f64_inf__Any"
+nbytes = 8
+payload = "f64_inf"
+token = "Any"
+type = "Float64"
+value = "000000000000f07f"
+[[rows]]
+hex = "000000000000f07f"
+kind = 4
+name = "f64_inf__Real"
+nbytes = 8
+payload = "f64_inf"
+token = "Real"
+type = "Float64"
+value = "000000000000f07f"
+[[rows]]
+hex = "000000000000f07f"
+kind = 4
+name = "f64_inf__Number"
+nbytes = 8
+payload = "f64_inf"
+token = "Number"
+type = "Float64"
+value = "000000000000f07f"
+[[rows]]
+error = "InexactError"
+hex = "000000000000f07f"
+kind = 4
+name = "f64_inf__Integer"
+nbytes = 8
+payload = "f64_inf"
+token = "Integer"
+[[rows]]
+error = "InexactError"
+hex = "000000000000f07f"
+kind = 4
+name = "f64_inf__Signed"
+nbytes = 8
+payload = "f64_inf"
+token = "Signed"
+[[rows]]
+error = "InexactError"
+hex = "000000000000f07f"
+kind = 4
+name = "f64_inf__Unsigned"
+nbytes = 8
+payload = "f64_inf"
+token = "Unsigned"
+[[rows]]
+hex = "000000000000f07f"
+kind = 4
+name = "f64_inf__AbstractFloat"
+nbytes = 8
+payload = "f64_inf"
+token = "AbstractFloat"
+type = "Float64"
+value = "000000000000f07f"
+[[rows]]
+hex = "000000000000f07f"
+kind = 4
+name = "f64_inf__Symbol"
+nbytes = 8
+payload = "f64_inf"
+token = "Symbol"
+type = "Symbol"
+value = "Inf"
+[[rows]]
+error = "MethodError"
+hex = "000000000000f07f"
+kind = 4
+name = "f64_inf__String"
+nbytes = 8
+payload = "f64_inf"
+token = "String"
+[[rows]]
+error = "InexactError"
+hex = "000000000000f07f"
+kind = 4
+name = "f64_inf__Date"
+nbytes = 8
+payload = "f64_inf"
+token = "Date"
+[[rows]]
+error = "InexactError"
+hex = "000000000000f07f"
+kind = 4
+name = "f64_inf__DateTime"
+nbytes = 8
+payload = "f64_inf"
+token = "DateTime"
+[[rows]]
+error = "InexactError"
+hex = "000000000000f07f"
+kind = 4
+name = "f64_inf__Dates_DateTime"
+nbytes = 8
+payload = "f64_inf"
+token = "Dates.DateTime"
+[[rows]]
+hex = "000000000000f07f"
+kind = 4
+name = "f64_inf__Base_Float64"
+nbytes = 8
+payload = "f64_inf"
+token = "Base.Float64"
+type = "Float64"
+value = "000000000000f07f"
+[[rows]]
+error = "InexactError"
+hex = "000000000000f07f"
+kind = 4
+name = "f64_inf__Core_Int64"
+nbytes = 8
+payload = "f64_inf"
+token = "Core.Int64"
+[[rows]]
+error = "InexactError"
+hex = "000000000000f07f"
+kind = 4
+name = "f64_inf__TimeSeriesEcon_Int64"
+nbytes = 8
+payload = "f64_inf"
+token = "TimeSeriesEcon.Int64"
+[[rows]]
+hex = "000000000000f07f"
+kind = 4
+name = "f64_inf__Float64_"
+nbytes = 8
+payload = "f64_inf"
+token = "Float64 "
+type = "Float64"
+value = "000000000000f07f"
+[[rows]]
+error = "InexactError"
+hex = "000000000000f07f"
+kind = 4
+name = "f64_inf__BigInt"
+nbytes = 8
+payload = "f64_inf"
+token = "BigInt"
+[[rows]]
+hex = "000000000000f07f"
+kind = 4
+name = "f64_inf__BigFloat"
+nbytes = 8
+payload = "f64_inf"
+token = "BigFloat"
+type = "BigFloat"
+value = "Inf"
+[[rows]]
+error = "InexactError"
+hex = "000000000000f07f"
+kind = 4
+name = "f64_inf__Int"
+nbytes = 8
+payload = "f64_inf"
+token = "Int"
+[[rows]]
+error = "InexactError"
+hex = "000000000000f07f"
+kind = 4
+name = "f64_inf__UInt"
+nbytes = 8
+payload = "f64_inf"
+token = "UInt"
+[[rows]]
+hex = "000000000000f07f"
+kind = 4
+name = "f64_inf__Complex_Float64_"
+nbytes = 8
+payload = "f64_inf"
+token = "Complex{Float64}"
+type = "ComplexF64"
+value = "000000000000f07f0000000000000000"
+[[rows]]
+hex = "000000000000f07f"
+kind = 4
+name = "f64_inf__Complex_Float32_"
+nbytes = 8
+payload = "f64_inf"
+token = "Complex{Float32}"
+type = "ComplexF32"
+value = "0000807f00000000"
+[[rows]]
+hex = "000000000000f07f"
+kind = 4
+name = "f64_inf__Complex_Float16_"
+nbytes = 8
+payload = "f64_inf"
+token = "Complex{Float16}"
+type = "ComplexF16"
+value = "007c0000"
+[[rows]]
+error = "MethodError"
+hex = "000000000000f07f"
+kind = 4
+name = "f64_inf__MIT_Monthly_"
+nbytes = 8
+payload = "f64_inf"
+token = "MIT{Monthly}"
+[[rows]]
+error = "MethodError"
+hex = "000000000000f07f"
+kind = 4
+name = "f64_inf__Duration_Monthly_"
+nbytes = 8
+payload = "f64_inf"
+token = "Duration{Monthly}"
+[[rows]]
+error = "InexactError"
+hex = "000000000000f07f"
+kind = 4
+name = "f64_inf__Bool"
+nbytes = 8
+payload = "f64_inf"
+token = "Bool"
+[[rows]]
+hex = "0000000000004043"
+kind = 4
+name = "f64_2p53p1__Rational"
+nbytes = 8
+payload = "f64_2p53p1"
+token = "Rational"
+type = "Rational{Int64}"
+value = "9007199254740992//1"
+[[rows]]
+hex = "0000000000004043"
+kind = 4
+name = "f64_2p53p1__Rational_Int_"
+nbytes = 8
+payload = "f64_2p53p1"
+token = "Rational{Int}"
+type = "Rational{Int64}"
+value = "9007199254740992//1"
+[[rows]]
+hex = "0000000000004043"
+kind = 4
+name = "f64_2p53p1__Complex_Int_"
+nbytes = 8
+payload = "f64_2p53p1"
+token = "Complex{Int}"
+type = "Complex{Int64}"
+value = "9007199254740992,0"
+[[rows]]
+hex = "0000000000004043"
+kind = 4
+name = "f64_2p53p1__Complex"
+nbytes = 8
+payload = "f64_2p53p1"
+token = "Complex"
+type = "ComplexF64"
+value = "00000000000040430000000000000000"
+[[rows]]
+hex = "0000000000004043"
+kind = 4
+name = "f64_2p53p1__Any"
+nbytes = 8
+payload = "f64_2p53p1"
+token = "Any"
+type = "Float64"
+value = "0000000000004043"
+[[rows]]
+hex = "0000000000004043"
+kind = 4
+name = "f64_2p53p1__Real"
+nbytes = 8
+payload = "f64_2p53p1"
+token = "Real"
+type = "Float64"
+value = "0000000000004043"
+[[rows]]
+hex = "0000000000004043"
+kind = 4
+name = "f64_2p53p1__Number"
+nbytes = 8
+payload = "f64_2p53p1"
+token = "Number"
+type = "Float64"
+value = "0000000000004043"
+[[rows]]
+hex = "0000000000004043"
+kind = 4
+name = "f64_2p53p1__Integer"
+nbytes = 8
+payload = "f64_2p53p1"
+token = "Integer"
+type = "Int64"
+value = "9007199254740992"
+[[rows]]
+hex = "0000000000004043"
+kind = 4
+name = "f64_2p53p1__Signed"
+nbytes = 8
+payload = "f64_2p53p1"
+token = "Signed"
+type = "Int64"
+value = "9007199254740992"
+[[rows]]
+hex = "0000000000004043"
+kind = 4
+name = "f64_2p53p1__Unsigned"
+nbytes = 8
+payload = "f64_2p53p1"
+token = "Unsigned"
+type = "UInt64"
+value = "9007199254740992"
+[[rows]]
+hex = "0000000000004043"
+kind = 4
+name = "f64_2p53p1__AbstractFloat"
+nbytes = 8
+payload = "f64_2p53p1"
+token = "AbstractFloat"
+type = "Float64"
+value = "0000000000004043"
+[[rows]]
+hex = "0000000000004043"
+kind = 4
+name = "f64_2p53p1__Symbol"
+nbytes = 8
+payload = "f64_2p53p1"
+token = "Symbol"
+type = "Symbol"
+value = "9.007199254740992e15"
+[[rows]]
+error = "MethodError"
+hex = "0000000000004043"
+kind = 4
+name = "f64_2p53p1__String"
+nbytes = 8
+payload = "f64_2p53p1"
+token = "String"
+[[rows]]
+hex = "0000000000004043"
+kind = 4
+name = "f64_2p53p1__Date"
+nbytes = 8
+payload = "f64_2p53p1"
+token = "Date"
+type = "Date"
+value = "285428751-11-12"
+[[rows]]
+hex = "0000000000004043"
+kind = 4
+name = "f64_2p53p1__DateTime"
+nbytes = 8
+payload = "f64_2p53p1"
+token = "DateTime"
+type = "DateTime"
+value = "285428751-11-12T7:36:32.0"
+[[rows]]
+hex = "0000000000004043"
+kind = 4
+name = "f64_2p53p1__Dates_DateTime"
+nbytes = 8
+payload = "f64_2p53p1"
+token = "Dates.DateTime"
+type = "DateTime"
+value = "285428751-11-12T7:36:32.0"
+[[rows]]
+hex = "0000000000004043"
+kind = 4
+name = "f64_2p53p1__Base_Float64"
+nbytes = 8
+payload = "f64_2p53p1"
+token = "Base.Float64"
+type = "Float64"
+value = "0000000000004043"
+[[rows]]
+hex = "0000000000004043"
+kind = 4
+name = "f64_2p53p1__Core_Int64"
+nbytes = 8
+payload = "f64_2p53p1"
+token = "Core.Int64"
+type = "Int64"
+value = "9007199254740992"
+[[rows]]
+hex = "0000000000004043"
+kind = 4
+name = "f64_2p53p1__TimeSeriesEcon_Int64"
+nbytes = 8
+payload = "f64_2p53p1"
+token = "TimeSeriesEcon.Int64"
+type = "Int64"
+value = "9007199254740992"
+[[rows]]
+hex = "0000000000004043"
+kind = 4
+name = "f64_2p53p1__Float64_"
+nbytes = 8
+payload = "f64_2p53p1"
+token = "Float64 "
+type = "Float64"
+value = "0000000000004043"
+[[rows]]
+hex = "0000000000004043"
+kind = 4
+name = "f64_2p53p1__BigInt"
+nbytes = 8
+payload = "f64_2p53p1"
+token = "BigInt"
+type = "BigInt"
+value = "9007199254740992"
+[[rows]]
+hex = "0000000000004043"
+kind = 4
+name = "f64_2p53p1__BigFloat"
+nbytes = 8
+payload = "f64_2p53p1"
+token = "BigFloat"
+type = "BigFloat"
+value = "9.007199254740992e+15"
+[[rows]]
+hex = "0000000000004043"
+kind = 4
+name = "f64_2p53p1__Int"
+nbytes = 8
+payload = "f64_2p53p1"
+token = "Int"
+type = "Int64"
+value = "9007199254740992"
+[[rows]]
+hex = "0000000000004043"
+kind = 4
+name = "f64_2p53p1__UInt"
+nbytes = 8
+payload = "f64_2p53p1"
+token = "UInt"
+type = "UInt64"
+value = "9007199254740992"
+[[rows]]
+hex = "0000000000004043"
+kind = 4
+name = "f64_2p53p1__Complex_Float64_"
+nbytes = 8
+payload = "f64_2p53p1"
+token = "Complex{Float64}"
+type = "ComplexF64"
+value = "00000000000040430000000000000000"
+[[rows]]
+hex = "0000000000004043"
+kind = 4
+name = "f64_2p53p1__Complex_Float32_"
+nbytes = 8
+payload = "f64_2p53p1"
+token = "Complex{Float32}"
+type = "ComplexF32"
+value = "0000005a00000000"
+[[rows]]
+hex = "0000000000004043"
+kind = 4
+name = "f64_2p53p1__Complex_Float16_"
+nbytes = 8
+payload = "f64_2p53p1"
+token = "Complex{Float16}"
+type = "ComplexF16"
+value = "007c0000"
+[[rows]]
+error = "MethodError"
+hex = "0000000000004043"
+kind = 4
+name = "f64_2p53p1__MIT_Monthly_"
+nbytes = 8
+payload = "f64_2p53p1"
+token = "MIT{Monthly}"
+[[rows]]
+error = "MethodError"
+hex = "0000000000004043"
+kind = 4
+name = "f64_2p53p1__Duration_Monthly_"
+nbytes = 8
+payload = "f64_2p53p1"
+token = "Duration{Monthly}"
+[[rows]]
+error = "InexactError"
+hex = "0000000000004043"
+kind = 4
+name = "f64_2p53p1__Bool"
+nbytes = 8
+payload = "f64_2p53p1"
+token = "Bool"
+[[rows]]
+hex = "00000000000000400000000000000000"
+kind = 5
+name = "c64_2_0__Rational"
+nbytes = 16
+payload = "c64_2_0"
+token = "Rational"
+type = "Rational{Int64}"
+value = "2//1"
+[[rows]]
+hex = "00000000000000400000000000000000"
+kind = 5
+name = "c64_2_0__Rational_Int_"
+nbytes = 16
+payload = "c64_2_0"
+token = "Rational{Int}"
+type = "Rational{Int64}"
+value = "2//1"
+[[rows]]
+hex = "00000000000000400000000000000000"
+kind = 5
+name = "c64_2_0__Complex_Int_"
+nbytes = 16
+payload = "c64_2_0"
+token = "Complex{Int}"
+type = "Complex{Int64}"
+value = "2,0"
+[[rows]]
+hex = "00000000000000400000000000000000"
+kind = 5
+name = "c64_2_0__Complex"
+nbytes = 16
+payload = "c64_2_0"
+token = "Complex"
+type = "ComplexF64"
+value = "00000000000000400000000000000000"
+[[rows]]
+hex = "00000000000000400000000000000000"
+kind = 5
+name = "c64_2_0__Any"
+nbytes = 16
+payload = "c64_2_0"
+token = "Any"
+type = "ComplexF64"
+value = "00000000000000400000000000000000"
+[[rows]]
+hex = "00000000000000400000000000000000"
+kind = 5
+name = "c64_2_0__Real"
+nbytes = 16
+payload = "c64_2_0"
+token = "Real"
+type = "Float64"
+value = "0000000000000040"
+[[rows]]
+hex = "00000000000000400000000000000000"
+kind = 5
+name = "c64_2_0__Number"
+nbytes = 16
+payload = "c64_2_0"
+token = "Number"
+type = "ComplexF64"
+value = "00000000000000400000000000000000"
+[[rows]]
+hex = "00000000000000400000000000000000"
+kind = 5
+name = "c64_2_0__Integer"
+nbytes = 16
+payload = "c64_2_0"
+token = "Integer"
+type = "Int64"
+value = "2"
+[[rows]]
+hex = "00000000000000400000000000000000"
+kind = 5
+name = "c64_2_0__Signed"
+nbytes = 16
+payload = "c64_2_0"
+token = "Signed"
+type = "Int64"
+value = "2"
+[[rows]]
+hex = "00000000000000400000000000000000"
+kind = 5
+name = "c64_2_0__Unsigned"
+nbytes = 16
+payload = "c64_2_0"
+token = "Unsigned"
+type = "UInt64"
+value = "2"
+[[rows]]
+hex = "00000000000000400000000000000000"
+kind = 5
+name = "c64_2_0__AbstractFloat"
+nbytes = 16
+payload = "c64_2_0"
+token = "AbstractFloat"
+type = "Float64"
+value = "0000000000000040"
+[[rows]]
+hex = "00000000000000400000000000000000"
+kind = 5
+name = "c64_2_0__Symbol"
+nbytes = 16
+payload = "c64_2_0"
+token = "Symbol"
+type = "Symbol"
+value = "2.0 + 0.0im"
+[[rows]]
+error = "MethodError"
+hex = "00000000000000400000000000000000"
+kind = 5
+name = "c64_2_0__String"
+nbytes = 16
+payload = "c64_2_0"
+token = "String"
+[[rows]]
+hex = "00000000000000400000000000000000"
+kind = 5
+name = "c64_2_0__Date"
+nbytes = 16
+payload = "c64_2_0"
+token = "Date"
+type = "Date"
+value = "1970-1-1"
+[[rows]]
+hex = "00000000000000400000000000000000"
+kind = 5
+name = "c64_2_0__DateTime"
+nbytes = 16
+payload = "c64_2_0"
+token = "DateTime"
+type = "DateTime"
+value = "1970-1-1T0:0:2.0"
+[[rows]]
+hex = "00000000000000400000000000000000"
+kind = 5
+name = "c64_2_0__Dates_DateTime"
+nbytes = 16
+payload = "c64_2_0"
+token = "Dates.DateTime"
+type = "DateTime"
+value = "1970-1-1T0:0:2.0"
+[[rows]]
+hex = "00000000000000400000000000000000"
+kind = 5
+name = "c64_2_0__Base_Float64"
+nbytes = 16
+payload = "c64_2_0"
+token = "Base.Float64"
+type = "Float64"
+value = "0000000000000040"
+[[rows]]
+hex = "00000000000000400000000000000000"
+kind = 5
+name = "c64_2_0__Core_Int64"
+nbytes = 16
+payload = "c64_2_0"
+token = "Core.Int64"
+type = "Int64"
+value = "2"
+[[rows]]
+hex = "00000000000000400000000000000000"
+kind = 5
+name = "c64_2_0__TimeSeriesEcon_Int64"
+nbytes = 16
+payload = "c64_2_0"
+token = "TimeSeriesEcon.Int64"
+type = "Int64"
+value = "2"
+[[rows]]
+hex = "00000000000000400000000000000000"
+kind = 5
+name = "c64_2_0__Float64_"
+nbytes = 16
+payload = "c64_2_0"
+token = "Float64 "
+type = "Float64"
+value = "0000000000000040"
+[[rows]]
+hex = "00000000000000400000000000000000"
+kind = 5
+name = "c64_2_0__BigInt"
+nbytes = 16
+payload = "c64_2_0"
+token = "BigInt"
+type = "BigInt"
+value = "2"
+[[rows]]
+hex = "00000000000000400000000000000000"
+kind = 5
+name = "c64_2_0__BigFloat"
+nbytes = 16
+payload = "c64_2_0"
+token = "BigFloat"
+type = "BigFloat"
+value = "2.0"
+[[rows]]
+hex = "00000000000000400000000000000000"
+kind = 5
+name = "c64_2_0__Int"
+nbytes = 16
+payload = "c64_2_0"
+token = "Int"
+type = "Int64"
+value = "2"
+[[rows]]
+hex = "00000000000000400000000000000000"
+kind = 5
+name = "c64_2_0__UInt"
+nbytes = 16
+payload = "c64_2_0"
+token = "UInt"
+type = "UInt64"
+value = "2"
+[[rows]]
+hex = "00000000000000400000000000000000"
+kind = 5
+name = "c64_2_0__Complex_Float64_"
+nbytes = 16
+payload = "c64_2_0"
+token = "Complex{Float64}"
+type = "ComplexF64"
+value = "00000000000000400000000000000000"
+[[rows]]
+hex = "00000000000000400000000000000000"
+kind = 5
+name = "c64_2_0__Complex_Float32_"
+nbytes = 16
+payload = "c64_2_0"
+token = "Complex{Float32}"
+type = "ComplexF32"
+value = "0000004000000000"
+[[rows]]
+hex = "00000000000000400000000000000000"
+kind = 5
+name = "c64_2_0__Complex_Float16_"
+nbytes = 16
+payload = "c64_2_0"
+token = "Complex{Float16}"
+type = "ComplexF16"
+value = "00400000"
+[[rows]]
+error = "MethodError"
+hex = "00000000000000400000000000000000"
+kind = 5
+name = "c64_2_0__MIT_Monthly_"
+nbytes = 16
+payload = "c64_2_0"
+token = "MIT{Monthly}"
+[[rows]]
+error = "MethodError"
+hex = "00000000000000400000000000000000"
+kind = 5
+name = "c64_2_0__Duration_Monthly_"
+nbytes = 16
+payload = "c64_2_0"
+token = "Duration{Monthly}"
+[[rows]]
+error = "InexactError"
+hex = "00000000000000400000000000000000"
+kind = 5
+name = "c64_2_0__Bool"
+nbytes = 16
+payload = "c64_2_0"
+token = "Bool"
+[[rows]]
+error = "InexactError"
+hex = "000000000000f03f0000000000000040"
+kind = 5
+name = "c64_1_2__Rational"
+nbytes = 16
+payload = "c64_1_2"
+token = "Rational"
+[[rows]]
+error = "InexactError"
+hex = "000000000000f03f0000000000000040"
+kind = 5
+name = "c64_1_2__Rational_Int_"
+nbytes = 16
+payload = "c64_1_2"
+token = "Rational{Int}"
+[[rows]]
+hex = "000000000000f03f0000000000000040"
+kind = 5
+name = "c64_1_2__Complex_Int_"
+nbytes = 16
+payload = "c64_1_2"
+token = "Complex{Int}"
+type = "Complex{Int64}"
+value = "1,2"
+[[rows]]
+hex = "000000000000f03f0000000000000040"
+kind = 5
+name = "c64_1_2__Complex"
+nbytes = 16
+payload = "c64_1_2"
+token = "Complex"
+type = "ComplexF64"
+value = "000000000000f03f0000000000000040"
+[[rows]]
+hex = "000000000000f03f0000000000000040"
+kind = 5
+name = "c64_1_2__Any"
+nbytes = 16
+payload = "c64_1_2"
+token = "Any"
+type = "ComplexF64"
+value = "000000000000f03f0000000000000040"
+[[rows]]
+error = "InexactError"
+hex = "000000000000f03f0000000000000040"
+kind = 5
+name = "c64_1_2__Real"
+nbytes = 16
+payload = "c64_1_2"
+token = "Real"
+[[rows]]
+hex = "000000000000f03f0000000000000040"
+kind = 5
+name = "c64_1_2__Number"
+nbytes = 16
+payload = "c64_1_2"
+token = "Number"
+type = "ComplexF64"
+value = "000000000000f03f0000000000000040"
+[[rows]]
+error = "InexactError"
+hex = "000000000000f03f0000000000000040"
+kind = 5
+name = "c64_1_2__Integer"
+nbytes = 16
+payload = "c64_1_2"
+token = "Integer"
+[[rows]]
+error = "InexactError"
+hex = "000000000000f03f0000000000000040"
+kind = 5
+name = "c64_1_2__Signed"
+nbytes = 16
+payload = "c64_1_2"
+token = "Signed"
+[[rows]]
+error = "InexactError"
+hex = "000000000000f03f0000000000000040"
+kind = 5
+name = "c64_1_2__Unsigned"
+nbytes = 16
+payload = "c64_1_2"
+token = "Unsigned"
+[[rows]]
+error = "InexactError"
+hex = "000000000000f03f0000000000000040"
+kind = 5
+name = "c64_1_2__AbstractFloat"
+nbytes = 16
+payload = "c64_1_2"
+token = "AbstractFloat"
+[[rows]]
+hex = "000000000000f03f0000000000000040"
+kind = 5
+name = "c64_1_2__Symbol"
+nbytes = 16
+payload = "c64_1_2"
+token = "Symbol"
+type = "Symbol"
+value = "1.0 + 2.0im"
+[[rows]]
+error = "MethodError"
+hex = "000000000000f03f0000000000000040"
+kind = 5
+name = "c64_1_2__String"
+nbytes = 16
+payload = "c64_1_2"
+token = "String"
+[[rows]]
+error = "InexactError"
+hex = "000000000000f03f0000000000000040"
+kind = 5
+name = "c64_1_2__Date"
+nbytes = 16
+payload = "c64_1_2"
+token = "Date"
+[[rows]]
+error = "InexactError"
+hex = "000000000000f03f0000000000000040"
+kind = 5
+name = "c64_1_2__DateTime"
+nbytes = 16
+payload = "c64_1_2"
+token = "DateTime"
+[[rows]]
+error = "InexactError"
+hex = "000000000000f03f0000000000000040"
+kind = 5
+name = "c64_1_2__Dates_DateTime"
+nbytes = 16
+payload = "c64_1_2"
+token = "Dates.DateTime"
+[[rows]]
+error = "InexactError"
+hex = "000000000000f03f0000000000000040"
+kind = 5
+name = "c64_1_2__Base_Float64"
+nbytes = 16
+payload = "c64_1_2"
+token = "Base.Float64"
+[[rows]]
+error = "InexactError"
+hex = "000000000000f03f0000000000000040"
+kind = 5
+name = "c64_1_2__Core_Int64"
+nbytes = 16
+payload = "c64_1_2"
+token = "Core.Int64"
+[[rows]]
+error = "InexactError"
+hex = "000000000000f03f0000000000000040"
+kind = 5
+name = "c64_1_2__TimeSeriesEcon_Int64"
+nbytes = 16
+payload = "c64_1_2"
+token = "TimeSeriesEcon.Int64"
+[[rows]]
+error = "InexactError"
+hex = "000000000000f03f0000000000000040"
+kind = 5
+name = "c64_1_2__Float64_"
+nbytes = 16
+payload = "c64_1_2"
+token = "Float64 "
+[[rows]]
+error = "InexactError"
+hex = "000000000000f03f0000000000000040"
+kind = 5
+name = "c64_1_2__BigInt"
+nbytes = 16
+payload = "c64_1_2"
+token = "BigInt"
+[[rows]]
+error = "InexactError"
+hex = "000000000000f03f0000000000000040"
+kind = 5
+name = "c64_1_2__BigFloat"
+nbytes = 16
+payload = "c64_1_2"
+token = "BigFloat"
+[[rows]]
+error = "InexactError"
+hex = "000000000000f03f0000000000000040"
+kind = 5
+name = "c64_1_2__Int"
+nbytes = 16
+payload = "c64_1_2"
+token = "Int"
+[[rows]]
+error = "InexactError"
+hex = "000000000000f03f0000000000000040"
+kind = 5
+name = "c64_1_2__UInt"
+nbytes = 16
+payload = "c64_1_2"
+token = "UInt"
+[[rows]]
+hex = "000000000000f03f0000000000000040"
+kind = 5
+name = "c64_1_2__Complex_Float64_"
+nbytes = 16
+payload = "c64_1_2"
+token = "Complex{Float64}"
+type = "ComplexF64"
+value = "000000000000f03f0000000000000040"
+[[rows]]
+hex = "000000000000f03f0000000000000040"
+kind = 5
+name = "c64_1_2__Complex_Float32_"
+nbytes = 16
+payload = "c64_1_2"
+token = "Complex{Float32}"
+type = "ComplexF32"
+value = "0000803f00000040"
+[[rows]]
+hex = "000000000000f03f0000000000000040"
+kind = 5
+name = "c64_1_2__Complex_Float16_"
+nbytes = 16
+payload = "c64_1_2"
+token = "Complex{Float16}"
+type = "ComplexF16"
+value = "003c0040"
+[[rows]]
+error = "InexactError"
+hex = "000000000000f03f0000000000000040"
+kind = 5
+name = "c64_1_2__MIT_Monthly_"
+nbytes = 16
+payload = "c64_1_2"
+token = "MIT{Monthly}"
+[[rows]]
+error = "InexactError"
+hex = "000000000000f03f0000000000000040"
+kind = 5
+name = "c64_1_2__Duration_Monthly_"
+nbytes = 16
+payload = "c64_1_2"
+token = "Duration{Monthly}"
+[[rows]]
+error = "InexactError"
+hex = "000000000000f03f0000000000000040"
+kind = 5
+name = "c64_1_2__Bool"
+nbytes = 16
+payload = "c64_1_2"
+token = "Bool"
+[[rows]]
+hex = "0000004000000000"
+kind = 5
+name = "c32_2_0__Rational"
+nbytes = 8
+payload = "c32_2_0"
+token = "Rational"
+type = "Rational{Int64}"
+value = "2//1"
+[[rows]]
+hex = "0000004000000000"
+kind = 5
+name = "c32_2_0__Rational_Int_"
+nbytes = 8
+payload = "c32_2_0"
+token = "Rational{Int}"
+type = "Rational{Int64}"
+value = "2//1"
+[[rows]]
+hex = "0000004000000000"
+kind = 5
+name = "c32_2_0__Complex_Int_"
+nbytes = 8
+payload = "c32_2_0"
+token = "Complex{Int}"
+type = "Complex{Int64}"
+value = "2,0"
+[[rows]]
+hex = "0000004000000000"
+kind = 5
+name = "c32_2_0__Complex"
+nbytes = 8
+payload = "c32_2_0"
+token = "Complex"
+type = "ComplexF32"
+value = "0000004000000000"
+[[rows]]
+hex = "0000004000000000"
+kind = 5
+name = "c32_2_0__Any"
+nbytes = 8
+payload = "c32_2_0"
+token = "Any"
+type = "ComplexF32"
+value = "0000004000000000"
+[[rows]]
+hex = "0000004000000000"
+kind = 5
+name = "c32_2_0__Real"
+nbytes = 8
+payload = "c32_2_0"
+token = "Real"
+type = "Float32"
+value = "00000040"
+[[rows]]
+hex = "0000004000000000"
+kind = 5
+name = "c32_2_0__Number"
+nbytes = 8
+payload = "c32_2_0"
+token = "Number"
+type = "ComplexF32"
+value = "0000004000000000"
+[[rows]]
+hex = "0000004000000000"
+kind = 5
+name = "c32_2_0__Integer"
+nbytes = 8
+payload = "c32_2_0"
+token = "Integer"
+type = "Int64"
+value = "2"
+[[rows]]
+hex = "0000004000000000"
+kind = 5
+name = "c32_2_0__Signed"
+nbytes = 8
+payload = "c32_2_0"
+token = "Signed"
+type = "Int64"
+value = "2"
+[[rows]]
+hex = "0000004000000000"
+kind = 5
+name = "c32_2_0__Unsigned"
+nbytes = 8
+payload = "c32_2_0"
+token = "Unsigned"
+type = "UInt64"
+value = "2"
+[[rows]]
+hex = "0000004000000000"
+kind = 5
+name = "c32_2_0__AbstractFloat"
+nbytes = 8
+payload = "c32_2_0"
+token = "AbstractFloat"
+type = "Float32"
+value = "00000040"
+[[rows]]
+hex = "0000004000000000"
+kind = 5
+name = "c32_2_0__Symbol"
+nbytes = 8
+payload = "c32_2_0"
+token = "Symbol"
+type = "Symbol"
+value = "2.0f0 + 0.0f0im"
+[[rows]]
+error = "MethodError"
+hex = "0000004000000000"
+kind = 5
+name = "c32_2_0__String"
+nbytes = 8
+payload = "c32_2_0"
+token = "String"
+[[rows]]
+hex = "0000004000000000"
+kind = 5
+name = "c32_2_0__Date"
+nbytes = 8
+payload = "c32_2_0"
+token = "Date"
+type = "Date"
+value = "1970-1-1"
+[[rows]]
+hex = "0000004000000000"
+kind = 5
+name = "c32_2_0__DateTime"
+nbytes = 8
+payload = "c32_2_0"
+token = "DateTime"
+type = "DateTime"
+value = "1970-1-1T0:0:2.0"
+[[rows]]
+hex = "0000004000000000"
+kind = 5
+name = "c32_2_0__Dates_DateTime"
+nbytes = 8
+payload = "c32_2_0"
+token = "Dates.DateTime"
+type = "DateTime"
+value = "1970-1-1T0:0:2.0"
+[[rows]]
+hex = "0000004000000000"
+kind = 5
+name = "c32_2_0__Base_Float64"
+nbytes = 8
+payload = "c32_2_0"
+token = "Base.Float64"
+type = "Float64"
+value = "0000000000000040"
+[[rows]]
+hex = "0000004000000000"
+kind = 5
+name = "c32_2_0__Core_Int64"
+nbytes = 8
+payload = "c32_2_0"
+token = "Core.Int64"
+type = "Int64"
+value = "2"
+[[rows]]
+hex = "0000004000000000"
+kind = 5
+name = "c32_2_0__TimeSeriesEcon_Int64"
+nbytes = 8
+payload = "c32_2_0"
+token = "TimeSeriesEcon.Int64"
+type = "Int64"
+value = "2"
+[[rows]]
+hex = "0000004000000000"
+kind = 5
+name = "c32_2_0__Float64_"
+nbytes = 8
+payload = "c32_2_0"
+token = "Float64 "
+type = "Float64"
+value = "0000000000000040"
+[[rows]]
+hex = "0000004000000000"
+kind = 5
+name = "c32_2_0__BigInt"
+nbytes = 8
+payload = "c32_2_0"
+token = "BigInt"
+type = "BigInt"
+value = "2"
+[[rows]]
+hex = "0000004000000000"
+kind = 5
+name = "c32_2_0__BigFloat"
+nbytes = 8
+payload = "c32_2_0"
+token = "BigFloat"
+type = "BigFloat"
+value = "2.0"
+[[rows]]
+hex = "0000004000000000"
+kind = 5
+name = "c32_2_0__Int"
+nbytes = 8
+payload = "c32_2_0"
+token = "Int"
+type = "Int64"
+value = "2"
+[[rows]]
+hex = "0000004000000000"
+kind = 5
+name = "c32_2_0__UInt"
+nbytes = 8
+payload = "c32_2_0"
+token = "UInt"
+type = "UInt64"
+value = "2"
+[[rows]]
+hex = "0000004000000000"
+kind = 5
+name = "c32_2_0__Complex_Float64_"
+nbytes = 8
+payload = "c32_2_0"
+token = "Complex{Float64}"
+type = "ComplexF64"
+value = "00000000000000400000000000000000"
+[[rows]]
+hex = "0000004000000000"
+kind = 5
+name = "c32_2_0__Complex_Float32_"
+nbytes = 8
+payload = "c32_2_0"
+token = "Complex{Float32}"
+type = "ComplexF32"
+value = "0000004000000000"
+[[rows]]
+hex = "0000004000000000"
+kind = 5
+name = "c32_2_0__Complex_Float16_"
+nbytes = 8
+payload = "c32_2_0"
+token = "Complex{Float16}"
+type = "ComplexF16"
+value = "00400000"
+[[rows]]
+error = "MethodError"
+hex = "0000004000000000"
+kind = 5
+name = "c32_2_0__MIT_Monthly_"
+nbytes = 8
+payload = "c32_2_0"
+token = "MIT{Monthly}"
+[[rows]]
+error = "MethodError"
+hex = "0000004000000000"
+kind = 5
+name = "c32_2_0__Duration_Monthly_"
+nbytes = 8
+payload = "c32_2_0"
+token = "Duration{Monthly}"
+[[rows]]
+error = "InexactError"
+hex = "0000004000000000"
+kind = 5
+name = "c32_2_0__Bool"
+nbytes = 8
+payload = "c32_2_0"
+token = "Bool"
+[[rows]]
+error = "MethodError"
+hex = "00400000"
+kind = 5
+name = "c16_2_0__Rational"
+nbytes = 4
+payload = "c16_2_0"
+token = "Rational"
+[[rows]]
+hex = "00400000"
+kind = 5
+name = "c16_2_0__Rational_Int_"
+nbytes = 4
+payload = "c16_2_0"
+token = "Rational{Int}"
+type = "Rational{Int64}"
+value = "2//1"
+[[rows]]
+hex = "00400000"
+kind = 5
+name = "c16_2_0__Complex_Int_"
+nbytes = 4
+payload = "c16_2_0"
+token = "Complex{Int}"
+type = "Complex{Int64}"
+value = "2,0"
+[[rows]]
+hex = "00400000"
+kind = 5
+name = "c16_2_0__Complex"
+nbytes = 4
+payload = "c16_2_0"
+token = "Complex"
+type = "ComplexF16"
+value = "00400000"
+[[rows]]
+hex = "00400000"
+kind = 5
+name = "c16_2_0__Any"
+nbytes = 4
+payload = "c16_2_0"
+token = "Any"
+type = "ComplexF16"
+value = "00400000"
+[[rows]]
+hex = "00400000"
+kind = 5
+name = "c16_2_0__Real"
+nbytes = 4
+payload = "c16_2_0"
+token = "Real"
+type = "Float16"
+value = "0040"
+[[rows]]
+hex = "00400000"
+kind = 5
+name = "c16_2_0__Number"
+nbytes = 4
+payload = "c16_2_0"
+token = "Number"
+type = "ComplexF16"
+value = "00400000"
+[[rows]]
+hex = "00400000"
+kind = 5
+name = "c16_2_0__Integer"
+nbytes = 4
+payload = "c16_2_0"
+token = "Integer"
+type = "Int64"
+value = "2"
+[[rows]]
+hex = "00400000"
+kind = 5
+name = "c16_2_0__Signed"
+nbytes = 4
+payload = "c16_2_0"
+token = "Signed"
+type = "Int64"
+value = "2"
+[[rows]]
+hex = "00400000"
+kind = 5
+name = "c16_2_0__Unsigned"
+nbytes = 4
+payload = "c16_2_0"
+token = "Unsigned"
+type = "UInt64"
+value = "2"
+[[rows]]
+hex = "00400000"
+kind = 5
+name = "c16_2_0__AbstractFloat"
+nbytes = 4
+payload = "c16_2_0"
+token = "AbstractFloat"
+type = "Float16"
+value = "0040"
+[[rows]]
+hex = "00400000"
+kind = 5
+name = "c16_2_0__Symbol"
+nbytes = 4
+payload = "c16_2_0"
+token = "Symbol"
+type = "Symbol"
+value = "Float16(2.0) + Float16(0.0)im"
+[[rows]]
+error = "MethodError"
+hex = "00400000"
+kind = 5
+name = "c16_2_0__String"
+nbytes = 4
+payload = "c16_2_0"
+token = "String"
+[[rows]]
+hex = "00400000"
+kind = 5
+name = "c16_2_0__Date"
+nbytes = 4
+payload = "c16_2_0"
+token = "Date"
+type = "Date"
+value = "1970-1-1"
+[[rows]]
+hex = "00400000"
+kind = 5
+name = "c16_2_0__DateTime"
+nbytes = 4
+payload = "c16_2_0"
+token = "DateTime"
+type = "DateTime"
+value = "1970-1-1T0:0:2.0"
+[[rows]]
+hex = "00400000"
+kind = 5
+name = "c16_2_0__Dates_DateTime"
+nbytes = 4
+payload = "c16_2_0"
+token = "Dates.DateTime"
+type = "DateTime"
+value = "1970-1-1T0:0:2.0"
+[[rows]]
+hex = "00400000"
+kind = 5
+name = "c16_2_0__Base_Float64"
+nbytes = 4
+payload = "c16_2_0"
+token = "Base.Float64"
+type = "Float64"
+value = "0000000000000040"
+[[rows]]
+hex = "00400000"
+kind = 5
+name = "c16_2_0__Core_Int64"
+nbytes = 4
+payload = "c16_2_0"
+token = "Core.Int64"
+type = "Int64"
+value = "2"
+[[rows]]
+hex = "00400000"
+kind = 5
+name = "c16_2_0__TimeSeriesEcon_Int64"
+nbytes = 4
+payload = "c16_2_0"
+token = "TimeSeriesEcon.Int64"
+type = "Int64"
+value = "2"
+[[rows]]
+hex = "00400000"
+kind = 5
+name = "c16_2_0__Float64_"
+nbytes = 4
+payload = "c16_2_0"
+token = "Float64 "
+type = "Float64"
+value = "0000000000000040"
+[[rows]]
+hex = "00400000"
+kind = 5
+name = "c16_2_0__BigInt"
+nbytes = 4
+payload = "c16_2_0"
+token = "BigInt"
+type = "BigInt"
+value = "2"
+[[rows]]
+hex = "00400000"
+kind = 5
+name = "c16_2_0__BigFloat"
+nbytes = 4
+payload = "c16_2_0"
+token = "BigFloat"
+type = "BigFloat"
+value = "2.0"
+[[rows]]
+hex = "00400000"
+kind = 5
+name = "c16_2_0__Int"
+nbytes = 4
+payload = "c16_2_0"
+token = "Int"
+type = "Int64"
+value = "2"
+[[rows]]
+hex = "00400000"
+kind = 5
+name = "c16_2_0__UInt"
+nbytes = 4
+payload = "c16_2_0"
+token = "UInt"
+type = "UInt64"
+value = "2"
+[[rows]]
+hex = "00400000"
+kind = 5
+name = "c16_2_0__Complex_Float64_"
+nbytes = 4
+payload = "c16_2_0"
+token = "Complex{Float64}"
+type = "ComplexF64"
+value = "00000000000000400000000000000000"
+[[rows]]
+hex = "00400000"
+kind = 5
+name = "c16_2_0__Complex_Float32_"
+nbytes = 4
+payload = "c16_2_0"
+token = "Complex{Float32}"
+type = "ComplexF32"
+value = "0000004000000000"
+[[rows]]
+hex = "00400000"
+kind = 5
+name = "c16_2_0__Complex_Float16_"
+nbytes = 4
+payload = "c16_2_0"
+token = "Complex{Float16}"
+type = "ComplexF16"
+value = "00400000"
+[[rows]]
+error = "MethodError"
+hex = "00400000"
+kind = 5
+name = "c16_2_0__MIT_Monthly_"
+nbytes = 4
+payload = "c16_2_0"
+token = "MIT{Monthly}"
+[[rows]]
+error = "MethodError"
+hex = "00400000"
+kind = 5
+name = "c16_2_0__Duration_Monthly_"
+nbytes = 4
+payload = "c16_2_0"
+token = "Duration{Monthly}"
+[[rows]]
+error = "InexactError"
+hex = "00400000"
+kind = 5
+name = "c16_2_0__Bool"
+nbytes = 4
+payload = "c16_2_0"
+token = "Bool"
+[[rows]]
+error = "MethodError"
+hex = "61626300"
+kind = 6
+name = "str_abc__Rational"
+nbytes = 4
+payload = "str_abc"
+token = "Rational"
+[[rows]]
+error = "MethodError"
+hex = "61626300"
+kind = 6
+name = "str_abc__Rational_Int_"
+nbytes = 4
+payload = "str_abc"
+token = "Rational{Int}"
+[[rows]]
+error = "MethodError"
+hex = "61626300"
+kind = 6
+name = "str_abc__Complex_Int_"
+nbytes = 4
+payload = "str_abc"
+token = "Complex{Int}"
+[[rows]]
+error = "MethodError"
+hex = "61626300"
+kind = 6
+name = "str_abc__Complex"
+nbytes = 4
+payload = "str_abc"
+token = "Complex"
+[[rows]]
+hex = "61626300"
+kind = 6
+name = "str_abc__Any"
+nbytes = 4
+payload = "str_abc"
+token = "Any"
+type = "String"
+value = "abc"
+[[rows]]
+error = "MethodError"
+hex = "61626300"
+kind = 6
+name = "str_abc__Real"
+nbytes = 4
+payload = "str_abc"
+token = "Real"
+[[rows]]
+error = "MethodError"
+hex = "61626300"
+kind = 6
+name = "str_abc__Number"
+nbytes = 4
+payload = "str_abc"
+token = "Number"
+[[rows]]
+error = "MethodError"
+hex = "61626300"
+kind = 6
+name = "str_abc__Integer"
+nbytes = 4
+payload = "str_abc"
+token = "Integer"
+[[rows]]
+error = "MethodError"
+hex = "61626300"
+kind = 6
+name = "str_abc__Signed"
+nbytes = 4
+payload = "str_abc"
+token = "Signed"
+[[rows]]
+error = "MethodError"
+hex = "61626300"
+kind = 6
+name = "str_abc__Unsigned"
+nbytes = 4
+payload = "str_abc"
+token = "Unsigned"
+[[rows]]
+error = "MethodError"
+hex = "61626300"
+kind = 6
+name = "str_abc__AbstractFloat"
+nbytes = 4
+payload = "str_abc"
+token = "AbstractFloat"
+[[rows]]
+hex = "61626300"
+kind = 6
+name = "str_abc__Symbol"
+nbytes = 4
+payload = "str_abc"
+token = "Symbol"
+type = "Symbol"
+value = "abc"
+[[rows]]
+hex = "61626300"
+kind = 6
+name = "str_abc__String"
+nbytes = 4
+payload = "str_abc"
+token = "String"
+type = "String"
+value = "abc"
+[[rows]]
+error = "MethodError"
+hex = "61626300"
+kind = 6
+name = "str_abc__Date"
+nbytes = 4
+payload = "str_abc"
+token = "Date"
+[[rows]]
+error = "MethodError"
+hex = "61626300"
+kind = 6
+name = "str_abc__DateTime"
+nbytes = 4
+payload = "str_abc"
+token = "DateTime"
+[[rows]]
+error = "MethodError"
+hex = "61626300"
+kind = 6
+name = "str_abc__Dates_DateTime"
+nbytes = 4
+payload = "str_abc"
+token = "Dates.DateTime"
+[[rows]]
+error = "MethodError"
+hex = "61626300"
+kind = 6
+name = "str_abc__Base_Float64"
+nbytes = 4
+payload = "str_abc"
+token = "Base.Float64"
+[[rows]]
+error = "MethodError"
+hex = "61626300"
+kind = 6
+name = "str_abc__Core_Int64"
+nbytes = 4
+payload = "str_abc"
+token = "Core.Int64"
+[[rows]]
+error = "MethodError"
+hex = "61626300"
+kind = 6
+name = "str_abc__TimeSeriesEcon_Int64"
+nbytes = 4
+payload = "str_abc"
+token = "TimeSeriesEcon.Int64"
+[[rows]]
+error = "MethodError"
+hex = "61626300"
+kind = 6
+name = "str_abc__Float64_"
+nbytes = 4
+payload = "str_abc"
+token = "Float64 "
+[[rows]]
+error = "MethodError"
+hex = "61626300"
+kind = 6
+name = "str_abc__BigInt"
+nbytes = 4
+payload = "str_abc"
+token = "BigInt"
+[[rows]]
+error = "MethodError"
+hex = "61626300"
+kind = 6
+name = "str_abc__BigFloat"
+nbytes = 4
+payload = "str_abc"
+token = "BigFloat"
+[[rows]]
+error = "MethodError"
+hex = "61626300"
+kind = 6
+name = "str_abc__Int"
+nbytes = 4
+payload = "str_abc"
+token = "Int"
+[[rows]]
+error = "MethodError"
+hex = "61626300"
+kind = 6
+name = "str_abc__UInt"
+nbytes = 4
+payload = "str_abc"
+token = "UInt"
+[[rows]]
+error = "MethodError"
+hex = "61626300"
+kind = 6
+name = "str_abc__Complex_Float64_"
+nbytes = 4
+payload = "str_abc"
+token = "Complex{Float64}"
+[[rows]]
+error = "MethodError"
+hex = "61626300"
+kind = 6
+name = "str_abc__Complex_Float32_"
+nbytes = 4
+payload = "str_abc"
+token = "Complex{Float32}"
+[[rows]]
+error = "MethodError"
+hex = "61626300"
+kind = 6
+name = "str_abc__Complex_Float16_"
+nbytes = 4
+payload = "str_abc"
+token = "Complex{Float16}"
+[[rows]]
+error = "MethodError"
+hex = "61626300"
+kind = 6
+name = "str_abc__MIT_Monthly_"
+nbytes = 4
+payload = "str_abc"
+token = "MIT{Monthly}"
+[[rows]]
+error = "MethodError"
+hex = "61626300"
+kind = 6
+name = "str_abc__Duration_Monthly_"
+nbytes = 4
+payload = "str_abc"
+token = "Duration{Monthly}"
+[[rows]]
+error = "MethodError"
+hex = "61626300"
+kind = 6
+name = "str_abc__Bool"
+nbytes = 4
+payload = "str_abc"
+token = "Bool"
+[[rows]]
+hex = "f753e3a59bc42000"
+kind = 1
+name = "i64_wrap__DateTime"
+nbytes = 8
+payload = "i64_wrap"
+token = "DateTime"
+type = "DateTime"
+value = "-292275055-5-16T16:47:3.384"
+[[rows]]
+hex = "f853e3a59bc42000"
+kind = 1
+name = "i64_wrap1__DateTime"
+nbytes = 8
+payload = "i64_wrap1"
+token = "DateTime"
+type = "DateTime"
+value = "-292275055-5-16T16:47:4.384"
+[[rows]]
+error = "InexactError"
+hex = "9c7500883ce4377e"
+kind = 4
+name = "f64_big__DateTime"
+nbytes = 8
+payload = "f64_big"
+token = "DateTime"
+[[rows]]
+hex = "fca9f1d24d62a042"
+kind = 4
+name = "f64_2p53ms__DateTime"
+nbytes = 8
+payload = "f64_2p53ms"
+token = "DateTime"
+type = "DateTime"
+value = "287396-10-12T8:59:0.992"

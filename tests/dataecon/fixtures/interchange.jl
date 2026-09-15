@@ -55,11 +55,13 @@
 # and identity object markers stored through the C entry points, and
 # Diagonal/Symmetric/Hermitian matrices materialised from either triangle
 # over ordinary, Boolean and represented elements.
-# Scalar marker actions: generate-scalar-markers/verify-scalar-markers (reference
-# only; not checked by verify-wheel): Int128/UInt128/ComplexF16, Symbol and other
-# string forms, Date/DateTime, Rational{T}, integer Complex{T}, Irrational and
-# foreign jtype markers injected on ordinary payloads, with Julia's loaded
-# type, value, rewrite and error outcomes materialised as siblings.
+# Scalar marker actions: generate-scalar-markers/verify-scalar-markers (the
+# reference fixture): Int128/UInt128/ComplexF16, Symbol and other string forms,
+# Date/DateTime, Rational{T}, integer Complex{T}, Irrational and foreign jtype
+# markers injected on ordinary payloads, with Julia's loaded type, value,
+# rewrite and error outcomes materialised as siblings. verify-wheel checks the
+# Python-written scalar forms (smw_*) against the pinned loader and Python's
+# verbatim rewrite of every reference case (smrw_*) against the fixture rows.
 using TimeSeriesEcon
 using Test, SHA, TOML, Pkg, Dates, LinearAlgebra
 # Julia rebuilds a Diagonal/Symmetric/Hermitian jtype marker with
@@ -3050,6 +3052,37 @@ end
 # set: Python writes none of these forms yet.
 sm_le(x) = Vector{UInt8}(reinterpret(UInt8, [x]))
 sm_cstr(s) = (b = Vector{UInt8}(codeunits(String(s))); push!(b, 0x00); b)
+# Python-written scalar forms checked by verify-wheel: (name, the value Julia's
+# loader must build) and (name, the exception type Julia's loader raises).
+function smw_expected_values()
+    return Any[
+        ("smw_half", 1 // 2), ("smw_2p54", Int64(2)^54 // 1),
+        ("smw_third_lossy", 6004799503160661 // 18014398509481984),
+        ("smw_third_int32", Rational{Int32}(1, 3)),
+        # float(3 // 2^62) rounds a partial quotient above 2^53: Julia reloads the nearby rational.
+        ("smw_3_2p62_lossy", Rational{Int128}(3, 4611686018427387649)),
+        ("smw_u8_three_quarters", Rational{UInt8}(3, 4)),
+        ("smw_day", Date(2024, 3, 15)), ("smw_stamp", DateTime(2024, 3, 15, 13, 45, 30, 123)),
+        ("smw_stamp_negative_ms", DateTime(1969, 12, 31, 23, 59, 59, 999)),
+        ("smw_year0", Date(0, 1, 1)), ("smw_year300k", Date(300000, 1, 1)),
+        ("smw_neg300k", DateTime(-300000, 6, 1, 12, 0, 0, 4)),
+        ("smw_z", Complex(Int64(2)^54, 1)), ("smw_z_neg", Complex(-3, 0)),
+        ("smw_z8", Complex{Int8}(127, -128)), ("smw_z128", Complex{Int128}(Int128(2)^100, Int128(2)^70)),
+        ("smw_zbool", Complex{Bool}(true, false)),
+        ("smw_sym", :gdp), ("smw_sym_empty", Symbol("")), ("smw_sym_multibyte", Symbol("é\U0001f642")),
+        ("smw_substring", SubString("hello", 1, 5)),
+        ("smw_raw", String([0x66, 0xff, 0x6f])),
+        # Python stored every byte of "a\0b" (allow_nul=True); Julia's loader reads up to the NUL.
+        ("smw_raw_nul", "a"),
+        ("smw_i128_min", typemin(Int128)), ("smw_i128_max", typemax(Int128)),
+        ("smw_u128_max", typemax(UInt128)), ("smw_u128_2p64", UInt128(2)^64),
+        ("smw_cf16", ComplexF16(1.5, -2.25)), ("smw_cf16_special", ComplexF16(NaN16, Inf16)),
+        ("smw_cf16_negzero", ComplexF16(-0.0, 0.0)),
+    ]
+end
+function smw_expected_errors()
+    return Any[("smw_opaque_irrational", MethodError), ("smw_opaque_unknown", UndefVarError)]
+end
 # Julia's own writer: (name, value).
 function sm_written_cases()
     return Any[
@@ -3313,6 +3346,62 @@ if action in ("generate-scalar-markers", "verify-scalar-markers")
                     e
                 end
                 verify_siblings(name, loaded)
+            end
+        end
+    end
+end
+
+if action == "verify-wheel"
+    @testset "DataEcon scalar marker interchange" begin
+        reference_path = joinpath(@__DIR__, "julia_scalar_markers.daec")
+        @test isfile(reference_path)
+        DE.opendaec(filename) do db
+            for (name, expected) in smw_expected_values()
+                id = DE.find_object(db, DE.root_id, name)
+                header, payload, attrs = sm_raw_scalar(db, id)
+                loaded = DE.load_scalar(db, id)
+                @test typeof(loaded) == typeof(expected)
+                @test isequal(loaded, expected)
+                # The stored form is what Julia's own writer produces for the value:
+                # its type code, width and marker (no marker on the plain widths).
+                if expected isa Union{Int128,UInt128}
+                    @test header[2] == (expected isa Int128 ? 1 : 2) && header[4] == 16 && !haskey(attrs, "jtype")
+                    @test payload == sm_le(expected)
+                elseif expected isa ComplexF16
+                    @test header == (1, 5, 0, 4) && !haskey(attrs, "jtype")
+                    @test payload == sm_le(expected)
+                elseif expected isa Symbol || expected isa SubString
+                    @test header[2] == 6 && attrs == Dict("jtype" => string(nameof(typeof(expected))) * (expected isa SubString ? "{String}" : ""))
+                elseif expected isa String
+                    @test header[2] == 6 && !haskey(attrs, "jtype")
+                elseif expected isa Union{Date,DateTime}
+                    @test header == (1, 4, 0, 8) && attrs == Dict("jtype" => string(nameof(typeof(expected))))
+                    @test payload == sm_le(Dates.datetime2unix(DateTime(expected)))
+                elseif expected isa Rational
+                    @test header == (1, 4, 0, 8) && attrs == Dict("jtype" => string(typeof(expected)))
+                elseif expected isa Complex
+                    @test header == (1, 5, 0, 16) && attrs == Dict("jtype" => string(typeof(expected)))
+                    @test payload == sm_le(ComplexF64(expected))
+                end
+            end
+            for (name, error_type) in smw_expected_errors()
+                id = DE.find_object(db, DE.root_id, name)
+                @test_throws error_type DE.load_scalar(db, id)
+                header, payload, attrs = sm_raw_scalar(db, id)
+                @test header == (1, 4, 0, 8) && haskey(attrs, "jtype")
+            end
+            # Python's verbatim rewrite of every reference case: identical header,
+            # bytes and attributes, and the same loader outcome (value or error).
+            DE.opendaec(reference_path) do ref
+                checked = 0
+                for name in [first(c) for c in sm_written_cases()] ∪ [first(c) for c in sm_raw_cases()]
+                    original = DE.find_object(ref, DE.root_id, name)
+                    rewritten = DE.find_object(db, DE.root_id, "smrw_" * name)
+                    @test sm_raw_scalar(db, rewritten) == sm_raw_scalar(ref, original)
+                    @test sm_outcome_text(db, rewritten) == sm_outcome_text(ref, original)
+                    checked += 1
+                end
+                @test checked == 151
             end
         end
     end

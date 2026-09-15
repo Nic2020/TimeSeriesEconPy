@@ -966,23 +966,32 @@ cdef class FileHandle:
                 memcpy(&code, <const char *>payload, sizeof(code))
                 validate_date_code(metadata[2], int(code))
                 verify_date(scal.frequency, code, self.path, name)
-            for key in (b"jtype", b"jeltype"):
-                rc = de_get_attribute(self.handle, oid, key, &attribute)
-                if rc == DE_MIS_ATTR:
-                    de_clear_error()
-                else:
-                    check(rc, "attribute", self.path, name)
-                    raise TypeError("Scalar reconstruction attributes are not supported.")
-            return payload, metadata, loaded_name
+            # Julia's scalar loader applies only the jtype attribute (a
+            # jeltype on a scalar is ignored there and here); the text is
+            # returned verbatim for the Python side to preserve or interpret
+            # against its finite table, never evaluated.
+            marker = None
+            rc = de_get_attribute(self.handle, oid, b"jtype", &attribute)
+            if rc == DE_MIS_ATTR:
+                de_clear_error()
+            else:
+                check(rc, "attribute", self.path, name)
+                if attribute == NULL:
+                    raise TypeError("DataEcon returned a NULL reconstruction attribute.")
+                marker = (<bytes>attribute).decode("utf-8")
+            return payload, metadata, loaded_name, marker
 
     def write_scalar(self, str name, int kind, frequency, bytes payload, bint overwrite=False,
-                     str parent="/"):
+                     str parent="/", marker=None):
         # kind is the validated native scalar type code: 1 (signed integer at a
         # validated width, or a Duration when frequency is nonzero), 2 (unsigned
         # integer), 3 (MIT date), 4 (float at a validated width), 5 (complex) or
         # 6 (string). Date frequencies cover Unit (11), the calendar codes and
         # year/period codes. validate_scalar_metadata bounds every payload width.
+        # marker is the exact jtype text stored after the value (Julia's own
+        # writer order), or None.
         cdef bytes encoded = name.encode("utf-8")
+        cdef bytes encoded_marker = b""
         cdef obj_id_t oid = 0
         cdef obj_id_t pid = 0
         cdef int rc
@@ -994,6 +1003,12 @@ cdef class FileHandle:
             raise ValueError("Expected a nonempty root object name without '/' or NUL.")
         if type(frequency) is not int:
             raise TypeError("Scalar frequency must be an integer native code.")
+        if marker is not None:
+            if type(marker) is not str:
+                raise TypeError("The scalar marker must be a string or None.")
+            encoded_marker = marker.encode("utf-8")
+            if b"\0" in encoded_marker:
+                raise ValueError("The scalar marker cannot contain NUL.")
         validate_scalar_metadata((1, kind, frequency, len(payload)))
         if kind == 4:
             native_type = type_float
@@ -1035,6 +1050,12 @@ cdef class FileHandle:
                                   len(payload), <const char *>payload, &oid),
                   "write_scalar (overwrite; original deleted, partial replacement may remain)"
                   if existing else "write_scalar (partial object may remain)", self.path, name)
+            if marker is not None:
+                # A failed attribute write leaves the value stored without its
+                # marker, readable as the plain family; no rollback.
+                check(de_set_attribute(self.handle, oid, b"jtype", encoded_marker),
+                      "write_scalar marker (the value is stored without its reconstruction "
+                      "marker; no rollback)", self.path, name)
 
     def delete(self, str name, bint recursive=False):
         # Delete one object by full path. A catalog is refused unless recursive

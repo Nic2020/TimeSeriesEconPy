@@ -16,9 +16,11 @@ import json
 import math
 import os
 import re
+import struct
 import subprocess
 import sys
 import sysconfig
+from fractions import Fraction
 from pathlib import Path
 
 import numpy as np
@@ -2312,7 +2314,135 @@ def check_represented_mvtseries(db: de.DataEconFile) -> None:  # noqa: PLR0912 -
             raise ValueError(f"Structure matrix {name} lost its wrapper marker.")
 
 
-def write_interchange(output_dir: Path, series: tsecon.TSeries) -> Path:
+# ---- marker-mapped, wide and exceptional scalars ------------------------------
+
+SCALAR_MARKER_FIXTURE = "julia_scalar_markers.daec"
+SCALAR_MARKER_CASES = 151
+
+
+def scalar_marker_inventory() -> list[tuple[str, object]]:
+    """Python inputs for the scalar forms Julia's own writer produces (verify-wheel names).
+
+    Each value is written through ``write_scalar``; the Julia verifier loads
+    the object with the pinned loader and compares it with the value the
+    Python side promised (``float(p//q)`` plus a ``Rational`` marker, unix
+    seconds plus ``Date``/``DateTime``, two Float64 plus an integer ``Complex``
+    marker, the sixteen- and four-byte widths, ``Symbol`` and raw text).
+    """
+    return [
+        ("smw_half", Fraction(1, 2)),
+        ("smw_2p54", Fraction(2**54)),
+        ("smw_third_lossy", de.StoredScalar.fraction(Fraction(1, 3), exact=False)),
+        ("smw_third_int32", de.StoredScalar.fraction(Fraction(1, 3), parameter="Int32")),
+        # 3/2**62 is not reconstructible under any parameter (Julia rounds the
+        # partial quotient above 2**53): the explicit lossy write records that.
+        (
+            "smw_3_2p62_lossy",
+            de.StoredScalar.fraction(Fraction(3, 2**62), parameter="Int128", exact=False),
+        ),
+        ("smw_u8_three_quarters", de.StoredScalar.fraction(Fraction(3, 4), parameter="UInt8")),
+        ("smw_day", dt.date(2024, 3, 15)),
+        ("smw_stamp", dt.datetime(2024, 3, 15, 13, 45, 30, 123000)),
+        ("smw_stamp_negative_ms", dt.datetime(1969, 12, 31, 23, 59, 59, 999000)),
+        ("smw_year0", de.StoredScalar.calendar_date(0, 1, 1)),
+        ("smw_year300k", de.StoredScalar.calendar_date(300000, 1, 1)),
+        ("smw_neg300k", de.StoredScalar.calendar_datetime(-300000, 6, 1, 12, 0, 0, 4)),
+        ("smw_z", de.IntegerComplex(2**54, 1)),
+        ("smw_z_neg", de.IntegerComplex(-3, 0)),
+        ("smw_z8", de.StoredScalar.integer_complex(127, -128, parameter="Int8")),
+        ("smw_z128", de.StoredScalar.integer_complex(2**100, 2**70, parameter="Int128")),
+        ("smw_zbool", de.StoredScalar.integer_complex(1, 0, parameter="Bool")),
+        ("smw_sym", de.StoredScalar.symbol("gdp")),
+        ("smw_sym_empty", de.StoredScalar.symbol("")),
+        ("smw_sym_multibyte", de.StoredScalar.symbol("\u00e9\U0001f642")),
+        ("smw_substring", de.StoredScalar.text("hello", "SubString{String}")),
+        ("smw_raw", de.StoredScalar.raw_text(b"f\xffo")),
+        ("smw_raw_nul", de.StoredScalar.raw_text(b"a\0b", allow_nul=True)),
+        ("smw_i128_min", de.StoredScalar.int128(-(2**127))),
+        ("smw_i128_max", de.StoredScalar.int128(2**127 - 1)),
+        ("smw_u128_max", de.StoredScalar.uint128(2**128 - 1)),
+        ("smw_u128_2p64", de.StoredScalar.uint128(2**64)),
+        ("smw_cf16", de.StoredScalar.complexf16(complex(1.5, -2.25))),
+        ("smw_cf16_special", de.StoredScalar.complexf16(complex(math.nan, math.inf))),
+        ("smw_cf16_negzero", de.StoredScalar.complexf16(complex(-0.0, 0.0))),
+        # Opaque markers are preserved on write; Julia's loader fails on them.
+        (
+            "smw_opaque_irrational",
+            de.StoredScalar(struct.pack("<d", 3.141592653589793), 4, 0, "Irrational{:\u03c0}"),
+        ),
+        ("smw_opaque_unknown", de.StoredScalar(struct.pack("<d", 1.5), 4, 0, "NoSuchType")),
+    ]
+
+
+def reference_scalar_markers(fixture: Path) -> dict[str, de.StoredScalar]:
+    """Every ``sm_*`` case of the reference fixture, read in its stored form."""
+    path = fixture.parent / SCALAR_MARKER_FIXTURE
+    if not path.is_file():
+        raise FileNotFoundError(f"The scalar-marker reference fixture is missing: {path}")
+    siblings = ("_type", "_value", "_julia", "_rewrite", "_error")
+    with de.open_dataecon(path) as db:
+        names = sorted(
+            info.name
+            for info in db.list_objects()
+            if info.name.startswith("sm_") and not info.name.endswith(siblings)
+        )
+        cases = {name: db.read_scalar(name) for name in names}
+    if len(cases) != SCALAR_MARKER_CASES or any(
+        not isinstance(value, de.StoredScalar) for value in cases.values()
+    ):
+        raise ValueError("The scalar-marker reference fixture inventory changed.")
+    return cases
+
+
+def write_scalar_markers(db: de.DataEconFile, fixture: Path) -> None:
+    """Write the Python-built scalar forms and rewrite every reference case verbatim."""
+    for name, value in scalar_marker_inventory():
+        db.write_scalar(name, value)
+    for name, stored in reference_scalar_markers(fixture).items():
+        db.write_scalar(f"smrw_{name}", stored)
+
+
+def check_scalar_markers(db: de.DataEconFile, fixture: Path) -> None:
+    """Read every scalar written by :func:`write_scalar_markers` back exactly."""
+    expected_markers = {
+        "smw_half": {"jtype": "Rational{Int64}"},
+        "smw_day": {"jtype": "Date"},
+        "smw_stamp": {"jtype": "DateTime"},
+        "smw_z": {"jtype": "Complex{Int64}"},
+        "smw_sym": {"jtype": "Symbol"},
+        "smw_raw": {},
+        "smw_i128_min": {},
+    }
+    for name, value in scalar_marker_inventory():
+        actual = db.read_scalar(name)
+        if not isinstance(actual, de.StoredScalar):
+            raise ValueError(f"Scalar {name} did not read back in its stored form.")
+        if isinstance(value, de.StoredScalar):
+            if actual != value:
+                raise ValueError(f"Scalar {name} changed on the way back.")
+        elif actual.marker is None or actual.to_interpreted() != value:
+            raise ValueError(f"Scalar {name} does not interpret to its input.")
+        if name in expected_markers and db.get_attributes(name) != expected_markers[name]:
+            raise ValueError(f"Scalar {name} marker mismatch: {db.get_attributes(name)}.")
+    assert db.read_scalar("smw_half").to_fraction() == Fraction(1, 2)
+    assert db.read_scalar("smw_third_lossy").to_fraction() == Fraction(
+        6004799503160661, 18014398509481984
+    )
+    assert db.read_scalar("smw_neg300k").to_calendar() == (-300000, 6, 1, 12, 0, 0, 4)
+    assert db.read_scalar("smw_z128").to_integer_complex() == de.IntegerComplex(2**100, 2**70)
+    assert db.read_scalar("smw_cf16_negzero").to_complex64() == np.complex64(0)
+    for name, stored in reference_scalar_markers(fixture).items():
+        actual = db.read_scalar(f"smrw_{name}")
+        if actual != stored:
+            raise ValueError(f"Rewritten reference scalar {name} changed on the way back.")
+        markers = {} if stored.marker is None else {"jtype": stored.marker}
+        if db.get_attributes(f"smrw_{name}") != markers:
+            raise ValueError(f"Rewritten reference scalar {name} lost or gained a marker.")
+
+
+def write_interchange(  # noqa: PLR0915 - one write set per interchange family
+    output_dir: Path, series: tsecon.TSeries, fixture: Path
+) -> Path:
     """Write and reopen series and scalars for separate Julia verification."""
     output_dir.mkdir(parents=True, exist_ok=True)
     output = output_dir / f"cp{sys.version_info.major}{sys.version_info.minor}.daec"
@@ -2320,6 +2450,7 @@ def write_interchange(output_dir: Path, series: tsecon.TSeries) -> Path:
         raise FileExistsError(f"Use a fresh interchange output directory: {output}")
     with de.open_dataecon(output, "a") as db:
         db.write_series("sample", series)
+        write_scalar_markers(db, fixture)
         write_series_elements(db)
         write_represented_series(db)
         write_foreign_markers(db)
@@ -2347,6 +2478,7 @@ def write_interchange(output_dir: Path, series: tsecon.TSeries) -> Path:
     write_file_operations(output)
     check_discovery_contract(output_dir)
     with de.open_dataecon(output) as db:
+        check_scalar_markers(db, fixture)
         check_series_elements(db)
         check_represented_series(db)
         check_foreign_markers(db)
@@ -2432,7 +2564,7 @@ def check(fixture: Path, output_dir: Path) -> None:
     if not series.values.flags.owndata:
         raise ValueError("Loaded series does not own its data.")
     np.testing.assert_array_equal(series.values, [1.25, -2.5, 0.0, 4.75])
-    output = write_interchange(output_dir, series)
+    output = write_interchange(output_dir, series, fixture)
     print(f"DataEcon installed-wheel check passed for Python {sys.version.split()[0]}.")
     print(f"Package: {Path(tsecon.__file__).parent}")
     if sys.platform == "win32":

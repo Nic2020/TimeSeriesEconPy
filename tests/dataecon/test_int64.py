@@ -15,7 +15,7 @@ import numpy as np
 import pytest
 
 from tsecon import MIT, Duration, Monthly
-from tsecon.dataecon import DataEconError, open_dataecon
+from tsecon.dataecon import DataEconError, StoredScalar, open_dataecon
 from tsecon.dataecon._codec import decode_scalar, encode_scalar, validate_scalar_metadata
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -47,9 +47,11 @@ NATIVE_CASES = [
     ("int_native_negative_one", -1),
 ]
 # Julia-written neighbours of Int64 that Python must refuse to coerce.
-CONTROLS = {
-    "ctl_int128": ValueError,
-    "ctl_rational": TypeError,
+# Julia-written neighbours outside the plain families read as StoredScalar:
+# the sixteen-byte Int128 width and the Rational{Int64} marker (1//2).
+STORED_CONTROLS = {
+    "ctl_int128": (1, 16, None, 7),
+    "ctl_rational": (4, 8, "Rational{Int64}", Fraction(1, 2)),
 }
 # Neighbours that later slices made supported; they must never read as int.
 # Julia itself reloads a stored Bool as Int8, which Python returns as np.int8.
@@ -156,15 +158,23 @@ def test_int64_metadata_guard_rejects_unsupported_duration_date_unsigned_and_cla
         validate_scalar_metadata(metadata)
 
 
-@pytest.mark.parametrize("nbytes", [0, 3, 7, 9, 16, -8, 2**62])
+@pytest.mark.parametrize("nbytes", [0, 3, 7, 9, 12, -8, 2**62])
 def test_int64_metadata_guard_rejects_other_widths(nbytes):
-    # 1, 2 and 4 bytes are Int8/Int16/Int32 since the width slice; 16 (Int128)
-    # stays rejected until a Python representation is chosen.
+    # 1, 2 and 4 bytes are Int8/Int16/Int32 since the width slice; 16 is the
+    # Int128 width, read as a StoredScalar.
     with pytest.raises(ValueError, match="eight"):
         validate_scalar_metadata((1, 1, 0, nbytes))
     if 0 <= nbytes <= 16:
         with pytest.raises(ValueError, match="eight"):
             decode_scalar(1, 0, bytes(nbytes))
+
+
+def test_int64_sixteen_bytes_read_as_stored_int128():
+    validate_scalar_metadata((1, 1, 0, 16))
+    stored = decode_scalar(1, 0, (-3).to_bytes(16, "little", signed=True))
+    assert type(stored) is StoredScalar
+    assert stored.julia_name == "Int128"
+    assert stored.to_int() == -3
 
 
 def test_int64_metadata_guard_accepts_exact_encoding():
@@ -179,9 +189,11 @@ def test_julia_int64_fixture_values_and_controls():
     assert hashlib.sha256(fixture.read_bytes()).hexdigest() == provenance["fixture_sha256"]
     with open_dataecon(fixture) as db:
         results = [(db.read_scalar(name), value) for name, value in CASES + NATIVE_CASES]
-        for name, error in CONTROLS.items():
-            with pytest.raises(error):
-                db.read_scalar(name)
+        for name, (kind, nbytes, marker, value) in STORED_CONTROLS.items():
+            stored = db.read_scalar(name)
+            assert type(stored) is StoredScalar
+            assert (stored.kind, stored.nbytes, stored.marker) == (kind, nbytes, marker)
+            assert stored.to_interpreted() == value
         for name, expected in SUPPORTED_CONTROLS.items():
             loaded = db.read_scalar(name)
             assert type(loaded) is type(expected)
@@ -254,7 +266,7 @@ def test_int64_roundtrip_storage_and_shared_namespace(tmp_path):
         (7, bytes(8), TypeError),
         (3, bytes(8), TypeError),
         (1, bytes(3), ValueError),
-        (1, bytes(16), ValueError),
+        (1, bytes(12), ValueError),
         (1, b"", ValueError),
     ],
 )
@@ -275,7 +287,7 @@ def test_int64_backend_validates_kind_and_width_before_storage(tmp_path, kind, p
     [
         ("UPDATE scalars SET value=NULL", ValueError),
         ("UPDATE scalars SET value=zeroblob(3)", ValueError),
-        ("UPDATE scalars SET value=zeroblob(16)", ValueError),
+        ("UPDATE scalars SET value=zeroblob(12)", ValueError),
         ("UPDATE scalars SET frequency=16", TypeError),
         ("UPDATE objects SET type=7", TypeError),
         ("UPDATE objects SET type=3", TypeError),
@@ -306,6 +318,22 @@ def test_int64_rejects_all_reconstruction_attributes(tmp_path, key, value):
             (key, value),
         )
     with open_dataecon(path) as db:
-        with pytest.raises(TypeError, match="reconstruction"):
-            db.read_scalar("int_seven")
+        if key == "jeltype":
+            # Julia's scalar loader ignores jeltype; so does Python.
+            assert_int(db.read_scalar("int_seven"), 7)
+        elif value is None:
+            with pytest.raises(TypeError, match="NULL reconstruction attribute"):
+                db.read_scalar("int_seven")
+        else:
+            # The marker is preserved, never evaluated; interpretation is explicit.
+            stored = db.read_scalar("int_seven")
+            assert type(stored) is StoredScalar
+            assert stored == StoredScalar(struct.pack("<q", 7), 1, 0, value)
+            if value == "Int64":
+                assert_int(stored.to_interpreted(), 7)
+            elif value == "Duration{Monthly}":
+                assert stored.to_interpreted() == Duration(Monthly(), 7)
+            else:
+                with pytest.raises(TypeError, match="no supported interpretation"):
+                    stored.to_interpreted()
         assert_int(db.read_scalar("int_negative_seven"), -7)

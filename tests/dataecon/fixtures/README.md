@@ -492,13 +492,13 @@ bytes). `verify-wheel` applies the same checks to the objects Python writes
 under the same names, where the foreign Int64 `Bool` row is written in the
 canonical Int8 encoding and empty wrappers omit the redundant element token.
 
-## Scalar marker fixture (reference only)
+## Scalar marker fixture and the scalar marker verifier set
 
 `julia_scalar_markers.daec` and its TOML provenance are generated with
-`generate-scalar-markers` and checked with `verify-scalar-markers`; it is a
-reference fixture and is not part of `verify-wheel` because Python writes none
-of these forms yet. Its `sm_*` objects are the scalars Julia's own writer
-stores that Python does not read: Int128/UInt128 and ComplexF16 widths;
+`generate-scalar-markers` and checked with `verify-scalar-markers`. Its
+`sm_*` objects are the scalars Julia's own writer stores that Python reads as
+`StoredScalar` (exact bytes, type, frequency and marker, never evaluated):
+Int128/UInt128 and ComplexF16 widths;
 `Symbol` (including empty, multibyte, spaced and invalid-UTF-8 names),
 `SubString`, another `AbstractString` (stored without a terminator), invalid
 UTF-8 and embedded-NUL `String`s; `Date`/`DateTime` from year -300000 to
@@ -523,6 +523,41 @@ reloads as `3//4611686018427387649`); `unix2datetime` truncates, and a
 millisecond beyond 2^53 ms is lost by Julia's own writer; Julia's rewrite of
 an Int64-payload `Complex{Int64}` above 2^53, of `typemax(Int64)//1` and of
 `-128//1` under Int8 does not reproduce what it loaded. `tests/dataecon/
-test_scalar_markers_fixture.py` checks today's refusals, the readable
-attributes, the Workspace skip-and-report outcome and that the exact
-reconstruction helpers reproduce every materialised outcome.
+test_scalar_markers_fixture.py` checks that every case reads in its exact
+stored form, that `to_interpreted()` reproduces each materialised outcome or
+raises the documented class, that a rewrite through `write_scalar` reproduces
+every row byte for byte (marker included), that a Workspace read loads every
+object, and that the exact reconstruction helpers reproduce every outcome.
+
+`verify-wheel` checks the scalar marker set on the installed-wheel output:
+the `smw_*` objects the checker writes from Python inputs (`Fraction`,
+`datetime.date`/`datetime.datetime`, `IntegerComplex`, `StoredScalar`
+constructors for the parameters, calendar years, `Symbol`, raw text and the
+wide widths, plus two opaque markers) must load in the pinned Julia as the
+promised values (the explicitly lossy `1//3` and `3//2^62` writes as the
+rationals Julia rebuilds; the opaque markers as `MethodError`/`UndefVarError`),
+carry the storage Julia's own writer produces, and the `smrw_*` objects (the
+checker's verbatim rewrite of all 151 reference cases) must match the
+reference fixture's header, bytes and attributes and give the same loader
+outcome. The set has 750 assertions.
+
+## Scalar route probe (reference only)
+
+`julia_scalar_routes.toml` records, for 754 payload/marker pairs, what the
+pinned Julia loader builds (type and canonical text) or raises when an
+ordinary payload (Int8/16/32/64/128, UInt8/64/128, Float16/32/64,
+ComplexF16/32/64 and a string) carries one of thirty `jtype` spellings (the
+bare `Rational` and `Complex`, `Rational{Int}`/`Complex{Int}`, the abstract
+`Any`/`Real`/`Number`/`Integer`/`Signed`/`Unsigned`/`AbstractFloat`,
+`Symbol`/`String`, `Date`/`DateTime`/`Dates.DateTime`, qualified and spaced
+numeric spellings, `BigInt`/`BigFloat`, the `Int`/`UInt`/`Complex{FloatN}`
+aliases, `MIT{Monthly}`/`Duration{Monthly}` and `Bool`), plus the Int64
+`unix2datetime` wrap and 2^53 ms edges. It is produced by
+`scalar_routes_probe.jl` (same isolated project and checkout rules as
+`interchange.jl`; the `.daec` it writes is not kept) and consumed by
+`tests/dataecon/test_scalars.py`, which checks every row against the
+`StoredScalar` interpretation table: the supported routes reproduce the
+recorded value, Julia's failures raise, and the documented design differences
+(`Symbol` of a printed float, rationalizing in a narrower float width, unverified
+date payload widths, the Int64 wrap, `BigFloat`, `+/-1//0`, a monthly code
+beyond the reliable window) raise the stated class.

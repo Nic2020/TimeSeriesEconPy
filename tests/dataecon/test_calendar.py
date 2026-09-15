@@ -32,7 +32,7 @@ from tsecon import (
     mit_to_date,
     weekly,
 )
-from tsecon.dataecon import DataEconError, open_dataecon
+from tsecon.dataecon import DataEconError, StoredScalar, open_dataecon
 from tsecon.dataecon._codec import (
     decode_scalar,
     encode_scalar,
@@ -465,8 +465,31 @@ def test_rejects_all_reconstruction_attributes(tmp_path, key, value):
             "('mit_d_typical','mit_u_five','dur_w7_one')",
             (key, value),
         )
+    plain = {
+        "mit_d_typical": MIT(Daily(), 738900),
+        "mit_u_five": MIT(Unit(), 5),
+        "dur_w7_one": Duration(Weekly(7), 1),
+    }
     with open_dataecon(path) as db:
-        for name in ("mit_d_typical", "mit_u_five", "dur_w7_one"):
-            with pytest.raises(TypeError, match="reconstruction"):
-                db.read_scalar(name)
+        for name, expected in plain.items():
+            if key == "jeltype":
+                # Julia's scalar loader ignores jeltype; so does Python.
+                assert_exact(db.read_scalar(name), expected)
+                continue
+            if value is None:
+                with pytest.raises(TypeError, match="NULL reconstruction attribute"):
+                    db.read_scalar(name)
+                continue
+            stored = db.read_scalar(name)
+            assert type(stored) is StoredScalar
+            assert (stored.marker, stored.to_int()) == (value, expected.value)
+            assert stored.frequency == encode_scalar(expected)[1]
+            if value == stored.julia_name:
+                assert_exact(stored.to_interpreted(), expected)  # identity
+            elif value.startswith("MIT{"):
+                with pytest.raises(TypeError, match="no conversion"):
+                    stored.to_interpreted()
+            else:
+                with pytest.raises(TypeError, match="no supported interpretation"):
+                    stored.to_interpreted()
         assert_exact(db.read_scalar("mit_d_zero"), MIT(Daily(), 0))

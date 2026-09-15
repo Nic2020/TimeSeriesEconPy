@@ -242,7 +242,7 @@ def test_malformed_native_records_do_not_poison_other_objects(tmp_path, sql, exc
     [
         ("empty", "jeltype", "Float128"),
         ("empty", "jeltype", None),
-        ("empty", "jtype", "Vector{Int64}"),
+        ("empty", "jtype", "Vector{Real}"),  # Vector{Int64} on an empty base now loads
         ("empty", "jtype", None),
         ("cross_year", "jeltype", "Symbol"),
         ("empty", "jeltype", "error(123)"),

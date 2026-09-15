@@ -28,7 +28,7 @@ from tsecon import (
     Yearly,
     mit2yp,
 )
-from tsecon.dataecon import DataEconError, open_dataecon
+from tsecon.dataecon import DataEconError, StoredScalar, open_dataecon
 from tsecon.dataecon._codec import (
     decode_scalar,
     encode_scalar,
@@ -384,8 +384,30 @@ def test_date_rejects_all_reconstruction_attributes(tmp_path, key, value):
             (key, value),
         )
     with open_dataecon(path) as db:
-        with pytest.raises(TypeError, match="reconstruction"):
-            db.read_scalar("mit_m_typical")
-        with pytest.raises(TypeError, match="reconstruction"):
-            db.read_scalar("dur_m_one")
+        if key == "jeltype":
+            # Julia's scalar loader ignores jeltype; so does Python.
+            assert_exact(db.read_scalar("mit_m_typical"), MIT(Monthly(), 24288))
+            assert_exact(db.read_scalar("dur_m_one"), Duration(Monthly(), 1))
+        elif value is None:
+            for name in ("mit_m_typical", "dur_m_one"):
+                with pytest.raises(TypeError, match="NULL reconstruction attribute"):
+                    db.read_scalar(name)
+        else:
+            date, duration = db.read_scalar("mit_m_typical"), db.read_scalar("dur_m_one")
+            assert date == StoredScalar(struct.pack("<q", 24288), 3, 32, value)
+            assert duration == StoredScalar(struct.pack("<q", 1), 1, 32, value)
+            # The token naming the stored family is Julia's identity conversion;
+            # the other date family has no conversion; anything else is opaque.
+            if value == "MIT{Monthly}":
+                assert_exact(date.to_interpreted(), MIT(Monthly(), 24288))
+                with pytest.raises(TypeError, match="no conversion"):
+                    duration.to_interpreted()
+            elif value == "Duration{Monthly}":
+                assert_exact(duration.to_interpreted(), Duration(Monthly(), 1))
+                with pytest.raises(TypeError, match="no conversion"):
+                    date.to_interpreted()
+            else:
+                for stored in (date, duration):
+                    with pytest.raises(TypeError, match="no supported interpretation"):
+                        stored.to_interpreted()
         assert_exact(db.read_scalar("mit_m_zero"), MIT(Monthly(), 0))

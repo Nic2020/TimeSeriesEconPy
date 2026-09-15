@@ -20,8 +20,10 @@ method that stores it, with that method's own validation and residue rules.
 
 from __future__ import annotations
 
+import datetime as dt
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
+from fractions import Fraction
 from typing import TYPE_CHECKING, Any, NamedTuple
 
 import numpy as np
@@ -35,6 +37,7 @@ from tsecon.workspace import Workspace
 from ._arrays import StoredArray, StoredText
 from ._errors import DataEconError
 from ._represented import StoredMVTSeries, StoredSeries
+from ._scalars import IntegerComplex, StoredScalar
 
 if TYPE_CHECKING:
     from . import DataEconFile
@@ -100,7 +103,20 @@ class LoadedWorkspace(NamedTuple):
 _REPORTED = (TypeError, ValueError, DataEconError)
 _SERIES_TYPES = (TSeries, MVTSeries, StoredSeries, StoredMVTSeries)
 _ARRAY_TYPES = (np.ndarray, StoredArray, StoredText, list, tuple, range, MITRange)
-_SCALAR_TYPES = (bool, int, float, complex, str, MIT, Duration, np.generic)
+_SCALAR_TYPES = (
+    bool,
+    int,
+    float,
+    complex,
+    str,
+    MIT,
+    Duration,
+    np.generic,
+    StoredScalar,
+    Fraction,
+    dt.date,
+    IntegerComplex,
+)
 # Stored (class, type) pairs the typed readers accept; every other pair is a
 # native-only encoding that Julia never writes and Python does not load.
 _READERS = {

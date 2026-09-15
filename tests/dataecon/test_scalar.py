@@ -19,7 +19,7 @@ import numpy as np
 import pytest
 
 from tsecon import TSeries, mm
-from tsecon.dataecon import DataEconError, _codec, open_dataecon
+from tsecon.dataecon import DataEconError, StoredScalar, _codec, open_dataecon
 from tsecon.dataecon._codec import decode_scalar, encode_scalar, validate_scalar_metadata
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -236,6 +236,19 @@ def test_scalar_rejects_all_reconstruction_attributes(tmp_path, key, value):
             (key, value),
         )
     with open_dataecon(path) as db:
-        with pytest.raises(TypeError, match="reconstruction"):
-            db.read_scalar("scalar_finite")
+        if key == "jeltype":
+            # Julia's scalar loader ignores jeltype; so does Python.
+            assert db.read_scalar("scalar_finite") == 1.25
+        elif value is None:
+            with pytest.raises(TypeError, match="NULL reconstruction attribute"):
+                db.read_scalar("scalar_finite")
+        else:
+            stored = db.read_scalar("scalar_finite")
+            assert type(stored) is StoredScalar
+            assert stored == StoredScalar(struct.pack("<d", 1.25), 4, 0, value)
+            if value == "Float64":
+                assert stored.to_interpreted() == 1.25
+            else:
+                with pytest.raises(TypeError, match="no supported interpretation"):
+                    stored.to_interpreted()
         assert db.read_scalar("scalar_negative") == -2.5

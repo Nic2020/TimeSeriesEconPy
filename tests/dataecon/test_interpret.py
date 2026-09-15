@@ -56,7 +56,7 @@ def numeric(dtype, values, marker):
 
 class TestTokens:
     def test_finite_vocabulary(self):
-        assert len(interp.ACTIVE_TOKENS) == 14 + 3 + 64 + 3
+        assert len(interp.ACTIVE_TOKENS) == 14 + 3 + 64 + 5
         for alias, name in interp.ALIASES.items():
             assert interp.resolve_token(alias) == interp.resolve_token(name)
         assert interp.resolve_token("MIT{Weekly{7}}") == interp.date_target("date", Weekly(7))
@@ -78,7 +78,7 @@ class TestTokens:
             "MIT{ Monthly}",
             "Rational{Int64}",
             "Complex{Int64}",
-            "Complex{Float32}",
+            "Complex{Float128}",
             "Date",
             "Symbol",
             "Any",
@@ -108,7 +108,13 @@ class TestObjectPrecedence:
         base = target(I16)
         for token in (
             "TSeries",
+            " TSeries",
+            "TimeSeriesEcon.TSeries",
+            "AbstractVector",
+            "Any",
+            "TSeries{Monthly}",
             "TSeries{Monthly, Int16}",
+            "TSeries{Monthly,Int16}",
             "TSeries{Monthly, Int16, Vector{Int16}}",
         ):
             assert interp.object_interpretation(token, Monthly(), base, 2) == "identity"
@@ -128,12 +134,13 @@ class TestObjectPrecedence:
         [
             "TSeries{Monthly, Int64}",
             "TSeries{Quarterly{3}, Int16}",
+            "TSeries{Quarterly{3}}",
             "TSeries{Monthly, Int16, Vector{Float64}}",
-            "TSeries{Monthly,Int16}",
-            " TSeries",
-            "TSeries{Monthly}",
-            "AbstractVector",
-            "Any",
+            "TSeries{Monthly,Int16,Vector{Int16}}",
+            "TSeries ",
+            "Base.TSeries",
+            "AbstractArray",
+            "Real",
             "MVTSeries",
             "Symbol",
             "",
@@ -150,14 +157,33 @@ class TestObjectPrecedence:
         )
         assert interp.vector_dtype("Vector", target(C128)) == C128
         assert interp.vector_dtype("Vector{Float64}", target(C128)) == F64
+        # Every exact element name in the four verified spellings, Bool and the
+        # wide carriers included, plus the bare Array and Vector{Any}.
+        for element, dtype in (("Int8", np.dtype("i1")), ("Bool", np.dtype("?"))):
+            for token in (
+                f"Vector{{{element}}}",
+                f"Array{{{element}}}",
+                f"Array{{{element},1}}",
+                f"Array{{{element}, 1}}",
+            ):
+                assert interp.object_interpretation(token, Monthly(), target(I64), 0) == "vector"
+                assert interp.vector_dtype(token, target(I64)) == dtype
+        assert interp.vector_dtype("Vector{Int128}", target(I64)) == INT128.dtype
+        assert interp.vector_dtype("Vector{ComplexF16}", target(I64)) == COMPLEXF16.dtype
+        assert interp.vector_dtype("Array", target(INT128)) == INT128.dtype
+        assert interp.vector_dtype("Vector{Any}", target(I64)) == np.dtype(object)
+        assert interp.object_interpretation("Vector", Monthly(), target(INT128), 0) == "vector"
         with pytest.raises(ValueError, match="empty payload only"):
             interp.object_interpretation("Vector", Monthly(), target(I64), 1)
-        with pytest.raises(TypeError):
-            interp.object_interpretation("Vector", Monthly(), target(INT128), 0)
+        with pytest.raises(ValueError, match="empty payload only"):
+            interp.object_interpretation("Array{Int8, 1}", Monthly(), target(I64), 3)
         with pytest.raises(TypeError):
             interp.object_interpretation(
                 "Vector", Monthly(), target(StoredElement.date(Monthly())), 0
             )
+        for token in ("Vector{Int}", "Vector{Complex{Float16}}", "Array{Int8,2}", "Vector{Real}"):
+            with pytest.raises(TypeError):
+                interp.object_interpretation(token, Monthly(), target(I64), 0)
 
 
 # ---- routes ---------------------------------------------------------------
@@ -891,6 +917,24 @@ class TestStoredSeriesInterpretation:
             object_marker="Vector{Float64}",
         )
         assert typed.to_interpreted().dtype == F64
+        # The wider verified spellings: every element name, the bare Array,
+        # Vector{Any} (object dtype) and the wide carriers on a wide base.
+        for token, dtype in (
+            ("Array{Bool, 1}", np.dtype("?")),
+            ("Vector{Int128}", INT128.dtype),
+            ("Array{ComplexF16}", COMPLEXF16.dtype),
+            ("Vector{Any}", np.dtype(object)),
+            ("Array", np.dtype("<i8")),
+        ):
+            wider = StoredSeries(
+                ANCHOR, np.empty(0, dtype="<i8"), StoredElement.numeric("<i8"), object_marker=token
+            )
+            result = wider.to_interpreted()
+            assert (result.dtype, result.shape) == (dtype, (0,)), token
+        on_wide = StoredSeries(
+            ANCHOR, np.empty(0, dtype=INT128.dtype), INT128, object_marker="Vector{Float64}"
+        )
+        assert on_wide.to_interpreted().dtype == F64
         with pytest.raises(ValueError, match="empty payload only"):
             StoredSeries(
                 ANCHOR, np.array([1.0]), StoredElement.numeric("<f8"), object_marker="Vector"

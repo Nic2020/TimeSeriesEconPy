@@ -61,8 +61,15 @@ _NATIVE_KINDS: dict[str, int] = {"date": KIND_DATE, "duration": KIND_INTEGER}
 _NATIVE_KINDS.update({"int128": KIND_INTEGER, "uint128": KIND_UNSIGNED, "complexf16": KIND_COMPLEX})
 _DTYPE_KINDS = {"i": KIND_INTEGER, "u": KIND_UNSIGNED, "f": KIND_FLOAT, "c": KIND_COMPLEX}
 _NUMERIC_NAMES = {dtype: name for name, (_, dtype) in JULIA_NUMERIC_TYPES.items()}
-# Literal aliases Julia resolves to the same types on every supported platform.
-ALIASES: dict[str, str] = {"Int": "Int64", "UInt": "UInt64", "Complex{Float16}": "ComplexF16"}
+# Literal aliases Julia resolves to the same types on every supported platform
+# (each verified individually against the pinned loader).
+ALIASES: dict[str, str] = {
+    "Int": "Int64",
+    "UInt": "UInt64",
+    "Complex{Float16}": "ComplexF16",
+    "Complex{Float32}": "ComplexF32",
+    "Complex{Float64}": "ComplexF64",
+}
 # Numeric targets Julia can build from MIT/Duration elements (besides Bool).
 _DATE_TARGET_DTYPES = (
     np.dtype("<i8"),
@@ -132,14 +139,44 @@ def _date_tokens() -> dict[str, Target]:
 
 
 # The finite active ``jeltype`` vocabulary: 14 ordinary names, the three wide
-# carriers, 64 exact date/duration tokens and three tested aliases.
+# carriers, 64 exact date/duration tokens and five tested aliases.
 ACTIVE_TOKENS: dict[str, Target] = {
     **{name: numeric_target(dtype) for name, (_, dtype) in JULIA_NUMERIC_TYPES.items()},
     **{name: wide_target(kind) for kind, name in _WIDE_NAMES.items()},
     **_date_tokens(),
 }
 ACTIVE_TOKENS.update({alias: ACTIVE_TOKENS[name] for alias, name in ALIASES.items()})
-VECTOR_TOKENS = ("Vector", "Vector{Float64}")
+# Whole-object tokens on a dated series. Julia's loader applies `convert(T,
+# value)` to the loaded TSeries: the bare/qualified container name, the exactly
+# spelled parameterised forms naming this axis and element (both spacings, with
+# `Vector{T}` as the optional third parameter) and the abstract
+# `AbstractVector`/`Any` are identities; a mismatched axis or element parameter
+# is a `MethodError` (no element conversion is attempted in its place); the
+# plain vector spellings below are `DimensionMismatch` on a nonempty series and
+# build a typed empty vector on an empty one. Every spelling was verified
+# individually against the pinned loader over eighteen element families.
+TSERIES_IDENTITY_TOKENS = (
+    "TSeries",
+    " TSeries",
+    "TimeSeriesEcon.TSeries",
+    "AbstractVector",
+    "Any",
+)
+_EMPTY_VECTOR_ELEMENTS: tuple[str, ...] = (
+    *(name for name in JULIA_NUMERIC_TYPES),
+    *_WIDE_NAMES.values(),
+)
+# The bare vector spellings and `Vector{T}`/`Array{T}`/`Array{T,1}`/
+# `Array{T, 1}` for the eighteen exact element names, plus `Vector{Any}`.
+VECTOR_TOKENS: dict[str, str | None] = {"Vector": None, "Array": None, "Vector{Any}": "Any"}
+for _element in _EMPTY_VECTOR_ELEMENTS:
+    for _spelling in (
+        f"Vector{{{_element}}}",
+        f"Array{{{_element}}}",
+        f"Array{{{_element},1}}",
+        f"Array{{{_element}, 1}}",
+    ):
+        VECTOR_TOKENS[_spelling] = _element
 
 
 def check_marker_text(marker: object, name: str) -> None:
@@ -160,23 +197,27 @@ def resolve_token(token: str) -> Target | None:
 def object_interpretation(token: str, axis: Frequency, base: Target, length: int) -> str:
     """Classify a supported ``jtype`` token as ``"identity"`` or ``"vector"``.
 
-    ``TSeries`` and the exactly spelled ``TSeries{F, T}`` /
-    ``TSeries{F, T, Vector{T}}`` tokens naming this object's axis and base
-    element are identity conversions in Julia; any other spelling or a
-    mismatched parameter fails there and is refused here (no element
-    conversion is attempted in its place). ``Vector`` and ``Vector{Float64}``
-    are supported for empty ordinary numeric payloads only.
+    The identity spellings (:data:`TSERIES_IDENTITY_TOKENS`, ``TSeries{F}`` and
+    the exact ``TSeries{F, T}`` / ``TSeries{F,T}`` / ``TSeries{F, T,
+    Vector{T}}`` forms naming this object's axis and base element) are
+    identity conversions in Julia; any other spelling or a mismatched
+    parameter fails there and is refused here (no element conversion is
+    attempted in its place). The plain vector spellings
+    (:data:`VECTOR_TOKENS`) build a typed empty vector from an empty numeric
+    or wide payload only.
     """
-    if token == "TSeries":
+    if token in TSERIES_IDENTITY_TOKENS:
         return "identity"
     axis_name, element_name = julia_frequency_name(axis), base.julia_name
     if token in (
+        f"TSeries{{{axis_name}}}",
         f"TSeries{{{axis_name}, {element_name}}}",
+        f"TSeries{{{axis_name},{element_name}}}",
         f"TSeries{{{axis_name}, {element_name}, Vector{{{element_name}}}}}",
     ):
         return "identity"
     if token in VECTOR_TOKENS:
-        if base.kind != "numeric":
+        if base.kind in _DATE_KINDS:
             raise TypeError(
                 f"The whole-object marker {token!r} is supported for empty numeric payloads only."
             )
@@ -200,18 +241,41 @@ def object_interpretation(token: str, axis: Frequency, base: Target, length: int
 # (no element conversion is attempted), the plain `Matrix`/`Array`/bit-array
 # spellings are `DimensionMismatch`, and the LinearAlgebra wrappers,
 # `TSeries` and `Vector` fail too. Only the identities are accepted here.
-MVTSERIES_IDENTITY_TOKENS = ("MVTSeries", "AbstractMatrix", "Any")
+MVTSERIES_IDENTITY_TOKENS = (
+    "MVTSeries",
+    "TimeSeriesEcon.MVTSeries",
+    "AbstractMatrix",
+    "AbstractArray",
+    "Any",
+)
+
+
+def _element_spellings(element_name: str) -> tuple[str, ...]:
+    """Return the exact name plus the verified aliases Julia resolves to it in a parameter."""
+    return (element_name, *(alias for alias, name in ALIASES.items() if name == element_name))
 
 
 def mvtseries_object_interpretation(token: str, axis: Frequency, base: Target) -> str:
-    """Classify a supported ``jtype`` token on an MVTSeries as ``"identity"``."""
+    """Classify a supported ``jtype`` token on an MVTSeries as ``"identity"``.
+
+    Identities are the container spellings in :data:`MVTSERIES_IDENTITY_TOKENS`,
+    ``MVTSeries{F}``, the exact ``MVTSeries{F, T}`` (either spacing) and
+    ``MVTSeries{F, T, Matrix{T}}`` forms naming this axis and element, and
+    ``MVTSeries{F, A}`` for a verified alias ``A`` of the element
+    (``Complex{Float16}`` for ComplexF16).
+    """
     if token in MVTSERIES_IDENTITY_TOKENS:
         return "identity"
     axis_name, element_name = julia_frequency_name(axis), base.julia_name
     if token in (
         f"MVTSeries{{{axis_name}}}",
         f"MVTSeries{{{axis_name}, {element_name}}}",
+        f"MVTSeries{{{axis_name},{element_name}}}",
         f"MVTSeries{{{axis_name}, {element_name}, Matrix{{{element_name}}}}}",
+    ):
+        return "identity"
+    if token in tuple(
+        f"MVTSeries{{{axis_name}, {alias}}}" for alias in _element_spellings(element_name)[1:]
     ):
         return "identity"
     raise TypeError(
@@ -221,8 +285,19 @@ def mvtseries_object_interpretation(token: str, axis: Frequency, base: Target) -
 
 
 def vector_dtype(token: str, base: Target) -> np.dtype[Any]:
-    """Return the NumPy dtype of an empty ``Vector`` interpretation."""
-    return np.dtype("<f8") if token == "Vector{Float64}" else base.dtype
+    """Return the NumPy dtype of an empty vector interpretation.
+
+    The bare ``Vector``/``Array`` keep the base carrier dtype, ``Vector{Any}``
+    gives an object dtype, and a named element gives its carrier dtype
+    (Boolean for ``Bool``, the structured word/pair dtypes for the wide
+    families).
+    """
+    element = VECTOR_TOKENS[token]
+    if element is None:
+        return base.dtype
+    if element == "Any":
+        return np.dtype(object)
+    return ACTIVE_TOKENS[element].dtype
 
 
 # ---- plain array and matrix whole-object markers ---------------------------
@@ -252,7 +327,12 @@ _BIT_ARRAY_TOKENS: dict[int, tuple[str, ...]] = {
 
 
 def _array_token_element(token: str, ndim: int) -> str | None:
-    """Return the element spelling inside a container token, or None."""
+    """Return the element spelling inside a container token, or None.
+
+    ``Vector{T}``/``Matrix{T}`` name ranks one and two, ``Array{T,N}`` and
+    ``Array{T, N}`` any rank, and the rank-free ``Array{T}`` a plain vector
+    (the only rank on which that spelling was verified).
+    """
     if ndim in (1, 2):
         prefix = "Vector{" if ndim == 1 else "Matrix{"
         if token.startswith(prefix) and token.endswith("}"):
@@ -260,6 +340,8 @@ def _array_token_element(token: str, ndim: int) -> str | None:
     for suffix in (f",{ndim}}}", f", {ndim}}}"):
         if token.startswith("Array{") and token.endswith(suffix):
             return token[len("Array{") : -len(suffix)]
+    if ndim == 1 and token.startswith("Array{") and token.endswith("}") and "," not in token:
+        return token[len("Array{") : -1]
     return None
 
 

@@ -86,7 +86,7 @@ def test_checker_output_satisfies_the_workflow_glob(checker, tmp_path, monkeypat
         series = db.read_series("sample")
     monkeypatch.chdir(workspace.parent)
     workspace.mkdir()
-    primary = checker.write_interchange(output_dir, series)
+    primary = checker.write_interchange(output_dir, series, FIXTURES / "julia_monthly.daec")
     expected_name = f"cp{sys.version_info.major}{sys.version_info.minor}.daec"
     assert primary == output_dir / expected_name
     # The workflow globs are relative to the workspace; apply each one there.
@@ -110,4 +110,4 @@ def test_checker_output_satisfies_the_workflow_glob(checker, tmp_path, monkeypat
         assert db.read_series("sample").firstdate == mm(2024, 1)
     # A second run into the same directory is refused rather than duplicated.
     with pytest.raises(FileExistsError):
-        checker.write_interchange(output_dir, series)
+        checker.write_interchange(output_dir, series, FIXTURES / "julia_monthly.daec")

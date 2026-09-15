@@ -224,7 +224,7 @@ def test_annual_malformed_payload_rejected(tmp_path, payload):
     [
         ("empty", "jeltype", "Float128"),
         ("empty", "jeltype", None),
-        ("empty", "jtype", "Vector{Int64}"),
+        ("empty", "jtype", "Vector{Real}"),  # Vector{Int64} on an empty base now loads
         ("empty", "jtype", None),
         ("cross_year", "jeltype", "Symbol"),
         ("empty", "jeltype", "error(123)"),

@@ -11,28 +11,37 @@ re-storing the loaded value, and ``"<type>:<text>"`` or the exception name for
 what that re-stored object loads as) and ``<name>_error`` (the exception name)
 where the load fails.
 
-Python does not read these forms yet: ``read_scalar`` refuses every one of them
-without evaluating anything, the exact attributes stay readable, and a Workspace
-read reports them as skipped members while loading the plain siblings. The
-exact reconstruction helpers must reproduce each materialized outcome from the
+``read_scalar`` returns every one of them as a ``StoredScalar`` holding the
+exact stored bytes, type code, frequency and marker text, without evaluating
+anything; ``to_interpreted()`` reproduces Julia's materialized outcome wherever
+the finite table supports the route and raises ``ValueError`` (Julia's own
+failure, or a Python range limit) or ``TypeError`` (no supported interpretation)
+otherwise; a rewrite through ``write_scalar`` reproduces the stored object byte
+for byte, marker included, even where Julia's own writer cannot. The exact
+reconstruction helpers must reproduce each materialized outcome from the
 stored bytes alone, and Julia's own rewrite losses are recorded facts, not
 policies.
 """
 
 from __future__ import annotations
 
+import datetime as dt
 import hashlib
 import importlib.util
+import math
 import sqlite3
 import struct
 import tomllib
 from contextlib import closing
+from fractions import Fraction
 from pathlib import Path
 
+import numpy as np
 import pytest
 
+from tsecon import MIT, Duration
+from tsecon.dataecon import IntegerComplex, StoredScalar, open_dataecon, open_dataecon_memory
 from tsecon.dataecon import _exact as ex
-from tsecon.dataecon import open_dataecon
 
 NATIVE = pytest.mark.skipif(
     importlib.util.find_spec("tsecon.dataecon._native") is None,
@@ -283,68 +292,214 @@ def test_recorded_julia_facts():
     )
 
 
-# ---- today's boundary through the public reader -----------------------------
+# ---- the public reader: stored form, explicit interpretation, rewrites -------
 
 
-def _plain(row):
-    """Whether a sibling stored by Julia's writer is one Python reads today."""
-    kind, _, payload, marker = row
-    if marker is not None:
-        return False
-    if (kind in (1, 2) and len(payload) == 16) or (kind == 5 and len(payload) == 4):
-        return False
-    if kind == 6:
-        body = payload[:-1]
-        try:
-            body.decode("utf-8")
-        except UnicodeDecodeError:
-            return False
-        return b"\0" not in body and payload.endswith(b"\0")
-    return True
+def canonical(value):  # noqa: PLR0911 - finite canonical text table
+    """Julia's canonical text (the ``_value`` sibling convention) of a Python result."""
+    if type(value) is Fraction:
+        return f"{value.numerator}//{value.denominator}"
+    if type(value) is IntegerComplex:
+        return f"{value.real},{value.imag}"
+    if type(value) is dt.datetime:
+        return (
+            f"{value.year}-{value.month}-{value.day}T{value.hour}:{value.minute}:"
+            f"{value.second}.{value.microsecond // 1000}"
+        )
+    if type(value) is dt.date:
+        return f"{value.year}-{value.month}-{value.day}"
+    if type(value) is float:
+        return struct.pack("<d", value).hex()
+    if type(value) is complex:
+        return struct.pack("<dd", value.real, value.imag).hex()
+    if isinstance(value, (np.floating, np.complexfloating)):
+        return value.tobytes().hex()
+    if type(value) is bool:
+        return "1" if value else "0"
+    if isinstance(value, (int, np.integer)):
+        return str(int(value))
+    if type(value) is MIT:
+        return str(value)
+    if type(value) is Duration:
+        return str(value.value)
+    return value
+
+
+def calendar_text(parts):
+    if len(parts) == 3:
+        return "{}-{}-{}".format(*parts)
+    return "{}-{}-{}T{}:{}:{}.{}".format(*parts)
+
+
+# Rows whose Julia outcome the reader represents differently by design, each
+# with the explicit accessor that recovers Julia's value where one exists.
+DESIGNED = {
+    # ComplexF16 interprets as a Python complex (exact widening); the bits are
+    # recovered from to_complex64's float16 components.
+    "sm_cf16": "complexf16",
+    "sm_cf16_nan": "complexf16",
+    "sm_cf16_negzero": "complexf16",
+    # Years outside datetime's range: to_calendar()/to_datetime64() are exact.
+    "sm_date_negative_year": "calendar",
+    "sm_date_year0": "calendar",
+    "sm_date_year10000": "calendar",
+    "sm_date_year_300k": "calendar",
+    "sm_datetime_year0": "calendar",
+    "sm_datetime_year10000": "calendar",
+    "sm_datetime_year_300k": "calendar",
+    "sm_datetime_year_neg300k": "calendar",
+    # +/-1//0 has no Fraction; to_float() gives the signed infinity.
+    "sm_rational_inf": "infinity",
+    "sm_rational_neginf": "infinity",
+    # Text that is not a single NUL-terminated valid UTF-8 string is kept raw;
+    # Julia's truncation (embedded NUL) or pass-through (invalid bytes) is not
+    # reproduced.
+    "sm_generic_string": "raw",
+    "sm_inj_string_nul_symbol": "raw",
+    "sm_string_embedded_nul": "raw",
+    "sm_string_invalid_utf8": "raw",
+    "sm_string_only_nul": "raw",
+    "sm_symbol_invalid_utf8": "raw",
+    # Explicitly unsupported interpretations (preserved, TypeError).
+    "sm_inj_bigfloat_on_float": "deferred",  # decision: no arbitrary-precision API
+    "sm_complex_rational": "unsupported",  # Complex{Rational{T}} is not in the table
+    "sm_inj_symbol_on_date_kind": "unsupported",  # Julia's printed form
+    "sm_inj_symbol_on_float": "unsupported",
+}
 
 
 @NATIVE
-def test_every_case_is_refused_unevaluated_and_its_attributes_stay_readable():
+def test_every_case_reads_as_its_exact_stored_form():
     with open_dataecon(FIXTURE) as db:
         for name in cases(ROWS):
-            marker = ROWS[name][3]
-            kind, _, payload, marker = ROWS[name]
-            with pytest.raises((TypeError, ValueError)) as info:
-                db.read_scalar(name)
-            wide = (kind in (1, 2) and len(payload) == 16) or (kind == 5 and len(payload) == 4)
-            if wide or marker is None:
-                # Wide widths, ComplexF16, invalid UTF-8, embedded NUL and the
-                # unterminated string are ValueError before any decoding and
-                # before the marker is even looked at.
-                assert isinstance(info.value, ValueError), name
-            else:
-                assert isinstance(info.value, TypeError), name
+            kind, frequency, payload, marker = ROWS[name]
+            stored = db.read_scalar(name)
+            assert type(stored) is StoredScalar, name
+            assert stored == StoredScalar(payload, kind, frequency, marker), name
+            assert stored.active_marker == marker
             assert db.get_attributes(name) == ({} if marker is None else {"jtype": marker}), name
-            assert "error(" not in str(info.value)  # the marker text is never echoed or run
 
 
 @NATIVE
-def test_workspace_read_skips_every_case_and_loads_the_materialized_siblings():
+@pytest.mark.parametrize("name", cases(ROWS))
+def test_interpretation_reproduces_julia_or_raises_its_class(name):
+    kind, frequency, payload, marker = ROWS[name]
+    stored = StoredScalar(payload, kind, frequency, marker)
+    expected = outcome(ROWS, name)
+    designed = DESIGNED.get(name)
+    if designed is None:
+        if expected[0] == "error":
+            # Julia's own failure (InexactError/OverflowError/MethodError/
+            # TypeError/UndefVarError/ErrorException) is a ValueError for a
+            # value the loader refuses or a TypeError for a route it lacks;
+            # the marker text is never echoed or run.
+            error = ValueError if expected[1] in ("InexactError", "OverflowError") else TypeError
+            with pytest.raises(error) as info:
+                stored.to_interpreted()
+            assert "error(" not in str(info.value)
+            assert "NoSuchType" not in str(info.value)
+        else:
+            assert canonical(stored.to_interpreted()) == expected[1], name
+        return
+    if designed == "complexf16":
+        value = stored.to_interpreted()
+        assert type(value) is complex
+        wide = stored.to_complex64()
+        bits = np.float16(wide.real).tobytes() + np.float16(wide.imag).tobytes()
+        assert bits.hex() == expected[1]
+        assert math.isnan(value.real) or value.real == float(wide.real)
+        assert math.isnan(value.imag) or value.imag == float(wide.imag)
+    elif designed == "calendar":
+        with pytest.raises(ValueError, match="outside Python's datetime range"):
+            stored.to_interpreted()
+        assert calendar_text(stored.to_calendar()) == expected[1]
+    elif designed == "infinity":
+        with pytest.raises(ValueError, match="no Fraction can hold"):
+            stored.to_interpreted()
+        assert expected == ("Rational{Int64}", "1//0" if stored.to_float() > 0 else "-1//0")
+        assert math.isinf(stored.to_float())
+    elif designed == "raw":
+        with pytest.raises(ValueError):
+            stored.to_interpreted()
+        assert stored.to_bytes() == payload
+    elif designed == "deferred":
+        with pytest.raises(TypeError, match="deferred"):
+            stored.to_interpreted()
+        assert stored.to_float() == 0.1  # BigFloat(0.1) is exactly this Float64
+    else:
+        with pytest.raises(TypeError, match=r"not reproduce|no supported interpretation"):
+            stored.to_interpreted()
+
+
+@NATIVE
+def test_datetime64_matches_the_calendar_components_for_every_date_row():
+    # NumPy's proleptic calendar (year zero included) agrees with Julia's for
+    # every stored Date/DateTime, so datetime64 recovers the exact instant even
+    # where datetime cannot: the ISO text NumPy parses from the calendar
+    # components is the value to_datetime64 computes from the payload.
+    checked = 0
+    with open_dataecon(FIXTURE) as db:
+        for name in cases(ROWS):
+            stored = db.read_scalar(name)
+            if stored.marker not in ("Date", "DateTime") or outcome(ROWS, name)[0] == "error":
+                continue
+            parts = stored.to_calendar()
+            sign, year = ("-", -parts[0]) if parts[0] < 0 else ("", parts[0])
+            iso = f"{sign}{year:04d}-{parts[1]:02d}-{parts[2]:02d}"
+            if stored.marker == "DateTime":
+                iso += "T{:02d}:{:02d}:{:02d}.{:03d}".format(*parts[3:])
+            value = stored.to_datetime64()
+            assert value == np.datetime64(iso), name
+            assert value.dtype == np.dtype("<M8[D]" if stored.marker == "Date" else "<M8[ms]")
+            checked += 1
+    assert checked >= 20
+
+
+@NATIVE
+def test_rewrite_reproduces_every_stored_object_byte_for_byte(tmp_path):
+    # Read-modify-write through write_scalar preserves payload, type, frequency
+    # and marker, including the rows Julia's own writer cannot rewrite
+    # (BigInt/BigFloat) or rewrites lossily (the LOSSY_REWRITES).
+    names = cases(ROWS)
+    with open_dataecon(FIXTURE) as db:
+        stored = {name: db.read_scalar(name) for name in names}
+    path = tmp_path / "rewritten.daec"
+    with open_dataecon(path, "w") as db:
+        for name, value in stored.items():
+            db.write_scalar(name, value)
+    with open_dataecon(path) as db:
+        for name, value in stored.items():
+            assert db.read_scalar(name) == value, name
+            assert db.get_attributes(name) == (
+                {} if value.marker is None else {"jtype": value.marker}
+            ), name
+    rows = raw_scalars(path)
+    assert {name: rows[name] for name in names} == {name: ROWS[name] for name in names}
+    assert set(stored) >= UNWRITABLE | set(LOSSY_REWRITES)
+
+
+@NATIVE
+def test_workspace_read_loads_every_case_and_every_sibling():
     with open_dataecon(FIXTURE) as db:
         loaded = db.read_workspace()
-    skipped = {member.path: member for member in loaded.report.skipped}
-    names = cases(ROWS)
-    # Every case is skipped; so are Julia's re-stored siblings (same markers
-    # or widths, unless its writer canonicalised the value to a plain form)
-    # and the two text siblings holding invalid UTF-8.
-    expected = {f"/{name}" for name, row in ROWS.items() if name in names or not _plain(row)}
-    assert set(skipped) == expected
-    for member in skipped.values():
-        assert member.category in ("unsupported", "invalid"), member
-        assert not member.subtree
-    for name in names:
+    assert loaded.report.skipped == ()
+    assert loaded.report.count == OBJECT_COUNT
+    assert len(loaded.workspace) == OBJECT_COUNT
+    for name in cases(ROWS):
         kind, text = outcome(ROWS, name)
+        value = loaded.workspace[name]
+        assert type(value) is StoredScalar
         if kind == "error":
             assert loaded.workspace[f"{name}_error"] == text
-        elif f"/{name}_value" in skipped:
-            assert not _plain(ROWS[f"{name}_value"])
         else:
             assert loaded.workspace[f"{name}_type"] == kind
-            assert loaded.workspace[f"{name}_value"] == text
-    assert loaded.report.count == OBJECT_COUNT - len(skipped)
-    assert len(loaded.workspace) == loaded.report.count
+            sibling = loaded.workspace[f"{name}_value"]
+            # Two _value siblings hold invalid UTF-8 and load raw.
+            assert sibling == text or (
+                type(sibling) is StoredScalar
+                and sibling.to_bytes()[:-1].decode("utf-8", "surrogateescape") == text
+            )
+    with open_dataecon_memory() as mem:
+        report = mem.write_workspace(loaded.workspace)
+        assert report.skipped == ()
+        assert report.count == OBJECT_COUNT

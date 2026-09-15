@@ -327,10 +327,13 @@ def test_wide_bool_marker_is_preserved_with_explicit_conversion():
     "token",
     [
         "MVTSeries",
+        "TimeSeriesEcon.MVTSeries",
         "MVTSeries{Monthly}",
         "MVTSeries{Monthly, MIT{Quarterly{3}}}",
+        "MVTSeries{Monthly,MIT{Quarterly{3}}}",
         "MVTSeries{Monthly, MIT{Quarterly{3}}, Matrix{MIT{Quarterly{3}}}}",
         "AbstractMatrix",
+        "AbstractArray",
         "Any",
     ],
 )
@@ -352,9 +355,9 @@ def test_identity_object_markers_are_preserved_and_interpret_as_identity(token):
     [
         "MVTSeries{Quarterly{3}, MIT{Quarterly{3}}}",  # axis mismatch: Julia MethodError
         "MVTSeries{Monthly, Int64}",  # element mismatch: Julia MethodError
-        "MVTSeries{Monthly,MIT{Quarterly{3}}}",  # spelling outside the exact table
-        "TimeSeriesEcon.MVTSeries",  # qualified spelling outside the table
-        "AbstractArray",  # abstract identity outside the table
+        "MVTSeries{Monthly, MIT{Quarterly}}",  # abstract parameter: Julia MethodError
+        "MVTSeries{Monthly,MIT{Quarterly{3}},Matrix{MIT{Quarterly{3}}}}",  # unverified spacing
+        "Base.MVTSeries",  # unverified qualifier
         "Matrix",  # Julia DimensionMismatch
         "Matrix{Int64}",
         "Array",

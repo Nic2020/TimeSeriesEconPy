@@ -26,7 +26,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from tsecon.dataecon import DataEconError, _codec, open_dataecon
+from tsecon.dataecon import DataEconError, StoredScalar, _codec, open_dataecon
+from tsecon.dataecon import IntegerComplex as de_IntegerComplex
 from tsecon.dataecon._codec import decode_scalar, encode_scalar, validate_scalar_metadata
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -134,13 +135,15 @@ RESULT_TYPES = {
     "c32": np.complex64, "c64": complex,
 }  # fmt: skip
 # Julia-written controls in the fixture: unresolved widths, Bool and the marker experiment.
-UNRESOLVED_CONTROLS = (
-    "wctl_int128",
-    "wctl_int128_max",
-    "wctl_uint128",
-    "wctl_uint128_max",
-    "wctl_c16",
-)
+# Julia-written widths with no NumPy scalar type read as a StoredScalar of
+# the exact stored bytes; to_interpreted() gives the exact int or complex.
+WIDE_CONTROLS = {
+    "wctl_int128": (1, 16, 7),
+    "wctl_int128_max": (1, 16, 2**127 - 1),
+    "wctl_uint128": (2, 16, 7),
+    "wctl_uint128_max": (2, 16, 2**128 - 1),
+    "wctl_c16": (5, 4, complex(1.5, -2.25)),
+}
 BOOL_CONTROLS = {"wctl_bool_true": np.int8(1), "wctl_bool_false": np.int8(0)}
 
 
@@ -380,9 +383,9 @@ def test_width_metadata_guard_accepts_supported_widths(kind, nbytes):
 @pytest.mark.parametrize(
     ("kind", "nbytes"),
     [
-        (1, 16),
-        (2, 16),
-        (5, 4),
+        (1, 12),
+        (2, 12),
+        (5, 6),
         (1, 3),
         (1, 0),
         (2, 0),
@@ -400,13 +403,24 @@ def test_width_metadata_guard_accepts_supported_widths(kind, nbytes):
     ],
 )
 def test_width_metadata_guard_rejects_other_widths(kind, nbytes):
-    # Int128/UInt128/ComplexF16 are Julia-supported widths without a NumPy type;
-    # the rest have no Julia loader method either.
+    # No Julia loader method exists for these widths either.
     with pytest.raises(ValueError, match="width"):
         validate_scalar_metadata((1, kind, 0, nbytes))
     if 0 <= nbytes <= 32:
         with pytest.raises(ValueError, match="width"):
             decode_scalar(kind, 0, bytes(nbytes))
+
+
+@pytest.mark.parametrize(
+    ("kind", "nbytes", "name"), [(1, 16, "Int128"), (2, 16, "UInt128"), (5, 4, "ComplexF16")]
+)
+def test_width_wide_encodings_read_as_stored_scalars(kind, nbytes, name):
+    # Int128/UInt128/ComplexF16 are Julia-supported widths without a NumPy type.
+    validate_scalar_metadata((1, kind, 0, nbytes))
+    stored = decode_scalar(kind, 0, bytes(nbytes))
+    assert type(stored) is StoredScalar
+    assert (stored.julia_name, stored.nbytes, stored.is_wide) == (name, nbytes, True)
+    assert stored.to_interpreted() == 0
 
 
 @pytest.mark.parametrize(
@@ -444,17 +458,23 @@ def test_julia_width_fixture_values_and_controls():
         results = [(db.read_scalar(name), value, group_of(name)) for name, value in CASES]
         # Native no-attribute encodings written directly through the C ABI.
         native = {name: db.read_scalar(name) for name in NATIVE_CASES}
-        for name in UNRESOLVED_CONTROLS:
-            with pytest.raises(ValueError, match="width"):
-                db.read_scalar(name)
+        for name, (kind, nbytes, value) in WIDE_CONTROLS.items():
+            stored = db.read_scalar(name)
+            assert type(stored) is StoredScalar
+            assert (stored.kind, stored.nbytes, stored.marker) == (kind, nbytes, None)
+            assert stored.to_interpreted() == value
         for name, expected in BOOL_CONTROLS.items():
             loaded = db.read_scalar(name)
             assert type(loaded) is np.int8
             assert loaded == expected
-        with pytest.raises(TypeError, match="reconstruction"):
-            db.read_scalar("wctl_marker_true")
-        with pytest.raises(TypeError, match="reconstruction"):
-            db.read_scalar("wctl_complex_int")
+        # Foreign marker on an Int8 byte (reloads as `true` in Julia) and Julia's
+        # own Complex{Int64}: preserved with explicit interpretation.
+        marked = db.read_scalar("wctl_marker_true")
+        assert marked == StoredScalar(b"\x01", 1, 0, "Bool")
+        assert marked.to_interpreted() is True
+        cint = db.read_scalar("wctl_complex_int")
+        assert cint == StoredScalar(struct.pack("<dd", 8.0, 3.0), 5, 0, "Complex{Int64}")
+        assert cint.to_interpreted() == de_IntegerComplex(8, 3)
     for actual, expected, group in results:
         assert_same(actual, expected, group)
     for name, expected in NATIVE_CASES.items():
@@ -552,10 +572,10 @@ def test_width_roundtrip_storage_and_shared_namespace(tmp_path):
     ("kind", "payload", "error"),
     [
         (7, bytes(8), TypeError),
-        (2, bytes(16), ValueError),
+        (2, bytes(12), ValueError),
         (1, bytes(3), ValueError),
         (4, bytes(1), ValueError),
-        (5, bytes(4), ValueError),
+        (5, bytes(6), ValueError),
         (5, b"", ValueError),
     ],
 )
@@ -576,10 +596,10 @@ def test_width_backend_validates_kind_and_width_before_storage(tmp_path, kind, p
     [
         ("w_i8_seven", "UPDATE scalars SET value=NULL", ValueError),
         ("w_i8_seven", "UPDATE scalars SET value=zeroblob(3)", ValueError),
-        ("w_i8_seven", "UPDATE scalars SET value=zeroblob(16)", ValueError),
+        ("w_i8_seven", "UPDATE scalars SET value=zeroblob(12)", ValueError),
         ("w_u32_seven", "UPDATE scalars SET frequency=32", TypeError),
         ("w_f32_tenth", "UPDATE scalars SET frequency=11", TypeError),
-        ("w_c32_plain", "UPDATE scalars SET value=zeroblob(4)", ValueError),
+        ("w_c32_plain", "UPDATE scalars SET value=zeroblob(6)", ValueError),
         ("w_c64_plain", "UPDATE objects SET type=7", TypeError),
         ("w_u64_max", "UPDATE objects SET type=3", TypeError),
     ],
@@ -609,6 +629,23 @@ def test_width_rejects_all_reconstruction_attributes(tmp_path, key, value):
             (key, value),
         )
     with open_dataecon(path) as db:
-        with pytest.raises(TypeError, match="reconstruction"):
-            db.read_scalar("w_u8_seven")
+        if key == "jeltype":
+            # Julia's scalar loader ignores jeltype; so does Python.
+            assert_same(db.read_scalar("w_u8_seven"), np.uint8(7), "u8")
+        elif value is None:
+            with pytest.raises(TypeError, match="NULL reconstruction attribute"):
+                db.read_scalar("w_u8_seven")
+        else:
+            stored = db.read_scalar("w_u8_seven")
+            assert stored == StoredScalar(b"\x07", 2, 0, value)
+            if value == "Float16":
+                assert_same(stored.to_interpreted(), np.float16(7.0), "f16")
+            elif value == "UInt8":
+                assert_same(stored.to_interpreted(), np.uint8(7), "u8")
+            elif value == "Bool":
+                with pytest.raises(ValueError, match="not exactly zero or one"):
+                    stored.to_interpreted()
+            else:
+                with pytest.raises(TypeError, match="no supported interpretation"):
+                    stored.to_interpreted()
         assert_same(db.read_scalar("w_u8_max"), np.uint8(255), "u8")

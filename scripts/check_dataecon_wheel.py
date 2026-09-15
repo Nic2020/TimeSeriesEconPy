@@ -2005,6 +2005,313 @@ def check_text_arrays(db: de.DataEconFile) -> None:
         _check_text_value(f"text_ws/{name}", loaded.workspace[name], expected)
 
 
+# Represented MVTSeries and structure-marked matrices: the inventory Julia's
+# generate-represented-mvtseries stores, rebuilt from Python's own forms
+# (StoredMVTSeries carriers and the StoredArray structure constructors). Julia's
+# verify-wheel reads it back with the same expectations as the reference fixture.
+
+RMV_ANCHOR = mm(2024, 1)  # code 24288
+RMV_Q = de.StoredElement.date(Quarterly(3))
+RMV_Y6 = de.StoredElement.duration(Yearly(6))
+INT64_MIN, INT64_MAX = -(2**63), 2**63 - 1
+
+
+def _q(code: int) -> MIT:
+    return MIT(Quarterly(3), code)
+
+
+def _y6(code: int) -> Duration:
+    return Duration(Yearly(6), code)
+
+
+def _mvts_128(element: de.StoredElement, rows: list[list[int]]) -> np.ndarray:
+    """Pack Python integers into a rows-by-columns 128-bit carrier."""
+    flat = [value for row in rows for value in row]
+    packed = de.StoredSeries.from_list(RMV_ANCHOR, element, flat).values
+    return packed.reshape((len(rows), len(rows[0]) if rows else 0))
+
+
+def _cf16_carrier(bits: list[tuple[int, int]], shape: tuple[int, int]) -> np.ndarray:
+    """A ComplexF16 carrier from exact (real, imag) float16 bit patterns, row-major."""
+    out = np.empty(len(bits), dtype=de.COMPLEXF16.dtype)
+    out["real"] = np.array([r for r, _ in bits], dtype="<u2").view(np.float16)
+    out["imag"] = np.array([i for _, i in bits], dtype="<u2").view(np.float16)
+    return out.reshape(shape)
+
+
+def represented_mvtseries_inventory() -> list[tuple[str, de.StoredMVTSeries | tsecon.MVTSeries]]:
+    """The fixture's MVTSeries inventory in Python's input forms (same names as Julia's)."""
+    inventory: list[tuple[str, de.StoredMVTSeries | tsecon.MVTSeries]] = [
+        (
+            "rmv_mit_q_on_m",
+            de.StoredMVTSeries.from_list(
+                RMV_ANCHOR,
+                ("a", "b", "c"),
+                RMV_Q,
+                [[_q(-1), _q(1), _q(INT64_MIN)], [_q(0), _q(2), _q(INT64_MAX)]],
+            ),
+        ),
+        (
+            "rmv_dur_y6_on_d",
+            de.StoredMVTSeries.from_list(
+                MIT(Daily(), 738000),
+                ("x", "y"),
+                RMV_Y6,
+                [[_y6(1), _y6(INT64_MIN)], [_y6(-2), _y6(INT64_MAX)], [_y6(3), _y6(0)]],
+            ),
+        ),
+        (
+            "rmv_mit_unit_on_unit",
+            de.StoredMVTSeries.from_list(
+                MIT(Unit(), -5),
+                ("a", "b"),
+                de.StoredElement.date(Unit()),
+                [
+                    [MIT(Unit(), INT64_MIN), MIT(Unit(), 1)],
+                    [MIT(Unit(), 0), MIT(Unit(), INT64_MAX)],
+                ],
+            ),
+        ),
+        (
+            "rmv_mit_w7_on_b",
+            de.StoredMVTSeries.from_list(
+                MIT(BDaily(), 500000),
+                ("a",),
+                de.StoredElement.date(Weekly(7)),
+                [[MIT(Weekly(7), -1711422)], [MIT(Weekly(7), 1711422)], [MIT(Weekly(7), 7)]],
+            ),
+        ),
+        (
+            "rmv_int128",
+            de.StoredMVTSeries(
+                RMV_ANCHOR,
+                ("a", "b"),
+                _mvts_128(de.INT128, [[-(2**127), 2**127 - 1], [-1, 7], [0, 2**70]]),
+                de.INT128,
+            ),
+        ),
+        (
+            "rmv_uint128",
+            de.StoredMVTSeries(
+                RMV_ANCHOR,
+                ("a", "b", "c"),
+                _mvts_128(de.UINT128, [[0, 2, 2**70], [1, 2**128 - 1, 5]]),
+                de.UINT128,
+            ),
+        ),
+        (
+            "rmv_complexf16",
+            de.StoredMVTSeries(
+                RMV_ANCHOR,
+                ("a", "b"),
+                _cf16_carrier(
+                    [(0x8000, 0x3D00), (0x7E55, 0xFC00), (0x4000, 0x4200), (0x0000, 0x8000)], (2, 2)
+                ),
+                de.COMPLEXF16,
+            ),
+        ),
+        (
+            "rmv_mit_one_row",
+            de.StoredMVTSeries.from_list(
+                RMV_ANCHOR, ("a", "b", "c"), RMV_Q, [[_q(1), _q(2), _q(3)]]
+            ),
+        ),
+        (
+            "rmv_mit_unicode_names",
+            de.StoredMVTSeries.from_list(
+                RMV_ANCHOR,
+                ("a\u00e9", "\U0001f642", ""),
+                RMV_Q,
+                [[_q(1), _q(3), _q(5)], [_q(2), _q(4), _q(6)]],
+            ),
+        ),
+        (
+            "rmv_int128_zero_rows",
+            de.StoredMVTSeries.from_list(RMV_ANCHOR, ("a", "b"), de.INT128, []),
+        ),
+        (
+            "rmv_complexf16_zero_rows",
+            de.StoredMVTSeries.from_list(RMV_ANCHOR, ("a", "b"), de.COMPLEXF16, []),
+        ),
+        ("rmv_dur_zero_rows", de.StoredMVTSeries.from_list(RMV_ANCHOR, ("a", "b"), RMV_Y6, [])),
+    ]
+    for label, frequency, low, high in matrix_axis_families():
+        for suffix, code in (("min", low), ("max", high)):
+            inventory.append(
+                (
+                    f"rmv_mit_{suffix}_{label}",
+                    de.StoredMVTSeries.from_list(
+                        MIT(frequency, code), ("a", "b"), RMV_Q, [[_q(1), _q(2)]]
+                    ),
+                )
+            )
+    int_rows = np.array([[1, 2], [0, 1]], dtype="<i8")
+    inventory.extend(
+        [
+            (
+                "rmv_bool_on_int128",
+                de.StoredMVTSeries(
+                    RMV_ANCHOR,
+                    ("a", "b"),
+                    _mvts_128(de.INT128, [[1, 0], [0, 1]]),
+                    de.INT128.with_bool_marker(),
+                ),
+            ),
+            (
+                "rmv_bool_on_int64_01",
+                tsecon.MVTSeries(RMV_ANCHOR, ["a", "b"], np.array([[True, False], [False, True]])),
+            ),
+            (
+                "rmv_float64_on_int64",
+                de.StoredMVTSeries(
+                    RMV_ANCHOR, ("a", "b"), int_rows, de.StoredElement.numeric("<i8", "Float64")
+                ),
+            ),
+            (
+                "rmv_mit_m_on_int64",
+                de.StoredMVTSeries(
+                    RMV_ANCHOR,
+                    ("a", "b"),
+                    int_rows,
+                    de.StoredElement.numeric("<i8", "MIT{Monthly}"),
+                ),
+            ),
+            (
+                "rmv_identity_object",
+                de.StoredMVTSeries(
+                    RMV_ANCHOR, ("a", "b"), int_rows, RMV_Q, object_marker="MVTSeries"
+                ),
+            ),
+            (
+                "rmv_identity_param",
+                de.StoredMVTSeries(
+                    RMV_ANCHOR,
+                    ("a", "b"),
+                    _mvts_128(de.INT128, [[1, 2], [0, 1]]),
+                    de.INT128,
+                    object_marker="MVTSeries{Monthly, Int128}",
+                ),
+            ),
+            (
+                "rmv_empty_mit_marked",
+                de.StoredMVTSeries.from_list(
+                    RMV_ANCHOR, ("a", "b"), de.StoredElement.date(Monthly()), []
+                ),
+            ),
+        ]
+    )
+    return inventory
+
+
+def structure_inventory() -> list[tuple[str, de.StoredArray]]:
+    """The fixture's structure-marked matrices, built with the Python constructors."""
+    a = np.array([[1.0, 3.0], [20.0, 4.0]])
+    h = np.array([[1 + 9j, 2 - 1j], [20 + 20j, 4 - 9j]])
+    signs = np.frombuffer(
+        np.array(
+            [0x8000000000000000, 0x4020000000000000, 0x7FF8000000000055, 0x8000000000000000],
+            dtype="<u8",
+        ).tobytes(),
+        dtype="<f8",
+    ).reshape((2, 2), order="F")
+    csigns = np.array(
+        [[complex(-0.0, -0.0), complex(-0.0, 7.0)], [complex(8.0, 8.0), complex(-0.0, -0.0)]]
+    )
+    i128 = de.StoredArray(_mvts_128(de.INT128, [[-(2**127), 3], [20, 2**127 - 1]]), de.INT128)
+    c16 = de.StoredArray(
+        _cf16_carrier(
+            [(0x3C00, 0x4880), (0x4000, 0xBC00), (0x4D00, 0x4D00), (0x4400, 0x0000)], (2, 2)
+        ),
+        de.COMPLEXF16,
+    )
+    mitm = de.StoredArray(
+        np.array([[1, 3], [20, 4]], dtype="<i8"), de.StoredElement.date(Monthly())
+    )
+    return [
+        ("str_sym_u_f64", de.StoredArray.symmetric(a, "U")),
+        ("str_sym_l_f64", de.StoredArray.symmetric(a, "L")),
+        ("str_herm_u_c64", de.StoredArray.hermitian(h, "U")),
+        ("str_herm_l_c64", de.StoredArray.hermitian(h, "L")),
+        ("str_diag_vec_f64", de.StoredArray.diagonal(np.array([3.0, -0.0, 5.0]))),
+        ("str_sym_l_signs", de.StoredArray.symmetric(signs, "L")),
+        ("str_herm_u_signs", de.StoredArray.hermitian(csigns, "U")),
+        ("str_sym_u_i128", de.StoredArray.symmetric(i128, "U")),
+        ("str_herm_l_c16", de.StoredArray.hermitian(c16, "L")),
+        ("str_diag_mit_m", de.StoredArray.diagonal(mitm)),
+        ("str_sym_l_bool", de.StoredArray.symmetric(np.array([[True, True], [False, False]]), "L")),
+        ("str_diag_f16", de.StoredArray.diagonal(np.array([[1, 3], [20, 4]], dtype=np.float16))),
+        ("str_sym_empty_f64", de.StoredArray.symmetric(np.empty((0, 0)))),
+        ("str_diag_empty_f64", de.StoredArray.diagonal(np.empty(0))),
+        ("str_herm_1x1_c64", de.StoredArray.hermitian(np.array([[complex(2.0, 5.0)]]))),
+    ]
+
+
+def write_represented_mvtseries(db: de.DataEconFile) -> None:
+    """Write the represented MVTSeries and structure matrices under the fixture's names."""
+    for name, value in represented_mvtseries_inventory():
+        db.write_series(name, value)
+    for name, value in structure_inventory():
+        db.write_array(name, value)
+
+
+def _expected_mvtseries_markers(expected: de.StoredMVTSeries | tsecon.MVTSeries) -> dict:
+    if isinstance(expected, tsecon.MVTSeries):
+        return {"jeltype": "Bool"} if expected.values.dtype.kind == "b" else {}
+    markers = {}
+    token = expected.element.written_marker(expected.values.size)
+    if token is not None:
+        markers["jeltype"] = token
+    if expected.object_marker is not None:
+        markers["jtype"] = expected.object_marker
+    return markers
+
+
+def check_represented_mvtseries(db: de.DataEconFile) -> None:  # noqa: PLR0912 - finite inventory
+    """Read every object written by :func:`write_represented_mvtseries` back exactly."""
+    for name, expected in represented_mvtseries_inventory():
+        actual = db.read_series(name)
+        if type(actual) is not type(expected):
+            raise ValueError(f"Represented MVTSeries {name} read back as {type(actual).__name__}.")
+        if isinstance(actual, tsecon.MVTSeries):
+            if (
+                actual.firstdate != expected.firstdate
+                or actual.column_names != expected.column_names
+                or actual.values.dtype != expected.values.dtype
+                or not np.array_equal(actual.values, expected.values)
+            ):
+                raise ValueError(f"MVTSeries {name} changed on the way back.")
+        elif actual != expected:
+            raise ValueError(f"Represented MVTSeries {name} changed on the way back.")
+        if isinstance(actual, de.StoredMVTSeries):
+            if not actual.values.flags.owndata or not actual.values.flags.c_contiguous:
+                raise ValueError(f"Represented MVTSeries {name} does not own its carrier.")
+            # The ComplexF16 row carries a NaN payload, which never compares
+            # equal although its bytes already did above; compare its printed
+            # form. (MIT codes beyond datetime's range have no repr, so the
+            # other kinds compare their values directly.)
+            same = expected.element.kind == "complexf16"
+            actual_list, expected_list = actual.tolist(), expected.tolist()
+            if (
+                (repr(actual_list) != repr(expected_list))
+                if same
+                else (actual_list != expected_list)
+            ):
+                raise ValueError(f"Represented MVTSeries {name} converts differently.")
+        markers = db.get_attributes(name)
+        if markers != _expected_mvtseries_markers(expected):
+            raise ValueError(f"Represented MVTSeries {name} marker mismatch: {markers}.")
+    for name, expected in structure_inventory():
+        actual = db.read_array(name)
+        if not isinstance(actual, de.StoredArray) or actual != expected:
+            raise ValueError(f"Structure matrix {name} changed on the way back.")
+        dense = actual.to_interpreted()
+        values = dense.values if isinstance(dense, de.StoredArray) else dense
+        if values.tobytes(order="F") != expected.values.tobytes(order="F"):
+            raise ValueError(f"Structure matrix {name} is not stored in its dense form.")
+        if db.get_attribute(name, "jtype") != expected.object_marker:
+            raise ValueError(f"Structure matrix {name} lost its wrapper marker.")
+
+
 def write_interchange(output_dir: Path, series: tsecon.TSeries) -> Path:
     """Write and reopen series and scalars for separate Julia verification."""
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -2022,6 +2329,7 @@ def write_interchange(output_dir: Path, series: tsecon.TSeries) -> Path:
         write_catalogs(db)
         write_workspace_tree(db)
         write_text_arrays(db)
+        write_represented_mvtseries(db)
         for name, value in (
             ("bool_false", False),
             ("bool_true", True),
@@ -2048,6 +2356,7 @@ def write_interchange(output_dir: Path, series: tsecon.TSeries) -> Path:
         check_catalogs(db)
         check_workspace_tree(db)
         check_text_arrays(db)
+        check_represented_mvtseries(db)
         np.testing.assert_array_equal(db.read_series("sample").values, series.values)
         for name, expected in (
             ("bool_false", 0),

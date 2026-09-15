@@ -4,9 +4,9 @@
 Scalars: Float16/32/64, Int8/16/32/64, UInt8/16/32/64, Complex64/128, UTF-8
 strings, and MIT dates or Durations over the unit, daily, business-daily,
 weekly (every end day), monthly, quarterly, half-yearly and annual
-frequencies. Series also support represented MIT/Duration, Int128/UInt128 and
-ComplexF16 elements over every core axis frequency (daily, business-daily and
-weekly axes use the verified calendar windows), and
+frequencies. Series and MVTSeries also support represented MIT/Duration,
+Int128/UInt128 and ComplexF16 elements over every core axis frequency (daily,
+business-daily and weekly axes use the verified calendar windows), and
 preserve Julia's finite reconstruction markers (``jeltype``/``jtype``) as
 stored form plus explicit interpretation. No marker text is evaluated.
 """
@@ -61,8 +61,11 @@ from ._represented import (
     INT128,
     UINT128,
     StoredElement,
+    StoredMVTSeries,
     StoredSeries,
+    check_column_names,
     resolve_interpretation,
+    resolve_mvtseries_interpretation,
 )
 
 __all__ = [
@@ -279,7 +282,7 @@ _SERIES_WIDTHS = {
 }
 _WIDE_ELEMENTS = {(1, 16): INT128, (2, 16): UINT128, (5, 4): COMPLEXF16}
 _WIDE_NAMES = {e.julia_name: e for e in _WIDE_ELEMENTS.values()}
-SeriesValue: TypeAlias = TSeries | StoredSeries | MVTSeries
+SeriesValue: TypeAlias = TSeries | StoredSeries | MVTSeries | StoredMVTSeries
 # Text input is a flat or rectangular nested sequence of ``str`` (list/tuple),
 # a NumPy ``str_`` array, or a StoredText of one to five dimensions.
 ArrayValue: TypeAlias = (
@@ -298,7 +301,7 @@ _TENSOR_SUPPORT = (
 )
 _MATRIX_SUPPORT = (
     "DataEcon two-dimensional support covers ordinary numeric and Boolean plain "
-    "matrices and MVTSeries, represented plain matrices and text matrices."
+    "matrices and MVTSeries, represented plain matrices and MVTSeries, and text matrices."
 )
 
 
@@ -657,8 +660,12 @@ def encode_series(series: SeriesValue) -> SeriesPayload | MatrixPayload:
     """Return an independent snapshot with explicit element kind/frequency/length."""
     if isinstance(series, MVTSeries):
         return encode_mvtseries(series)
+    if isinstance(series, StoredMVTSeries):
+        return encode_stored_mvtseries(series)
     if not isinstance(series, (TSeries, StoredSeries)):
-        raise TypeError("write_series requires a TSeries, StoredSeries or MVTSeries.")
+        raise TypeError(
+            "write_series requires a TSeries, StoredSeries, MVTSeries or StoredMVTSeries."
+        )
     if sys.byteorder != "little":
         raise RuntimeError(
             "DataEcon interchange is currently supported on little-endian hosts only."
@@ -1140,7 +1147,7 @@ def decode_array(
     """Decode an owning plain array, text vector or lossless range representation."""
     if len(metadata) == 13:
         result = decode_matrix(metadata, payload, marker, object_marker, names)
-        if isinstance(result, MVTSeries):
+        if isinstance(result, (MVTSeries, StoredMVTSeries)):
             raise TypeError("This object is an MVTSeries; read it with read_series.")
         return result
     if len(metadata) == _TENSOR_METADATA_LENGTH:
@@ -1313,25 +1320,7 @@ def split_names(names: str | None, columns: int) -> tuple[str, ...]:
 
 def join_names(names: Any) -> str:
     """Join validated column names into the native names axis encoding."""
-    parts = [str(name) for name in names]
-    if not parts:
-        raise ValueError(
-            "DataEcon cannot store an MVTSeries with no columns; the names axis has no "
-            "encoding for zero names."
-        )
-    for name in parts:
-        if "\n" in name:
-            raise ValueError(
-                "A DataEcon column name cannot contain a newline; it separates the names."
-            )
-        if "\0" in name:
-            raise ValueError(
-                "A DataEcon column name cannot contain NUL; the names axis is stored as a "
-                "NUL-terminated string and would be truncated."
-            )
-    if len(set(parts)) != len(parts):
-        raise ValueError("DataEcon column names must be distinct.")
-    return "\n".join(parts)
+    return "\n".join(check_column_names([str(name) for name in names]))
 
 
 def validate_matrix_payload(
@@ -1355,12 +1344,23 @@ def validate_matrix_payload(
         _text_marker(marker, object_marker)
         split_text_payload(payload, size)
         return None
-    resolved = _array_dtype(element, element_freq, size, len(payload), marker, object_marker)
+    if obj_type == 21:
+        # A dated matrix follows the dated-series marker policy: a Bool marker
+        # on any ordinary width converts exact zero/one values (Julia's map
+        # builds an MVTSeries{Bool}); plain matrices keep the one-byte rule.
+        resolved = series_dtype(element, element_freq, size, len(payload), marker, object_marker)
+    else:
+        resolved = _array_dtype(element, element_freq, size, len(payload), marker, object_marker)
     if isinstance(resolved, StoredElement):
-        values = np.frombuffer(payload, dtype=resolved.dtype)
-        resolve_array_interpretation(
-            values.reshape((rows, columns), order="F"), resolved, object_marker
-        )
+        values = np.frombuffer(payload, dtype=resolved.dtype).reshape((rows, columns), order="F")
+        if obj_type == 21:
+            # A dated matrix has its own whole-object vocabulary (identities
+            # only); the element table, routes and value rules are shared.
+            resolve_mvtseries_interpretation(
+                values, resolved, object_marker, series_frequency(metadata[6])
+            )
+        else:
+            resolve_array_interpretation(values, resolved, object_marker)
     elif marker == "Bool":
         _interpret.check_bool(
             np.frombuffer(payload, dtype=resolved), _interpret.numeric_target(resolved)
@@ -1456,14 +1456,75 @@ def encode_mvtseries(series: MVTSeries) -> MatrixPayload:
     )
 
 
+def encode_stored_mvtseries(series: StoredMVTSeries) -> MatrixPayload:
+    """Encode a represented or marker-preserving MVTSeries into its native payload.
+
+    The live carrier and its markers are validated first, the column-major
+    bytes are snapshotted against the captured shape, and the snapshot is
+    validated again exactly as a read would be before anything is stored.
+    """
+    if sys.byteorder != "little":
+        raise RuntimeError(
+            "DataEcon interchange is currently supported on little-endian hosts only."
+        )
+    series.validate()
+    code = next(
+        (code for code, freq in _SERIES_FREQUENCIES.items() if freq == series.frequency), None
+    )
+    if code is None:
+        raise TypeError(_MATRIX_SUPPORT)
+    element = series.element
+    rows, columns = series.shape
+    names = join_names(series.columns)
+    first = series.firstdate.value
+    marker = element.written_marker(rows * columns)
+    payload = series.values.tobytes(order="F")
+    if len(payload) != rows * columns * element.itemsize:
+        raise ValueError("The MVTSeries changed size during the snapshot; nothing was written.")
+    metadata = (
+        3,
+        21,
+        element.native_kind,
+        element.native_frequency,
+        1,
+        rows,
+        code,
+        first,
+        2,
+        columns,
+        0,
+        0,
+        len(payload),
+    )
+    resolved = validate_matrix_payload(metadata, payload, marker, series.object_marker, names)
+    if resolved != element:
+        raise ValueError(
+            "The snapshot no longer matches the container's stored element; nothing was written."
+        )
+    return MatrixPayload(
+        21,
+        element.native_kind,
+        element.native_frequency,
+        1,
+        rows,
+        code,
+        first,
+        columns,
+        names,
+        payload,
+        marker,
+        series.object_marker,
+    )
+
+
 def decode_matrix(
     metadata: MatrixMetadata,
     payload: bytes,
     marker: str | None,
     object_marker: str | None,
     names: str | None = None,
-) -> np.ndarray[Any, Any] | StoredArray | StoredText | MVTSeries:
-    """Decode an owning matrix or MVTSeries from a column-major payload."""
+) -> np.ndarray[Any, Any] | StoredArray | StoredText | MVTSeries | StoredMVTSeries:
+    """Decode an owning matrix, MVTSeries or StoredMVTSeries from a column-major payload."""
     if sys.byteorder != "little":
         raise RuntimeError(
             "DataEcon interchange is currently supported on little-endian hosts only."
@@ -1474,12 +1535,16 @@ def decode_matrix(
     if element == KIND_STRING:
         return _decode_text_array(payload, marker, shape)
     if isinstance(resolved, StoredElement):
-        if obj_type == 21:
-            raise TypeError(
-                "Represented MVTSeries element families are not supported yet; the stored "
-                "object keeps its element kind, bytes and markers."
-            )
         values = np.frombuffer(payload, dtype=resolved.dtype).reshape(shape, order="F")
+        if obj_type == 21:
+            return StoredMVTSeries(
+                MIT(series_frequency(frequency), first),
+                split_names(names, columns),
+                _owned(values),
+                resolved,
+                copy=False,
+                object_marker=object_marker,
+            )
         return StoredArray(_owned(values), resolved, copy=False, object_marker=object_marker)
     assert resolved is not None
     values = np.frombuffer(payload, dtype=resolved).reshape(shape, order="F")

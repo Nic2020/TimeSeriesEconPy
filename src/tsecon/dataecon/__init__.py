@@ -10,7 +10,8 @@ Int128/UInt128 and ComplexF16 elements over the monthly, quarterly, half-yearly,
 annual, daily, business-daily, weekly and Unit frequencies. Plain numeric/Boolean
 NumPy arrays of one to five dimensions, text vectors, represented ``StoredArray``
 carriers and lossless integer/MIT ranges use ``write_array``/``read_array``;
-``MVTSeries`` travel through the series methods. Files open read-only by
+``MVTSeries`` and their represented form ``StoredMVTSeries`` travel through
+the series methods. Files open read-only by
 default, append without overwriting with ``"a"``, or truncate with ``"w"``; explicit
 ``overwrite=True`` writes, ``delete``, ``truncate``, ``is_empty`` and
 in-memory databases (``open_dataecon_memory``) mirror the Julia file
@@ -24,8 +25,7 @@ catalogs; members that cannot be stored or loaded are reported, or raised
 with ``strict=True``) and the one-call ``save_workspace``/``load_workspace``
 file forms. The native extension loads on first use; importing the core
 package does not require it. Marker-mapped scalars (``Symbol``, ``Rational``,
-``Date``, ...), Int128/UInt128/ComplexF16 scalars and represented
-``MVTSeries`` elements are not supported yet.
+``Date``, ...) and Int128/UInt128/ComplexF16 scalars are not supported yet.
 """
 
 from __future__ import annotations
@@ -59,7 +59,14 @@ from ._codec import (
     encode_series,
 )
 from ._errors import DataEconError
-from ._represented import COMPLEXF16, INT128, UINT128, StoredElement, StoredSeries
+from ._represented import (
+    COMPLEXF16,
+    INT128,
+    UINT128,
+    StoredElement,
+    StoredMVTSeries,
+    StoredSeries,
+)
 from ._workspace import (
     LoadedWorkspace,
     SkippedMember,
@@ -89,6 +96,7 @@ __all__ = [
     "SkippedMember",
     "StoredArray",
     "StoredElement",
+    "StoredMVTSeries",
     "StoredSeries",
     "StoredText",
     "WorkspaceReport",
@@ -305,7 +313,15 @@ class DataEconFile:
         stored newline-joined, so a name can contain neither a newline nor NUL;
         duplicate names and a zero-column object are refused rather than read
         back as a narrower value. A plain matrix is read with
-        :meth:`read_array` instead.
+        :meth:`read_array` instead. A multivariate object whose elements are
+        dates, durations, Int128/UInt128 or ComplexF16, or which carries a
+        preserved reconstruction marker, returns a :class:`StoredMVTSeries`:
+        the row anchor, the column names, a rows-by-columns carrier with the
+        exact stored bytes and the element descriptor, with
+        ``to_interpreted()`` as the explicit conversion. The element rules
+        below apply to it unchanged; its whole-object markers are limited to
+        the identity spellings (``MVTSeries``, the exact parameterised
+        ``MVTSeries{F, T}`` forms, ``AbstractMatrix``, ``Any``).
 
         The result survives file closure.
 
@@ -342,7 +358,7 @@ class DataEconFile:
             )
             if len(metadata) == 13:
                 matrix = decode_matrix(metadata, payload, marker, object_marker, names)
-                if not isinstance(matrix, MVTSeries):
+                if not isinstance(matrix, (MVTSeries, StoredMVTSeries)):
                     raise TypeError(
                         "This object is a plain DataEcon matrix; read it with read_array."
                     )
@@ -367,8 +383,11 @@ class DataEconFile:
 
         An ``MVTSeries`` stores its dated row axis, its newline-joined column
         names and a column-major payload. Its element rules are the ordinary
-        numeric and Boolean ones; represented MVTSeries elements are not
-        supported yet.
+        numeric and Boolean ones; a :class:`StoredMVTSeries` adds the
+        represented element families and preserved markers with the
+        ``StoredSeries`` rules below (the element frequency is independent of
+        the row axis, empty carriers keep Julia's element token, markers are
+        written back verbatim after validation against the snapshot).
 
         ``StoredSeries`` additionally carries full-Int64 date/duration element
         codes (without scalar date packing), Int128/UInt128 or ComplexF16 bytes.

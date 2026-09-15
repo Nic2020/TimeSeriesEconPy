@@ -13,6 +13,10 @@ and their NumPy reference siblings.
 
 from __future__ import annotations
 
+import math
+import warnings
+from fractions import Fraction
+
 import numpy as np
 import pytest
 
@@ -26,7 +30,7 @@ from tsecon import (
     std,
     var,
 )
-from tsecon._stats_kernels import cor_numpy, mean_numpy, std_numpy, var_numpy
+from tsecon._stats_kernels import _scale_exponent, cor_numpy, mean_numpy, std_numpy, var_numpy
 
 # Cython kernels are optional — they're only present when the wheel was built
 # with a C toolchain. Tests that exercise them call ``stats_is_cython()`` and
@@ -162,6 +166,230 @@ class TestStatsKernelsAgreeOnArrays:
         if _CY:
             with pytest.warns(RuntimeWarning, match="constant input"):
                 assert np.isnan(cor_cython(x, y))
+
+
+# ---------------------------------------------------------------------------
+# Correlation scaling — subnormal squares and overflow
+# ---------------------------------------------------------------------------
+
+# The Hypothesis-found subnormal-square example: centred values near 1e-158 square to
+# subnormals, where the two kernels' summation orders disagreed by a
+# relative 6.2e-8. Its exact Pearson correlation is -1/3 (``y`` is ``x``
+# reversed, so the centred products are three ``-1/16`` terms and one
+# ``9/16`` term against ``12/16`` of centred squares).
+SUBNORMAL_SQUARE_INPUT = np.array([1.78536692e-158, 0.0, 0.0, 0.0])
+TINY = np.nextafter(0.0, 1.0)  # the smallest positive subnormal, 5e-324
+HUGE = np.finfo(np.float64).max  # 1.8e308
+
+
+def _exact_squared_cor(x: np.ndarray, y: np.ndarray) -> tuple[Fraction, int]:
+    """``(sxy**2 / (sxx * syy), sign(sxy))`` in exact rational arithmetic."""
+    xs = [Fraction(v) for v in x.tolist()]
+    ys = [Fraction(v) for v in y.tolist()]
+    mx = sum(xs) / len(xs)
+    my = sum(ys) / len(ys)
+    dx = [v - mx for v in xs]
+    dy = [v - my for v in ys]
+    sxx = sum(d * d for d in dx)
+    syy = sum(d * d for d in dy)
+    sxy = sum(a * b for a, b in zip(dx, dy, strict=True))
+    return sxy * sxy / (sxx * syy), (sxy > 0) - (sxy < 0)
+
+
+def _kernels() -> list:
+    return [cor_numpy, cor_cython] if _CY else [cor_numpy]
+
+
+def _assert_matches_exact(x: np.ndarray, y: np.ndarray, rtol: float = 1e-12) -> None:
+    squared, sign = _exact_squared_cor(x, y)
+    expected = sign * math.sqrt(float(squared))
+    for kernel in _kernels():
+        result = kernel(x, y)
+        assert isinstance(result, float)
+        np.testing.assert_allclose(result, expected, rtol=rtol, atol=0)
+
+
+class TestCorrelationScaling:
+    """Both kernels scale each input by a power of two before squaring."""
+
+    def test_subnormal_square_example_matches_the_exact_correlation(self) -> None:
+        x = np.ascontiguousarray(SUBNORMAL_SQUARE_INPUT)
+        y = np.ascontiguousarray(x[::-1])
+        _assert_matches_exact(x, y)
+        for kernel in _kernels():
+            np.testing.assert_allclose(kernel(x, y), -1 / 3, rtol=1e-12, atol=0)
+        if _CY:
+            np.testing.assert_allclose(cor_cython(x, y), cor_numpy(x, y), rtol=1e-10, atol=0)
+
+    @pytest.mark.parametrize(
+        "factors", [(1e-100,), (1.0,), (1e158,), (1e300,), (1e300, 1e10)], ids=str
+    )
+    def test_subnormal_square_example_is_scale_invariant(self, factors: tuple[float, ...]) -> None:
+        # Every scaled copy, from 1e-258 up to 1e152, has the same
+        # correlation, -1/3 (the last factor is applied in two steps because
+        # 1e310 is not a float64).
+        x = SUBNORMAL_SQUARE_INPUT
+        for factor in factors:
+            x = x * factor
+        x = np.ascontiguousarray(x)
+        assert np.all(np.isfinite(x))
+        y = np.ascontiguousarray(x[::-1])
+        for kernel in _kernels():
+            np.testing.assert_allclose(kernel(x, y), -1 / 3, rtol=1e-12, atol=0)
+
+    def test_large_magnitudes_no_longer_overflow(self) -> None:
+        # Centred values near 1e155 square past float64's range; the raw
+        # ``np.corrcoef`` gives nan with an overflow warning, the scaled
+        # kernels give the exact correlation.
+        x = np.array([1e155, -1e155, 3e154, 2.0])
+        y = np.ascontiguousarray(x[::-1])
+        with warnings.catch_warnings(record=True) as raw:
+            warnings.simplefilter("always")
+            assert np.isnan(np.corrcoef(x, y)[0, 1])
+        # NumPy 2.x reports the overflow in ``dot`` and the invalid divide;
+        # NumPy 1.26 only the divide. Either way the raw call warns and fails.
+        assert {str(w.message) for w in raw} >= {"invalid value encountered in divide"}
+        assert all(issubclass(w.category, RuntimeWarning) for w in raw)
+        _assert_matches_exact(x, y)
+
+    def test_tiny_variances_no_longer_underflow(self) -> None:
+        # ``[1.1e-203, 0.0]`` has a variance that underflows to zero unscaled
+        # (the case the property test used to skip); both kernels give -1
+        # (to the ulp the ``sqrt(sxx) * sqrt(syy)`` denominator has always
+        # cost on a two-point input, e.g. ``[1.0, 0.0]``).
+        x = np.array([1.1e-203, 0.0])
+        y = np.ascontiguousarray(x[::-1])
+        for kernel in _kernels():
+            np.testing.assert_allclose(kernel(x, y), -1.0, rtol=1e-15, atol=0)
+            np.testing.assert_allclose(kernel(x * 1e203, y * 1e203), -1.0, rtol=1e-15, atol=0)
+
+    def test_scale_exponent_brings_the_maximum_into_the_unit_binade_per_value(self) -> None:
+        for values, expected in [
+            (np.array([0.75, -0.5]), 0),
+            (np.array([3.0, -1.0]), 2),
+            (np.array([-1e-158, 0.0]), -524),
+            (np.array([1e155, 2.0]), 515),
+            (np.array([TINY, 0.0]), -1073),
+            (np.array([HUGE, 0.0]), 1024),
+            (np.array([0.0, 0.0]), 0),
+            (np.array([np.nan, 1.0]), 0),
+            (np.array([np.inf, 1.0]), 0),
+            (np.array([1.0, -np.inf]), 0),
+        ]:
+            exponent = _scale_exponent(values)
+            assert exponent == expected
+            largest = float(np.max(np.abs(values)))
+            if largest and math.isfinite(largest):
+                # Applied per value with ldexp: the standalone factor 2**1073
+                # would overflow, the scaled values never do.
+                scaled = np.ldexp(values, -exponent)
+                assert 0.5 <= float(np.max(np.abs(scaled))) < 1.0
+                assert np.all(np.isfinite(scaled))
+
+    # Finite-range boundaries: the smallest subnormal, the subnormal/normal
+    # border, the largest float and same-sign or mixed-sign values whose
+    # unscaled sums overflow. Each is checked against the exact rational
+    # correlation of the float64 inputs; ``y`` is ``x`` reversed unless
+    # given, so the expected values are simple (-1, -1/2, ...).
+    @pytest.mark.parametrize(
+        ("x", "y"),
+        [
+            (np.array([TINY, 0.0]), None),
+            (np.array([TINY, 3 * TINY, 0.0, 2 * TINY]), None),
+            (np.array([np.finfo(np.float64).tiny, 0.0, 1e-308]), None),
+            (np.array([np.nextafter(np.finfo(np.float64).tiny, 0.0), 0.0, 1e-308]), None),
+            (np.array([1e308, 1e308, 0.0]), None),
+            (np.array([1e308, -1e308, 5e307, 0.0]), None),
+            (np.array([HUGE, 0.0, -HUGE]), None),
+            (np.array([HUGE, HUGE, 0.0, -HUGE]), None),
+            (np.array([1e308, 1e308, 0.0]), np.array([TINY, 0.0, 2 * TINY])),
+            (np.array([TINY, 0.0, 2 * TINY]), np.array([-1e308, 1e308, 1e308])),
+        ],
+        ids=[
+            "smallest-subnormal",
+            "subnormal-mix",
+            "normal-border",
+            "largest-subnormal",
+            "same-sign-huge",
+            "mixed-sign-huge",
+            "max-float",
+            "max-float-mixed",
+            "independent-scales",
+            "independent-scales-reversed",
+        ],
+    )
+    def test_finite_range_boundaries_match_the_exact_correlation(
+        self, x: np.ndarray, y: np.ndarray | None
+    ) -> None:
+        x = np.ascontiguousarray(x)
+        y = np.ascontiguousarray(x[::-1]) if y is None else np.ascontiguousarray(y)
+        _assert_matches_exact(x, y)
+        if _CY:
+            np.testing.assert_allclose(cor_cython(x, y), cor_numpy(x, y), rtol=1e-10, atol=0)
+
+    def test_smallest_subnormal_and_huge_sums_have_simple_expected_values(self) -> None:
+        for kernel in _kernels():
+            np.testing.assert_allclose(
+                kernel(np.array([TINY, 0.0]), np.array([0.0, TINY])), -1.0, rtol=1e-15, atol=0
+            )
+            np.testing.assert_allclose(
+                kernel(np.array([1e308, 1e308, 0.0]), np.array([0.0, 1e308, 1e308])),
+                -0.5,
+                rtol=1e-15,
+                atol=0,
+            )
+
+    def test_ordinary_inputs_are_bit_identical_to_the_unscaled_arithmetic(self) -> None:
+        # Where the unscaled arithmetic stays in the normal range the scaled
+        # intermediates round the same way, so the NumPy kernel equals the raw
+        # ``np.corrcoef`` scalar bit for bit and the Cython kernel equals a
+        # transcription of its unscaled loop. Checked on 200 seeded inputs at
+        # magnitudes 1e-100..1e100: evidence over that domain, not a proof.
+        rng = np.random.default_rng(seed=20260915)
+        for _ in range(200):
+            n = int(rng.integers(2, 300))
+            scale = 10.0 ** rng.uniform(-100, 100)
+            x = np.ascontiguousarray(rng.standard_normal(n) * scale)
+            y = np.ascontiguousarray(rng.standard_normal(n) * scale + 0.5 * x)
+            assert cor_numpy(x, y) == float(np.corrcoef(x, y)[0, 1])
+            if _CY:
+                assert cor_cython(x, y) == _unscaled_cython_transcription(x, y)
+
+    @pytest.mark.parametrize(
+        "bad", [[np.nan, 1.0, 2.0], [np.inf, 1.0, 2.0], [1.0, np.inf, -np.inf], [-np.inf, 0.5, 1.0]]
+    )
+    def test_nonfinite_inputs_still_propagate_nan(self, bad: list[float]) -> None:
+        x = np.array(bad)
+        y = np.array([1.0, 2.0, 5.0])
+        with warnings.catch_warnings():
+            # ``np.corrcoef`` itself warns on an infinite centred value, as it
+            # did before the scaling; the kernels add no warning of their own.
+            warnings.simplefilter("ignore", RuntimeWarning)
+            for kernel in _kernels():
+                assert math.isnan(kernel(x, y))
+                assert math.isnan(kernel(y, x))
+
+
+def _unscaled_cython_transcription(x: np.ndarray, y: np.ndarray) -> float:
+    """The pre-scaling ``cor_cython`` loop in Python floats, for bit comparison."""
+    xs = x.tolist()
+    ys = y.tolist()
+    n = len(xs)
+    sx = xs[0]
+    sy = ys[0]
+    for i in range(1, n):
+        sx += xs[i]
+        sy += ys[i]
+    mx = sx / n
+    my = sy / n
+    sxx = syy = sxy = 0.0
+    for i in range(n):
+        dx = xs[i] - mx
+        dy = ys[i] - my
+        sxx += dx * dx
+        syy += dy * dy
+        sxy += dx * dy
+    return sxy / (math.sqrt(sxx) * math.sqrt(syy))
 
 
 # ---------------------------------------------------------------------------

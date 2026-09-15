@@ -462,3 +462,32 @@ loads it (marked empties reload flat, unmarked ones keep their shape) and
 reads the Workspace back with `readdb`. `verify-wheel` applies the same
 checks to the objects Python writes under the same names in the wheel output,
 where every empty carries the `String` token Python always writes.
+
+## Represented MVTSeries and structure fixture
+
+`julia_represented_mvtseries.daec` and its TOML provenance are generated with
+`generate-represented-mvtseries` and checked with
+`verify-represented-mvtseries`. Julia's own writer stores multivariate series
+whose elements are `MIT{Quarterly{3}}` codes on a Monthly axis (2x3, 1x3,
+Unicode and empty column names, and 1x2 at both reliable endpoints of every
+axis family), `Duration{Yearly{6}}` codes on a Daily axis (3x2), `MIT{Unit}`
+codes on a Unit axis at the Int64 endpoints, `MIT{Weekly{7}}` codes on a
+BDaily axis (3x1), Int128 (3x2), UInt128 (2x3) and ComplexF16 (2x2, with a
+NaN payload, an infinity and signed zeros) elements, and zero-row objects of
+Int128, ComplexF16 and `Duration{Yearly{6}}` elements that Julia marks with
+their element token. Rows Julia's writer cannot produce are stored through
+the same C entry points: `Bool` markers on Int128 and on Int64 payloads,
+`Float64` and `MIT{Monthly}` markers on an Int64 payload, the identity
+object markers `MVTSeries` and `MVTSeries{Monthly, Int128}`, and a marked
+empty `MIT{Monthly}` object. The same file holds the writer-side form of
+Julia's `Diagonal`, `Symmetric` and `Hermitian` wrappers: both authoritative
+triangles of Float64 and ComplexF64 inputs, signed-zero and NaN-payload
+inputs, Int128, ComplexF16, `MIT{Monthly}`, Boolean and Float16 elements,
+empty and 1x1 wrappers. The Julia verification checks every object's class,
+type, element codes, axes, names, column-major bytes and markers against its
+inventory and loads it (represented elements reload as the same `MVTSeries`;
+empty date/duration objects raise `MethodError`; empty wide objects reload
+flat; wrappers reload as the same wrapper and re-materialise to the stored
+bytes). `verify-wheel` applies the same checks to the objects Python writes
+under the same names, where the foreign Int64 `Bool` row is written in the
+canonical Int8 encoding and empty wrappers omit the redundant element token.

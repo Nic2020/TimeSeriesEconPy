@@ -7,13 +7,14 @@ and numeric/Boolean TSeries over every core frequency, including empty series**,
 through the DataEcon 0.4.0 C library. Date and duration
 scalars cover every core frequency: `Unit`, `Daily`, `BDaily`, `Weekly` with
 any end day, `Monthly`, `Quarterly`, `HalfYearly` and `Yearly`.
-Series may also hold date, duration, Int128/UInt128 and ComplexF16 elements
-through `StoredSeries` (see [Represented series elements](#represented-series-elements)).
+Series and multivariate series may also hold date, duration, Int128/UInt128
+and ComplexF16 elements through `StoredSeries` and `StoredMVTSeries` (see
+[Represented series elements](#represented-series-elements) and
+[Represented multivariate series](#represented-multivariate-series)).
 Plain arrays of one to five dimensions carry numeric, Boolean, represented
 and text elements; catalogs, attributes and whole `Workspace` trees have their
-own sections below. Int128/UInt128/ComplexF16 scalars, marker-reconstructed
-Julia scalar types (`Symbol`, `Rational`, `Date`, ...) and represented
-`MVTSeries` elements are not supported yet.
+own sections below. Int128/UInt128/ComplexF16 scalars and marker-reconstructed
+Julia scalar types (`Symbol`, `Rational`, `Date`, ...) are not supported yet.
 Existing JSON I/O is unchanged.
 
 Native DataEcon support is configured in the wheel workflow for CPython 3.11–3.13:
@@ -399,6 +400,63 @@ own markers. Python neither needs nor evaluates anything: the marker is matched
 against a finite table. The mirroring copies the authoritative triangle rather
 than adding a zeroed one, so a stored `-0.0` keeps its sign and a NaN keeps its
 payload, exactly as in Julia, and every supported element converts.
+
+### Constructing structure-marked matrices
+
+`StoredArray.diagonal`, `StoredArray.symmetric` and `StoredArray.hermitian`
+build the value Julia's own writer stores for `Diagonal(v)`, `Symmetric(A,
+uplo)` and `Hermitian(A, uplo)`: the wrapper is materialised into the full
+dense matrix *before* anything is stored, exactly as Julia's `Matrix{T}(value)`
+does, and the result carries the wrapper marker. Only the authoritative
+triangle of the input matters: `uplo="U"` (Julia's default) copies the strict
+upper triangle onto the lower one, `"L"` the reverse, and the diagonal is kept
+bit for bit. `Hermitian` conjugates the mirrored entries and clears the
+imaginary part of the diagonal to `+0.0` while its real part keeps its bits;
+`Diagonal` takes a vector or the diagonal of a square matrix and zeroes the
+rest. The stored bytes are therefore the same whichever triangle was given,
+and Julia's loader rebuilds the same wrapper from them.
+
+```python
+import numpy as np
+from tsecon.dataecon import StoredArray, open_dataecon
+
+a = np.array([[1.0, 3.0], [20.0, 4.0]])
+upper = StoredArray.symmetric(a)          # the 3 is authoritative
+lower = StoredArray.symmetric(a, "L")     # the 20 is authoritative
+assert upper.values.tolist() == [[1.0, 3.0], [3.0, 4.0]]
+assert lower.values.tolist() == [[1.0, 20.0], [20.0, 4.0]]
+
+h = StoredArray.hermitian(np.array([[1 + 9j, 2 - 1j], [20 + 20j, 4 - 9j]]))
+assert h.values.tolist() == [[1 + 0j, 2 - 1j], [2 + 1j, 4 + 0j]]
+d = StoredArray.diagonal(np.array([3.0, -0.0]))
+assert d.values.tolist() == [[3.0, 0.0], [0.0, -0.0]]
+
+with open_dataecon("wrappers.daec", "w") as db:
+    db.write_array("lower", lower)
+    db.write_array("h", h)
+    db.write_array("d", d)
+
+with open_dataecon("wrappers.daec") as db:
+    assert db.get_attribute("lower", "jtype") == "Symmetric"
+    assert db.read_array("lower") == lower
+    assert db.read_array("h").to_interpreted().tolist() == h.values.tolist()
+```
+
+Ordinary numeric NumPy arrays give numeric elements; a Boolean array becomes
+the Int8 carrier with an inactive `"Bool"` element marker, which is what
+Julia's writer stores for a Boolean wrapper (its loader then rebuilds an Int8
+wrapper, because `jtype` wins). A `StoredArray` input supplies the represented
+element families (dates, durations, 128-bit integers, ComplexF16, whose
+imaginary sign bit is flipped exactly by the conjugation). Non-square inputs
+are refused, as Julia's constructors refuse them. The input's rank, shape and
+the size of the square it would produce are checked before anything is
+converted or expanded: a diagonal vector whose square would exceed the 128 MiB
+payload limit, or a Boolean array broadcast to such a square, is refused
+without the square (or the Int8 copy) ever being requested. An empty wrapper
+can only hold its kind's default element (`Float64`, `Int64`, `UInt64`,
+`ComplexF64`):
+under the wrapper marker the element token is inactive, so a narrower width
+would be lost on read, in Julia as in Python.
 
 ## N-dimensional arrays
 
@@ -1717,6 +1775,92 @@ operation; there is no rollback or implicit cleanup delete, and a later close
 may fail and quarantine the owner. Do not retry that close; reopen the file
 to inspect what was stored.
 
+## Represented multivariate series
+
+Julia's `MVTSeries` holds the same element families as `TSeries`, so a
+multivariate object may carry `MIT{F}` or `Duration{F}` codes with their own
+element frequency (independent of the row axis), Int128/UInt128 integers or
+ComplexF16 values. Such an object reads back as a `StoredMVTSeries`: the dated
+row anchor, the distinct column names, a rows-by-columns C-contiguous carrier
+with the exact stored bytes, and the shared `StoredElement` descriptor.
+`from_list` builds one from nested Python values (one inner sequence per row)
+with the same strict rules as `StoredSeries.from_list`; `tolist()`,
+`to_bool()`, `to_complex64()` and `to_interpreted()` are the explicit
+conversions, and `to_interpreted()` returns a core `MVTSeries` for ordinary or
+Boolean targets. The payload is written column-major and the axes, names and
+markers are exactly what Julia's writer stores, so Julia loads the object as
+an `MVTSeries` of the represented element.
+
+```python
+from tsecon import MIT, Quarterly, mm
+from tsecon.dataecon import StoredElement, StoredMVTSeries, open_dataecon
+
+quarters = StoredElement.date(Quarterly(3))
+q = lambda code: MIT(Quarterly(3), code)  # noqa: E731
+value = StoredMVTSeries.from_list(
+    mm(2024, 1), ("a", "b", "c"), quarters, [[q(-1), q(1), q(5)], [q(0), q(2), q(6)]]
+)
+
+with open_dataecon("dated.daec", "w") as db:
+    db.write_series("quarters", value)
+
+with open_dataecon("dated.daec") as db:
+    stored = db.read_series("quarters")
+
+assert isinstance(stored, StoredMVTSeries)
+assert stored == value
+assert stored.columns == ("a", "b", "c")
+assert stored.lastdate == mm(2024, 2)
+assert stored.tolist()[1] == [q(0), q(2), q(6)]
+assert stored.values.flags.owndata
+```
+
+The element rules are those of the [represented series](#represented-series-elements)
+and the [foreign markers](#foreign-reconstruction-markers-storage-versus-interpretation)
+sections, applied to the column-major values: a foreign element marker is
+preserved and `to_interpreted()` builds what Julia's `map` conversion would; a
+`Bool` marker on an ordinary payload of any width reads as a Boolean
+`MVTSeries` (the dated-series rule, which differs from the one-byte rule plain
+matrices keep); a wide `Bool` marker is preserved with `to_bool()` as the
+explicit conversion; an empty date or duration object writes Julia's own
+element token and is preserved on read although the pinned Julia loader cannot
+build it; an empty 128-bit or ComplexF16 object keeps its width through the
+token and reloads in Julia as a flat typed vector. Whole-object markers on a
+multivariate object are limited to the identities Julia's `convert` accepts:
+`MVTSeries`, `MVTSeries{F}`, the exact `MVTSeries{F, T}` and
+`MVTSeries{F, T, Matrix{T}}` spellings naming this axis and element,
+`AbstractMatrix` and `Any`; every other token (a mismatched parameter,
+`Matrix`, `Array`, the LinearAlgebra wrappers, `TSeries`, `Symbol`) is refused
+without evaluation, and Julia fails on those as well. Column names follow the
+names-axis rules of ordinary multivariate series (no newline or NUL, distinct,
+at least one). Whole `Workspace` trees carry `StoredMVTSeries` members through
+the same dispatch as `MVTSeries`.
+
+```python
+import numpy as np
+from tsecon import MVTSeries, mm
+from tsecon.dataecon import INT128, StoredElement, StoredMVTSeries, open_dataecon
+
+as_float = StoredMVTSeries(
+    mm(2024, 1),
+    ("a", "b"),
+    np.array([[1, 0], [2, 1]], dtype="<i8"),
+    StoredElement.numeric("<i8", "Float64"),
+)
+flags = StoredMVTSeries.from_list(mm(2024, 1), ("a", "b"), INT128.with_bool_marker(), [[1, 0], [0, 1]])
+
+with open_dataecon("marked.daec", "w") as db:
+    db.write_series("as_float", as_float)
+    db.write_series("flags", flags)
+
+with open_dataecon("marked.daec") as db:
+    assert db.get_attributes("as_float") == {"jeltype": "Float64"}
+    converted = db.read_series("as_float").to_interpreted()
+    assert isinstance(converted, MVTSeries)
+    assert converted.values.dtype == np.float64
+    assert db.read_series("flags").to_bool().values.tolist() == [[True, False], [False, True]]
+```
+
 ### Compatibility restrictions and remaining unsupported capabilities
 
 - Only canonical element-frequency codes are accepted. Julia's own writer
@@ -1733,7 +1877,12 @@ to inspect what was stored.
   `TypeError`. Julia loads several of them; supporting them is planned parity
   work, not an approved exclusion.
 - Int128, UInt128 and ComplexF16 scalars and wider-than-64-bit element widths
-  other than these three represented series families remain unsupported.
+  other than these three represented families remain unsupported.
+- Whole-object spellings on a multivariate object outside the exact identity
+  table (`MVTSeries{Monthly,Int64}` without the space, the qualified
+  `TimeSeriesEcon.MVTSeries`, `AbstractArray`, an alias inside the parameter
+  such as `Complex{Float16}`) are refused although Julia loads them; they are
+  part of the same planned marker-spelling work as the series tokens above.
 - Marker text is never evaluated: markers are compared with a finite table of
   tokens.
 

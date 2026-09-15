@@ -72,16 +72,72 @@ kernel. The kernel assumes:
 
 * ``values.ndim == 1`` and ``values.dtype == float64``
 * ``cor`` inputs satisfy ``x.shape[0] == y.shape[0] >= 2``
+
+Correlation scaling
+-------------------
+Pearson's correlation is invariant to a positive rescaling of either
+input, and a float64 scaled by a power of two through ``ldexp`` is exact
+as long as the result stays a normal number. Both ``cor`` kernels
+therefore scale every value of each input by ``2**-e``, where ``e`` is
+the binary exponent of that input's largest magnitude
+(:func:`_scale_exponent`), *before* anything is summed: the scaled values
+lie in ``(-1, 1)`` with the largest in ``[0.5, 1)``, so the sums, the mean,
+the centred values and their squares all stay in the normal range for
+any finite input, from the smallest subnormal to ``1.8e308``. The
+exponent is applied per value with ``ldexp`` rather than as a standalone
+factor, because ``2**1073`` (the factor a subnormal maximum would need) is
+not itself representable.
+
+Where the unscaled arithmetic would have stayed within the normal range
+throughout, every scaled intermediate is the unscaled one times the same
+power of two and rounds the same way, so the result is unchanged bit for
+bit; ``test_stats_kernels.py`` checks this on seeded inputs across
+magnitudes ``1e-100`` to ``1e100`` (evidence over that domain, not a proof
+over all inputs). The scaling changes the result only where the unscaled
+arithmetic left the normal range: centred values near ``1e-158`` square
+to subnormals (about 26 significant bits instead of 53) and the two
+summation orders then disagree at that reduced precision; sums or squares
+near ``1e308``/``1e155`` overflow to ``inf``. One rounding effect remains:
+a value more than ``2**1022`` times smaller than its input's maximum
+becomes subnormal or zero when scaled, which is below the precision at
+which it could have influenced the mean anyway. Nonfinite input is left
+unscaled (``e = 0``), so ``nan``/``inf`` propagate exactly as before, and
+the constant-input guard runs first and is unaffected.
 """
 
 from __future__ import annotations
 
+import math
 import warnings
 
 import numpy as np
 import numpy.typing as npt
 
 __all__ = ["cor_numpy", "mean_numpy", "std_numpy", "var_numpy"]
+
+
+def _scale_exponent(values: npt.NDArray[np.float64]) -> int:
+    """Return the binary exponent ``e`` of ``max(|values|)``: ``ldexp(max, -e)`` is in ``[0.5, 1)``.
+
+    Returns ``0`` when the largest magnitude is zero or not finite (a NaN
+    anywhere makes the maximum NaN), so such input is computed exactly as
+    it would be unscaled. The Cython kernel derives the same exponent from
+    the same maximum. Callers scale with ``ldexp(value, -e)`` per value;
+    ``2.0 ** -e`` itself may not be representable (``e = -1073`` for a
+    subnormal maximum).
+    """
+    largest = float(np.max(np.abs(values)))
+    if largest == 0.0 or not math.isfinite(largest):
+        return 0
+    return math.frexp(largest)[1]
+
+
+def _scaled(values: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+    """``values`` scaled by ``2**-e`` per value (see "Correlation scaling")."""
+    exponent = _scale_exponent(values)
+    if exponent == 0:
+        return values
+    return np.ldexp(values, -exponent)
 
 
 def mean_numpy(values: npt.NDArray[np.float64]) -> float:
@@ -118,6 +174,11 @@ def cor_numpy(x: npt.NDArray[np.float64], y: npt.NDArray[np.float64]) -> float:
     stacked matrix, computes the 2-by-2 correlation matrix, and returns
     that; this wrapper extracts the off-diagonal scalar so the return
     shape matches the Cython kernel and the public ``cor(x, y)`` form.
+    Each input is first scaled by ``2**-e`` per value, ``e`` from
+    :func:`_scale_exponent` (see "Correlation scaling" in the module
+    docstring): exact for normal results, unchanged where the unscaled
+    arithmetic stayed in range, and it keeps sums and centred squares in
+    the normal range for any finite input.
 
     Constant-input guard
     --------------------
@@ -139,4 +200,4 @@ def cor_numpy(x: npt.NDArray[np.float64], y: npt.NDArray[np.float64]) -> float:
             stacklevel=2,
         )
         return float("nan")
-    return float(np.corrcoef(x, y)[0, 1])
+    return float(np.corrcoef(_scaled(x), _scaled(y))[0, 1])

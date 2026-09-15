@@ -1,12 +1,15 @@
 # SPDX-License-Identifier: MIT
 """Stored representations for DataEcon series that NumPy or Julia's markers keep apart.
 
-Julia's dated ``TSeries`` may hold ``MIT{F}`` dates and ``Duration{F}`` spans
-(raw Int64 codes with their own element frequency, independent of the axis),
-``Int128``/``UInt128`` integers and ``ComplexF16`` values. NumPy has no scalar
-type for any of them, so :class:`StoredSeries` keeps such a series in its
-stored form: a dated anchor, a contiguous carrier array with the exact stored
-bytes, and a :class:`StoredElement` describing the element family.
+Julia's dated ``TSeries`` and ``MVTSeries`` may hold ``MIT{F}`` dates and
+``Duration{F}`` spans (raw Int64 codes with their own element frequency,
+independent of the axis), ``Int128``/``UInt128`` integers and ``ComplexF16``
+values. NumPy has no scalar type for any of them, so :class:`StoredSeries`
+keeps such a series in its stored form: a dated anchor, a contiguous carrier
+array with the exact stored bytes, and a :class:`StoredElement` describing the
+element family. :class:`StoredMVTSeries` is the same representation for a
+dated matrix: a dated row anchor, the column names and a two-dimensional
+carrier, sharing the descriptor, the packers and the marker rules.
 
 A file may also carry Julia's reconstruction markers: ``jeltype`` names an
 element type the values are converted to on load, and ``jtype`` names a
@@ -34,6 +37,7 @@ import numpy as np
 
 from tsecon.frequencies import Frequency
 from tsecon.mit import MIT, Duration
+from tsecon.mvtseries import MVTSeries
 from tsecon.tseries import TSeries
 
 from . import _interpret
@@ -65,9 +69,12 @@ __all__ = [
     "INT128_DTYPE",
     "UINT128",
     "StoredElement",
+    "StoredMVTSeries",
     "StoredSeries",
+    "check_column_names",
     "element_tolist",
     "julia_frequency_name",
+    "pack_elements",
 ]
 
 ElementKind = Literal["date", "duration", "int128", "uint128", "complexf16", "numeric"]
@@ -386,20 +393,7 @@ class StoredSeries:
         Ordinary numeric families are built from an explicit NumPy array of
         the carrier dtype instead, so that no implicit conversion is applied.
         """
-        if not isinstance(element, StoredElement):
-            raise TypeError("element must be a StoredElement.")
-        if element.kind in _DATE_KINDS:
-            packed = _pack_codes(items, element)
-        elif element.kind == "complexf16":
-            packed = _pack_complexf16(items)
-        elif element.kind == "numeric":
-            raise TypeError(
-                "Build ordinary numeric stored series from an explicit NumPy array of the "
-                "carrier dtype; from_list applies no implicit numeric conversion."
-            )
-        else:
-            packed = _pack_128(items, element.kind == "int128")
-        return cls(firstdate, packed, element, copy=False)
+        return cls(firstdate, pack_elements(element, items), element, copy=False)
 
     @property
     def firstdate(self) -> MIT:
@@ -599,6 +593,29 @@ def element_tolist(values: np.ndarray[Any, Any], element: StoredElement) -> list
     return _interpret.unpack_words(values, element.kind == "int128")
 
 
+def pack_elements(element: StoredElement, items: Iterable[object]) -> np.ndarray[Any, Any]:
+    """Pack Python values into a fresh one-dimensional carrier of ``element.dtype``.
+
+    The strict rules of :meth:`StoredSeries.from_list` apply: core
+    ``MIT``/``Duration`` objects of exactly the element frequency, Python
+    ``int`` values in the 128-bit range, and Python ``complex`` values or
+    ``(np.float16, np.float16)`` pairs for ComplexF16. Ordinary numeric
+    families are refused; they are built from an explicit NumPy array.
+    """
+    if not isinstance(element, StoredElement):
+        raise TypeError("element must be a StoredElement.")
+    if element.kind in _DATE_KINDS:
+        return _pack_codes(items, element)
+    if element.kind == "complexf16":
+        return _pack_complexf16(items)
+    if element.kind == "numeric":
+        raise TypeError(
+            "Build ordinary numeric stored values from an explicit NumPy array of the "
+            "carrier dtype; from_list applies no implicit numeric conversion."
+        )
+    return _pack_128(items, element.kind == "int128")
+
+
 def _pack_codes(items: Iterable[object], element: StoredElement) -> np.ndarray[Any, Any]:
     expected: type[MIT] | type[Duration] = MIT if element.kind == "date" else Duration
     codes: list[int] = []
@@ -685,13 +702,31 @@ def resolve_interpretation(
                 "marker on one is not supported."
             )
         return _interpret.object_interpretation(object_marker, axis, base, length), base
+    if element.marker is None and element.kind == "numeric":
+        raise TypeError(
+            "Ordinary numeric values without a reconstruction marker belong in a "
+            "TSeries, not a StoredSeries."
+        )
+    return element_interpretation(values, element, "series")
+
+
+def element_interpretation(
+    values: np.ndarray[Any, Any], element: StoredElement, noun: str
+) -> tuple[str, Target]:
+    """Resolve an active element marker against the flat stored values.
+
+    Shared by every stored container (dated series, plain arrays and dated
+    matrices), so one finite table and one set of route/value rules decide
+    what Julia's ``map``-based element conversion would build. ``noun`` names
+    the container in messages. Returns ``("stored", base)`` for an unmarked or
+    redundant descriptor and ``("element", target)`` for a possible foreign
+    conversion; ``TypeError`` names an unsupported token or route and
+    ``ValueError`` a value the conversion cannot represent.
+    """
+    length = int(values.shape[0])
+    base = element.target
     marker = element.marker
     if marker is None:
-        if element.kind == "numeric":
-            raise TypeError(
-                "Ordinary numeric values without a reconstruction marker belong in a "
-                "TSeries, not a StoredSeries."
-            )
         return "stored", base
     target = _interpret.resolve_token(marker)
     if target is None:
@@ -702,9 +737,10 @@ def resolve_interpretation(
     if target == base:
         return "stored", base
     if element.kind == "numeric" and target.is_bool:
+        result = "TSeries" if noun == "series" else noun
         raise TypeError(
-            'A "Bool" marker on an ordinary numeric payload reads as a Boolean TSeries; '
-            "build one with a bool dtype instead of a StoredSeries."
+            f'A "Bool" marker on an ordinary numeric payload reads as a Boolean {result}; '
+            "build one with a bool dtype instead of a stored container."
         )
     if not length:
         if element.kind == "numeric":
@@ -720,13 +756,386 @@ def resolve_interpretation(
         if element.is_wide:
             raise ValueError(
                 f"An empty {element.julia_name} carrier with the foreign marker "
-                f"{marker!r} has no storable width; use an empty numeric TSeries or an "
+                f"{marker!r} has no storable width; use an empty numeric value or an "
                 "unmarked wide carrier."
             )
         raise TypeError(
-            f"Julia cannot load an empty {element.julia_name} series; the foreign marker "
+            f"Julia cannot load an empty {element.julia_name} {noun}; the foreign marker "
             f"{marker!r} on one is not supported."
         )
     _interpret.check_route(base, target)
     _interpret.check_values(values, base, target)
     return "element", target
+
+
+# ---- dated matrices ---------------------------------------------------------
+
+
+def check_column_names(columns: object) -> tuple[str, ...]:
+    """Validate MVTSeries column names for DataEcon's names axis.
+
+    The axis is one newline-joined, NUL-terminated string, so a name can
+    contain neither a newline nor NUL; the empty string still splits into one
+    name, so at least one column is required; Python's ``MVTSeries`` keys
+    columns by name, so the names must be distinct. A single ``str`` is one
+    name; otherwise every entry must be exactly ``str``.
+    """
+    if isinstance(columns, str):
+        parts: tuple[str, ...] = (columns,)
+    else:
+        try:
+            parts = tuple(columns)  # type: ignore[arg-type]
+        except TypeError:
+            raise TypeError("MVTSeries column names must be an iterable of str.") from None
+    if not parts:
+        raise ValueError(
+            "DataEcon cannot store an MVTSeries with no columns; the names axis has no "
+            "encoding for zero names."
+        )
+    for name in parts:
+        if type(name) is not str:
+            raise TypeError("MVTSeries column names must be plain Python strings.")
+        if "\n" in name:
+            raise ValueError(
+                "A DataEcon column name cannot contain a newline; it separates the names."
+            )
+        if "\0" in name:
+            raise ValueError(
+                "A DataEcon column name cannot contain NUL; the names axis is stored as a "
+                "NUL-terminated string and would be truncated."
+            )
+    if len(set(parts)) != len(parts):
+        raise ValueError("DataEcon column names must be distinct.")
+    return parts
+
+
+def _check_matrix_input(values: np.ndarray[Any, Any], element: StoredElement, columns: int) -> None:
+    """Validate a dated-matrix carrier before any copy: dtype, rank, columns, capacity."""
+    if not isinstance(values, np.ndarray):
+        raise TypeError(
+            "values must be a NumPy array of the element's carrier dtype; "
+            "use StoredMVTSeries.from_list for Python values."
+        )
+    if values.dtype.char in ("g", "G") or values.dtype != element.dtype:
+        raise TypeError(
+            f"values must have the {element.kind} carrier dtype {element.dtype!r}, "
+            f"got {values.dtype!r}; no implicit conversion is applied."
+        )
+    if values.ndim != 2:
+        raise ValueError("The carrier must be two-dimensional (rows by columns).")
+    if int(values.shape[1]) != columns:
+        raise ValueError(
+            f"The carrier has {int(values.shape[1])} columns but {columns} column names were given."
+        )
+    if int(values.shape[0]) * columns * element.itemsize > MAX_BYTES:
+        raise ValueError(f"The MVTSeries payload exceeds the {MAX_BYTES} byte limit.")
+
+
+def _check_matrix_carrier(
+    values: np.ndarray[Any, Any], element: StoredElement, columns: int
+) -> None:
+    _check_matrix_input(values, element, columns)
+    if not values.flags.c_contiguous:
+        raise ValueError("The carrier must remain C-contiguous; its strides were changed.")
+
+
+def resolve_mvtseries_interpretation(
+    values: np.ndarray[Any, Any],
+    element: StoredElement,
+    object_marker: str | None,
+    axis: Frequency,
+) -> tuple[str, Target]:
+    """Resolve marker precedence for a dated matrix and check the declared conversion.
+
+    Returns ``("identity"|"element"|"stored", target)``. A present
+    whole-object marker wins and leaves the element marker inactive, as in
+    Julia; the only supported whole-object tokens are identities (see
+    :func:`_interpret.mvtseries_object_interpretation`). Element markers use
+    the same finite table, routes and value rules as dated series and plain
+    arrays, applied to the column-major flat values.
+    """
+    base = element.target
+    flat = values.reshape(-1, order="F")
+    if object_marker is not None:
+        if element.kind in _DATE_KINDS and not flat.shape[0]:
+            raise TypeError(
+                "Julia cannot load an empty date or duration MVTSeries; a whole-object "
+                "marker on one is not supported."
+            )
+        return _interpret.mvtseries_object_interpretation(object_marker, axis, base), base
+    if element.marker is None and element.kind == "numeric":
+        raise TypeError(
+            "Ordinary numeric values without a reconstruction marker belong in an "
+            "MVTSeries, not a StoredMVTSeries."
+        )
+    return element_interpretation(flat, element, "MVTSeries")
+
+
+class StoredMVTSeries:
+    """A dated matrix (Julia's ``MVTSeries``) kept in its stored representation.
+
+    ``firstdate`` is the row anchor, ``columns`` the distinct column names and
+    ``values`` the live carrier: a two-dimensional (rows by columns),
+    C-contiguous NumPy array of exactly ``element.dtype`` holding the stored
+    bytes (the adapter writes DataEcon's column-major payload from it). The
+    constructor copies by default; with ``copy=False`` a writable, C-contiguous
+    array of the exact dtype is shared with the caller and anything else is
+    copied. Input of another dtype is refused rather than converted; build the
+    carrier with :meth:`from_list` or an explicit ``np.array(..., dtype=...)``.
+
+    ``object_marker`` is a preserved whole-object ``jtype`` text; when present
+    it takes precedence and the element marker is inactive, as in Julia. The
+    anchor, names, descriptor and object marker are read-only; the carrier's
+    contents may be edited in place and its shape, dtype and layout are
+    revalidated before every operation. Explicit conversions (``tolist``,
+    ``to_bool``, ``to_complex64``, ``to_interpreted``) are the only paths to
+    ordinary Python, NumPy or core ``MVTSeries`` values.
+    """
+
+    __slots__ = ("_columns", "_element", "_firstdate", "_object_marker", "_values")
+
+    def __init__(
+        self,
+        firstdate: MIT,
+        columns: object,
+        values: np.ndarray[Any, Any],
+        element: StoredElement,
+        *,
+        copy: bool = True,
+        object_marker: str | None = None,
+    ) -> None:
+        if not isinstance(firstdate, MIT):
+            raise TypeError("firstdate must be a core MIT anchor.")
+        if firstdate.frequency not in _SERIES_FREQUENCIES.values():
+            raise TypeError(
+                "The row axis must be monthly, quarterly, half-yearly, annual, daily, "
+                "business-daily, weekly or Unit."
+            )
+        if not isinstance(element, StoredElement):
+            raise TypeError("element must be a StoredElement.")
+        names = check_column_names(columns)
+        _interpret.check_marker_text(object_marker, "whole-object")
+        _check_matrix_input(values, element, len(names))
+        element = canonical_element(element, object_marker, int(values.size))
+        if copy or not (values.flags.writeable and values.flags.c_contiguous):
+            values = np.array(values, dtype=element.dtype, copy=True, order="C")
+        self._firstdate = firstdate
+        self._columns = names
+        self._values = values
+        self._element = element
+        self._object_marker = object_marker
+        self._check_interpretation()
+
+    @classmethod
+    def from_list(
+        cls,
+        firstdate: MIT,
+        columns: object,
+        element: StoredElement,
+        rows: Iterable[Iterable[object]],
+    ) -> StoredMVTSeries:
+        """Build a container from nested Python values, one inner sequence per row.
+
+        Every row must hold exactly one value per column name; an empty outer
+        sequence gives a zero-row matrix. Values follow the strict rules of
+        :func:`pack_elements` (core ``MIT``/``Duration`` of the element
+        frequency, in-range ``int`` for 128-bit carriers, ``complex`` or
+        ``(np.float16, np.float16)`` pairs for ComplexF16); ordinary numeric
+        families are built from an explicit NumPy array instead.
+        """
+        names = check_column_names(columns)
+        flat: list[object] = []
+        count = 0
+        for row in rows:
+            entries = list(row)
+            if len(entries) != len(names):
+                raise ValueError(
+                    f"Row {count} holds {len(entries)} values for {len(names)} columns."
+                )
+            flat.extend(entries)
+            count += 1
+        # A reshaped view would not own its buffer; one owning copy of the
+        # freshly packed values keeps the container independent (setting
+        # `shape` in place is deprecated from NumPy 2.5).
+        packed = pack_elements(element, flat).reshape((count, len(names))).copy(order="C")
+        return cls(firstdate, names, packed, element, copy=False)
+
+    # ---- accessors -------------------------------------------------------
+
+    @property
+    def firstdate(self) -> MIT:
+        """The dated anchor of the row axis."""
+        return self._firstdate
+
+    @property
+    def columns(self) -> tuple[str, ...]:
+        """The distinct column names, in stored order."""
+        return self._columns
+
+    @property
+    def element(self) -> StoredElement:
+        """The stored element family, including any preserved element marker."""
+        return self._element
+
+    @property
+    def object_marker(self) -> str | None:
+        """The preserved whole-object ``jtype`` text, or ``None``."""
+        return self._object_marker
+
+    @property
+    def values(self) -> np.ndarray[Any, Any]:
+        """The live rows-by-columns carrier; its contents may be edited in place."""
+        return self._values
+
+    @property
+    def frequency(self) -> Frequency:
+        """The row axis frequency, taken from the anchor."""
+        return self._firstdate.frequency
+
+    @property
+    def shape(self) -> tuple[int, int]:
+        """``(rows, columns)`` of the carrier."""
+        return (int(self._values.shape[0]), int(self._values.shape[1]))
+
+    @property
+    def lastdate(self) -> MIT:
+        """The row axis endpoint ``firstdate + rows - 1`` (synthetic when empty)."""
+        return MIT(self._firstdate.frequency, self._firstdate.value + len(self) - 1)
+
+    @property
+    def active_marker(self) -> str | None:
+        """The element marker Julia would act on: ``None`` under a whole-object marker."""
+        return None if self._object_marker is not None else self._element.marker
+
+    def __len__(self) -> int:
+        _check_matrix_carrier(self._values, self._element, len(self._columns))
+        return int(self._values.shape[0])
+
+    def __repr__(self) -> str:
+        outer = "" if self._object_marker is None else f", object_marker={self._object_marker!r}"
+        return (
+            f"StoredMVTSeries(firstdate={self._firstdate!r}, columns={self._columns!r}, "
+            f"element={self._element!r}, shape={self.shape}{outer})"
+        )
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, StoredMVTSeries):
+            return NotImplemented
+        _check_matrix_carrier(self._values, self._element, len(self._columns))
+        _check_matrix_carrier(other._values, other._element, len(other._columns))
+        return (
+            self._element == other._element
+            and self._object_marker == other._object_marker
+            and self._firstdate == other._firstdate
+            and self._columns == other._columns
+            and self.shape == other.shape
+            and self._values.tobytes(order="C") == other._values.tobytes(order="C")
+        )
+
+    __hash__ = None  # type: ignore[assignment]
+
+    # ---- validation ------------------------------------------------------
+
+    def _check_interpretation(self) -> tuple[str, Target]:
+        _check_matrix_carrier(self._values, self._element, len(self._columns))
+        return resolve_mvtseries_interpretation(
+            self._values, self._element, self._object_marker, self._firstdate.frequency
+        )
+
+    def validate(self) -> None:
+        """Check the live carrier and any preserved marker against its contents.
+
+        Raises ``TypeError``/``ValueError`` if the array was changed in place
+        to another shape, dtype or layout (it must stay two-dimensional with
+        one column per name and C-contiguous), exceeds the payload capacity,
+        or if an active marker no longer describes a possible conversion of
+        the current values.
+        """
+        self._check_interpretation()
+
+    # ---- explicit conversions --------------------------------------------
+
+    def tolist(self) -> list[list[Any]]:
+        """Convert the stored values to Python objects, one inner list per row.
+
+        Dates and durations become core ``MIT``/``Duration`` objects with the
+        element frequency, 128-bit values Python ``int``, ComplexF16 values
+        Python ``complex`` and ordinary numeric carriers NumPy's ``tolist``
+        values. A preserved marker does not change this; use
+        :meth:`to_interpreted` for Julia's converted values.
+        """
+        _check_matrix_carrier(self._values, self._element, len(self._columns))
+        rows, columns = self.shape
+        flat = element_tolist(np.ascontiguousarray(self._values).reshape(-1), self._element)
+        return [flat[i * columns : (i + 1) * columns] for i in range(rows)]
+
+    def to_complex64(self) -> MVTSeries:
+        """Widen a ComplexF16 carrier exactly into a ``complex64`` ``MVTSeries``."""
+        if self._element.kind != "complexf16":
+            raise TypeError("to_complex64 applies to ComplexF16 carriers only.")
+        values = self._conversion_snapshot()
+        _interpret.check_output_capacity(
+            int(values.size), _interpret.numeric_target(np.dtype("<c8"))
+        )
+        wide = np.empty(values.shape, dtype=np.complex64)
+        wide.real = values["real"].astype(np.float32)
+        wide.imag = values["imag"].astype(np.float32)
+        return MVTSeries(self._firstdate, list(self._columns), wide)
+
+    def to_bool(self) -> MVTSeries:
+        """Convert a carrier with an active ``"Bool"`` marker into a Boolean ``MVTSeries``.
+
+        Every stored value must be exactly zero or one (a zero imaginary part
+        and either signed zero are accepted, as in the Julia reference);
+        anything else raises ``ValueError``.
+        """
+        if self.active_marker != BOOL_MARKER:
+            raise TypeError('to_bool applies to carriers with an active "Bool" marker only.')
+        values = self._conversion_snapshot()
+        resolve_mvtseries_interpretation(
+            values, self._element, self._object_marker, self._firstdate.frequency
+        )
+        flags = _interpret.bool_flags(values.reshape(-1), self._element.target)
+        return MVTSeries(self._firstdate, list(self._columns), flags.reshape(values.shape))
+
+    def to_interpreted(self) -> MVTSeries | StoredMVTSeries:
+        """Return the value Julia's loader would build, without changing what is stored.
+
+        The result is independently owning: an ``MVTSeries`` for ordinary
+        numeric or Boolean targets, an unmarked ``StoredMVTSeries`` for date,
+        duration or wide targets and for whole-object identity markers.
+        Floating targets reproduce Julia's rounding and finite overflow;
+        integer, Boolean and date targets are exact or raise ``ValueError``.
+        """
+        values = self._conversion_snapshot()
+        kind, target = resolve_mvtseries_interpretation(
+            values, self._element, self._object_marker, self._firstdate.frequency
+        )
+        names = list(self._columns)
+        if kind in ("identity", "stored"):
+            if self._element.kind == "numeric":
+                return MVTSeries(self._firstdate, names, values.copy())
+            return StoredMVTSeries(self._firstdate, names, values, _element_from_target(target))
+        _interpret.check_output_capacity(int(values.size), target)
+        flat = _interpret.convert_values(values.reshape(-1), self._element.target, target)
+        converted = flat.reshape(values.shape)
+        if target.kind == "numeric":
+            return MVTSeries(self._firstdate, names, converted)
+        return StoredMVTSeries(
+            self._firstdate, names, converted, _element_from_target(target), copy=False
+        )
+
+    def _conversion_snapshot(self) -> np.ndarray[Any, Any]:
+        """Own one carrier snapshot used for both validation and conversion.
+
+        The shape and expected byte count are captured before the bytes are
+        taken and compared afterwards, so a carrier resized mid-call is
+        refused rather than silently converted at a shape nothing validated.
+        """
+        _check_matrix_carrier(self._values, self._element, len(self._columns))
+        shape = self.shape
+        expected = shape[0] * shape[1] * self._element.itemsize
+        payload = self._values.tobytes(order="C")
+        if len(payload) != expected:
+            raise ValueError("The MVTSeries values changed size during the conversion snapshot.")
+        return np.frombuffer(payload, dtype=self._element.dtype).reshape(shape).copy()

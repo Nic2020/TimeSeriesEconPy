@@ -48,6 +48,13 @@
 # to five, multibyte rows stored through the C entry points, marked and
 # unmarked empties, foreign String/AbstractString tokens and a Workspace of
 # text arrays written with writedb.
+# Represented MVTSeries and structure actions: generate-represented-mvtseries/
+# verify-represented-mvtseries (also checked by verify-wheel): MVTSeries with
+# MIT/Duration elements of an independent frequency, Int128/UInt128 and
+# ComplexF16 elements over every axis family, marked empties, foreign element
+# and identity object markers stored through the C entry points, and
+# Diagonal/Symmetric/Hermitian matrices materialised from either triangle
+# over ordinary, Boolean and represented elements.
 using TimeSeriesEcon
 using Test, SHA, TOML, Pkg, Dates, LinearAlgebra
 # Julia rebuilds a Diagonal/Symmetric/Hermitian jtype marker with
@@ -1141,7 +1148,7 @@ elseif action == "generate-foreign-markers"
             store_foreign_case!(db, name, values, marker, outer)
         end
     end
-elseif !(action in ("verify", "verify-empty", "verify-scalars", "verify-quarterly", "verify-annual", "verify-halfyearly", "verify-int64", "verify-strings", "verify-dates", "verify-calendar", "verify-widths", "verify-fileops", "verify-calendar-series", "verify-series-elements", "generate-series-elements", "verify-represented-elements", "verify-foreign-markers", "generate-arrays-unit", "verify-arrays-unit", "generate-matrices-text", "verify-matrices-text", "generate-tensors", "verify-tensors", "generate-catalogs", "verify-catalogs", "generate-workspace", "verify-workspace", "generate-text-arrays", "verify-text-arrays", "verify-wheel"))
+elseif !(action in ("verify", "verify-empty", "verify-scalars", "verify-quarterly", "verify-annual", "verify-halfyearly", "verify-int64", "verify-strings", "verify-dates", "verify-calendar", "verify-widths", "verify-fileops", "verify-calendar-series", "verify-series-elements", "generate-series-elements", "verify-represented-elements", "verify-foreign-markers", "generate-arrays-unit", "verify-arrays-unit", "generate-matrices-text", "verify-matrices-text", "generate-tensors", "verify-tensors", "generate-catalogs", "verify-catalogs", "generate-workspace", "verify-workspace", "generate-text-arrays", "verify-text-arrays", "generate-represented-mvtseries", "verify-represented-mvtseries", "verify-wheel"))
     error("Unknown fixture action.")
 end
 
@@ -2781,7 +2788,245 @@ if action in ("generate-text-arrays", "verify-text-arrays", "verify-wheel")
     end
 end
 
-if action in ("generate", "generate-empty", "generate-scalars", "generate-quarterly", "generate-annual", "generate-halfyearly", "generate-int64", "generate-strings", "generate-dates", "generate-calendar", "generate-widths", "generate-fileops", "generate-calendar-series", "generate-series-elements", "generate-represented-elements", "generate-foreign-markers", "generate-arrays-unit", "generate-matrices-text", "generate-tensors", "generate-catalogs", "generate-workspace", "generate-text-arrays")
+# ---- represented MVTSeries and structure-marked matrices --------------------
+
+const rmv_anchor = MIT{Monthly}(2024, 1)   # code 24288
+rmv_q(i) = MIT{Quarterly}(i)               # canonical Quarterly{3}, element code 67
+rmv_y6(i) = Duration{Yearly{6}}(i)         # element code 262
+const rmv_cf16 = reshape(ComplexF16[complex(Float16(-0.0), Float16(1.25)),
+                                    complex(Float16(2.0), Float16(3.0)),
+                                    complex(reinterpret(Float16, 0x7e55), Float16(-Inf)),
+                                    complex(Float16(0.0), Float16(-0.0))], 2, 2)
+const rmv_signs = reshape(reinterpret(Float64, UInt64[0x8000000000000000, 0x4020000000000000,
+                                                      0x7ff8000000000055, 0x8000000000000000]), 2, 2)
+const rmv_csigns = ComplexF64[complex(-0.0, -0.0) complex(-0.0, 7.0); complex(8.0, 8.0) complex(-0.0, -0.0)]
+
+# Store a dated matrix through the raw C ABI with explicit metadata and markers.
+function store_raw_mvts!(db, name, eltype, elfreq, payload::Vector{UInt8}, rows, freq, first,
+                         names::String; marker=nothing, objmarker=nothing)
+    ax1 = Ref{C.axis_id_t}()
+    @test C.de_axis_range(db, rows, C.frequency_t(freq), Int64(first), ax1) == 0
+    columns = length(split(names, '\n'))
+    buf = Vector{UInt8}(codeunits(names))
+    push!(buf, 0x00)
+    ax2 = Ref{C.axis_id_t}()
+    GC.@preserve buf begin
+        @test C.de_axis_names(db, columns, Ptr{Cchar}(pointer(buf)), ax2) == 0
+    end
+    id = Ref{C.obj_id_t}()
+    GC.@preserve payload begin
+        ptr = isempty(payload) ? C_NULL : pointer(payload)
+        @test C.de_store_mvtseries(db, DE.root_id, name, C.type_mvtseries, eltype,
+                                   C.frequency_t(elfreq), ax1[], ax2[], length(payload), ptr, id) == 0
+    end
+    marker === nothing || DE.set_attribute(db, id[], "jeltype", marker)
+    objmarker === nothing || DE.set_attribute(db, id[], "jtype", objmarker)
+    return id[]
+end
+
+rmv_bytes(v::AbstractVector) = Vector{UInt8}(reinterpret(UInt8, collect(v)))
+
+# Each entry: (name, value Julia's writer stores or `nothing` for raw rows,
+# expected loaded value or exception type, expected attributes, (eltype,
+# elfreq), raw store recipe or `nothing`). The raw recipe is (eltype, elfreq,
+# payload, rows, axis frequency, first, names, jeltype, jtype).
+function rmv_inventory()
+    rows = Any[
+        ("rmv_mit_q_on_m", MVTSeries(rmv_anchor, (:a, :b, :c),
+            reshape(rmv_q.([-1, 0, 1, 2, typemin(Int64), typemax(Int64)]), 2, 3)),
+            :same, Dict{String,String}(), (3, 67), nothing),
+        ("rmv_dur_y6_on_d", MVTSeries(MIT{Daily}(738000), (:x, :y),
+            reshape(rmv_y6.([1, -2, 3, typemin(Int64), typemax(Int64), 0]), 3, 2)),
+            :same, Dict{String,String}(), (1, 262), nothing),
+        ("rmv_mit_unit_on_unit", MVTSeries(MIT{Unit}(-5), (:a, :b),
+            reshape(MIT{Unit}.([typemin(Int64), 0, 1, typemax(Int64)]), 2, 2)),
+            :same, Dict{String,String}(), (3, 11), nothing),
+        ("rmv_mit_w7_on_b", MVTSeries(MIT{BDaily}(500000), (:a,),
+            reshape(MIT{Weekly{7}}.([-1711422, 1711422, 7]), 3, 1)),
+            :same, Dict{String,String}(), (3, 23), nothing),
+        ("rmv_int128", MVTSeries(rmv_anchor, (:a, :b),
+            reshape(Int128[typemin(Int128), -1, 0, typemax(Int128), 7, Int128(2)^70], 3, 2)),
+            :same, Dict{String,String}(), (1, 0), nothing),
+        ("rmv_uint128", MVTSeries(rmv_anchor, (:a, :b, :c),
+            reshape(UInt128[0, 1, 2, typemax(UInt128), UInt128(2)^70, 5], 2, 3)),
+            :same, Dict{String,String}(), (2, 0), nothing),
+        ("rmv_complexf16", MVTSeries(rmv_anchor, (:a, :b), rmv_cf16),
+            :same, Dict{String,String}(), (5, 0), nothing),
+        ("rmv_mit_one_row", MVTSeries(rmv_anchor, (:a, :b, :c), reshape(rmv_q.([1, 2, 3]), 1, 3)),
+            :same, Dict{String,String}(), (3, 67), nothing),
+        ("rmv_mit_unicode_names", MVTSeries(rmv_anchor, (Symbol("a\u00e9"), Symbol("\U0001f642"), Symbol("")),
+            reshape(rmv_q.([1, 2, 3, 4, 5, 6]), 2, 3)),
+            :same, Dict{String,String}(), (3, 67), nothing),
+        ("rmv_int128_zero_rows", MVTSeries(rmv_anchor:rmv_anchor-1, (:a, :b), Matrix{Int128}(undef, 0, 2)),
+            Int128[], Dict("jeltype" => "Int128"), (1, 0), nothing),
+        ("rmv_complexf16_zero_rows", MVTSeries(rmv_anchor:rmv_anchor-1, (:a, :b), Matrix{ComplexF16}(undef, 0, 2)),
+            ComplexF16[], Dict("jeltype" => "ComplexF16"), (5, 0), nothing),
+        ("rmv_dur_zero_rows", MVTSeries(rmv_anchor:rmv_anchor-1, (:a, :b), Matrix{Duration{Yearly{6}}}(undef, 0, 2)),
+            MethodError, Dict("jeltype" => "Duration{Yearly{6}}"), (1, 262), nothing),
+    ]
+    for (label, F, code, lo, hi) in matrix_axis_families
+        push!(rows, ("rmv_mit_min_$(label)", MVTSeries(MIT{F}(lo), (:a, :b), reshape(rmv_q.([1, 2]), 1, 2)),
+            :same, Dict{String,String}(), (3, 67), nothing))
+        push!(rows, ("rmv_mit_max_$(label)", MVTSeries(MIT{F}(hi), (:a, :b), reshape(rmv_q.([1, 2]), 1, 2)),
+            :same, Dict{String,String}(), (3, 67), nothing))
+    end
+    int_payload = rmv_bytes(Int64[1, 0, 2, 1])
+    append!(rows, Any[
+        ("rmv_bool_on_int128", nothing,
+            MVTSeries(rmv_anchor, (:a, :b), Bool[true false; false true]),
+            Dict("jeltype" => "Bool"), (1, 0),
+            (C.type_integer, 0, rmv_bytes(Int128[1, 0, 0, 1]), 2, 32, 24288, "a\nb", "Bool", nothing)),
+        ("rmv_bool_on_int64_01", nothing,
+            MVTSeries(rmv_anchor, (:a, :b), Bool[true false; false true]),
+            Dict("jeltype" => "Bool"), (1, 0),
+            (C.type_integer, 0, rmv_bytes(Int64[1, 0, 0, 1]), 2, 32, 24288, "a\nb", "Bool", nothing)),
+        ("rmv_float64_on_int64", nothing,
+            MVTSeries(rmv_anchor, (:a, :b), Float64[1 2; 0 1]),
+            Dict("jeltype" => "Float64"), (1, 0),
+            (C.type_integer, 0, int_payload, 2, 32, 24288, "a\nb", "Float64", nothing)),
+        ("rmv_mit_m_on_int64", nothing,
+            MVTSeries(rmv_anchor, (:a, :b), MIT{Monthly}[MIT{Monthly}(1) MIT{Monthly}(2); MIT{Monthly}(0) MIT{Monthly}(1)]),
+            Dict("jeltype" => "MIT{Monthly}"), (1, 0),
+            (C.type_integer, 0, int_payload, 2, 32, 24288, "a\nb", "MIT{Monthly}", nothing)),
+        ("rmv_identity_object", nothing,
+            MVTSeries(rmv_anchor, (:a, :b), rmv_q.([1 2; 0 1])),
+            Dict("jtype" => "MVTSeries"), (3, 67),
+            (C.type_date, 67, int_payload, 2, 32, 24288, "a\nb", nothing, "MVTSeries")),
+        ("rmv_identity_param", nothing,
+            MVTSeries(rmv_anchor, (:a, :b), Int128[1 2; 0 1]),
+            Dict("jtype" => "MVTSeries{Monthly, Int128}"), (1, 0),
+            (C.type_integer, 0, rmv_bytes(Int128[1, 0, 2, 1]), 2, 32, 24288, "a\nb", nothing, "MVTSeries{Monthly, Int128}")),
+        ("rmv_empty_mit_marked", nothing, MethodError,
+            Dict("jeltype" => "MIT{Monthly}"), (3, 32),
+            (C.type_date, 32, UInt8[], 0, 32, 24288, "a\nb", "MIT{Monthly}", nothing)),
+    ])
+    return rows
+end
+
+# Structure rows: (name, wrapper value, expected attributes, (eltype, elfreq), stored element type).
+function rmv_structures()
+    A = [1.0 3.0; 20.0 4.0]
+    H = ComplexF64[complex(1.0, 9.0) complex(2.0, -1.0); complex(20.0, 20.0) complex(4.0, -9.0)]
+    i128 = Int128[typemin(Int128) 3; 20 typemax(Int128)]
+    c16 = ComplexF16[complex(Float16(1), Float16(9)) complex(Float16(2), Float16(-1));
+                     complex(Float16(20), Float16(20)) complex(Float16(4), Float16(0))]
+    mitm = MIT{Monthly}[MIT{Monthly}(1) MIT{Monthly}(3); MIT{Monthly}(20) MIT{Monthly}(4)]
+    return Any[
+        ("str_sym_u_f64", Symmetric(copy(A), :U), Dict("jtype" => "Symmetric"), (4, 0), Float64),
+        ("str_sym_l_f64", Symmetric(copy(A), :L), Dict("jtype" => "Symmetric"), (4, 0), Float64),
+        ("str_herm_u_c64", Hermitian(copy(H), :U), Dict("jtype" => "Hermitian"), (5, 0), ComplexF64),
+        ("str_herm_l_c64", Hermitian(copy(H), :L), Dict("jtype" => "Hermitian"), (5, 0), ComplexF64),
+        ("str_diag_vec_f64", Diagonal(Float64[3.0, -0.0, 5.0]), Dict("jtype" => "Diagonal"), (4, 0), Float64),
+        ("str_sym_l_signs", Symmetric(copy(rmv_signs), :L), Dict("jtype" => "Symmetric"), (4, 0), Float64),
+        ("str_herm_u_signs", Hermitian(copy(rmv_csigns), :U), Dict("jtype" => "Hermitian"), (5, 0), ComplexF64),
+        ("str_sym_u_i128", Symmetric(copy(i128), :U), Dict("jtype" => "Symmetric"), (1, 0), Int128),
+        ("str_herm_l_c16", Hermitian(copy(c16), :L), Dict("jtype" => "Hermitian"), (5, 0), ComplexF16),
+        ("str_diag_mit_m", Diagonal(copy(mitm)), Dict("jtype" => "Diagonal"), (3, 32), MIT{Monthly}),
+        ("str_sym_l_bool", Symmetric(Bool[true true; false false], :L), Dict("jtype" => "Symmetric", "jeltype" => "Bool"), (1, 0), Int8),
+        ("str_diag_f16", Diagonal(Float16[1 3; 20 4]), Dict("jtype" => "Diagonal"), (4, 0), Float16),
+        ("str_sym_empty_f64", Symmetric(Matrix{Float64}(undef, 0, 0)), Dict("jtype" => "Symmetric", "jeltype" => "Float64"), (4, 0), Float64),
+        ("str_diag_empty_f64", Diagonal(Float64[]), Dict("jtype" => "Diagonal", "jeltype" => "Float64"), (4, 0), Float64),
+        ("str_herm_1x1_c64", Hermitian(reshape([complex(2.0, 5.0)], 1, 1)), Dict("jtype" => "Hermitian"), (5, 0), ComplexF64),
+    ]
+end
+
+if action == "generate-represented-mvtseries"
+    DE.opendaec(filename; readonly=false) do db
+        for (name, value, _, _, _, raw) in rmv_inventory()
+            if raw === nothing
+                DE.store_mvtseries(db, name, value)
+            else
+                store_raw_mvts!(db, name, raw[1], raw[2], raw[3], raw[4], raw[5], raw[6], raw[7];
+                                marker=raw[8], objmarker=raw[9])
+            end
+        end
+        for (name, value, _, _, _) in rmv_structures()
+            DE.store_mvtseries(db, name, value)
+        end
+    end
+end
+
+if action in ("generate-represented-mvtseries", "verify-represented-mvtseries", "verify-wheel")
+    @testset "DataEcon represented MVTSeries and structure interchange" begin
+        reference_fixture = action != "verify-wheel"
+        DE.opendaec(filename) do db
+            function raw_dated(id)
+                ref = Ref{C.mvtseries_t}()
+                @test C.de_load_mvtseries(db, id, ref) == 0
+                a = ref[]
+                header = (Int(a.object.obj_class), Int(a.object.obj_type), Int(a.eltype), Int(a.elfreq))
+                ax1 = (Int(a.axis1.ax_type), Int(a.axis1.length), Int(a.axis1.frequency), Int(a.axis1.first))
+                ax2 = (Int(a.axis2.ax_type), Int(a.axis2.length))
+                names = a.axis2.names == C_NULL ? nothing : unsafe_string(a.axis2.names)
+                payload = a.nbytes == 0 ? UInt8[] :
+                    copy(unsafe_wrap(Vector{UInt8}, Ptr{UInt8}(a.value), Int(a.nbytes)))
+                attrs = Dict(string(k) => string(v) for (k, v) in DE.get_all_attributes(db, id))
+                return header, ax1, ax2, names, payload, attrs
+            end
+            dense_bytes(value) = Vector{UInt8}(reinterpret(UInt8, value isa MVTSeries ? vec(value.values) : vec(Matrix(value))))
+            for (name, value, expected, attrs, codes, raw) in rmv_inventory()
+                id = DE.find_fullpath(db, "/" * name)
+                header, ax1, ax2, names, payload, stored_attrs = raw_dated(id)
+                @test header == (3, 21, codes[1], codes[2])
+                @test ax1[1] == 1 && ax2[1] == 2
+                if raw === nothing
+                    @test ax1[2] == size(value, 1) && ax2[2] == size(value, 2)
+                    @test ax1[3] == Int(DE.I._to_de_scalar_freq(frequencyof(value)))
+                    @test ax1[4] == Int(firstdate(value))
+                    @test names == join(string.(colnames(value)), "\n")
+                    @test payload == dense_bytes(value)
+                elseif !reference_fixture && name == "rmv_bool_on_int64_01"
+                    # Python reads the foreign Int64 Bool row as a Boolean
+                    # MVTSeries and rewrites it in the canonical Int8 encoding.
+                    @test ax1[2] == raw[4] && ax1[3] == raw[5] && ax1[4] == raw[6]
+                    @test names == raw[7]
+                    @test payload == rmv_bytes(Int8[1, 0, 0, 1])
+                else
+                    @test ax1[2] == raw[4] && ax1[3] == raw[5] && ax1[4] == raw[6]
+                    @test names == raw[7]
+                    @test payload == raw[3]
+                end
+                @test stored_attrs == attrs
+                loaded = try
+                    DE.load_mvtseries(db, id)
+                catch e
+                    e
+                end
+                if expected === :same
+                    @test isequal(loaded, value) && typeof(loaded) == typeof(value)
+                elseif expected isa Type
+                    @test loaded isa expected
+                else
+                    @test isequal(loaded, expected) && typeof(loaded) == typeof(expected)
+                end
+            end
+            for (name, value, attrs, codes, ET) in rmv_structures()
+                id = DE.find_fullpath(db, "/" * name)
+                header, ax1, ax2, names, payload, stored_attrs = raw_dated(id)
+                @test header == (3, 20, codes[1], codes[2])
+                @test ax1[1] == 0 && ax2[1] == 0 && names === nothing
+                @test (ax1[2], ax2[2]) == size(value)
+                expected_bytes = ET === Int8 ? Vector{UInt8}(reinterpret(UInt8, Int8.(vec(Matrix(value))))) : dense_bytes(value)
+                @test payload == expected_bytes
+                if reference_fixture || !isempty(value)
+                    @test stored_attrs == attrs
+                else
+                    # Python omits the redundant element token on an empty
+                    # ordinary structure; the wrapper marker must be present.
+                    @test stored_attrs["jtype"] == attrs["jtype"]
+                end
+                loaded = DE.load_mvtseries(db, id)
+                @test isequal(loaded, value)
+                @test nameof(typeof(loaded)) == nameof(typeof(value))
+                # The stored bytes are the wrapper's dense form: re-materialising
+                # the loaded wrapper reproduces them exactly.
+                @test Vector{UInt8}(reinterpret(UInt8, vec(Matrix(loaded)))) == payload
+            end
+        end
+    end
+end
+
+if action in ("generate", "generate-empty", "generate-scalars", "generate-quarterly", "generate-annual", "generate-halfyearly", "generate-int64", "generate-strings", "generate-dates", "generate-calendar", "generate-widths", "generate-fileops", "generate-calendar-series", "generate-series-elements", "generate-represented-elements", "generate-foreign-markers", "generate-arrays-unit", "generate-matrices-text", "generate-tensors", "generate-catalogs", "generate-workspace", "generate-text-arrays", "generate-represented-mvtseries")
     layout = Dict{String,Any}(
         "enums" => sizeof.([C.class_t, C.type_t, C.frequency_t, C.axis_type_t]),
     )

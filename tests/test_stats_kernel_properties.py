@@ -18,6 +18,8 @@ hand-picked parametric cases in the corresponding ``test_*_kernels.py``.
 
 from __future__ import annotations
 
+import math
+
 import numpy as np
 import pytest
 from hypothesis import HealthCheck, example, given, settings
@@ -144,8 +146,27 @@ def test_std_numpy_matches_cython(arr: np.ndarray, ddof: int) -> None:
 # return nan + RuntimeWarning on a constant array (`tsecon._stats.cor` docstring,
 # Notes), which is handled by a separate parametric lock test in
 # `test_stats_kernels.py::TestStatsKernelsAgreeOnArrays` and is out of scope
-# for this property pair.
+# for this property pair. Since the scaling repair both kernels scale their
+# inputs by a power of two before squaring, so no finite non-constant input
+# in the strategy's range is skipped any more.
 _BOUNDED_FLOAT_COR = _BOUNDED_FLOAT
+
+# Subnormal squares: centred values near 1e-158 square to subnormals, where the two
+# kernels' summation orders disagreed by a relative 6.2e-8. The exact
+# correlation of the example (``y`` is ``x`` reversed) is -1/3; the scaled
+# copies must give the same value, which is what the power-of-two scaling
+# in both kernels guarantees. ``allow_subnormal=False`` never excluded this
+# regime: the inputs are normal, only their squares are not. The review of
+# the repair added the finite-range boundaries: the smallest subnormal (the
+# standalone factor 2**1073 is not representable, so the exponent is applied
+# per value) and sums near 1e308 (scaled before summation, not after).
+_SUBNORMAL_SQUARE_EXAMPLE = np.array([1.78536692e-158, 0.0, 0.0, 0.0])
+_TINY = np.nextafter(0.0, 1.0)
+_HUGE = np.finfo(np.float64).max
+
+# The full finite float64 range, subnormals included, for the unbounded
+# agreement property below.
+_FINITE_FLOAT = st.floats(allow_nan=False, allow_infinity=False, allow_subnormal=True, width=64)
 
 
 @pytest.mark.skipif(not _CY, reason="Cython stats kernel not compiled")
@@ -158,6 +179,15 @@ _BOUNDED_FLOAT_COR = _BOUNDED_FLOAT
 # deviations that self-correlate). The constant-input guard now uniformises
 # both kernels to nan; this explicit example survives strategy changes.
 @example(arr=np.full(100, 1e-60))
+@example(arr=_SUBNORMAL_SQUARE_EXAMPLE)
+@example(arr=_SUBNORMAL_SQUARE_EXAMPLE * 1e158)
+@example(arr=_SUBNORMAL_SQUARE_EXAMPLE * 1e300)
+@example(arr=np.array([1.1e-203, 0.0]))
+@example(arr=np.array([1e155, -1e155, 3e154, 2.0]))
+@example(arr=np.array([_TINY, 0.0]))
+@example(arr=np.array([_TINY, 3 * _TINY, 0.0, 2 * _TINY]))
+@example(arr=np.array([1e308, 1e308, 0.0]))
+@example(arr=np.array([_HUGE, 0.0, -_HUGE]))
 @given(
     npst.arrays(
         dtype=np.float64,
@@ -193,14 +223,40 @@ def test_cor_numpy_matches_cython(arr: np.ndarray) -> None:
     # input that survives it has a well-defined correlation in float64.
     if x.min() == x.max() or y.min() == y.max():
         return
-    # Exclude inputs whose variance underflows the float64 normal range —
-    # e.g. ``[1.1e-203, 0.0]`` has var ≈ 3e-407 which underflows to 0,
-    # making ``np.corrcoef``'s internal ``cov / sqrt(var)`` divide by zero
-    # (raising RuntimeWarning under ``filterwarnings=[error::RuntimeWarning]``).
-    # The cython kernel's B4 fix (``sqrt(sxx) * sqrt(syy)``) protects its own
-    # path, but np.corrcoef is not under our control; a numerically-stable
-    # replacement for np.corrcoef on near-subnormal inputs is out of scope
-    # for this hotfix (would require a kahan-summation or scaled-input pass).
-    if np.var(x) == 0.0 or np.var(y) == 0.0:
-        return
+    # Inputs whose unscaled variance underflows (``[1.1e-203, 0.0]``) or
+    # whose centred squares overflow (``1e155``) used to be skipped here;
+    # the power-of-two scaling keeps both kernels in range, so they are compared
+    # like any other input, and the explicit examples above pin them.
     np.testing.assert_allclose(cor_cython(x, y), cor_numpy(x, y), rtol=1e-10, atol=1e-12)
+
+
+@pytest.mark.skipif(not _CY, reason="Cython stats kernel not compiled")
+@settings(max_examples=200, deadline=None, suppress_health_check=[HealthCheck.too_slow])
+@example(arr=np.array([_TINY, 0.0]))
+@example(arr=np.array([1e308, 1e308, 0.0]))
+@example(arr=np.array([_HUGE, -_HUGE, 0.0, _TINY]))
+@given(
+    npst.arrays(
+        dtype=np.float64,
+        shape=npst.array_shapes(min_dims=1, max_dims=1, min_side=2, max_side=200),
+        elements=_FINITE_FLOAT,
+    )
+)
+def test_cor_kernels_agree_and_stay_finite_over_the_full_finite_range(arr: np.ndarray) -> None:
+    """Both kernels give the same finite correlation for any finite non-constant input.
+
+    The bounded property above keeps the historical domain; this one spans
+    every finite float64, subnormals included, where the unscaled arithmetic
+    would overflow its sums or squares, or square into subnormals. The
+    per-value ``ldexp`` scaling keeps every intermediate in the normal range,
+    so both kernels must return a finite value and agree at ``rtol=1e-10``.
+    """
+    x = np.ascontiguousarray(arr, dtype=np.float64)
+    y = np.ascontiguousarray(x[::-1].copy(), dtype=np.float64)
+    if x.min() == x.max() or y.min() == y.max():
+        return
+    fast = cor_cython(x, y)
+    reference = cor_numpy(x, y)
+    assert math.isfinite(fast)
+    assert math.isfinite(reference)
+    np.testing.assert_allclose(fast, reference, rtol=1e-10, atol=1e-12)

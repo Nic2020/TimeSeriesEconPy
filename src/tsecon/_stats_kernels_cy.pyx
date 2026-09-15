@@ -44,9 +44,24 @@ import warnings
 import numpy as np
 cimport numpy as cnp
 cimport cython
-from libc.math cimport sqrt
+from libc.math cimport fabs, frexp, isfinite, ldexp, sqrt
 
 cnp.import_array()
+
+
+cdef inline int _scale_exponent(double largest) noexcept nogil:
+    """The binary exponent of ``largest`` (``ldexp(largest, -e)`` in [0.5, 1)); 0 if zero/nonfinite.
+
+    The same exponent as ``_stats_kernels._scale_exponent`` (see
+    "Correlation scaling" in that module's docstring). It is applied per
+    value with ``ldexp`` because ``2**-e`` itself need not be representable
+    (a subnormal maximum needs ``e = -1073``).
+    """
+    cdef int exponent = 0
+    if largest == 0.0 or not isfinite(largest):
+        return 0
+    frexp(largest, &exponent)
+    return exponent
 
 
 @cython.boundscheck(False)
@@ -113,12 +128,15 @@ def cor_cython(
     cdef double sx, sy
     cdef double mx, my, dx, dy
     cdef double sxx = 0.0, syy = 0.0, sxy = 0.0
-    cdef double x0, y0
+    cdef double x0, y0, xmax, ymax, ax, ay
+    cdef int x_exponent, y_exponent
     cdef bint x_const = True, y_const = True
     cdef double[::1] x_view = x
     cdef double[::1] y_view = y
 
-    # First pass: sum values, and detect bit-exact constant inputs.
+    # First pass: track the largest magnitudes (a NaN sticks, as NumPy's
+    # ``max`` would make it, and disables the scaling for that input) and
+    # detect bit-exact constant inputs.
     # Constancy detection lives here so it agrees with cor_numpy across
     # lengths where the sequential mean would be FP-exact (centred sums
     # zero) vs FP-noisy (centred sums tiny but non-zero); a non-constant
@@ -126,11 +144,15 @@ def cor_cython(
     # input must produce nan regardless of length.
     x0 = x_view[0]
     y0 = y_view[0]
-    sx = x0
-    sy = y0
+    xmax = fabs(x0)
+    ymax = fabs(y0)
     for i in range(1, n):
-        sx += x_view[i]
-        sy += y_view[i]
+        ax = fabs(x_view[i])
+        ay = fabs(y_view[i])
+        if ax > xmax or ax != ax:
+            xmax = ax
+        if ay > ymax or ay != ay:
+            ymax = ay
         if x_view[i] != x0:
             x_const = False
         if y_view[i] != y0:
@@ -145,11 +167,26 @@ def cor_cython(
             stacklevel=2,
         )
         return float("nan")
+    # Scale every value by 2**-exponent (ldexp, per value) before anything
+    # is summed, so the sums, the mean, the centred values and their squares
+    # stay in the normal range for any finite input (see "Correlation
+    # scaling" in _stats_kernels.py): sums of values near 1e308 no longer
+    # overflow, squares of centred values near 1e-158 are no longer
+    # subnormal (where the two kernels' summation orders visibly disagreed),
+    # and where the unscaled arithmetic stayed in range the result is
+    # unchanged. Same order of operations as cor_numpy's scaled np.corrcoef.
+    x_exponent = _scale_exponent(xmax)
+    y_exponent = _scale_exponent(ymax)
+    sx = 0.0
+    sy = 0.0
+    for i in range(n):
+        sx += ldexp(x_view[i], -x_exponent)
+        sy += ldexp(y_view[i], -y_exponent)
     mx = sx / n
     my = sy / n
     for i in range(n):
-        dx = x_view[i] - mx
-        dy = y_view[i] - my
+        dx = ldexp(x_view[i], -x_exponent) - mx
+        dy = ldexp(y_view[i], -y_exponent) - my
         sxx += dx * dx
         syy += dy * dy
         sxy += dx * dy

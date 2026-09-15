@@ -192,6 +192,34 @@ def object_interpretation(token: str, axis: Frequency, base: Target, length: int
     )
 
 
+# Whole-object tokens on a dated matrix. Julia's loader applies `convert(T,
+# value)` to the loaded MVTSeries: the bare and qualified container names, the
+# exact parameterised spellings naming this axis and element (with `Matrix{T}`
+# as the optional third parameter) and the abstract `AbstractMatrix`/`Any`
+# are identities; a mismatched axis or element parameter is a `MethodError`
+# (no element conversion is attempted), the plain `Matrix`/`Array`/bit-array
+# spellings are `DimensionMismatch`, and the LinearAlgebra wrappers,
+# `TSeries` and `Vector` fail too. Only the identities are accepted here.
+MVTSERIES_IDENTITY_TOKENS = ("MVTSeries", "AbstractMatrix", "Any")
+
+
+def mvtseries_object_interpretation(token: str, axis: Frequency, base: Target) -> str:
+    """Classify a supported ``jtype`` token on an MVTSeries as ``"identity"``."""
+    if token in MVTSERIES_IDENTITY_TOKENS:
+        return "identity"
+    axis_name, element_name = julia_frequency_name(axis), base.julia_name
+    if token in (
+        f"MVTSeries{{{axis_name}}}",
+        f"MVTSeries{{{axis_name}, {element_name}}}",
+        f"MVTSeries{{{axis_name}, {element_name}, Matrix{{{element_name}}}}}",
+    ):
+        return "identity"
+    raise TypeError(
+        f"Unsupported whole-object reconstruction marker {token!r} on an MVTSeries; the "
+        "marker text is not evaluated and no element conversion is applied in its place."
+    )
+
+
 def vector_dtype(token: str, base: Target) -> np.dtype[Any]:
     """Return the NumPy dtype of an empty ``Vector`` interpretation."""
     return np.dtype("<f8") if token == "Vector{Float64}" else base.dtype
@@ -461,6 +489,19 @@ def check_output_capacity(length: int, target: Target) -> None:
         raise ValueError(
             f"Interpreting {length} observations as {target.julia_name} would exceed the "
             f"{MAX_BYTES} byte payload limit; nothing was allocated."
+        )
+
+
+def check_payload_bytes(nbytes: int, description: str) -> None:
+    """Refuse a prospective payload beyond the limit before anything is allocated.
+
+    ``nbytes`` is computed by the caller in Python integers from the input's
+    shape, so an oversized request never reaches NumPy.
+    """
+    if nbytes > MAX_BYTES:
+        raise ValueError(
+            f"{description} would need {nbytes} bytes, more than the {MAX_BYTES} byte "
+            "payload limit; nothing was allocated."
         )
 
 

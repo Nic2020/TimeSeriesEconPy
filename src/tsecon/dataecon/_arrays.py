@@ -11,7 +11,10 @@ familiar types cannot hold losslessly:
   codes, 128-bit integers, ComplexF16 pairs and preserved reconstruction
   markers keep their stored kind, width and bytes. It holds values of one to
   five dimensions (DataEcon's axis limit); :meth:`StoredArray.to_interpreted`
-  is the explicit conversion to the value Julia's loader would build.
+  is the explicit conversion to the value Julia's loader would build, and
+  :meth:`StoredArray.diagonal`, :meth:`StoredArray.symmetric` and
+  :meth:`StoredArray.hermitian` build the dense, marker-bearing form Julia's
+  own writer stores for its LinearAlgebra wrappers.
 * :class:`StoredText` keeps each element's exact stored bytes together with the
   preserved ``jeltype`` text and the stored shape, which is how a ``Symbol``
   array and text that is not valid UTF-8 survive a read-modify-write at any
@@ -31,7 +34,7 @@ import numpy as np
 
 from . import _interpret
 from ._interpret import MAX_AXES, Target
-from ._metadata import JULIA_KIND_DEFAULTS, MAX_BYTES, MAX_INT64
+from ._metadata import JULIA_KIND_DEFAULTS, JULIA_NUMERIC_TYPES, MAX_BYTES, MAX_INT64
 from ._represented import (
     BOOL_MARKER,
     StoredElement,
@@ -104,36 +107,155 @@ def _clear_diagonal_imaginary(out: np.ndarray[Any, Any], rows: int) -> None:
         out[index, index] = out[index, index].real
 
 
-def _structure_dense(values: np.ndarray[Any, Any], token: str) -> np.ndarray[Any, Any]:
-    """Reproduce Julia's LinearAlgebra reconstruction of a dense square matrix.
+def structure_dense(
+    values: np.ndarray[Any, Any], token: str, uplo: str = "U"
+) -> np.ndarray[Any, Any]:
+    """Materialise a LinearAlgebra wrapper into the dense square matrix Julia stores.
 
-    ``Diagonal`` keeps only the diagonal, and ``Symmetric``/``Hermitian`` mirror
-    the upper triangle, which is the triangle Julia's own writer materialised
-    when it stored the value. ``Hermitian`` also conjugates the mirrored entries
-    and makes the diagonal real.
+    ``Diagonal`` keeps only the diagonal and zeroes the rest;
+    ``Symmetric``/``Hermitian`` copy the authoritative triangle (``uplo`` is
+    ``"U"`` or ``"L"``, Julia's constructor argument) onto the other one.
+    ``Hermitian`` also conjugates the mirrored entries and clears the
+    imaginary part of the diagonal, keeping the real part's bits. Julia's
+    writer runs exactly this (``Matrix{T}(value)``) before storing, and its
+    loader rebuilds the wrapper from the stored matrix with the upper
+    triangle, so the stored bytes are the same whichever triangle was
+    authoritative.
 
     The mirroring copies elements rather than adding a zeroed triangle: adding
     a structural ``+0.0`` to a stored ``-0.0`` would silently clear a sign the
-    reference preserves. Copying also keeps the two-word 128-bit and ComplexF16
-    carriers in range, so every supported element works here.
+    reference preserves, and a NaN payload is carried bit for bit. Copying also
+    keeps the two-word 128-bit and ComplexF16 carriers in range, so every
+    supported element works here.
     """
+    if values.ndim != 2:
+        raise ValueError(f"A {token} matrix needs a two-dimensional carrier.")
     rows, columns = values.shape
     if rows != columns:
         raise ValueError(f"The {token} reconstruction marker applies to square matrices only.")
+    if uplo not in ("U", "L"):
+        raise ValueError('uplo must be "U" (upper triangle) or "L" (lower triangle).')
     if token == "Diagonal":
-        out = np.zeros_like(values)
+        # An explicit C-ordered allocation: zeros_like would copy a
+        # Fortran-ordered input's layout into the carrier.
+        out = np.zeros(values.shape, dtype=values.dtype)
         index = np.arange(rows)
         out[index, index] = values[index, index]
         return out
     out = values.copy(order="C")
     upper_rows, upper_columns = np.triu_indices(rows, 1)
-    mirrored = values[upper_rows, upper_columns]
+    if uplo == "U":
+        source_rows, source_columns = upper_rows, upper_columns
+    else:
+        source_rows, source_columns = upper_columns, upper_rows
+    mirrored = values[source_rows, source_columns]
     if token == "Hermitian":
         mirrored = _conjugated(mirrored)
-    out[upper_columns, upper_rows] = mirrored
+    out[source_columns, source_rows] = mirrored
     if token == "Hermitian":
         _clear_diagonal_imaginary(out, rows)
     return out
+
+
+def _structure_dense(values: np.ndarray[Any, Any], token: str) -> np.ndarray[Any, Any]:
+    """Julia's loader-side reconstruction: the upper triangle of the stored matrix."""
+    return structure_dense(values, token, "U")
+
+
+def _structure_input(values: Any, token: str) -> tuple[np.ndarray[Any, Any], StoredElement]:
+    """Return a structure constructor's input, unconverted, with its element descriptor.
+
+    A NumPy array of an ordinary numeric dtype gives a numeric descriptor;
+    a Boolean array gets the Int8 descriptor with the inactive ``"Bool"``
+    element marker, which is exactly what Julia's writer stores for a Boolean
+    wrapper (its loader then rebuilds an Int8 wrapper, because ``jtype``
+    wins); the array itself is returned as given and converted only once the
+    shape and capacity checks have passed. A :class:`StoredArray` supplies
+    the represented families; it must not already carry a whole-object
+    marker.
+    """
+    if isinstance(values, StoredArray):
+        if values.object_marker is not None:
+            raise ValueError(
+                f"Build the {token} matrix from an unmarked carrier; this StoredArray already "
+                f"carries the whole-object marker {values.object_marker!r}."
+            )
+        values.validate()
+        return values.values, values.element
+    if not isinstance(values, np.ndarray):
+        raise TypeError(f"A {token} matrix is built from a NumPy array or a StoredArray.")
+    if values.dtype.kind == "b":
+        return values, StoredElement.numeric(np.dtype("<i1"), BOOL_MARKER)
+    if (
+        values.dtype.char in ("g", "G")
+        or not values.dtype.isnative
+        or values.dtype not in {dtype for _, dtype in JULIA_NUMERIC_TYPES.values()}
+    ):
+        raise TypeError(
+            f"A {token} matrix takes an ordinary native-endian numeric or Boolean NumPy "
+            "array, or a StoredArray for represented elements."
+        )
+    return values, StoredElement.numeric(values.dtype)
+
+
+def _structure_side(values: np.ndarray[Any, Any], token: str, uplo: str) -> int:
+    """Validate ``uplo`` and the input's rank and shape; return the square's side.
+
+    Only ``Diagonal`` accepts a vector (the diagonal itself); every other
+    input must already be square. Nothing is allocated here, so an invalid
+    request is refused before any conversion or expansion.
+    """
+    if uplo not in ("U", "L"):
+        raise ValueError('uplo must be "U" (upper triangle) or "L" (lower triangle).')
+    if values.ndim == 1 and token == "Diagonal":
+        return int(values.shape[0])
+    if values.ndim != 2:
+        raise ValueError(f"A {token} matrix needs a two-dimensional carrier.")
+    rows, columns = (int(extent) for extent in values.shape)
+    if rows != columns:
+        raise ValueError(f"The {token} reconstruction marker applies to square matrices only.")
+    return rows
+
+
+def _check_structure_capacity(side: int, element: StoredElement, token: str) -> None:
+    """Refuse a square whose payload would exceed the limit, in Python integers."""
+    _interpret.check_payload_bytes(
+        side * side * element.dtype.itemsize,
+        f"A {side}-by-{side} {token} matrix of {element.julia_name}",
+    )
+
+
+def _structure_matrix(values: Any, token: str, uplo: str) -> StoredArray:
+    # Order matters: the original input's type, rank, shape and prospective
+    # output size are checked before anything is converted or expanded, so a
+    # long diagonal vector or a broadcast Boolean view is refused without the
+    # square (or the Int8 copy) ever being requested.
+    carrier, element = _structure_input(values, token)
+    side = _structure_side(carrier, token, uplo)
+    _check_structure_capacity(side, element, token)
+    if carrier.dtype.kind == "b":
+        carrier = carrier.astype(np.int8, order="C")
+    if carrier.ndim == 1:
+        square = np.zeros((side, side), dtype=carrier.dtype)
+        index = np.arange(side)
+        square[index, index] = carrier
+        carrier = square
+    _check_array_values(carrier, element)
+    if carrier.size == 0 and (
+        element.kind != "numeric"
+        or element.marker is not None
+        or element.julia_name != JULIA_KIND_DEFAULTS[element.native_kind]
+    ):
+        # Under a whole-object marker the element token is inactive, so an
+        # empty payload can only be read back at its kind's default width
+        # (Julia's loader loses the width the same way).
+        raise ValueError(
+            f"An empty {token} matrix can only hold the kind default element "
+            "(Float64, Int64, UInt64 or ComplexF64); the stored width of "
+            f"{element.julia_name} would be lost under the wrapper marker."
+        )
+    dense = structure_dense(carrier, token, uplo)
+    return StoredArray(dense, element, copy=False, object_marker=token)
 
 
 class StoredArray:
@@ -170,6 +292,45 @@ class StoredArray:
         self._element = element
         self._object_marker = object_marker
         self._interpretation()
+
+    # ---- structure-marked matrices ---------------------------------------
+
+    @classmethod
+    def diagonal(cls, values: Any) -> StoredArray:
+        """Build the ``Diagonal``-marked matrix Julia's writer stores for ``Diagonal(v)``.
+
+        ``values`` is the diagonal itself (one-dimensional) or a square matrix
+        whose diagonal is taken, as Julia's ``Diagonal(A)`` does: an ordinary
+        numeric or Boolean NumPy array, or a :class:`StoredArray` of a
+        represented element. The result holds the full dense matrix with
+        zeros off the diagonal (the diagonal's bits, signed zeros and NaN
+        payloads included, are copied) and the ``"Diagonal"`` marker.
+        """
+        return _structure_matrix(values, "Diagonal", "U")
+
+    @classmethod
+    def symmetric(cls, values: Any, uplo: str = "U") -> StoredArray:
+        """Build the ``Symmetric``-marked matrix Julia's writer stores for ``Symmetric(A, uplo)``.
+
+        Only the authoritative triangle of the square input matters: with
+        ``uplo="U"`` (Julia's default) the strict upper triangle is copied onto
+        the lower one, with ``"L"`` the reverse; the diagonal is kept bit for
+        bit. The materialised dense matrix is what Julia stores, and the
+        loader rebuilds ``Symmetric(M)`` from it whichever triangle was given.
+        """
+        return _structure_matrix(values, "Symmetric", uplo)
+
+    @classmethod
+    def hermitian(cls, values: Any, uplo: str = "U") -> StoredArray:
+        """Build the ``Hermitian``-marked matrix Julia's writer stores for ``Hermitian(A, uplo)``.
+
+        The authoritative triangle (``uplo`` ``"U"`` by default, or ``"L"``) is
+        conjugated onto the other one and the diagonal's imaginary part is
+        cleared to ``+0.0`` while its real part keeps its bits, exactly as
+        ``Matrix(Hermitian(A, uplo))`` does; real element families are
+        mirrored without conjugation.
+        """
+        return _structure_matrix(values, "Hermitian", uplo)
 
     # ---- accessors -------------------------------------------------------
 

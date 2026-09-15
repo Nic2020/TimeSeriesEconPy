@@ -34,7 +34,7 @@ from tsecon.workspace import Workspace
 
 from ._arrays import StoredArray, StoredText
 from ._errors import DataEconError
-from ._represented import StoredSeries
+from ._represented import StoredMVTSeries, StoredSeries
 
 if TYPE_CHECKING:
     from . import DataEconFile
@@ -98,7 +98,7 @@ class LoadedWorkspace(NamedTuple):
 
 
 _REPORTED = (TypeError, ValueError, DataEconError)
-_SERIES_TYPES = (TSeries, MVTSeries, StoredSeries)
+_SERIES_TYPES = (TSeries, MVTSeries, StoredSeries, StoredMVTSeries)
 _ARRAY_TYPES = (np.ndarray, StoredArray, StoredText, list, tuple, range, MITRange)
 _SCALAR_TYPES = (bool, int, float, complex, str, MIT, Duration, np.generic)
 # Stored (class, type) pairs the typed readers accept; every other pair is a

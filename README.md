@@ -4,14 +4,25 @@ A time-series language for macroeconomics, ported from
 [TimeSeriesEcon.jl](https://github.com/bankofcanada/TimeSeriesEcon.jl)
 (Bank of Canada).
 
-> **Status:** Pre-alpha. No public API yet. M0 (repo skeleton) is in progress.
-> Not ready for use.
+> **Status:** Development release. Core time-series operations, plotting and
+> table adapters, X-13 integration, and DataEcon file interchange are implemented.
+> See the [DataEcon compatibility guide](https://Nic2020.github.io/TimeSeriesEconPy/dataecon/)
+> for supported representations and conversion limits.
 
-## Install (when released)
+## Install
+
+Install the latest published development release:
 
 ```bash
-pip install TimeSeriesEconPy
+python -m pip install --upgrade --pre TimeSeriesEconPy
 ```
+
+The Python import name is `tsecon`. Prebuilt wheels target CPython 3.11, 3.12
+and 3.13 on Windows x86-64, Linux x86-64 (glibc 2.28 or newer), and macOS
+Apple Silicon (macOS 11 or newer). These wheels bundle the numerical kernels,
+X-13 executable and DataEcon runtime; no separate Julia installation is needed.
+Source builds require a compiler and additional setup for the native runtimes;
+see the [build instructions](https://Nic2020.github.io/TimeSeriesEconPy/dataecon/).
 
 Optional extras:
 
@@ -35,6 +46,8 @@ pip install "TimeSeriesEconPy[all]"          # everything
 ## Documentation
 
 Full docs at <https://Nic2020.github.io/TimeSeriesEconPy/>.
+
+[Release notes](https://github.com/Nic2020/TimeSeriesEconPy/blob/main/CHANGELOG.md).
 
 ## License
 

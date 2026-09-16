@@ -106,6 +106,7 @@ include = [
     "/src",
     "/tests",
     "/README.md",
+    "/CHANGELOG.md",
     "/LICENSE",
     "/pyproject.toml",
     "/hatch_build.py",

@@ -51,6 +51,10 @@ jobs:
         # the v0.0.1 tag.
         run: |
           set -euo pipefail
+          if [[ "${GITHUB_REF_TYPE:-}" != "tag" || "${GITHUB_REF_NAME:-}" != v* ]]; then
+            echo "::error::Select a v-prefixed Git tag to release; branch dispatches do not publish."
+            exit 1
+          fi
           tag_version="${GITHUB_REF_NAME#v}"
           py_version="$(python3 -c 'import tomllib,sys; print(tomllib.load(open("pyproject.toml","rb"))["project"]["version"])')"
           echo "Tag version:       ${tag_version}"

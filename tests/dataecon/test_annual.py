@@ -239,6 +239,17 @@ def test_annual_reconstruction_markers_rejected(tmp_path, suffix, key, marker):
             (key, marker, f"y6_{suffix}"),
         )
     with open_dataecon(path) as db:
-        with pytest.raises(TypeError, match="reconstruction"):
-            db.read_series(f"y6_{suffix}")
+        if marker is None:
+            with pytest.raises(TypeError, match="reconstruction"):
+                db.read_series(f"y6_{suffix}")
+        elif marker == "Symbol":
+            # Julia has no Symbol route on a dated series (MethodError): refused at read.
+            with pytest.raises(TypeError, match="Symbol"):
+                db.read_series(f"y6_{suffix}")
+        else:
+            # Unknown or unavailable text is preserved; interpretation is refused.
+            stored = db.read_series(f"y6_{suffix}")
+            assert (stored.object_marker or stored.element.marker) == marker
+            with pytest.raises(TypeError):
+                stored.to_interpreted()
         assert_annual(db.read_series("y12_empty"), 12, 2024, [])

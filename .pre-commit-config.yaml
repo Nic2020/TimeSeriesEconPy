@@ -12,6 +12,12 @@ repos:
       - id: check-toml
       - id: check-added-large-files
         args: ["--maxkb=500"]
+        exclude: ^tests/dataecon/fixtures/julia_marker_routes\.toml$
+      # The generated reference corpus covers the full marker route matrix.
+      - id: check-added-large-files
+        name: check marker reference fixture size
+        files: ^tests/dataecon/fixtures/julia_marker_routes\.toml$
+        args: ["--maxkb=2500", "--enforce-all"]
       - id: check-merge-conflict
       - id: mixed-line-ending
         args: ["--fix=lf"]

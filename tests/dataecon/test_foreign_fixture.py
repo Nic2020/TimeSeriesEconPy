@@ -189,8 +189,14 @@ def test_refused_objects_match_julia_failures():
     _, _, refused = classify(rows, errors)
     with open_dataecon(FIXTURE) as db:
         for name in refused:
-            with pytest.raises((TypeError, ValueError)):
-                db.read_series(name)
+            try:
+                stored = db.read_series(name)
+            except (TypeError, ValueError):
+                pass  # a value Julia's own conversion refuses, or a route it lacks
+            else:
+                # Text the tables do not know is preserved; its interpretation raises.
+                with pytest.raises(TypeError, match="never evaluated"):
+                    stored.to_interpreted()
             with pytest.raises(DataEconError):
                 db.read_series(f"{name}_julia")
 

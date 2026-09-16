@@ -20,6 +20,7 @@ from tsecon.dataecon import (
     COMPLEXF16,
     INT128,
     UINT128,
+    StoredArray,
     StoredElement,
     StoredMVTSeries,
     StoredSeries,
@@ -259,8 +260,12 @@ def test_numeric_carrier_needs_a_marker_and_bool_marker_needs_a_bool_mvtseries()
         StoredMVTSeries(ANCHOR, ("a", "b"), carrier, StoredElement.numeric("<i8"))
     with pytest.raises(TypeError, match="Boolean MVTSeries"):
         StoredMVTSeries(ANCHOR, ("a", "b"), carrier, StoredElement.numeric("<i8", "Bool"))
-    with pytest.raises(TypeError, match="Unsupported reconstruction marker"):
-        StoredMVTSeries(ANCHOR, ("a", "b"), carrier, StoredElement.numeric("<i8", "NoSuchType"))
+    opaque = StoredMVTSeries(
+        ANCHOR, ("a", "b"), carrier, StoredElement.numeric("<i8", "NoSuchType")
+    )
+    assert opaque.active_marker == "NoSuchType"
+    with pytest.raises(TypeError, match="never evaluated"):
+        opaque.to_interpreted()
 
 
 def test_foreign_element_markers_interpret_like_series_and_arrays():
@@ -366,15 +371,33 @@ def test_identity_object_markers_are_preserved_and_interpret_as_identity(token):
         "Symmetric",
         "TSeries",
         "Vector",
-        "Symbol",
         "NoSuchType",
     ],
 )
-def test_other_object_markers_are_refused_without_evaluation(token):
-    with pytest.raises(TypeError, match="not evaluated"):
-        StoredMVTSeries(
-            ANCHOR, ("a", "b"), np.array([[1, 2], [3, 4]], dtype="<i8"), DATE_Q, object_marker=token
-        )
+def test_other_object_markers_are_preserved_without_evaluation(token):
+    # Julia fails on every one of these; the adapter preserves the literal text
+    # and refuses only the explicit interpretation.
+    value = StoredMVTSeries(
+        ANCHOR, ("a", "b"), np.array([[1, 2], [3, 4]], dtype="<i8"), DATE_Q, object_marker=token
+    )
+    assert value.object_marker == token
+    assert value.active_marker is None  # the element marker is inactive under a whole-object one
+    value.validate()
+    with pytest.raises(TypeError, match="never evaluated"):
+        value.to_interpreted()
+    assert encode_stored_mvtseries(value).object_marker == token
+
+
+def test_symbol_object_marker_is_the_display_text():
+    # Julia's Symbol(::MVTSeries) is display text shaped by LINES/COLUMNS: the
+    # marker is preserved and explicit interpretation names the reason.
+    value = StoredMVTSeries(
+        ANCHOR, ("a", "b"), np.array([[1, 2], [3, 4]], dtype="<i8"), DATE_Q, object_marker="Symbol"
+    )
+    assert value.active_marker is None
+    with pytest.raises(TypeError, match="LINES/COLUMNS"):
+        value.to_interpreted()
+    assert encode_stored_mvtseries(value).object_marker == "Symbol"
 
 
 def test_object_marker_makes_the_element_marker_inactive():
@@ -454,8 +477,9 @@ def test_decoding_rebuilds_the_container_and_checks_names():
         decode_matrix(metadata, encoded.payload, None, None, "a\nb")
     with pytest.raises(TypeError, match="named column axis"):
         decode_matrix(metadata, encoded.payload, None, None, None)
-    with pytest.raises(TypeError, match="Unsupported whole-object"):
-        validate_matrix_payload(metadata, encoded.payload, None, "Matrix", "a\nb\nc")
+    # A plain-matrix spelling on a dated matrix is Julia's DimensionMismatch: preserved opaquely.
+    opaque = validate_matrix_payload(metadata, encoded.payload, None, "Matrix", "a\nb\nc")
+    assert isinstance(opaque, StoredElement)
     with pytest.raises(TypeError, match="no conversion"):
         validate_matrix_payload(metadata, encoded.payload, "MIT{Monthly}", None, "a\nb\nc")
     truncated = (*metadata[:-1], len(encoded.payload) - 4)
@@ -473,8 +497,11 @@ def test_bool_marker_on_a_wider_ordinary_payload_reads_as_boolean_mvtseries():
     with pytest.raises(ValueError):
         decode_matrix(metadata, np.array([1, 0, 2, 1], dtype="<i8").tobytes(), "Bool", None, "a\nb")
     # Plain matrices keep the one-byte rule.
-    with pytest.raises(TypeError, match="one-byte"):
-        decode_matrix((3, 20, 1, 0, 0, 2, 0, 0, 0, 2, 0, 0, 32), payload, "Bool", None)
+    # A plain matrix keeps the wider width, bytes and marker.
+    plain = decode_matrix((3, 20, 1, 0, 0, 2, 0, 0, 0, 2, 0, 0, 32), payload, "Bool", None)
+    assert isinstance(plain, StoredArray)
+    assert plain.element == StoredElement.numeric("<i8", "Bool")
+    assert plain.to_interpreted().tolist() == [[True, False], [False, True]]
 
 
 # ---- files -----------------------------------------------------------------

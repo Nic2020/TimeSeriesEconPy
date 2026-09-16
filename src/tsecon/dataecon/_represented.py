@@ -31,6 +31,7 @@ from __future__ import annotations
 import math
 from collections.abc import Iterable
 from dataclasses import dataclass
+from fractions import Fraction
 from typing import Any, Literal
 
 import numpy as np
@@ -40,7 +41,7 @@ from tsecon.mit import MIT, Duration
 from tsecon.mvtseries import MVTSeries
 from tsecon.tseries import TSeries
 
-from . import _interpret
+from . import _exact, _interpret, _printed
 from ._interpret import Target
 from ._metadata import (
     _SCALAR_FREQUENCIES,
@@ -68,22 +69,44 @@ __all__ = [
     "INT128",
     "INT128_DTYPE",
     "UINT128",
+    "IntegerComplex",
+    "RationalComplex",
     "StoredElement",
     "StoredMVTSeries",
     "StoredSeries",
     "check_column_names",
     "element_tolist",
+    "integer_complex_storage",
     "julia_frequency_name",
     "pack_complexf16",
     "pack_elements",
+    "rational_complex_storage",
+    "rational_storage",
 ]
 
-ElementKind = Literal["date", "duration", "int128", "uint128", "complexf16", "numeric"]
+ElementKind = Literal[
+    "date",
+    "duration",
+    "int128",
+    "uint128",
+    "complexf16",
+    "numeric",
+    "rational",
+    "intcomplex",
+    "rationalcomplex",
+    "datedcomplex",
+]
 
 BOOL_MARKER = "Bool"
 _WIDE_KINDS: frozenset[str] = frozenset({"int128", "uint128", "complexf16"})
 _DATE_KINDS: frozenset[str] = frozenset({"date", "duration"})
-_KINDS: frozenset[str] = _WIDE_KINDS | _DATE_KINDS | {"numeric"}
+# Exact families Julia's loader builds and its writer cannot store: they have
+# no native kind, so a container of one is an interpretation result; the
+# storage form Julia reloads them from comes from the ``*_storage`` helpers.
+_EXACT_KINDS: frozenset[str] = frozenset(
+    {"rational", "intcomplex", "rationalcomplex", "datedcomplex"}
+)
+_KINDS: frozenset[str] = _WIDE_KINDS | _DATE_KINDS | _EXACT_KINDS | {"numeric"}
 _DTYPES: dict[str, np.dtype[Any]] = {
     "date": CODE_DTYPE,
     "duration": CODE_DTYPE,
@@ -116,6 +139,101 @@ _FLOAT16_MAX = 65504.0
 
 
 @dataclass(frozen=True, slots=True)
+class IntegerComplex:
+    """An exact ``Complex{T}`` value for integer ``T``: two Python integers.
+
+    Julia keeps such components exact at any width, so a Python ``complex``
+    (two Float64) cannot hold them in general; :meth:`to_complex` converts
+    only when both components are exactly representable in Float64.
+    """
+
+    real: int
+    imag: int = 0
+
+    def __post_init__(self) -> None:
+        if type(self.real) is not int or type(self.imag) is not int:
+            raise TypeError("IntegerComplex components must be exact Python int objects.")
+
+    def to_complex(self) -> complex:
+        """Return the Python ``complex`` of the pair, refusing any rounding."""
+        return complex(
+            _exact_float(self.real, "real part"), _exact_float(self.imag, "imaginary part")
+        )
+
+    def __complex__(self) -> complex:
+        return self.to_complex()
+
+
+def _exact_float(component: int, what: str) -> float:
+    try:
+        value = float(component)
+    except OverflowError:
+        raise ValueError(f"The {what} {component} is beyond the Float64 range.") from None
+    if int(value) != component:
+        raise ValueError(f"The {what} {component} is not exactly representable in Float64.")
+    return value
+
+
+@dataclass(frozen=True, slots=True)
+class RationalComplex:
+    """An exact ``Complex{Rational{T}}`` value: two ``fractions.Fraction`` components.
+
+    Julia rebuilds each component with its ``Rational{T}`` reconstruction of
+    the stored Float64 (see :meth:`StoredScalar.to_fraction`); a component
+    Julia loads as ``±1//0`` has no Fraction, so such a value raises before
+    this pair is built. :meth:`to_complex` returns Julia's ``float(z)``, the
+    two components as Float64 (a rounding conversion, explicitly requested).
+    """
+
+    real: Fraction
+    imag: Fraction = Fraction(0)
+
+    def __post_init__(self) -> None:
+        if type(self.real) is not Fraction or type(self.imag) is not Fraction:
+            raise TypeError("RationalComplex components must be fractions.Fraction objects.")
+
+    def to_complex(self) -> complex:
+        """Return ``float(z)``: each component as Julia's ``Float64(num) / Float64(den)``."""
+        return complex(_fraction_float(self.real), _fraction_float(self.imag))
+
+    def __complex__(self) -> complex:
+        return self.to_complex()
+
+
+def _fraction_float(value: Fraction) -> float:
+    try:
+        return _exact.julia_float(value.numerator, value.denominator)
+    except OverflowError:
+        raise ValueError(f"The Fraction {value} is beyond the Float64 range.") from None
+
+
+@dataclass(frozen=True, slots=True)
+class DatedComplex:
+    """Julia's ``Complex{MIT{F}}`` or ``Complex{Duration{F}}``: two MITs or two Durations.
+
+    Julia's loader builds one from a ``Complex`` (or explicit
+    ``Complex{MIT{F}}``/``Complex{Duration{F}}``) marker on an MIT, Duration
+    or integer element as ``Complex(T(x), zero(T))``; both components share
+    the frequency. Julia's writer cannot store the type; the pair is an
+    interpretation result only.
+    """
+
+    real: MIT | Duration
+    imag: MIT | Duration
+
+    def __post_init__(self) -> None:
+        if type(self.real) is not type(self.imag) or type(self.real) not in (MIT, Duration):
+            raise TypeError("DatedComplex components must both be MIT or both be Duration.")
+        if self.real.frequency != self.imag.frequency:
+            raise TypeError("DatedComplex components must share one frequency.")
+
+    @property
+    def frequency(self) -> Frequency:
+        """The frequency of both components."""
+        return self.real.frequency
+
+
+@dataclass(frozen=True, slots=True)
 class StoredElement:
     """Finite description of a stored element family and its reconstruction marker.
 
@@ -123,19 +241,34 @@ class StoredElement:
     date or duration element (independent of the series axis) and ``None``
     otherwise; ``marker`` is the preserved ``jeltype`` text, kept in its exact
     spelling and never evaluated; ``numeric_dtype`` is the carrier dtype of an
-    ordinary numeric family kept in stored form because of a marker. Whether a
-    marker can be interpreted is decided against the values by
-    :class:`StoredSeries`; the descriptor itself only records it.
+    ordinary numeric family kept in stored form because of a marker;
+    ``parameter`` is the integer parameter of an exact ``rational``,
+    ``intcomplex`` or ``rationalcomplex`` family (``Rational{Int64}``,
+    ``Complex{Int8}``, ``Complex{Rational{Int128}}``), which Julia's loader
+    builds from a marked Float64/ComplexF64/integer payload and its writer
+    cannot store. Whether a marker can be interpreted is decided against the
+    values by :class:`StoredSeries`; the descriptor itself only records it.
     """
 
     kind: ElementKind
     frequency: Frequency | None = None
     marker: str | None = None
     numeric_dtype: np.dtype[Any] | None = None
+    parameter: str | None = None
 
-    def __post_init__(self) -> None:
+    def __post_init__(self) -> None:  # noqa: PLR0912 - one rule per element kind
         if self.kind not in _KINDS:
             raise TypeError(f"Unsupported stored element kind: {self.kind!r}")
+        if self.kind == "datedcomplex":
+            if self.frequency not in _ELEMENT_FREQUENCY_CODES:
+                raise TypeError("Dated complex elements need a supported element frequency.")
+            if self.numeric_dtype is not None or self.marker is not None:
+                raise TypeError(
+                    "datedcomplex elements are interpretation results without a marker."
+                )
+            _interpret.dated_complex_target(self.parameter or "", self.frequency)  # TypeError
+            _interpret.check_marker_text(self.marker, "element")
+            return
         if self.kind in _DATE_KINDS:
             if self.frequency not in _ELEMENT_FREQUENCY_CODES:
                 raise TypeError(
@@ -144,6 +277,16 @@ class StoredElement:
                 )
         elif self.frequency is not None:
             raise TypeError(f"{self.kind} elements carry no element frequency.")
+        if self.kind in _EXACT_KINDS:
+            if self.parameter is None or self.numeric_dtype is not None:
+                raise TypeError(f"{self.kind} elements need an integer parameter and no dtype.")
+            _interpret.extended_target(self.kind, self.parameter)  # TypeError if unknown
+            if self.marker is not None:
+                raise TypeError(
+                    f"{self.kind} elements are interpretation results without a marker."
+                )
+        elif self.parameter is not None:
+            raise TypeError(f"{self.kind} elements carry no parameter.")
         if self.kind == "numeric":
             if (
                 self.numeric_dtype is None
@@ -174,9 +317,34 @@ class StoredElement:
         """Describe an ordinary numeric family kept in stored form under a marker."""
         return cls("numeric", None, marker, np.dtype(dtype))
 
+    @classmethod
+    def rational(cls, parameter: str = "Int64") -> StoredElement:
+        """Describe exact ``Rational{parameter}`` elements (``num``/``den`` components)."""
+        return cls("rational", None, None, None, parameter)
+
+    @classmethod
+    def integer_complex(cls, parameter: str = "Int64") -> StoredElement:
+        """Describe exact integer ``Complex{parameter}`` elements (``re``/``im`` components)."""
+        return cls("intcomplex", None, None, None, parameter)
+
+    @classmethod
+    def rational_complex(cls, parameter: str = "Int64") -> StoredElement:
+        """Describe exact ``Complex{Rational{parameter}}`` elements (four components)."""
+        return cls("rationalcomplex", None, None, None, parameter)
+
+    @classmethod
+    def dated_complex(cls, frequency: Frequency, parameter: str = "MIT") -> StoredElement:
+        """Describe ``Complex{MIT{F}}`` (``parameter="MIT"``) or ``Complex{Duration{F}}``."""
+        return cls("datedcomplex", frequency, None, None, parameter)
+
     def with_marker(self, marker: str | None) -> StoredElement:
         """Return this descriptor with another preserved ``jeltype`` text."""
-        return StoredElement(self.kind, self.frequency, marker, self.numeric_dtype)
+        return StoredElement(self.kind, self.frequency, marker, self.numeric_dtype, self.parameter)
+
+    @property
+    def is_exact(self) -> bool:
+        """Whether this is an exact rational/integer-complex family with no native storage."""
+        return self.kind in _EXACT_KINDS
 
     def with_bool_marker(self) -> StoredElement:
         """Return this descriptor with the preserved ``"Bool"`` marker."""
@@ -197,6 +365,8 @@ class StoredElement:
         """The carrier dtype holding the exact stored bytes."""
         if self.numeric_dtype is not None:
             return self.numeric_dtype
+        if self.parameter is not None:
+            return _interpret.carrier_dtype(self.kind, self.parameter)
         return _DTYPES[self.kind]
 
     @property
@@ -209,6 +379,8 @@ class StoredElement:
         """The native element type code (3 date, 1 integer, 2 unsigned, 4 float, 5 complex)."""
         if self.numeric_dtype is not None:
             return JULIA_NUMERIC_TYPES[_ORDINARY_DTYPES[self.numeric_dtype]][0]
+        if self.kind in _EXACT_KINDS:
+            raise TypeError(_no_storage(self))
         return _NATIVE_KINDS[self.kind]
 
     @property
@@ -221,11 +393,15 @@ class StoredElement:
     @property
     def julia_name(self) -> str:
         """Julia's name for the stored carrier type, used as a marker token only."""
+        if self.kind == "datedcomplex":
+            return self.target.julia_name
         if self.frequency is not None:
             outer = "MIT" if self.kind == "date" else "Duration"
             return f"{outer}{{{julia_frequency_name(self.frequency)}}}"
         if self.numeric_dtype is not None:
             return _ORDINARY_DTYPES[self.numeric_dtype]
+        if self.parameter is not None:
+            return self.target.julia_name
         return _JULIA_NAMES[self.kind]
 
     @property
@@ -235,6 +411,11 @@ class StoredElement:
             return _interpret.numeric_target(self.dtype)
         if self.kind in _WIDE_KINDS:
             return _interpret.wide_target(self.kind)
+        if self.kind == "datedcomplex":
+            assert self.frequency is not None
+            return _interpret.dated_complex_target(self.parameter or "", self.frequency)
+        if self.parameter is not None:
+            return _interpret.extended_target(self.kind, self.parameter)
         assert self.frequency is not None
         return _interpret.date_target(self.kind, self.frequency)
 
@@ -249,6 +430,8 @@ class StoredElement:
         token is written for byte parity with Julia's writer). Nonempty
         unmarked series carry no token.
         """
+        if self.kind in _EXACT_KINDS:
+            raise TypeError(_no_storage(self))
         if self.marker is not None:
             return self.marker
         if length:
@@ -256,6 +439,24 @@ class StoredElement:
         if self.kind == "numeric" and self.julia_name == JULIA_KIND_DEFAULTS[self.native_kind]:
             return None
         return self.julia_name
+
+
+def _no_storage(element: StoredElement) -> str:
+    if element.kind == "datedcomplex":
+        return (
+            f"{element.julia_name} elements have no DataEcon storage (Julia's writer cannot "
+            "store them either); store the MIT/Duration or integer codes under a Complex marker."
+        )
+    helper = {
+        "rational": "rational_storage",
+        "intcomplex": "integer_complex_storage",
+        "rationalcomplex": "rational_complex_storage",
+    }[element.kind]
+    return (
+        f"{element.julia_name} elements have no DataEcon storage of their own (Julia's writer "
+        f"cannot store them either); build the marked Float64/ComplexF64 storage Julia reloads "
+        f"them from with {helper}()."
+    )
 
 
 INT128 = StoredElement("int128")
@@ -268,6 +469,13 @@ def _element_from_target(target: Target) -> StoredElement:
         return StoredElement.numeric(target.dtype)
     if target.kind in _WIDE_KINDS:
         return StoredElement(target.kind)  # type: ignore[arg-type]
+    if target.kind == "datedcomplex":
+        assert target.frequency is not None
+        assert target.parameter is not None
+        return StoredElement.dated_complex(target.frequency, target.parameter)
+    if target.kind in _EXACT_KINDS:
+        assert target.parameter is not None
+        return StoredElement(target.kind, None, None, None, target.parameter)  # type: ignore[arg-type]
     assert target.frequency is not None
     return StoredElement(target.kind, target.frequency)  # type: ignore[arg-type]
 
@@ -535,13 +743,18 @@ class StoredSeries:
         """Return the value Julia's loader would build, without changing what is stored.
 
         The result is independently owning: a ``TSeries`` for ordinary numeric
-        or Boolean targets, an unmarked ``StoredSeries`` for date, duration or
-        wide targets (and for whole-object identity markers on such carriers),
-        or an empty NumPy array for the supported ``Vector`` object markers.
-        Floating targets reproduce Julia's rounding and finite overflow;
-        integer, Boolean and date targets are exact or raise ``ValueError``.
-        The output size is checked against the payload limit before the
-        converted result array is allocated.
+        or Boolean targets (object dtype for ``BigInt``/``BigFloat``), an
+        unmarked ``StoredSeries`` for date, duration, wide or exact
+        rational/complex targets (and for whole-object identity markers on
+        such carriers), or a flat empty NumPy array for the supported
+        ``Vector`` object markers and the empty-only element tokens (Julia
+        builds a flat typed empty vector there). Floating targets reproduce
+        Julia's rounding and finite overflow; integer, Boolean, date and exact
+        targets are exact or raise ``ValueError``; an opaque marker raises
+        ``TypeError``, as does a whole-object ``Symbol`` (Julia's display text,
+        which depends on the loading session's ``LINES``/``COLUMNS``). The
+        output size is checked against the payload limit before the converted
+        result array is allocated.
         """
         values = self._conversion_snapshot()
         kind, target = resolve_interpretation(
@@ -550,13 +763,20 @@ class StoredSeries:
         if kind == "vector":
             assert self._object_marker is not None
             return np.empty(0, dtype=_interpret.vector_dtype(self._object_marker, target))
+        if kind == "empty":
+            # Julia builds a flat typed empty vector; the dated axis is lost there too.
+            return np.empty(0, dtype=target.dtype)
+        if kind == "opaque":
+            raise _opaque_error(target)
+        if kind == "display":
+            raise _interpret.display_text_error("TSeries")
         if kind in ("identity", "stored"):
             if self._element.kind == "numeric":
                 return TSeries(self._firstdate, values.copy())
             return StoredSeries(self._firstdate, values, _element_from_target(target))
         _interpret.check_output_capacity(int(values.shape[0]), target)
         converted = _interpret.convert_values(values, self._element.target, target)
-        if target.kind == "numeric":
+        if target.kind == "numeric" or kind == "object":
             return TSeries(self._firstdate, converted)
         return StoredSeries(self._firstdate, converted, _element_from_target(target), copy=False)
 
@@ -576,7 +796,16 @@ class StoredSeries:
         return np.frombuffer(payload, dtype=self._element.dtype).copy()
 
 
-def element_tolist(values: np.ndarray[Any, Any], element: StoredElement) -> list[Any]:
+def _opaque_error(target: Target) -> TypeError:
+    return TypeError(
+        "This reconstruction marker has no supported interpretation; the stored values and "
+        "the literal marker text are preserved and never evaluated."
+    )
+
+
+def element_tolist(  # noqa: PLR0911 - one conversion per element kind
+    values: np.ndarray[Any, Any], element: StoredElement
+) -> list[Any]:
     """Convert one contiguous run of stored values into Python objects.
 
     Shared by the dated and plain-array containers so both report identical
@@ -592,7 +821,36 @@ def element_tolist(values: np.ndarray[Any, Any], element: StoredElement) -> list
         ]
     if element.kind == "numeric":
         return list(values.tolist())
+    if element.kind == "datedcomplex":
+        assert element.frequency is not None
+        family = MIT if element.parameter == "MIT" else Duration
+        frequency = element.frequency
+        return [
+            DatedComplex(family(frequency, re), family(frequency, im))
+            for re, im in _interpret.unpack_extended(values, element.target)
+        ]
+    if element.kind in _EXACT_KINDS:
+        return [
+            _exact_object(item, element.kind)
+            for item in _interpret.unpack_extended(values, element.target)
+        ]
     return _interpret.unpack_words(values, element.kind == "int128")
+
+
+def _exact_object(components: tuple[int, ...], kind: str) -> Any:
+    """Return the Python object of one exact carrier element (``±1//0`` has no Fraction)."""
+    if kind == "intcomplex":
+        return IntegerComplex(*components)
+    pairs = [components[i : i + 2] for i in range(0, len(components), 2)]
+    for num, den in pairs:
+        if den == 0:
+            raise ValueError(
+                f"An element is {num}//0, a signed infinity no Fraction can hold; the exact "
+                "components are in the carrier's num/den fields."
+            )
+    if kind == "rational":
+        return Fraction(*pairs[0])
+    return RationalComplex(Fraction(*pairs[0]), Fraction(*pairs[1]))
 
 
 def pack_elements(element: StoredElement, items: Iterable[object]) -> np.ndarray[Any, Any]:
@@ -610,12 +868,43 @@ def pack_elements(element: StoredElement, items: Iterable[object]) -> np.ndarray
         return _pack_codes(items, element)
     if element.kind == "complexf16":
         return pack_complexf16(items)
+    if element.kind in _EXACT_KINDS:
+        return _pack_exact(items, element)
     if element.kind == "numeric":
         raise TypeError(
             "Build ordinary numeric stored values from an explicit NumPy array of the "
             "carrier dtype; from_list applies no implicit numeric conversion."
         )
     return _pack_128(items, element.kind == "int128")
+
+
+def _pack_exact(items: Iterable[object], element: StoredElement) -> np.ndarray[Any, Any]:
+    """Pack Fractions, IntegerComplex or RationalComplex values into an exact carrier."""
+    target = element.target
+    assert element.parameter is not None
+    expected: type = {"rational": Fraction, "intcomplex": IntegerComplex}.get(
+        element.kind, RationalComplex
+    )
+    components: list[tuple[int, ...]] = []
+    for item in items:
+        if type(item) is not expected:
+            raise TypeError(
+                f"{element.julia_name} elements must be {expected.__name__} objects; no implicit "
+                "conversion is applied."
+            )
+        parts = _exact_parts(item)
+        for part in parts:
+            _exact.integer_from_integer(part, element.parameter)  # ValueError outside T
+        components.append(parts)
+    return _interpret._pack_extended(components, target)
+
+
+def _exact_parts(item: Any) -> tuple[int, ...]:
+    if type(item) is Fraction:
+        return item.numerator, item.denominator
+    if type(item) is IntegerComplex:
+        return item.real, item.imag
+    return (item.real.numerator, item.real.denominator, item.imag.numerator, item.imag.denominator)
 
 
 def _pack_codes(items: Iterable[object], element: StoredElement) -> np.ndarray[Any, Any]:
@@ -703,7 +992,10 @@ def resolve_interpretation(
                 "Julia cannot load an empty date or duration series; a whole-object "
                 "marker on one is not supported."
             )
-        return _interpret.object_interpretation(object_marker, axis, base, length), base
+        kind = _interpret.object_interpretation(object_marker, axis, base, length)
+        if kind == "opaque":
+            return kind, _interpret.opaque_target(object_marker, base)
+        return kind, base
     if element.marker is None and element.kind == "numeric":
         raise TypeError(
             "Ordinary numeric values without a reconstruction marker belong in a "
@@ -730,44 +1022,295 @@ def element_interpretation(
     marker = element.marker
     if marker is None:
         return "stored", base
-    target = _interpret.resolve_token(marker)
-    if target is None:
-        raise TypeError(
-            f"Unsupported reconstruction marker {marker!r}; marker text is compared with "
-            "a finite table and never evaluated."
-        )
-    if target == base:
+    # A verified alternative spelling resolves like the exact token; the
+    # literal text stays on the descriptor and is written back verbatim.
+    target = _interpret.resolve_token(_interpret.resolve_spelling(marker))
+    if target is not None and target == base:
         return "stored", base
-    if element.kind == "numeric" and target.is_bool:
+    if (
+        target is not None
+        and element.kind == "numeric"
+        and target.is_bool
+        and not _wide_bool_ok(element, noun)
+    ):
         result = "TSeries" if noun == "series" else noun
         raise TypeError(
             f'A "Bool" marker on an ordinary numeric payload reads as a Boolean {result}; '
             "build one with a bool dtype instead of a stored container."
         )
     if not length:
-        if element.kind == "numeric":
-            # Julia builds an empty typed vector for any target; the stored width
-            # is unrecoverable, so the descriptor keeps the kind default.
-            if element.julia_name != JULIA_KIND_DEFAULTS[element.native_kind]:
-                raise TypeError(
-                    "An empty numeric payload has no stored width; a foreign marker is "
-                    f"kept on the kind default {JULIA_KIND_DEFAULTS[element.native_kind]}, "
-                    f"not on {element.julia_name}."
-                )
-            return "element", target
-        if element.is_wide:
-            raise ValueError(
-                f"An empty {element.julia_name} carrier with the foreign marker "
-                f"{marker!r} has no storable width; use an empty numeric value or an "
-                "unmarked wide carrier."
-            )
-        raise TypeError(
-            f"Julia cannot load an empty {element.julia_name} {noun}; the foreign marker "
-            f"{marker!r} on one is not supported."
-        )
+        return _empty_route(element, marker, target, noun)
+    if target is None:
+        kind, resolved = _interpret.extended_token_target(marker, base, plain=(noun == "array"))
+        if kind == "identity":
+            return "identity", base
+        assert resolved is not None
+        if _interpret.resolve_spelling(marker) in _interpret.UNION_TOKENS:
+            # convert(Union{Int64,Float64}, z) has no method for a nonzero imaginary part.
+            _interpret.check_union_values(values, base)
+        if kind in ("element", "object", "datetime", "char"):
+            _interpret.check_values(values, base, resolved)
+        return kind, resolved
+    if target.kind in _DATE_KINDS:
+        # A complex source fails Julia's isreal check (InexactError) before the
+        # date constructor's missing method (MethodError) is reached.
+        _interpret.check_union_values(values, base, "InexactError")
     _interpret.check_route(base, target)
     _interpret.check_values(values, base, target)
     return "element", target
+
+
+def _wide_bool_ok(element: StoredElement, noun: str) -> bool:
+    """Whether a ``Bool`` marker on this numeric carrier keeps its stored width (plain arrays).
+
+    Dated series and MVTSeries keep their established rule (exact 0/1 values
+    read as Boolean values, canonical Int8 on rewrite); a plain array of any
+    ordinary width other than the canonical Int8 keeps its stored width, bytes
+    and marker, with explicit Boolean interpretation.
+    """
+    return noun == "array" and element.numeric_dtype != np.dtype("<i1")
+
+
+def _empty_route(
+    element: StoredElement, marker: str, target: Target | None, noun: str
+) -> tuple[str, Target]:
+    """Julia builds an empty typed vector for any resolvable token on an empty payload."""
+    base = element.target
+    if element.kind == "numeric":
+        # The stored width is unrecoverable, so the descriptor keeps the kind default.
+        if element.julia_name != JULIA_KIND_DEFAULTS[element.native_kind]:
+            raise TypeError(
+                "An empty numeric payload has no stored width; a foreign marker is "
+                f"kept on the kind default {JULIA_KIND_DEFAULTS[element.native_kind]}, "
+                f"not on {element.julia_name}."
+            )
+        if target is not None:
+            return "element", target
+        spelled = _interpret.resolve_spelling(marker)
+        if spelled in _interpret.EMPTY_ONLY_TOKENS:
+            # Abstract and empty-only names build a typed empty vector of that
+            # type (object dtype where NumPy has no faithful native dtype).
+            return "empty", _interpret.empty_target(marker, _interpret.EMPTY_ONLY_TOKENS[spelled])
+        try:
+            kind, resolved = _interpret.extended_token_target(marker, base, plain=True)
+        except TypeError:
+            kind, resolved = "opaque", None
+        if kind == "element":
+            assert resolved is not None
+            return "element", resolved
+        if kind in ("object", "datetime", "symbol", "char"):
+            assert resolved is not None
+            return "empty", _interpret.empty_target(marker, resolved.dtype)
+        return "opaque", _interpret.opaque_target(marker, base)
+    if element.is_wide:
+        raise ValueError(
+            f"An empty {element.julia_name} carrier with the foreign marker "
+            f"{marker!r} has no storable width; use an empty numeric value or an "
+            "unmarked wide carrier."
+        )
+    raise TypeError(
+        f"Julia cannot load an empty {element.julia_name} {noun}; the foreign marker "
+        f"{marker!r} on one is not supported."
+    )
+
+
+def printed_elements(values: np.ndarray[Any, Any], element: StoredElement) -> tuple[bytes, ...]:
+    """Julia's ``Symbol(x)`` text of every element, UTF-8 encoded (a plain-array route).
+
+    ``Symbol(x)`` is ``string(x)``: integers in decimal, floats and complexes
+    in Julia's shortest form, MIT and Duration elements as Julia prints them
+    (calendar dates in any proleptic year, with Julia's own Int64 date
+    arithmetic at extreme codes).
+    """
+    if element.kind in _WIDE_KINDS and element.kind != "complexf16":
+        return tuple(
+            str(n).encode() for n in _interpret.unpack_words(values, element.kind == "int128")
+        )
+    if element.kind == "complexf16":
+        return tuple(
+            _exact.julia_complex_string(r, i, 2).encode()
+            for r, i in zip(values["real"], values["imag"], strict=True)
+        )
+    if element.kind in _DATE_KINDS:
+        assert element.frequency is not None
+        return tuple(
+            text.encode()
+            for text in _printed.element_strings(
+                values, element.kind, element.dtype, element.frequency, 8
+            )
+        )
+    dtype = element.dtype
+    if dtype.kind in "iu":
+        return tuple(str(int(v)).encode() for v in values.tolist())
+    if dtype.kind == "f":
+        return tuple(_exact.julia_float_string(v, dtype.itemsize).encode() for v in values)
+    width = dtype.itemsize // 2
+    return tuple(_exact.julia_complex_string(v.real, v.imag, width).encode() for v in values)
+
+
+# ---- the storage form of the exact families ----------------------------------
+
+
+def _storage_bytes_ok(count: int, itemsize: int, what: str) -> None:
+    """Refuse a prospective payload beyond the limit before anything is copied or allocated."""
+    if count * itemsize > MAX_BYTES:
+        raise ValueError(
+            f"Storing {count} {what} would need {count * itemsize} bytes, more than the "
+            f"{MAX_BYTES} byte payload limit; nothing was allocated."
+        )
+
+
+_STORAGE_CHUNK = 1 << 16
+
+
+def _storage_items(items: Any, expected: type, itemsize: int) -> tuple[list[Any], tuple[int, ...]]:
+    """Return the flat items (row-major) and shape of an iterable, object array or exact carrier.
+
+    The prospective storage, ``count * itemsize`` bytes, is checked against
+    the payload limit from the captured shape before an array is flattened
+    or copied (a fitting strided or broadcast input is read chunk by chunk
+    through its flat iterator, never as a whole copy) and while an iterable
+    is consumed, so an oversized input is refused before any allocation.
+    """
+    what = f"{expected.__name__} values"
+    if isinstance(items, np.ndarray):
+        shape = tuple(int(n) for n in items.shape)
+        count = math.prod(shape)
+        _storage_bytes_ok(count, itemsize, what)
+        flat: list[Any] = []
+        if items.dtype.fields is not None:
+            kind = {"num": "rational", "re_num": "rationalcomplex"}.get(
+                items.dtype.names[0], "intcomplex"
+            )
+            parameters = [
+                p
+                for p in _interpret._PARAMETER_DTYPES
+                if _interpret.carrier_dtype(kind, p) == items.dtype
+            ]
+            if not parameters:
+                raise TypeError("The structured array is not an exact carrier dtype.")
+            element = StoredElement(kind, None, None, None, parameters[0])  # type: ignore[arg-type]
+            for start in range(0, count, _STORAGE_CHUNK):
+                flat.extend(element_tolist(items.flat[start : start + _STORAGE_CHUNK], element))
+        elif items.dtype != np.dtype(object):
+            raise TypeError(
+                f"Pass {expected.__name__} objects, an object array or an exact carrier."
+            )
+        else:
+            for start in range(0, count, _STORAGE_CHUNK):
+                flat.extend(items.flat[start : start + _STORAGE_CHUNK].tolist())
+        if len(flat) != count:
+            raise ValueError("The array changed size while its items were read.")
+        return flat, shape
+    limit = MAX_BYTES // itemsize
+    flat = []
+    for item in items:
+        if len(flat) >= limit:
+            raise ValueError(
+                f"Storing more than {limit} {what} would exceed the {MAX_BYTES} byte payload "
+                "limit; the iterable was not consumed further and nothing was allocated."
+            )
+        flat.append(item)
+    return flat, (len(flat),)
+
+
+def _reshaped(values: np.ndarray[Any, Any], shape: tuple[int, ...]) -> np.ndarray[Any, Any]:
+    return values.reshape(shape) if len(shape) > 1 else values
+
+
+def rational_storage(
+    items: Any, parameter: str = "Int64", *, exact: bool = True
+) -> tuple[np.ndarray[Any, Any], StoredElement]:
+    """Build the Float64 carrier and marked descriptor Julia reloads as ``Rational{parameter}``.
+
+    ``items`` are ``fractions.Fraction`` objects (an iterable, an object array
+    of any shape, or an exact ``rational`` carrier). Each is stored as Julia's
+    ``Float64(num) / Float64(den)`` and, by default, accepted only when the
+    pinned loader rebuilds exactly that fraction; ``exact=False`` stores the
+    float when Julia can load *some* rational from it and leaves the loss
+    explicit. The result pairs with :class:`StoredSeries`, :class:`StoredArray`
+    or :class:`StoredMVTSeries`; :meth:`~StoredSeries.to_interpreted` returns
+    the exact carrier back. An input whose Float64 storage would exceed the
+    payload limit is refused before anything is copied or allocated.
+    """
+    if parameter not in _exact.RATIONAL_PARAMETERS:
+        raise TypeError(f"Unknown Rational parameter {parameter!r}.")
+    flat, shape = _storage_items(items, Fraction, 8)
+    values = np.empty(len(flat), dtype="<f8")
+    for index, item in enumerate(flat):
+        if type(item) is not Fraction:
+            raise TypeError("rational_storage takes fractions.Fraction objects.")
+        values[index] = _stored_fraction(item, parameter, exact, "fraction")
+    return _reshaped(values, shape), StoredElement.numeric(
+        np.dtype("<f8"), f"Rational{{{parameter}}}"
+    )
+
+
+def _stored_fraction(item: Fraction, parameter: str, exact: bool, what: str) -> float:
+    try:
+        value = _exact.julia_float(item.numerator, item.denominator)
+    except OverflowError:
+        raise ValueError(f"The {what} {item} exceeds Julia's Float64 storage range.") from None
+    rebuilt = _exact.rationalize(value, parameter)  # ValueError where Julia fails
+    if exact and rebuilt != (item.numerator, item.denominator):
+        raise ValueError(
+            f"Julia would reload the {what} {item} (stored as {value!r}) as "
+            f"{rebuilt[0]}//{rebuilt[1]} under Rational{{{parameter}}}; pass exact=False to "
+            "store that float with the loss explicit."
+        )
+    return value
+
+
+def integer_complex_storage(
+    items: Any, parameter: str = "Int64"
+) -> tuple[np.ndarray[Any, Any], StoredElement]:
+    """Build the ComplexF64 carrier and marked descriptor Julia reloads as ``Complex{parameter}``.
+
+    ``items`` are :class:`IntegerComplex` values (an iterable, an object array
+    or an exact ``intcomplex`` carrier). Each component must lie within
+    ``parameter`` and be exactly representable in Float64, which is what
+    Julia's own writer stores and reloads (no ``2**53`` cutoff). An input
+    whose ComplexF64 storage would exceed the payload limit is refused before
+    anything is copied or allocated.
+    """
+    if parameter not in _exact.COMPLEX_PARAMETERS:
+        raise TypeError(f"Unknown Complex parameter {parameter!r}.")
+    flat, shape = _storage_items(items, IntegerComplex, 16)
+    values = np.empty(len(flat), dtype="<c16")
+    for index, item in enumerate(flat):
+        if type(item) is not IntegerComplex:
+            raise TypeError("integer_complex_storage takes IntegerComplex objects.")
+        real = _exact_float(item.real, "real part")
+        imag = _exact_float(item.imag, "imaginary part")
+        if _exact.integer_complex_from_floats(real, imag, parameter) != (item.real, item.imag):
+            raise ValueError(f"Julia would not reload {item} under Complex{{{parameter}}}.")
+        values.real[index] = real
+        values.imag[index] = imag
+    return _reshaped(values, shape), StoredElement.numeric(
+        np.dtype("<c16"), f"Complex{{{parameter}}}"
+    )
+
+
+def rational_complex_storage(
+    items: Any, parameter: str = "Int64", *, exact: bool = True
+) -> tuple[np.ndarray[Any, Any], StoredElement]:
+    """Build the ComplexF64 storage Julia reloads as ``Complex{Rational{parameter}}``.
+
+    ``items`` are :class:`RationalComplex` values; each component follows the
+    rule of :func:`rational_storage` (exact by default, ``exact=False`` for a
+    documented loss) and the same capacity rule.
+    """
+    if parameter not in _exact.RATIONAL_PARAMETERS:
+        raise TypeError(f"Unknown Rational parameter {parameter!r}.")
+    flat, shape = _storage_items(items, RationalComplex, 16)
+    values = np.empty(len(flat), dtype="<c16")
+    for index, item in enumerate(flat):
+        if type(item) is not RationalComplex:
+            raise TypeError("rational_complex_storage takes RationalComplex objects.")
+        values.real[index] = _stored_fraction(item.real, parameter, exact, "real part")
+        values.imag[index] = _stored_fraction(item.imag, parameter, exact, "imaginary part")
+    marker = f"Complex{{Rational{{{parameter}}}}}"
+    return _reshaped(values, shape), StoredElement.numeric(np.dtype("<c16"), marker)
 
 
 # ---- dated matrices ---------------------------------------------------------
@@ -864,7 +1407,10 @@ def resolve_mvtseries_interpretation(
                 "Julia cannot load an empty date or duration MVTSeries; a whole-object "
                 "marker on one is not supported."
             )
-        return _interpret.mvtseries_object_interpretation(object_marker, axis, base), base
+        kind = _interpret.mvtseries_object_interpretation(object_marker, axis, base)
+        if kind == "opaque":
+            return kind, _interpret.opaque_target(object_marker, base)
+        return kind, base
     if element.marker is None and element.kind == "numeric":
         raise TypeError(
             "Ordinary numeric values without a reconstruction marker belong in an "
@@ -1104,16 +1650,24 @@ class StoredMVTSeries:
         """Return the value Julia's loader would build, without changing what is stored.
 
         The result is independently owning: an ``MVTSeries`` for ordinary
-        numeric or Boolean targets, an unmarked ``StoredMVTSeries`` for date,
-        duration or wide targets and for whole-object identity markers.
-        Floating targets reproduce Julia's rounding and finite overflow;
-        integer, Boolean and date targets are exact or raise ``ValueError``.
+        numeric or Boolean targets (object dtype for ``BigInt``/``BigFloat``
+        and for an empty abstract type), an unmarked ``StoredMVTSeries`` for
+        date, duration, wide or exact rational/complex targets and for
+        whole-object identity markers. Floating targets reproduce Julia's
+        rounding and finite overflow; integer, Boolean, date and exact targets
+        are exact or raise ``ValueError``; an opaque marker raises ``TypeError``.
         """
         values = self._conversion_snapshot()
         kind, target = resolve_mvtseries_interpretation(
             values, self._element, self._object_marker, self._firstdate.frequency
         )
         names = list(self._columns)
+        if kind == "opaque":
+            raise _opaque_error(target)
+        if kind == "display":
+            raise _interpret.display_text_error("MVTSeries")
+        if kind == "empty":
+            return MVTSeries(self._firstdate, names, np.empty(values.shape, dtype=target.dtype))
         if kind in ("identity", "stored"):
             if self._element.kind == "numeric":
                 return MVTSeries(self._firstdate, names, values.copy())
@@ -1121,7 +1675,7 @@ class StoredMVTSeries:
         _interpret.check_output_capacity(int(values.size), target)
         flat = _interpret.convert_values(values.reshape(-1), self._element.target, target)
         converted = flat.reshape(values.shape)
-        if target.kind == "numeric":
+        if target.kind == "numeric" or kind == "object":
             return MVTSeries(self._firstdate, names, converted)
         return StoredMVTSeries(
             self._firstdate, names, converted, _element_from_target(target), copy=False

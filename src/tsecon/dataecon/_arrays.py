@@ -32,14 +32,17 @@ from typing import Any
 
 import numpy as np
 
-from . import _interpret
+from . import _interpret, _printed
 from ._interpret import MAX_AXES, Target
 from ._metadata import JULIA_KIND_DEFAULTS, JULIA_NUMERIC_TYPES, MAX_BYTES, MAX_INT64
 from ._represented import (
     BOOL_MARKER,
     StoredElement,
     _element_from_target,
+    _opaque_error,
+    element_interpretation,
     element_tolist,
+    printed_elements,
 )
 
 __all__ = ["MAX_UNICODE_BYTES", "StoredArray", "StoredText"]
@@ -430,25 +433,50 @@ class StoredArray:
         # reshape must not move the result away from the values just checked.
         return flags.reshape(values.shape)
 
-    def to_interpreted(self) -> np.ndarray[Any, Any] | StoredArray:
+    def to_interpreted(  # noqa: PLR0911 - one return per result kind
+        self,
+    ) -> np.ndarray[Any, Any] | StoredArray | StoredText | str:
         """Return the value Julia's loader would build, without changing what is stored.
 
-        Ordinary numeric and Boolean targets give an owning NumPy array; date,
-        duration and wide targets give an unmarked :class:`StoredArray`. A
+        Ordinary numeric and Boolean targets give an owning NumPy array
+        (object dtype for ``BigInt``/``BigFloat`` and for an empty abstract
+        type, ``datetime64[D]``/``[ms]`` for ``Date``/``DateTime`` on a numeric
+        payload, ``str_`` of one character for ``Char``); date, duration, wide
+        and exact rational/complex targets give an unmarked
+        :class:`StoredArray`; a ``Symbol`` element marker on a numeric payload
+        gives the :class:`StoredText` of Julia's printed elements, and a
+        ``Symbol`` whole-object marker the ``str`` Julia prints for the whole
+        array (``[1, 2]``, ``Int8[1 3; 2 4]``, ``Matrix{Float64}(undef, 0,
+        2)``; the bytes of a UInt8 vector name the symbol directly). A
         ``Diagonal``, ``Symmetric`` or ``Hermitian`` marker gives the dense
         matrix Julia reconstructs, which discards the entries that wrapper
         ignores. Conversions reproduce the reference's rounding and raise
-        ``ValueError`` on values the target cannot hold.
+        ``ValueError`` on values the target cannot hold; an opaque marker
+        raises ``TypeError``.
         """
         values = self._conversion_snapshot()
         shape = values.shape
         kind, target = resolve_array_interpretation(values, self._element, self._object_marker)
+        if kind == "printed":
+            element = self._element
+            return _printed.numeric_symbol(
+                values, element.kind, element.dtype, element.julia_name, element.frequency
+            )
+        if kind == "bytes":
+            return _printed.byte_symbol(values.tobytes())
         if kind == "structure":
             assert self._object_marker is not None
             dense = _structure_dense(values, self._object_marker)
             if self._element.kind == "numeric":
                 return dense
             return StoredArray(dense, self._element.with_marker(None), copy=False)
+        if kind == "opaque":
+            raise _opaque_error(target)
+        if kind == "empty":
+            return np.empty(shape, dtype=target.dtype)
+        if kind == "symbol":
+            flat = values.reshape(-1, order="F")
+            return StoredText(printed_elements(flat, self._element), "Symbol", shape)
         if kind in ("identity", "stored"):
             if self._element.kind == "numeric":
                 return values
@@ -456,7 +484,7 @@ class StoredArray:
         _interpret.check_output_capacity(int(values.size), target)
         flat = _interpret.convert_values(values.reshape(-1), self._element.target, target)
         converted = flat.reshape(shape)
-        if target.kind == "numeric":
+        if target.kind == "numeric" or kind in ("object", "datetime", "char"):
             return converted
         return StoredArray(converted, _element_from_target(target), copy=False)
 
@@ -477,43 +505,17 @@ class StoredArray:
         return np.frombuffer(payload, dtype=self._element.dtype).reshape(shape).copy()
 
 
-def _empty_interpretation(
-    element: StoredElement, marker: str, target: Target
-) -> tuple[str, Target]:
-    """Apply the dated series' empty-payload rules to an empty array.
-
-    Julia builds an empty typed array for any target, so a foreign marker is
-    preserved on the kind default, where the stored width is unambiguous, and
-    refused on any other width.
-    """
-    if element.kind == "numeric":
-        if element.julia_name != JULIA_KIND_DEFAULTS[element.native_kind]:
-            raise TypeError(
-                "An empty numeric payload has no stored width; a foreign marker is "
-                f"kept on the kind default {JULIA_KIND_DEFAULTS[element.native_kind]}, "
-                f"not on {element.julia_name}."
-            )
-        return "element", target
-    if element.is_wide:
-        raise ValueError(
-            f"An empty {element.julia_name} carrier with the foreign marker {marker!r} "
-            "has no storable width; use an empty numeric array or an unmarked wide carrier."
-        )
-    raise TypeError(
-        f"Julia cannot load an empty {element.julia_name} array; the foreign marker "
-        f"{marker!r} on one is not supported."
-    )
-
-
 def resolve_array_interpretation(
     values: np.ndarray[Any, Any], element: StoredElement, object_marker: str | None
 ) -> tuple[str, Target]:
     """Resolve marker precedence for a plain array and check the declared conversion.
 
-    Returns ``("identity"|"structure"|"element"|"stored", target)``. A present
-    whole-object marker wins and leaves the element marker inactive, exactly as
-    in Julia. Unlike a dated series, a parameterised container token converts
-    every element there, so it is accepted here as an element conversion.
+    Returns ``("identity"|"structure"|"element"|"stored"|"printed"|"bytes",
+    target)``. A present whole-object marker wins and leaves the element
+    marker inactive, exactly as in Julia (``Symbol`` prints the stored array;
+    the ``printed`` and ``bytes`` kinds). Unlike a dated series, a
+    parameterised container token converts every element there, so it is
+    accepted here as an element conversion.
     """
     size = int(values.size)
     ndim = int(values.ndim)
@@ -533,33 +535,15 @@ def resolve_array_interpretation(
             # rank two only); kept as the contract's own guard.
             raise TypeError("A structural reconstruction marker applies to matrices only.")
         return kind, target
-    marker = element.marker
-    if marker is None:
-        if element.kind == "numeric":
-            raise TypeError(
-                "Ordinary numeric values without a reconstruction marker belong in a plain "
-                "NumPy array, not a StoredArray."
-            )
-        return "stored", base
-    resolved = _interpret.resolve_token(marker)
-    if resolved is None:
+    if element.marker is None and element.kind == "numeric":
         raise TypeError(
-            f"Unsupported reconstruction marker {marker!r}; marker text is compared with "
-            "a finite table and never evaluated."
+            "Ordinary numeric values without a reconstruction marker belong in a plain "
+            "NumPy array, not a StoredArray."
         )
-    target = resolved
-    if target == base:
-        return "stored", base
-    if element.kind == "numeric" and target.is_bool:
-        raise TypeError(
-            'A "Bool" marker on an ordinary numeric payload reads as a Boolean array; '
-            "build one with a bool dtype instead of a StoredArray."
-        )
-    if not size:
-        return _empty_interpretation(element, marker, target)
-    _interpret.check_route(base, target)
-    _interpret.check_values(values.reshape(-1), base, target)
-    return "element", target
+    # The element table, routes, value rules, empty-only tokens, opaque markers
+    # and the plain-array Bool width rule are shared with the dated containers;
+    # the flat column-major values are what Julia's map visits.
+    return element_interpretation(values.reshape(-1, order="F"), element, "array")
 
 
 # ---- text arrays: bounded packing and materialization ------------------------
@@ -789,6 +773,13 @@ class StoredText:
     otherwise lose their marker, their exact bytes or their shape, or cost a
     padded allocation far beyond the packed payload.
 
+    ``object_marker`` is a preserved whole-object ``jtype`` text. When present
+    it wins over the element marker in Julia (a ``Vector{String}`` whole-object
+    marker over a ``Symbol`` element marker loads plain strings); both are kept
+    verbatim and written back. :meth:`to_interpreted` applies Julia's
+    reconstruction; :meth:`tolist` and :meth:`to_numpy` stay the strict decodes
+    of the stored text regardless of any marker.
+
     The container is immutable. :meth:`tolist` and :meth:`to_numpy` are the
     explicit strict decodes in logical (row-major) indexing; :meth:`from_list`
     and :meth:`from_numpy` build a container from Python strings.
@@ -797,6 +788,7 @@ class StoredText:
     values: tuple[bytes, ...]
     marker: str | None = None
     shape: tuple[int, ...] | None = None
+    object_marker: str | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.values, tuple) or any(
@@ -809,6 +801,7 @@ class StoredText:
                 "cannot contain NUL; the boundary itself would be lost."
             )
         _interpret.check_marker_text(self.marker, "element")
+        _interpret.check_marker_text(self.object_marker, "whole-object")
         shape = (len(self.values),) if self.shape is None else self.shape
         if (
             not isinstance(shape, tuple)
@@ -905,6 +898,72 @@ class StoredText:
         assert self.shape is not None
         return nest_rows(decoded, self.shape)
 
+    @property
+    def active_marker(self) -> str | None:
+        """The marker Julia acts on: the whole-object text when present, else the element text."""
+        return self.object_marker if self.object_marker is not None else self.marker
+
+    def to_interpreted(self) -> list[str] | np.ndarray[Any, Any] | StoredText | str:
+        """Return the value Julia's loader builds from the stored text and its markers.
+
+        A whole-object ``Symbol`` gives the ``str`` Julia prints for the whole
+        String array (``["a", "b"]``, ``["a" "c"; "b" "d"]``,
+        ``Matrix{String}(undef, 0, 2)``, with Julia's own escaping of each
+        element; a character this Python's Unicode tables leave unassigned
+        raises ``ValueError``, since Julia's tables decide whether it prints
+        raw). The whole-object identities (``Vector{String}``, ``Vector``,
+        ``AbstractVector``, ``AbstractArray``, ``Array{String,1}``,
+        ``Array{String, 1}``, ``Array{String}``, ``Array``, ``Any``; the
+        ``Matrix``/``Array{String,N}`` forms at higher ranks) give the plain
+        text (``list[str]`` for a vector, a ``str_`` array otherwise) whatever
+        the element marker says, as in Julia; ``Vector{Any}``,
+        ``Vector{AbstractString}``, ``Vector{SubString{String}}``,
+        ``Vector{Union{String,Symbol}}``, ``Matrix{Any}``,
+        ``Matrix{AbstractString}`` and ``Array{Any,N}`` give an object array of
+        ``str``; ``Vector{Symbol}``/``Matrix{Symbol}``/``Array{Symbol,N}``
+        load only an empty text (as an empty ``StoredText`` with the
+        ``Symbol`` marker). Without a whole-object marker the element marker
+        rules apply: ``String``/``AbstractString``/``Any`` are the plain text,
+        ``Symbol`` and ``SubString{String}`` the text values (Julia's
+        ``Symbol``/``SubString`` elements, kept here as ``str``), ``Char``
+        and other empty-only tokens load an empty text only, and an unknown
+        marker raises ``TypeError``. Text that is not valid UTF-8 raises
+        ``ValueError`` wherever strings are produced.
+        """
+        assert self.shape is not None
+        ndim = len(self.shape)
+        token = self.object_marker
+        if token is not None:
+            kind = text_object_interpretation(token, ndim, self.size)
+        else:
+            kind = text_element_interpretation(self.marker, self.size)
+        if kind == "identity":
+            return self._plain()
+        if kind == "object":
+            plain = np.array(self._decoded(), dtype=object)
+            return unicode_array_like(plain, self.shape)
+        if kind == "symbol":
+            return StoredText(self.values, "Symbol", self.shape)
+        if kind == "printed":
+            return _printed.text_symbol(self.values, self.shape)
+        assert kind == "empty"
+        # Vector{Char}: an object array of one-character str (str_ drops U+0000).
+        return np.empty(
+            self.shape, dtype=object if self.active_marker in ("Char", "Vector{Char}") else "<U1"
+        )
+
+    def _plain(self) -> list[str] | np.ndarray[Any, Any]:
+        assert self.shape is not None
+        decoded = self._decoded()
+        if self.ndim == 1:
+            return decoded
+        if unicode_nbytes(decoded) > MAX_UNICODE_BYTES:
+            raise ValueError(
+                "A fixed-width str_ array of this text would exceed the allocation limit; "
+                "use tolist() or keep the StoredText."
+            )
+        return unicode_array(decoded, self.shape)
+
     def to_numpy(self) -> np.ndarray[Any, Any]:
         """Decode into an owning, C-contiguous NumPy ``str_`` array of the stored shape.
 
@@ -921,3 +980,114 @@ class StoredText:
                 f"the {MAX_UNICODE_BYTES}-byte limit; use tolist() or keep the StoredText."
             )
         return unicode_array(decoded, self.shape)
+
+
+# ---- text whole-object and element markers ----------------------------------
+
+# Every spelling below was loaded individually by the pinned Julia over
+# nonempty and empty String vectors, matrices and tensors, with and without a
+# Symbol element marker (the whole-object token wins). Julia's rewrite of the
+# identities drops the markers; this adapter preserves them.
+_TEXT_IDENTITY_TOKENS: dict[int, tuple[str, ...]] = {
+    1: (
+        "Vector{String}",
+        "Vector",
+        "AbstractVector",
+        "AbstractArray",
+        "Array{String,1}",
+        "Array{String, 1}",
+        "Array{String}",
+        "Array",
+        "Any",
+    ),
+    2: (
+        "Matrix{String}",
+        "Array{String,2}",
+        "Array{String, 2}",
+        "Matrix",
+        "Array",
+        "AbstractArray",
+        "AbstractMatrix",
+        "Any",
+    ),
+    **{
+        n: (f"Array{{String,{n}}}", f"Array{{String, {n}}}", "Array", "AbstractArray", "Any")
+        for n in range(3, MAX_AXES + 1)
+    },
+}
+_TEXT_OBJECT_TOKENS: dict[int, tuple[str, ...]] = {
+    1: (
+        "Vector{Any}",
+        "Vector{AbstractString}",
+        "Vector{SubString{String}}",
+        "Vector{Union{String,Symbol}}",
+    ),
+    2: ("Matrix{Any}", "Matrix{AbstractString}"),
+    **{n: (f"Array{{Any,{n}}}",) for n in range(3, MAX_AXES + 1)},
+}
+_TEXT_SYMBOL_TOKENS: dict[int, tuple[str, ...]] = {
+    1: ("Vector{Symbol}", "Vector{ Symbol }"),
+    2: ("Matrix{Symbol}",),
+    **{n: (f"Array{{Symbol,{n}}}",) for n in range(3, MAX_AXES + 1)},
+}
+_TEXT_EMPTY_TOKENS: dict[int, tuple[str, ...]] = {1: ("Vector{Char}",)}
+# Element tokens on text: identities, the two preserved text families, and the
+# empty-only tokens (``Char`` loads an empty ``Vector{Char}`` only).
+_TEXT_IDENTITY_ELEMENTS = ("String", "AbstractString", "Any")
+_TEXT_VALUE_ELEMENTS = ("Symbol", "SubString{String}")
+_TEXT_EMPTY_ELEMENTS = ("Char", "Int64", "Vector{String}")
+
+
+def text_object_interpretation(token: str, ndim: int, size: int) -> str:
+    """Classify a whole-object token on text.
+
+    ``identity``, ``object``, ``symbol`` (a typed empty), ``empty`` or
+    ``printed`` (``Symbol``: the scalar Symbol of the printed array).
+    ``TypeError`` names a spelling Julia fails on (``String``, a wrong rank)
+    or an unknown one, which stays preserved and unevaluated.
+    """
+    if token in _TEXT_IDENTITY_TOKENS.get(ndim, ()):
+        return "identity"
+    if token == "Symbol":
+        return "printed"
+    if token in _TEXT_OBJECT_TOKENS.get(ndim, ()):
+        return "object"
+    if token in _TEXT_SYMBOL_TOKENS.get(ndim, ()) or token in _TEXT_EMPTY_TOKENS.get(ndim, ()):
+        if size:
+            raise TypeError(
+                f"Julia has no {token} conversion for nonempty text (MethodError); only an "
+                "empty text loads as an empty array of that type."
+            )
+        return "symbol" if token in _TEXT_SYMBOL_TOKENS.get(ndim, ()) else "empty"
+    raise TypeError(
+        f"Unsupported whole-object reconstruction marker on a {ndim}-dimensional text array; "
+        "the marker text is preserved and never evaluated."
+    )
+
+
+def text_element_interpretation(marker: str | None, size: int) -> str:
+    """Classify an element token on text: ``identity``, ``symbol`` or ``empty``."""
+    if marker is None or marker in _TEXT_IDENTITY_ELEMENTS:
+        return "identity"
+    if marker in _TEXT_VALUE_ELEMENTS:
+        return "identity" if marker != "Symbol" else "symbol"
+    if marker in _TEXT_EMPTY_ELEMENTS:
+        if size:
+            raise TypeError(
+                f"Julia loads the element marker {marker!r} on text from an empty payload "
+                "only (MethodError otherwise)."
+            )
+        return "empty"
+    raise TypeError(
+        "Unsupported reconstruction marker on a text array; the marker text is preserved "
+        "and never evaluated."
+    )
+
+
+def unicode_array_like(flat: np.ndarray[Any, Any], shape: tuple[int, ...]) -> np.ndarray[Any, Any]:
+    """Reshape column-major object elements into a row-major object array of ``shape``."""
+    out = np.empty(shape, dtype=object)
+    if flat.size:
+        order = np.arange(flat.size).reshape(shape, order="F").ravel(order="C")
+        out.reshape(-1)[:] = flat[order]
+    return out

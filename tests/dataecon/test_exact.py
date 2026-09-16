@@ -915,11 +915,18 @@ def test_unix_seconds_outside_int64_milliseconds_are_refused(seconds):
         ex.rata_die_ms_from_unix_seconds(seconds)
 
 
-def test_integer_unix_seconds_that_would_wrap_are_refused_not_wrapped():
-    with pytest.raises(ValueError, match="overflows"):
-        ex.rata_die_ms_from_unix_integer(2**63 // 1000 + 1)
-    with pytest.raises(ValueError, match="overflows"):
-        ex.rata_die_ms_from_unix_integer(-(2**63) // 1000 - 1)
+def test_integer_unix_seconds_wrap_like_julias_int64():
+    # Int64(1000) * n and UNIXEPOCH + ms wrap: Julia's defined modular
+    # arithmetic, reproduced exactly (the pinned rows of julia_scalar_routes
+    # and julia_marker_routes hold the resulting dates).
+    wrapped = ex.rata_die_ms_from_unix_integer(2**63 // 1000 + 1)
+    assert wrapped == ex.wrap_int64(ex.UNIX_EPOCH_MS + ex.wrap_int64(1000 * (2**63 // 1000 + 1)))
+    assert wrapped < 0
+    assert ex.rata_die_ms_from_unix_integer(-(2**63) // 1000 - 1) == ex.wrap_int64(
+        ex.UNIX_EPOCH_MS + ex.wrap_int64(1000 * (-(2**63) // 1000 - 1))
+    )
+    assert ex.wrap_int64(2**63) == -(2**63)
+    assert ex.wrap_int64(-(2**63) - 1) == 2**63 - 1
     # Just inside: the product fits, the epoch offset still fits.
     assert ex.rata_die_ms_from_unix_integer(2**63 // 1000 - 62135683201) > 0
 

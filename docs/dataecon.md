@@ -693,10 +693,12 @@ reads them back intact with their shape.
 
 The marker table is the vector one: a `Symbol`, `SubString{String}` or
 `AbstractString` element token, or a nonempty foreign `String` token, comes
-back as a `StoredText` with that marker and rewrites it unchanged; `Char`
-and any whole-object `jtype` token on a text array (Julia reads identity
-spellings such as `Matrix{String}` or `Array{String,3}`, which its writer never
-produces) are refused with `TypeError`, unevaluated. NumPy `bytes_` and
+back as a `StoredText` with that marker and rewrites it unchanged; any other
+element token and any whole-object `jtype` token on a text array (Julia reads
+identity spellings such as `Matrix{String}` or `Array{String,3}`, which its
+writer never produces) are preserved in the `StoredText` unevaluated, with
+`to_interpreted()` following Julia's verified spellings (see
+[Exact carriers and the remaining element routes](#exact-carriers-and-the-remaining-element-routes)). NumPy `bytes_` and
 object arrays are not converted implicitly: build a `str_` array or a
 `StoredText` instead. A Julia `MVTSeries` holds numeric elements only, so a
 text payload under the MVTSeries object type is native-only capacity and is
@@ -1832,8 +1834,11 @@ multivariate object are limited to the identities Julia's `convert` accepts:
 `MVTSeries`, `MVTSeries{F}`, the exact `MVTSeries{F, T}` and
 `MVTSeries{F, T, Matrix{T}}` spellings naming this axis and element,
 `AbstractMatrix` and `Any`; every other token (a mismatched parameter,
-`Matrix`, `Array`, the LinearAlgebra wrappers, `TSeries`, `Symbol`) is refused
-without evaluation, and Julia fails on those as well. Column names follow the
+`Matrix`, `Array`, the LinearAlgebra wrappers, `TSeries`) is refused
+without evaluation, and Julia fails on those as well; `Symbol` is refused
+because Julia's `Symbol(::MVTSeries)` is the object's display text, which the
+loading session's `LINES`/`COLUMNS` shape (the same stored object gave
+different names under different settings). Column names follow the
 names-axis rules of ordinary multivariate series (no newline or NUL, distinct,
 at least one). Whole `Workspace` trees carry `StoredMVTSeries` members through
 the same dispatch as `MVTSeries`.
@@ -1871,22 +1876,21 @@ with open_dataecon("marked.daec") as db:
   them as frequency types such as `Weekly{0}`, `Weekly{8}` or `Quarterly{0}`.
 - Empty date and duration series write Julia's exact marker and read with or
   without it; the pinned Julia loader fails on either form.
-- Series reconstruction markers outside the finite table described in the
-  next section (`Rational{Int64}`, `Complex{Int64}`, `Date`, `DateTime` and
-  `Symbol` as *element* markers, abstract names such as `Real`,
-  `MIT{Quarterly}` without its parameter, and spellings other than the
-  individually verified ones) are refused with `TypeError`. Julia loads
-  several of them; supporting them is planned parity work, not an approved
-  exclusion. The same names on a *scalar* are interpreted (see
-  [Marker-mapped, wide and exceptional scalars](#marker-mapped-wide-and-exceptional-scalars)).
+- Reconstruction markers outside the finite tables described in the next
+  sections (a spelling that was not verified individually, such as
+  `Base.MVTSeries` or a three-parameter form without spaces, a mismatched
+  `TSeries{...}` parameter, an unknown or third-party type name, evaluable
+  text) are preserved verbatim on read and rewrite and raise `TypeError` only
+  on explicit interpretation. Julia may load some of the unverified
+  spellings; widening the table needs a probe of each spelling, not a grammar.
 - Wider-than-64-bit element widths other than the three represented families
   remain unsupported.
-- Whole-object spellings on a multivariate object outside the verified
-  identity table (`Base.MVTSeries`, a three-parameter form without spaces,
-  an alias inside a three-parameter form) are refused although Julia may
-  load them; they are part of the same finite-spelling policy as the series
-  tokens above.
-- Marker text is never evaluated: markers are compared with a finite table of
+- A whole-object `Symbol` on a dated series or MVTSeries is Julia's display
+  text (row selection and column widths follow the loading session's
+  `LINES`/`COLUMNS`); the marker is preserved and interpretation raises.
+  On plain arrays and text arrays the same marker is Julia's printed array
+  and is reproduced.
+- Marker text is never evaluated: markers are compared with finite tables of
   tokens.
 
 ## Marker-mapped, wide and exceptional scalars
@@ -1978,7 +1982,10 @@ except ValueError:
 **Interpretation is explicit and finite.** `to_interpreted()` returns the
 value the pinned Julia loader builds: `str` for the text markers (`Symbol`,
 `SubString{String}`, `AbstractString`, `String`, and integer payloads under
-`Symbol`), `datetime.date`/`datetime.datetime` for `Date`/`DateTime` in years
+`Symbol`), a one-character `str` for `Char` on an integer, integral float or
+real complex payload (`to_char()`; a surrogate is returned, an invalid code
+point above U+10FFFF, which Julia builds, is refused),
+`datetime.date`/`datetime.datetime` for `Date`/`DateTime` in years
 1..9999 (`to_calendar()` gives the exact components for any year and
 `to_datetime64()` the exact NumPy value, whose calendar numbers years as
 Julia does), `Fraction` for `Rational{T}` and the bare `Rational`,
@@ -1996,24 +2003,43 @@ arithmetic: `Rational{Int64}` on `1/3` gives `6004799503160661//1801439850948198
 loader fails (`InexactError`, `OverflowError`, `MethodError`) the reader
 raises `ValueError` for a value it refuses or `TypeError` for a route it
 lacks. `+/-1//0`, which Julia loads, has no `Fraction`: `to_fraction()`
-raises and `to_float()` returns the signed infinity. A `BigFloat` marker is
-preserved but not interpreted (its Float64 or integer payload is exactly the
-value, readable through `to_float()`/`to_int()`); a `Symbol` on a float,
-complex or date payload names Julia's printed form and is not reproduced;
-`Irrational`, `Complex{Rational{T}}`, unknown names and evaluable text are
-preserved opaquely and raise `TypeError` on interpretation, never echoing or
-running the marker text.
+raises and `to_float()` returns the signed infinity. `Rational{T}` on a
+Float32 or Float16 payload runs Julia's `rationalize` in that width
+(`Rational{Int64}` on `0.1f0` is `13421773//134217728`); `Complex{Rational{T}}`
+gives a `RationalComplex` pair of Fractions; `BigInt` gives an exact `int` and
+`BigFloat` the exact `decimal.Decimal` of the payload (`to_decimal()`;
+`BigFloat(0.1f0)` is `0.100000001490116119384765625`); a `Symbol` on a
+numeric or date payload gives Julia's printed text (`to_printed()`: `1.5`,
+`1.0e10`, `1.5 - 2.0im`, `2024M1`, and for the calendar frequencies the
+date Julia prints in any proleptic year, `0000-12-31`, `-0001-12-31`,
+`10000-01-01`, with Julia's own Int64 date arithmetic at extreme codes);
+`Date`/`DateTime` accept every numeric payload family (Float32/Float16
+products round in their own width, UInt64 wraps its unsigned product, the
+128-bit widths multiply in their own width, and the Int64 steps `1000 * n`
+and `UNIXEPOCH + ms` wrap as Julia's defined integer arithmetic does, so an
+Int64 payload near `9.2e15` reloads in the year -292275055 exactly as in
+Julia; `to_calendar()` has the components of any year); `MIT{F}` on an
+integer payload reinterprets the code without any native date window, as
+Julia's constructor does; `Complex` on a date or duration payload and the
+explicit `Complex{MIT{F}}`/`Complex{Duration{F}}` tokens give a
+`DatedComplex` pair (`to_dated_complex()`: Julia's `Complex(x, zero(x))`;
+`Complex{MIT{F}}` also takes any integer payload and `Complex{Duration{F}}`
+an Int64 payload); and on a date or duration payload
+`Real`/`Integer`/`Signed`/`Number` are identities, `AbstractFloat` is the
+plotting value, `Rational{Int64}`/`Complex{Int64}`/`Complex{Rational{Int64}}`
+and `Complex{Bool}` (on a 0/1 code) load, and `Unsigned`, `BigInt`, `Date`
+and other parameters have no method. `Irrational`, unknown names and
+evaluable text are preserved opaquely and raise `TypeError` on
+interpretation, never echoing or running the marker text.
 
-The interpretation table does not yet cover every stored payload family.
-Calendar markers currently accept Float64, ComplexF64 with a zero imaginary
-part, signed integers through Int64, and unsigned integers through UInt32.
-Rational markers accept integer, Float64 and real-valued ComplexF64 payloads;
-narrow floating-point reconstruction remains unavailable. Other unfinished
-routes include abstract numeric markers on date/duration payloads and
-`Complex{Rational{T}}`. Reconstructing an `MIT` from an integer payload also
-currently applies the native date window, so some codes Julia can reconstruct
-are refused. These limitations do not prevent preserving and rewriting the
-stored scalar; they remain gaps in explicit interpretation.
+One loadable outcome is refused rather than reproduced: a Float16 unix time
+whose product `Float16(1000) * x` is `-Inf` passes Julia's Float16 range
+check into `unsafe_trunc(Int64, -Inf)`, whose result is undefined (the
+pinned x86-64 run produced `typemin(Int64)`); the reader raises
+`ValueError` instead of adopting one platform's value. A date-kind scalar
+whose code lies outside the native codec's verified window is refused at
+construction, as before (Julia's own value there is the C codec's wrapped
+artefact). Neither prevents preserving and rewriting the stored scalar.
 
 ```python
 import struct
@@ -2079,15 +2105,21 @@ converts the values while loading. Julia evaluates the marker text; Python
 never does. Markers are compared with a finite table of tokens (the fourteen
 ordinary element names, `Int128`, `UInt128` and `ComplexF16`, the 64 exact
 `MIT{F}`/`Duration{F}` spellings, and the aliases `Int`, `UInt`,
-`Complex{Float16}`, `Complex{Float32}` and `Complex{Float64}`), plus the
-whole-object identity tokens `TSeries`, `TimeSeriesEcon.TSeries`,
-`AbstractVector`, `Any`, `TSeries{F}` and the exactly spelled `TSeries{F, T}`
-/ `TSeries{F,T}` / `TSeries{F, T, Vector{T}}` naming the stored series, and on
-empty numeric or wide payloads the typed-empty tokens `Vector`, `Array`,
-`Vector{Any}` and `Vector{T}` / `Array{T}` / `Array{T,1}` / `Array{T, 1}`
-for every element name. Each spelling was verified individually against the
-pinned loader; no general grammar is applied, so an unlisted spacing or
-qualifier stays refused.
+`Complex{Float16}`, `Complex{Float32}` and `Complex{Float64}`, the qualified
+and spaced spellings verified for scalars such as `Base.Int64`, `Rational{Int}`
+and `Complex{Int}`), the exact `Rational{T}`, integer `Complex{T}` and
+`Complex{Rational{T}}` families, the abstract names `Any`, `Number`, `Real`,
+`Integer`, `Signed`, `Unsigned`, `AbstractFloat`, `Union{Int64,Float64}` and
+the bare `Rational`/`Complex`, `BigInt`, `BigFloat`, and on plain arrays
+`Date`, `DateTime` and `Symbol`, plus the whole-object identity tokens
+`TSeries`, `TimeSeriesEcon.TSeries`, `AbstractVector`, `Any`, `TSeries{F}` and
+the exactly spelled `TSeries{F, T}` / `TSeries{F,T}` / `TSeries{F, T,
+Vector{T}}` naming the stored series, and on empty numeric or wide payloads
+the typed-empty tokens `Vector`, `Array`, `Vector{Any}` and `Vector{T}` /
+`Array{T}` / `Array{T,1}` / `Array{T, 1}` for every element name. Each
+spelling was verified individually against the pinned loader; no general
+grammar is applied, so an unlisted spacing or qualifier is preserved opaquely
+(see [Exact carriers and the remaining element routes](#exact-carriers-and-the-remaining-element-routes)).
 
 **Reads preserve storage.** A supported foreign marker never converts on read.
 `read_series` returns a `StoredSeries` whose descriptor keeps the stored kind,
@@ -2224,7 +2256,7 @@ the series as a `StoredSeries` with `object_marker`, and the element marker is
 kept as inactive data and neither validated nor interpreted. Dropping the
 whole-object marker on a rewrite would activate the element text, so both
 attributes are written back. An empty `jtype` is a present, failing marker,
-not an absent one.
+not an absent one: it is preserved like any unknown text.
 
 ```python
 identity = StoredSeries(
@@ -2236,10 +2268,12 @@ identity = StoredSeries(
 assert identity.active_marker is None
 assert identity.element.marker == "NoSuchElement"  # retained, never interpreted
 assert identity.to_interpreted().values.tolist() == [1, 2]
+exposed = StoredSeries(mm(2024, 11), identity.values, identity.element)  # no object marker
+assert exposed.element.marker == "NoSuchElement"  # active now: preserved, never evaluated
 try:
-    StoredSeries(mm(2024, 11), identity.values, identity.element)  # no object marker
+    exposed.to_interpreted()
 except TypeError:
-    pass  # the unknown element text would become active: refused unevaluated
+    pass  # only the explicit interpretation of unknown text is refused
 empty = StoredSeries(
     mm(2024, 11), np.empty(0, dtype="<f8"), StoredElement.numeric("<f8"), object_marker="Vector"
 )
@@ -2257,17 +2291,184 @@ target's empty value, as Julia builds an empty typed vector. Empty date and
 duration payloads accept only their own token: the pinned Julia loader cannot
 load them at all, and a foreign marker on one is refused.
 
-**Errors and residue.** Unknown text, unsupported routes (a `Float16` marker
-on dates, a `Duration` marker on Int8 bytes, a mismatched `TSeries{...}`
-spelling) raise `TypeError`; values the declared conversion cannot represent
-raise `ValueError`; an explicit conversion whose output would exceed the
-payload limit is refused before anything is allocated. The interpretation is
-revalidated against the live carrier before every write, and an overwrite
-deletes the existing object only after that check. The two attributes are
-separate native operations after the store: if the element marker fails to
-write, the residue is the plain stored value; if the whole-object marker fails
-after the element marker succeeded, that element marker is now active, and the
-residue reads as a different valid value (an Int8 payload with an inactive
-`Bool` marker becomes a Boolean series) or is refused (an inactive unknown
+**Errors and residue.** Unsupported routes of known tokens (a `Float16`
+marker on dates, a `Duration` marker on Int8 bytes, a `Symbol` element marker
+on a dated series) raise `TypeError` on read; values the declared conversion
+cannot represent raise `ValueError` on read; unknown text and unverified
+spellings are preserved and raise `TypeError` only on `to_interpreted()`; an
+explicit conversion whose output would exceed the payload limit is refused
+before anything is allocated. The interpretation is revalidated against the
+live carrier before every write, and an overwrite deletes the existing object
+only after that check. The two attributes are separate native operations
+after the store: if the element marker fails to write, the residue is the
+plain stored value; if the whole-object marker fails after the element marker
+succeeded, that element marker is now active, and the residue reads as a
+different valid value (an Int8 payload with an inactive `Bool` marker becomes
+a Boolean series) or as a preserved opaque container (an inactive unknown
 text). The error names the failed stage; no cleanup delete is attempted and a
 later close may fail and quarantine the owner.
+
+## Exact carriers and the remaining element routes
+
+Julia's loader applies the same `convert` to every element of a series or
+array that it applies to a scalar, so the marker routes above extend to the
+containers with the same arithmetic, value rules and error classes. Three
+families have no native storage of their own (Julia's writer cannot store
+them either): `Rational{T}`, integer `Complex{T}` and `Complex{Rational{T}}`
+for every bit-integer parameter (`Complex{Bool}` included). Interpreting a
+marked Float64, ComplexF64 or integer payload gives a container whose
+`element` is `StoredElement.rational(T)`, `.integer_complex(T)` or
+`.rational_complex(T)` over a structured carrier of exact components
+(`num`/`den`, `re`/`im`, or all four; the 128-bit parameters nest the two-word
+carrier), and whose `tolist()` returns `Fraction`, `IntegerComplex` or
+`RationalComplex` objects. A carrier holding Julia's `±1//0` keeps it in its
+fields and `tolist()` raises for that entry. Writing such values goes through
+the storage Julia reloads them from: `rational_storage`,
+`integer_complex_storage` and `rational_complex_storage` build the Float64 or
+ComplexF64 carrier plus the marked descriptor, accepting each value only when
+the pinned loader rebuilds it exactly (`exact=False` stores the float with the
+loss explicit, still refusing a value Julia cannot load). Any of the three
+containers takes the pair; the interpreted carrier itself is refused by the
+writers with a message naming the helper.
+
+```python
+from fractions import Fraction
+from tsecon.dataecon import IntegerComplex, RationalComplex, StoredArray, StoredMVTSeries
+from tsecon.dataecon import integer_complex_storage, rational_complex_storage, rational_storage
+
+values, element = rational_storage([Fraction(1, 2), Fraction(-3, 4), Fraction(5)])
+assert element.marker == "Rational{Int64}" and values.dtype == np.dtype("<f8")
+with open_dataecon("exact-example.daec", "a") as db:
+    db.write_series("thirds", StoredSeries(mm(2024, 1), values, element))
+    stored = db.read_series("thirds")
+exact = stored.to_interpreted()
+assert exact.element == StoredElement.rational("Int64")
+assert exact.tolist() == [Fraction(1, 2), Fraction(-3, 4), Fraction(5)]
+assert exact.values.dtype.names == ("num", "den")
+try:
+    rational_storage([Fraction(1, 3)])
+except ValueError:
+    pass  # Julia would reload 6004799503160661//18014398509481984
+lossy_values, lossy_element = rational_storage([Fraction(1, 3)], exact=False)
+assert lossy_element.marker == "Rational{Int64}"
+assert rational_storage([Fraction(1, 3)], parameter="Int8")[1].marker == "Rational{Int8}"
+pairs, pair_element = integer_complex_storage([IntegerComplex(2**54, 1), IntegerComplex(-3, 0)])
+assert StoredArray(pairs, pair_element).to_interpreted().tolist() == [
+    IntegerComplex(2**54, 1),
+    IntegerComplex(-3, 0),
+]
+mixed, mixed_element = rational_complex_storage(
+    np.array([[RationalComplex(Fraction(1, 2), Fraction(-2))]], dtype=object), parameter="Int8"
+)
+matrix = StoredMVTSeries(mm(2024, 1), ["z"], mixed, mixed_element)
+assert matrix.to_interpreted().tolist() == [[RationalComplex(Fraction(1, 2), Fraction(-2))]]
+with open_dataecon("exact-example.daec", "a") as db:
+    try:
+        db.write_series("carrier", exact)
+    except TypeError:
+        pass  # exact carriers have no storage of their own: use rational_storage
+```
+
+**Abstract names are value-dependent.** `Any` and `Number` are identities;
+`Real` keeps every real source and takes the real component of a complex one
+with a zero imaginary part; `Integer` and `Signed` keep integer, wide and date
+sources and convert integral floats to Int64; `Signed` and `Unsigned` change
+the sign of a same-width integer source when every value fits (`UInt128`
+becomes `Int128`); `Unsigned` has no method for dates; `AbstractFloat` keeps
+floats and converts everything else to Float64 (dates to their plotting
+values); `Union{Int64,Float64}` (both spacings) keeps `Int64` and `Float64`
+and takes the real part of a `ComplexF64` with a zero imaginary part; the bare
+`Rational` follows the source's integer type (`Int64` for Float32/Float64
+sources, no method for Float16) and the bare `Complex` gives `Complex{IntT}`
+for integers and `ComplexF{W}` for floats. `BigInt` gives an object array of
+exact `int` values and `BigFloat` an object array of exact `Decimal` values
+(a `TSeries` or `MVTSeries` of object dtype for dated containers). On plain
+arrays only, `Date`/`DateTime` give `datetime64[D]`/`datetime64[ms]` arrays
+(an instant outside the `datetime64` count, such as a wrapped Int64 unix
+time, raises; the scalar route keeps its components), `Symbol` gives the
+`StoredText` of Julia's printed elements (calendar dates in any year) and
+`Char` an object array of one-character `str` (a `str_` array cannot hold
+`U+0000`; an invalid code point above U+10FFFF raises); a dated series needs
+numbers, so those markers are refused on it as Julia refuses them. `Complex`
+on date or duration elements and the `Complex{MIT{F}}`/`Complex{Duration{F}}`
+tokens give a container of `DatedComplex` pairs (`element.kind ==
+"datedcomplex"`), which has no storage of its own. A
+wider foreign `Bool` marker on a plain array of any ordinary width keeps its
+stored width, bytes and marker; `to_bool()`/`to_interpreted()` give the Boolean
+array after the 0/1 check, and a rewrite does not normalise the width (dated
+series and matrices keep their established conversion). Every empty-only token
+(`Date`, `Symbol`, `String`, `Char`, `MIT`, `Union{}`, `Nothing`, `Missing`,
+`Vector{Int64}`, the abstract names, ...) on an empty numeric payload is
+preserved on the kind default and interprets to the empty NumPy array of the
+mapped dtype (`datetime64`, `<U1`, or object where no faithful native dtype
+exists, `Char` included), as Julia builds an empty typed vector.
+
+```python
+from decimal import Decimal
+
+from tsecon import MIT, Monthly
+from tsecon.dataecon import DatedComplex
+
+signed = StoredSeries(mm(2024, 1), np.array([0, 1, 2], dtype="<u1"), StoredElement.numeric("<u1", "Signed"))
+assert signed.to_interpreted().values.dtype == np.dtype("<i1")
+try:
+    StoredSeries(mm(2024, 1), np.array([200], dtype="<u1"), StoredElement.numeric("<u1", "Signed"))
+except ValueError:
+    pass  # 200 is not an Int8: refused where Julia raises InexactError
+big = StoredArray(np.array([1e300, 2.0]), StoredElement.numeric("<f8", "BigInt")).to_interpreted()
+assert big.dtype == object and big.tolist() == [int(1e300), 2]
+tenth = StoredSeries(mm(2024, 1), np.array([0.1], dtype="<f4"), StoredElement.numeric("<f4", "BigFloat"))
+assert tenth.to_interpreted().values.tolist() == [Decimal("0.100000001490116119384765625")]
+days = StoredArray(np.array([0, 86400], dtype="<i8"), StoredElement.numeric("<i8", "Date"))
+assert days.to_interpreted().tolist() == [np.datetime64("1970-01-01").item(), np.datetime64("1970-01-02").item()]
+printed = StoredArray(np.array([0.5, 1e10]), StoredElement.numeric("<f8", "Symbol")).to_interpreted()
+assert printed.marker == "Symbol" and printed.tolist() == ["0.5", "1.0e10"]
+chars = StoredArray(np.array([97, 0x1F642], dtype="<i8"), StoredElement.numeric("<i8", "Char"))
+assert chars.to_interpreted().tolist() == ["a", "\U0001f642"]
+dated = StoredSeries(mm(2024, 1), np.array([24288], dtype="<i8"), StoredElement.date(Monthly()).with_marker("Complex"))
+pair = dated.to_interpreted().tolist()[0]
+assert pair == DatedComplex(mm(2024, 1), MIT(Monthly(), 0)) and pair.imag.value == 0
+flags = StoredArray(np.array([[0, 1], [1, 0]], dtype="<i8"), StoredElement.numeric("<i8", "Bool"))
+assert flags.to_bool().tolist() == [[False, True], [True, False]]
+assert flags.values.dtype == np.dtype("<i8")  # the stored width survives a rewrite
+empty = StoredSeries(mm(2024, 1), np.empty(0, dtype="<f8"), StoredElement.numeric("<f8", "Date"))
+assert empty.to_interpreted().dtype == np.dtype("<M8[D]")
+```
+
+**Text whole-object markers.** A text array may carry a `jtype` as well as a
+`jeltype`; `StoredText` keeps both (`object_marker`, `marker`), `tolist()`
+and `to_numpy()` stay the strict decodes of the stored text, and
+`to_interpreted()` follows Julia: the identities (`Vector{String}`, `Vector`,
+`AbstractVector`, `AbstractArray`, `Array{String,1}`, `Array{String, 1}`,
+`Array{String}`, `Array`, `Any`, and the `Matrix`/`Array{String,N}` forms at
+higher ranks) give the plain text even over a `Symbol` element marker, as in
+Julia; `Vector{Any}`, `Vector{AbstractString}`, `Vector{SubString{String}}`,
+`Vector{Union{String,Symbol}}`, `Matrix{Any}`, `Matrix{AbstractString}` and
+`Array{Any,N}` give an object array of `str`; `Vector{Symbol}` and its
+higher-rank forms load only an empty text (as an empty `StoredText` with the
+`Symbol` marker) and `Vector{Char}` an empty object array; `Symbol` gives
+the `str` Julia builds as `Symbol(string(array))`, the printed String array
+with Julia's escaping (`["a\\"b", "é"]`, `["a" "c"; "b" "d"]`,
+`Matrix{String}(undef, 0, 2)`; a character this Python's Unicode tables
+leave unassigned raises, since Julia's tables decide whether it prints raw);
+every other spelling, unknown names included, is preserved and refused on
+interpretation. The same `Symbol` marker on a plain numeric array gives
+Julia's printed array (`[1, 2]`, `Int8[1 3; 2 4]`, `Float32[0.5, 1.0f10]`,
+`MIT{Monthly}[2024M1, 2024M2]`, `[1 2;;; 3 4]` for a tensor); on a UInt8
+vector the bytes themselves name the symbol (NUL or bytes that are not UTF-8
+raise).
+
+```python
+from tsecon.dataecon import StoredText
+
+text = StoredText((b"a", b"b"), "Symbol", (2,), "Vector{String}")
+assert text.tolist() == ["a", "b"]  # stored text, whatever the markers say
+assert text.to_interpreted() == ["a", "b"]  # the whole-object identity wins
+assert StoredText((b"a", b"b"), None, (2,), "Vector{Any}").to_interpreted().dtype == object
+assert StoredText((b'a"b', b"\xc3\xa9"), None, (2,), "Symbol").to_interpreted() == '["a\\"b", "\u00e9"]'
+assert StoredArray(np.array([1, 2], dtype="<i1"), StoredElement.numeric("<i1"), object_marker="Symbol").to_interpreted() == "Int8[1, 2]"
+with open_dataecon("exact-example.daec", "a") as db:
+    db.write_array("names", text)
+    assert db.read_array("names") == text
+    assert db.get_attributes("names") == {"jeltype": "Symbol", "jtype": "Vector{String}"}
+```

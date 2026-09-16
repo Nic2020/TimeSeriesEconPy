@@ -309,14 +309,9 @@ _MATRIX_SUPPORT = (
 )
 
 
-def _require_token(marker: str) -> _interpret.Target:
-    target = _interpret.resolve_token(marker)
-    if target is None:
-        raise TypeError(
-            "Unsupported Julia reconstruction attribute for this element encoding; marker "
-            "text is compared with a finite table and never evaluated."
-        )
-    return target
+def _require_token(marker: str) -> _interpret.Target | None:
+    """Resolve a finite element token; unknown text is preserved opaquely (None)."""
+    return _interpret.resolve_token(marker)
 
 
 def _base_element(element: int, length: int, nbytes: int) -> np.dtype[Any] | StoredElement:
@@ -368,8 +363,6 @@ def _dated_series_type(
     )
     if object_marker is None and (marker is None or marker == descriptor.julia_name):
         return descriptor
-    if object_marker is None and marker is not None:
-        _require_token(marker)
     if not length:
         raise TypeError(
             "Julia cannot load an empty date or duration series; a reconstruction marker "
@@ -386,12 +379,10 @@ def _nonempty_series_type(
             return base
         if marker == "Bool":
             return base.with_bool_marker()
-        _require_token(marker)
         return base.with_marker(marker)
     if marker is None or marker == "Bool":
         # Keep the carrier dtype until Bool values have been checked without casting.
         return base
-    _require_token(marker)
     # Ordinary nonempty identity markers were not accepted before this slice.
     # They are therefore new foreign encodings and retain their literal token
     # under the storage-preserving policy, even though Julia drops it on rewrite.
@@ -405,7 +396,7 @@ def _empty_series_type(element: int, marker: str | None) -> np.dtype[Any] | Stor
     if marker == "Bool":
         return np.dtype("?")
     target = _require_token(marker)
-    if target.kind == "numeric":
+    if target is not None and target.kind == "numeric":
         # An exact same-kind token restores the typed empty; a foreign kind is
         # preserved on the kind default (the stored width is unrecoverable).
         if marker in _SERIES_TYPES and _SERIES_TYPES[marker][0] == element:
@@ -793,15 +784,9 @@ def split_text_payload(payload: bytes, length: int) -> tuple[bytes, ...]:
 
 
 def _text_marker(marker: str | None, object_marker: str | None) -> str | None:
-    if object_marker is not None:
-        raise TypeError(
-            "Whole-object reconstruction markers on DataEcon text arrays are not supported yet."
-        )
-    if marker is not None and marker not in TEXT_MARKERS:
-        raise TypeError(
-            f"Unsupported Julia reconstruction attribute {marker!r} for a text array; "
-            "marker text is compared with a finite table and never evaluated."
-        )
+    """Validate text markers as preserved text; interpretation is the container's explicit call."""
+    _interpret.check_marker_text(marker, "element")
+    _interpret.check_marker_text(object_marker, "whole-object")
     return marker
 
 
@@ -818,17 +803,18 @@ def _array_dtype(
     canonical_bool = (
         element == KIND_INTEGER and not element_frequency and (not length or nbytes // length == 1)
     )
-    # A Bool marker that resolves to an ordinary dtype becomes Boolean values,
-    # which Julia writes as one signed byte. A Bool marker on a represented
-    # carrier resolves to a StoredElement instead and keeps its stored width
-    # under the approved wide-Bool preservation policy.
+    # A Bool marker on the canonical one-byte encoding becomes Boolean values,
+    # which is what Julia writes. On any wider ordinary width the stored
+    # width, bytes and marker are preserved in a StoredArray with explicit
+    # Boolean interpretation; a Bool marker on a
+    # represented carrier already resolves to a StoredElement.
     if (
         marker == "Bool"
         and object_marker is None
         and not isinstance(resolved, StoredElement)
         and not canonical_bool
     ):
-        raise TypeError("A plain Boolean array requires the canonical one-byte signed encoding.")
+        return StoredElement.numeric(resolved, marker)
     return resolved
 
 
@@ -916,8 +902,10 @@ def _check_snapshot_storage(
     )
 
 
-def _text_elements(value: Any) -> tuple[tuple[bytes, ...], str | None, tuple[int, ...]]:
-    """Return column-major element bytes, the marker and the captured shape of a text input.
+def _text_elements(
+    value: Any,
+) -> tuple[tuple[bytes, ...], str | None, tuple[int, ...], str | None]:
+    """Return column-major element bytes, both markers and the captured shape of a text input.
 
     Every path checks rank, dimensions, the Python-integer element count and
     the minimum packed size before the input is flattened or copied, and the
@@ -926,15 +914,15 @@ def _text_elements(value: Any) -> tuple[tuple[bytes, ...], str | None, tuple[int
     if isinstance(value, StoredText):
         assert value.shape is not None
         _arrays.check_text_capacity(sum(len(item) for item in value.values) + len(value.values))
-        return value.values, value.marker, value.shape
+        return value.values, value.marker, value.shape, value.object_marker
     if isinstance(value, np.ndarray):
         shape = _arrays.text_array_shape(value)
         # The logical values are snapshotted in column-major order, in bounded
         # chunks, only after the shape-derived bounds passed; the array is
         # never raveled as a whole, modified or kept.
-        return _arrays.text_array_bytes(value, shape), None, shape
+        return _arrays.text_array_bytes(value, shape), None, shape, None
     shape, flat = _arrays.nested_text(value)
-    return _arrays.column_major(_arrays.pack_strings(flat), shape), None, shape
+    return _arrays.column_major(_arrays.pack_strings(flat), shape), None, shape, None
 
 
 def _encode_ordinary_vector(value: np.ndarray[Any, Any]) -> ArrayPayload:
@@ -981,9 +969,7 @@ def _encode_stored_vector(value: StoredArray) -> ArrayPayload:
 
 def _encode_text_array(value: Any) -> ArrayPayload | MatrixPayload | TensorPayload:
     """Encode a text vector, matrix or tensor as NUL-terminated column-major UTF-8 bytes."""
-    elements, marker, shape = _text_elements(value)
-    if marker is not None and marker not in TEXT_MARKERS:
-        raise TypeError(f"Unsupported text reconstruction marker {marker!r}.")
+    elements, marker, shape, object_marker = _text_elements(value)
     count = _arrays.text_count(shape)
     # The snapshot must hold exactly the elements of the captured shape at
     # every rank: an input that shrinks or grows while it is flattened would
@@ -996,18 +982,18 @@ def _encode_text_array(value: Any) -> ArrayPayload | MatrixPayload | TensorPaylo
     payload = b"".join(item + b"\0" for item in elements)
     if len(shape) == 1:
         metadata = (2, 10, KIND_STRING, 0, 0, count, 0, 0, len(payload))
-        validate_array_payload(metadata, payload, marker, None)
-        return ArrayPayload(10, 0, 0, 0, payload, KIND_STRING, 0, count, marker, None)
+        validate_array_payload(metadata, payload, marker, object_marker)
+        return ArrayPayload(10, 0, 0, 0, payload, KIND_STRING, 0, count, marker, object_marker)
     if len(shape) == 2:
         rows, columns = shape
         matrix = (3, 20, KIND_STRING, 0, 0, rows, 0, 0, 0, columns, 0, 0, len(payload))
-        validate_matrix_payload(matrix, payload, marker, None)
+        validate_matrix_payload(matrix, payload, marker, object_marker)
         return MatrixPayload(
-            20, KIND_STRING, 0, 0, rows, 0, 0, columns, None, payload, marker, None
+            20, KIND_STRING, 0, 0, rows, 0, 0, columns, None, payload, marker, object_marker
         )
     tensor = tensor_metadata(KIND_STRING, 0, shape, len(payload))
-    validate_tensor_payload(tensor, payload, marker, None)
-    return TensorPayload(30, KIND_STRING, 0, shape, payload, marker, None)
+    validate_tensor_payload(tensor, payload, marker, object_marker)
+    return TensorPayload(30, KIND_STRING, 0, shape, payload, marker, object_marker)
 
 
 def _encode_integer_range(value: range) -> ArrayPayload:
@@ -1102,7 +1088,7 @@ def decode_array(
     if obj_type == 11:
         return _decode_range(axis, length, frequency, first)
     if element == KIND_STRING:
-        return _decode_text(payload, marker, (length,))
+        return _decode_text(payload, marker, (length,), object_marker)
     if isinstance(resolved, StoredElement):
         values = np.frombuffer(payload, dtype=resolved.dtype).copy()
         return StoredArray(values, resolved, copy=False, object_marker=object_marker)
@@ -1119,7 +1105,7 @@ def _decode_range(axis: int, length: int, frequency: int, first: int) -> range |
 
 
 def _decode_text(
-    payload: bytes, marker: str | None, shape: tuple[int, ...]
+    payload: bytes, marker: str | None, shape: tuple[int, ...], object_marker: str | None = None
 ) -> list[str] | np.ndarray[Any, Any] | StoredText:
     """Ordinary decodable text returns plain strings; anything else keeps its bytes.
 
@@ -1130,13 +1116,14 @@ def _decode_text(
     ``jeltype = "String"`` only on an *empty* text array, where it merely
     repeats the stored element, so that token is canonical and dropped. A
     nonempty array carrying the same token is a foreign marker no Julia writer
-    produces, and the preservation policy keeps it literally in a StoredText.
+    produces, and the preservation policy keeps it literally in a StoredText,
+    as is any whole-object marker (with both markers preserved verbatim).
     """
     count = _arrays.text_count(shape)
     elements = split_text_payload(payload, count)
     canonical = marker == "String" and not count
-    stored = StoredText(elements, None if canonical else marker, shape)
-    if stored.marker is not None:
+    stored = StoredText(elements, None if canonical else marker, shape, object_marker)
+    if stored.marker is not None or object_marker is not None:
         return stored
     try:
         decoded = stored._decoded()
@@ -1153,10 +1140,10 @@ def _decode_text(
 
 
 def _decode_text_array(
-    payload: bytes, marker: str | None, shape: tuple[int, ...]
+    payload: bytes, marker: str | None, shape: tuple[int, ...], object_marker: str | None
 ) -> np.ndarray[Any, Any] | StoredText:
     """Decode a text matrix or tensor; the rank-one ``list[str]`` form never applies here."""
-    decoded = _decode_text(payload, marker, shape)
+    decoded = _decode_text(payload, marker, shape, object_marker)
     assert not isinstance(decoded, list)
     return decoded
 
@@ -1477,7 +1464,7 @@ def decode_matrix(
     _, obj_type, element, _, _, rows, frequency, first, _, columns, _, _, _ = metadata
     shape = (rows, columns)
     if element == KIND_STRING:
-        return _decode_text_array(payload, marker, shape)
+        return _decode_text_array(payload, marker, shape, object_marker)
     if isinstance(resolved, StoredElement):
         values = np.frombuffer(payload, dtype=resolved.dtype).reshape(shape, order="F")
         if obj_type == 21:
@@ -1674,7 +1661,7 @@ def decode_tensor(
     resolved = validate_tensor_payload(metadata, payload, marker, object_marker)
     shape = validate_tensor_metadata(metadata)
     if metadata[2] == KIND_STRING:
-        return _decode_text_array(payload, marker, shape)
+        return _decode_text_array(payload, marker, shape, object_marker)
     if isinstance(resolved, StoredElement):
         values = np.frombuffer(payload, dtype=resolved.dtype).reshape(shape, order="F")
         return StoredArray(_owned(values), resolved, copy=False, object_marker=object_marker)

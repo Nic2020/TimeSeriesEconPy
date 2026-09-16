@@ -492,8 +492,13 @@ def test_control_outcomes(name):
     outcome, _julia = CONTROLS[name]
     with open_dataecon(FIXTURE) as db:
         if isinstance(outcome, type):
-            with pytest.raises(outcome):
-                db.read_series(name)
+            try:
+                result = db.read_series(name)
+            except outcome:
+                return
+            # Unknown marker text is preserved; only its interpretation raises.
+            with pytest.raises(TypeError, match="never evaluated"):
+                result.to_interpreted()
             return
         result = db.read_series(name)
     if outcome[0] == "preserved":

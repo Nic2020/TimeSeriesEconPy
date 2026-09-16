@@ -27,8 +27,12 @@ and ``stdlib/Dates`` at the pinned version:
   finite, integral and within ``T`` (``typemin`` included), with no cap at
   ``2**53`` beyond what Float64 itself can hold.
 - ``unix2datetime(x)`` is ``UNIXEPOCH + trunc(Int64, 1000 * x)`` in Rata
-  Die milliseconds (the multiply is a Float64 product for a float payload and
-  a wrapping Int64 product for an integer one; the wrap is refused here), and
+  Die milliseconds: the multiply is a float product in the payload's width
+  for a float payload and a wrapping product in the integer's promoted
+  width for an integer one, ``trunc`` is Julia's checked conversion, and
+  the final Int64 addition wraps. Every wrap is Julia's defined modular
+  arithmetic and is reproduced; the one undefined step, ``trunc(Int64,
+  -Inf16)`` (Julia's Float16 range check admits it), is refused.
   ``datetime2unix`` is ``Float64(ms - UNIXEPOCH) / 1000.0``. The proleptic
   Gregorian calendar has a year zero and no range limit.
 """
@@ -37,11 +41,15 @@ from __future__ import annotations
 
 import math
 import struct
+from decimal import Decimal
 from typing import Any
 
 import numpy as np
 
 from ._metadata import MAX_INT64, MIN_INT64
+
+# IEEE float classes by payload width (the arithmetic width Julia uses).
+FLOAT_TYPES: dict[int, type[np.floating[Any]]] = {2: np.float16, 4: np.float32, 8: np.float64}
 
 # ---- finite parameter tables ----------------------------------------------
 
@@ -65,6 +73,13 @@ def rational_parameter(token: str) -> str | None:
 def integer_complex_parameter(token: str) -> str | None:
     """Return the parameter of an exactly spelled integer ``Complex{T}`` token, else None."""
     return _parameter(token, "Complex", COMPLEX_PARAMETERS)
+
+
+def rational_complex_parameter(token: str) -> str | None:
+    """Return ``T`` of an exactly spelled ``Complex{Rational{T}}`` token, else None."""
+    if token.startswith("Complex{") and token.endswith("}"):
+        return rational_parameter(token[len("Complex{") : -1])
+    return None
 
 
 def _parameter(token: str, outer: str, table: dict[str, tuple[int, int]]) -> str | None:
@@ -119,6 +134,7 @@ def _push(
     a: float, p: int, q: int, pp: int, qq: int, low: int, high: int
 ) -> tuple[int, int] | None:
     """``convert(T, a)`` and the checked convergent recurrence; None where Julia's ``try`` fails."""
+    a = float(a)
     if not (math.isfinite(a) and low <= a <= high):
         return None
     ia = int(a)
@@ -128,39 +144,49 @@ def _push(
     return np_, nq
 
 
-def _convergents(value: float, low: int, high: int) -> tuple[int, int]:
+def _convergents(value: float, low: int, high: int, width: int = 8) -> tuple[int, int]:
     """Julia's ``rationalize(T, x, tol=0)`` for a finite ``x``, operation for operation.
 
     Julia keeps the remainders exact by carrying the pair ``x/y`` and taking
-    ``divrem(x, y)`` (an exact ``fmod`` and ``round((x - r) / y)``), and pushes
-    each partial quotient through the checked ``T`` arithmetic of the
-    convergent recurrence; the first quotient or product outside ``T`` ends
-    the expansion with the previous convergent. The quotient itself is a
-    Float64, so a partial quotient above ``2**53`` that is not exactly
-    representable rounds, and Julia then builds a *nearby* rational that its
-    final ``x == Float64(r)`` check still accepts: ``Rational{Int64}(3 * 2.0^-62)``
-    is ``3//4611686018427387649``, not ``3//2^62``. That is the value Julia
-    rebuilds, so it is the value reproduced here; the exact dyadic
-    decomposition (:func:`float_as_ratio`) is a different number.
+    ``divrem(x, y)`` in the payload's own float width (an exact ``fmod`` and,
+    for Float64, ``round((x - r) / y)``; Float32 and Float16 truncate the
+    quotient computed one width up and round it back), and pushes each partial
+    quotient through the checked ``T`` arithmetic of the convergent recurrence;
+    the first quotient or product outside ``T`` ends the expansion with the
+    previous convergent. The quotient itself is a float, so a partial quotient
+    above ``2**53`` that is not exactly representable rounds, and Julia then
+    builds a *nearby* rational that its final ``x == T(r)`` check still
+    accepts: ``Rational{Int64}(3 * 2.0^-62)`` is ``3//4611686018427387649``,
+    not ``3//2^62``. That is the value Julia rebuilds, so it is the value
+    reproduced here; the exact dyadic decomposition (:func:`float_as_ratio`)
+    is a different number.
     """
-    p, q = (-1 if value < 0 else 1), 0
-    pp, qq = 0, 1
-    x = abs(value)
-    a: float = math.trunc(x)
-    r = x - a
-    y = 1.0
-    while r > 0.0:
-        if (pushed := _push(a, p, q, pp, qq, low, high)) is None:
-            return p, q
-        p, pp = pushed[0], p
-        q, qq = pushed[1], q
-        x, y = y, r
-        r = math.fmod(x, y)
-        quotient = (x - r) / y
-        a = round(quotient) if math.isfinite(quotient) else quotient
-    # The final semiconvergent ``cld(x, y)`` is this same quotient once r == 0.
-    pushed = _push(a, p, q, pp, qq, low, high)
-    return (p, q) if pushed is None else pushed
+    cls = FLOAT_TYPES[width]
+    with np.errstate(all="ignore"):
+        x = cls(value)
+        p, q = (-1 if x < 0 else 1), 0
+        pp, qq = 0, 1
+        x = abs(x)
+        a = np.trunc(x)
+        r = x - a
+        y = cls(1)
+        zero = cls(0)
+        while r > zero:
+            if (pushed := _push(a, p, q, pp, qq, low, high)) is None:
+                return p, q
+            p, pp = pushed[0], p
+            q, qq = pushed[1], q
+            x, y = y, r
+            r = np.fmod(x, y)
+            if width == 8:
+                quotient = (x - r) / y
+                a = np.rint(quotient) if np.isfinite(quotient) else quotient
+            else:
+                wider = np.float64 if width == 4 else np.float32
+                a = cls(np.trunc(wider(x) / wider(y)))
+        # The final semiconvergent ``cld(x, y)`` is this same quotient once r == 0.
+        pushed = _push(a, p, q, pp, qq, low, high)
+        return (p, q) if pushed is None else pushed
 
 
 def julia_float(num: int, den: int) -> float:
@@ -176,27 +202,79 @@ def julia_float(num: int, den: int) -> float:
     return float(num) / float(den)
 
 
-_julia_float = julia_float
+def round_to_precision(number: int, precision: int) -> float:
+    """Nearest-even rounding of an integer to ``precision`` significant bits.
+
+    The result is returned as a Python float, which represents it exactly for
+    the 24-bit (Float32) precision used here; ``float(number)`` already
+    performs the 53-bit rounding for Float64.
+    """
+    if number == 0:
+        return 0.0
+    sign, magnitude = (-1, -number) if number < 0 else (1, number)
+    shift = magnitude.bit_length() - precision
+    if shift <= 0:
+        return float(sign * magnitude)
+    quotient, remainder = divmod(magnitude, 1 << shift)
+    half = 1 << (shift - 1)
+    if remainder > half or (remainder == half and quotient & 1):
+        quotient += 1
+    return sign * math.ldexp(float(quotient), shift)
 
 
-def rationalize(value: float, parameter: str) -> tuple[int, int]:
-    """Julia's ``Rational{T}(x::Float64)`` as ``(numerator, denominator)``.
+def _float32_of_int(number: int) -> np.float32:
+    """Julia's ``Float32(n::Integer)``: one correctly rounded conversion (``sitofp``)."""
+    with np.errstate(all="ignore"):
+        return np.float32(round_to_precision(number, 24))
 
-    Raises ``ValueError`` naming Julia's failure: ``OverflowError`` for a
-    negative value under an unsigned ``T``, ``InexactError`` for NaN and for
-    any value whose best ``T``-representable convergent is not ``x`` itself.
-    ``±Inf`` gives ``(±1, 0)``, exactly as Julia does (``1//0``).
+
+def julia_narrow_float(num: int, den: int, width: int, parameter: str) -> np.floating[Any]:
+    """Julia's ``Float32(::Rational{T})`` or ``Float16(::Rational{T})`` (``base/rational.jl``).
+
+    ``T(x::Rational{S})`` divides ``P(num)`` by ``P(den)`` in ``P =
+    promote_type(T, S)``, which is ``T`` itself for every bit integer ``S``;
+    the exceptions avoid spurious overflow: ``Float16`` of a 16- to 64-bit
+    parameter goes through ``Float32``, and ``Float32``/``Float16`` of a
+    128-bit parameter through ``Float64``.
+    """
+    cls = FLOAT_TYPES[width]
+    bits = int(parameter.lstrip("UInt"))
+    with np.errstate(all="ignore"):
+        if den == 0:
+            return cls(math.copysign(math.inf, num))
+        if bits == 128:
+            return cls(np.float64(float(num)) / np.float64(float(den)))
+        if width == 4:
+            return _float32_of_int(num) / _float32_of_int(den)
+        if bits <= 8:
+            return np.float16(_float32_of_int(num)) / np.float16(_float32_of_int(den))
+        return np.float16(_float32_of_int(num) / _float32_of_int(den))
+
+
+def rationalize(value: float, parameter: str, width: int = 8) -> tuple[int, int]:
+    """Julia's ``Rational{T}(x)`` of a float ``x``, as ``(numerator, denominator)``.
+
+    ``width`` is the payload's byte width (8, 4 or 2), which selects the float
+    arithmetic Julia runs. Raises ``ValueError`` naming Julia's failure:
+    ``OverflowError`` for a negative value under an unsigned ``T``,
+    ``InexactError`` for NaN and for any value whose best ``T``-representable
+    convergent does not convert back to ``x`` in ``x``'s own width. ``±Inf``
+    gives ``(±1, 0)``, exactly as Julia does (``1//0``).
     """
     low, high = RATIONAL_PARAMETERS[parameter]
-    if low == 0 and value < 0:
-        raise _failure("OverflowError", f"Rational{{{parameter}}}", value)
-    if math.isnan(value):
-        raise _failure("InexactError", parameter, value)
-    if math.isinf(value):
-        return (-1 if value < 0 else 1), 0
-    num, den = _convergents(value, low, high)
-    if _julia_float(num, den) != value:
-        raise _failure("InexactError", f"Rational{{{parameter}}}", value)
+    x = float(value)
+    if low == 0 and x < 0:
+        raise _failure("OverflowError", f"Rational{{{parameter}}}", x)
+    if math.isnan(x):
+        raise _failure("InexactError", parameter, x)
+    if math.isinf(x):
+        return (-1 if x < 0 else 1), 0
+    num, den = _convergents(x, low, high, width)
+    rebuilt: Any = (
+        julia_float(num, den) if width == 8 else julia_narrow_float(num, den, width, parameter)
+    )
+    if rebuilt != FLOAT_TYPES[width](x):
+        raise _failure("InexactError", f"Rational{{{parameter}}}", x)
     return num, den
 
 
@@ -267,12 +345,19 @@ def year_month_day(days: int) -> tuple[int, int, int]:
     return (y + 1, m - 12, d) if m > 12 else (y, m, d)
 
 
+def wrap_int64(value: int) -> int:
+    """Reduce an integer to Julia's wrapping Int64 (its defined modular arithmetic)."""
+    return (value + (1 << 63)) % (1 << 64) - (1 << 63)
+
+
 def rata_die_ms_from_unix_seconds(seconds: float) -> int:
     """``Dates.unix2datetime`` for a Float64 payload, as Rata Die milliseconds.
 
     ``trunc(Int64, 1000.0 * x)`` toward zero, so a stored ``-0.0015`` is
     ``-1`` ms; a product that is not finite or lies outside Int64 is Julia's
-    ``InexactError``.
+    ``InexactError``. ``UNIXEPOCH + ms`` then wraps like Julia's Int64
+    addition (a product within about ``6.2e10`` of ``typemax`` lands in the
+    year -292 million).
     """
     product = 1000.0 * seconds
     if not math.isfinite(product):
@@ -280,23 +365,70 @@ def rata_die_ms_from_unix_seconds(seconds: float) -> int:
     truncated = math.trunc(product)
     if not MIN_INT64 <= truncated <= MAX_INT64:
         raise _failure("InexactError", "Int64", product)
-    rata = UNIX_EPOCH_MS + truncated
-    if not MIN_INT64 <= rata <= MAX_INT64:
-        # Julia's Int64 addition would wrap silently here; refuse instead.
-        raise ValueError("The Rata Die millisecond count overflows Int64.")
-    return rata
+    return wrap_int64(UNIX_EPOCH_MS + truncated)
+
+
+def rata_die_ms_from_unix_narrow(seconds: Any, width: int) -> int:
+    """``Dates.unix2datetime`` for a Float32 or Float16 payload.
+
+    ``Int64(1000) * x`` promotes to the payload's own float type, so the
+    product rounds in that width (``Float32(1000) * x`` or ``Float16(1000) *
+    x``) before ``trunc(Int64, ...)``. A product that is not finite is Julia's
+    ``InexactError`` for Float32 and for a Float16 ``+Inf``/``NaN``; a Float16
+    product of ``-Inf`` passes Julia's range check (``Float16(typemin(Int64))
+    <= x``) into ``unsafe_trunc``, whose result for an infinite value is
+    undefined, so it is refused rather than reproduced.
+    """
+    cls = FLOAT_TYPES[width]
+    with np.errstate(all="ignore"):
+        product = cls(1000) * cls(seconds)
+    if not np.isfinite(product):
+        if width == 2 and product < 0:
+            raise ValueError(
+                "The Float16 product of the unix time is -Inf; Julia's trunc(Int64, ::Float16) "
+                "passes it to an undefined conversion, so no defined value exists to reproduce."
+            )
+        raise _failure("InexactError", "Int64", float(product))
+    return rata_die_ms_from_unix_seconds(float(product) / 1000.0)
+
+
+def rata_die_ms_from_unix_uint64(seconds: int) -> int:
+    """``Dates.unix2datetime`` for a UInt64 payload: a wrapping UInt64 product, then ``trunc``.
+
+    ``Int64(1000) * x`` promotes to UInt64 and wraps modulo ``2**64``;
+    ``trunc(Int64, ::UInt64)`` then raises ``InexactError`` above
+    ``typemax(Int64)``, and ``UNIXEPOCH + n`` wraps in Int64.
+    """
+    product = (1000 * seconds) % (1 << 64)
+    if product > MAX_INT64:
+        raise _failure("InexactError", "Int64", product)
+    return wrap_int64(UNIX_EPOCH_MS + product)
+
+
+def rata_die_ms_from_unix_wide_integer(seconds: int, *, signed: bool) -> int:
+    """``Dates.unix2datetime`` for an Int128/UInt128 payload: a 128-bit product, then ``trunc``.
+
+    ``Int64(1000) * x`` wraps modulo ``2**128`` in the payload's own
+    signedness; ``trunc(Int64, ...)`` raises ``InexactError`` outside Int64,
+    and ``UNIXEPOCH + n`` wraps in Int64.
+    """
+    product = 1000 * seconds
+    if signed:
+        product = (product + (1 << 127)) % (1 << 128) - (1 << 127)
+    else:
+        product %= 1 << 128
+    if not MIN_INT64 <= product <= MAX_INT64:
+        raise _failure("InexactError", "Int64", product)
+    return wrap_int64(UNIX_EPOCH_MS + product)
 
 
 def rata_die_ms_from_unix_integer(seconds: int) -> int:
-    """``Dates.unix2datetime`` for an Int64 payload: ``1000 * n`` in exact arithmetic.
+    """``Dates.unix2datetime`` for an Int8..Int64 or UInt8..UInt32 payload.
 
-    Julia multiplies and adds in wrapping Int64 arithmetic; a count that would
-    wrap is refused rather than reproduced.
+    The payload promotes to Int64, ``1000 * n`` wraps in Int64 and so does
+    ``UNIXEPOCH + n``: Julia's defined modular arithmetic, reproduced as is.
     """
-    rata = UNIX_EPOCH_MS + 1000 * seconds
-    if not MIN_INT64 <= 1000 * seconds <= MAX_INT64 or not MIN_INT64 <= rata <= MAX_INT64:
-        raise ValueError("The Rata Die millisecond count overflows Int64.")
-    return rata
+    return wrap_int64(UNIX_EPOCH_MS + wrap_int64(1000 * seconds))
 
 
 def civil_from_rata_die_ms(rata: int) -> tuple[int, int, int, int, int, int, int]:
@@ -339,6 +471,117 @@ def unix_seconds_from_rata_die_ms(rata: int) -> float:
     Float64 rounds, which is Julia's own precision loss.
     """
     return float(rata - UNIX_EPOCH_MS) / 1000.0
+
+
+# ---- Julia's printed forms (base/ryu/shortest.jl) ---------------------------
+
+
+def _shortest_digits(value: Any, width: int) -> tuple[str, int]:
+    """Return ``(digits, exponent)`` with ``value == int(digits) * 10**exponent``.
+
+    The digit string is the shortest one that round-trips in the value's own
+    width (Ryu's ``reduce_shortest``), without trailing zeros: Python's
+    ``repr`` provides it for Float64 and NumPy's Dragon4 (``unique=True``) for
+    Float32 and Float16; both pick the candidate closest to the true value,
+    as Ryu does.
+    """
+    if width == 8:
+        text = repr(float(value))
+        mantissa, _, exp = text.partition("e")
+        exponent = int(exp) if exp else 0
+    else:
+        text = np.format_float_scientific(FLOAT_TYPES[width](value), unique=True, trim="-")
+        mantissa, _, exp = text.partition("e")
+        exponent = int(exp)
+    whole, _, frac = mantissa.lstrip("-").partition(".")
+    digits = (whole + frac).lstrip("0")
+    exponent -= len(frac)
+    stripped = digits.rstrip("0")
+    return stripped, exponent + len(digits) - len(stripped)
+
+
+def julia_float_string(value: Any, width: int, typed: bool = False, *, show: bool = False) -> str:
+    """Julia's ``string(x)`` of a Float64/Float32/Float16 (``Ryu.writeshortest``).
+
+    ``typed=False`` is ``print``/``string`` (``1.5``, ``1.0e10``, ``NaN``);
+    ``typed=True`` is ``show`` inside a complex number (``1.5f0``, ``1.0f10``,
+    ``NaN32``, ``Float16(1.5)``); ``show=True`` is ``show`` where the context
+    already knows the type (an element of a ``Float32[...]`` array): no
+    suffix, but Julia keeps ``f`` as the Float32 exponent marker
+    (``1.0f10``). Fixed notation is used when the decimal point lands in
+    ``-4 < pt <= 6`` (``<= 3`` for Float16) and exponent notation otherwise,
+    with Julia's bare exponent (``e-5``, ``e15``).
+    """
+    x = float(value)
+    suffix = {4: "32", 2: "16"}.get(width, "") if typed else ""
+    if math.isnan(x):
+        return "NaN" + suffix
+    if math.isinf(x):
+        return ("-" if x < 0 else "") + "Inf" + suffix
+    sign = "-" if math.copysign(1.0, x) < 0 else ""
+    if x == 0:
+        body = sign + "0.0"
+    else:
+        digits, nexp = _shortest_digits(value, width)
+        olength = len(digits)
+        pt = nexp + olength
+        limit = 3 if width == 2 else 6
+        fixed = -4 < pt <= limit and not (
+            pt >= olength and abs((x + 0.05) % 10 ** (pt - olength) - 0.05) > 0.05
+        )
+        if fixed:
+            if pt <= 0:
+                body = "0." + "0" * (-pt) + digits
+            elif pt >= olength:
+                body = digits + "0" * nexp + ".0"
+            else:
+                body = digits[:pt] + "." + digits[pt:]
+            body = sign + body
+        else:
+            mantissa = digits[0] + "." + (digits[1:] if olength > 1 else "0")
+            expchar = "f" if (typed or show) and width == 4 else "e"
+            body = sign + mantissa + expchar + str(pt - 1)
+            return f"Float16({body})" if typed and width == 2 else body
+    if typed and width == 4:
+        body += "f0"
+    if typed and width == 2:
+        return f"Float16({body})"
+    return body
+
+
+def julia_complex_string(real: Any, imag: Any, width: int) -> str:
+    """Julia's ``string(z)`` of a ComplexF64/ComplexF32/ComplexF16 (``show(io, z::Complex)``).
+
+    Components print typed; a negative finite imaginary part prints as ``" - "``
+    plus its magnitude, otherwise ``" + "``; a non-finite imaginary part gets
+    ``*`` before ``im``. NaN components never carry a sign.
+    """
+    i = float(imag)
+    text = julia_float_string(real, width, typed=True)
+    if math.copysign(1.0, i) < 0 and not math.isnan(i):
+        text += " - " + julia_float_string(-i, width, typed=True)
+    else:
+        text += " + " + julia_float_string(i, width, typed=True)
+    if not math.isfinite(i):
+        text += "*"
+    return text + "im"
+
+
+def exact_decimal(value: Any) -> Decimal:
+    """Return the exact value of the ``BigFloat`` Julia builds from an integer or float payload.
+
+    ``BigFloat(x)`` of a Float64/Float32/Float16 or of any bit integer up to
+    128 bits is exact at Julia's default 256-bit precision, so the loaded
+    number is exactly the payload's value; :class:`decimal.Decimal` holds it
+    exactly (``Decimal(0.1)`` prints Julia's ``0.1000000000000000055511151231257827...``).
+    NaN and the infinities map to Decimal's own ``NaN``/``Infinity``.
+    """
+    if isinstance(value, (int, np.integer)):
+        return Decimal(int(value))
+    x = float(value)
+    if math.isnan(x):
+        return Decimal("NaN")
+    return Decimal(x)
 
 
 # ---- width-preserving scalar bytes ---------------------------------------

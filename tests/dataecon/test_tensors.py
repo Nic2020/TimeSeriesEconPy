@@ -338,7 +338,6 @@ def test_supported_tensor_object_markers(token, ndim, kind):
         ("Diagonal", 3),
         ("Symmetric", 4),
         ("Hermitian", 5),
-        ("Symbol", 3),
         ("TSeries", 3),
         ("BitArray", 3),
         ("BitArray{2}", 3),
@@ -347,16 +346,37 @@ def test_supported_tensor_object_markers(token, ndim, kind):
         ("Array", 6),
     ],
 )
-def test_unsupported_tensor_object_markers_are_refused(token, ndim):
-    with pytest.raises(TypeError):
-        array_object_interpretation(token, numeric_target(np.dtype("<i8")), ndim)
+def test_unsupported_tensor_object_markers_are_preserved(token, ndim):
+    if ndim > 5:
+        with pytest.raises(TypeError, match="5-dimensional"):
+            array_object_interpretation(token, numeric_target(np.dtype("<i8")), ndim)
+        return
+    kind, target = array_object_interpretation(token, numeric_target(np.dtype("<i8")), ndim)
+    assert kind == "opaque"
+    assert target.parameter == token
+
+
+def test_symbol_tensor_object_marker_prints_the_tensor():
+    kind, target = array_object_interpretation("Symbol", numeric_target(np.dtype("<i8")), 3)
+    assert kind == "printed"
+    assert target == numeric_target(np.dtype("<i8"))
+    tensor = StoredArray(
+        np.arange(1, 5, dtype="<i8").reshape((1, 2, 2)),
+        StoredElement.numeric("<i8", "Bool"),
+        object_marker="Symbol",
+    )
+    assert tensor.to_interpreted() == "[1 3;;; 2 4]"  # X[1,2,1] is 3, X[1,1,2] is 2
 
 
 def test_structure_markers_stay_two_dimensional():
     cube = np.arange(8, dtype="<i8").reshape((2, 2, 2))
     for token in ("Diagonal", "Symmetric", "Hermitian"):
-        with pytest.raises(TypeError, match="3-dimensional"):
-            StoredArray(cube, StoredElement.numeric(np.dtype("<i8"), None), object_marker=token)
+        # Julia has no rank-3 wrapper conversion; the text is preserved opaquely.
+        opaque = StoredArray(
+            cube, StoredElement.numeric(np.dtype("<i8"), None), object_marker=token
+        )
+        with pytest.raises(TypeError, match="never evaluated"):
+            opaque.to_interpreted()
 
 
 def test_bit_array_tokens_require_exact_zero_and_one():
@@ -727,21 +747,9 @@ def test_julia_fixture_tensor_values():
         ("tensor_Int16", ["UPDATE objects SET type=31 WHERE id=:id"], TypeError, "native capacity"),
         (
             "tensor_Int16",
-            ["INSERT INTO attributes VALUES(:id,'jtype','Matrix')"],
-            TypeError,
-            "Unsupported",
-        ),
-        (
-            "tensor_Int16",
-            ["INSERT INTO attributes VALUES(:id,'jtype','Diagonal')"],
-            TypeError,
-            "Unsupported",
-        ),
-        (
-            "tensor_Int16",
             ["INSERT INTO attributes VALUES(:id,'jeltype','Bool')"],
-            TypeError,
-            "one-byte",
+            ValueError,
+            "zero or one",
         ),
         # Numeric bytes relabelled as text carry the wrong number of terminators.
         (

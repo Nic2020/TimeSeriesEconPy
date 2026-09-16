@@ -112,8 +112,6 @@ def test_missing_duplicate_and_readonly(tmp_path):
         ("UPDATE axes SET frequency=64", TypeError),
         ("UPDATE tseries SET eltype=6", TypeError),
         ("UPDATE axes SET data=-2000000000", ValueError),
-        ("INSERT INTO attributes SELECT id,'jtype','error(123)' FROM tseries", TypeError),
-        ("INSERT INTO attributes SELECT id,'jeltype','Base.Float64' FROM tseries", TypeError),
     ],
 )
 def test_malformed_or_unsupported_storage(tmp_path, sql, exception):

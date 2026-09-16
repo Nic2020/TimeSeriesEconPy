@@ -336,16 +336,23 @@ def test_markers_are_preserved_or_refused_by_the_finite_table():
         stored = decode_array(metadata, payload, token, None)
         assert stored == StoredText.from_numpy(M23, token)
         assert encode_array(stored).marker == token
-    with pytest.raises(TypeError, match="Char"):
-        decode_array(metadata, payload, "Char", None)
-    with pytest.raises(TypeError, match="Whole-object"):
-        decode_array(metadata, payload, None, "Matrix{String}")
-    with pytest.raises(TypeError, match="Whole-object"):
-        decode_array(tensor_metadata(6, 0, (2, 2, 3), 39), packed(T223), None, "Array{String,3}")
-    with pytest.raises(TypeError, match="Unsupported text reconstruction marker"):
-        encode_array(StoredText((b"a",), "Vector{String}", (1, 1)))
+    # Every other marker is preserved verbatim; only its interpretation is refused.
+    char = decode_array(metadata, payload, "Char", None)
+    assert char == StoredText.from_numpy(M23, "Char")
+    with pytest.raises(TypeError, match="empty payload only"):
+        char.to_interpreted()
+    whole = decode_array(metadata, payload, None, "Matrix{String}")
+    assert whole == StoredText(tuple(packed(M23).split(b"\0")[:-1]), None, (2, 3), "Matrix{String}")
+    assert whole.to_interpreted().tolist() == M23.tolist()
+    assert encode_array(whole).object_marker == "Matrix{String}"
+    cube = decode_array(tensor_metadata(6, 0, (2, 2, 3), 39), packed(T223), None, "Array{String,3}")
+    assert cube.object_marker == "Array{String,3}"
+    assert cube.to_interpreted().tolist() == T223.tolist()
+    assert encode_array(StoredText((b"a",), "Vector{String}", (1, 1))).marker == "Vector{String}"
+    evaluated = decode_array(metadata, payload, 'error("x")', None)
+    assert evaluated.marker == 'error("x")'
     with pytest.raises(TypeError, match="never evaluated"):
-        decode_array(metadata, payload, 'error("x")', None)
+        evaluated.to_interpreted()
 
 
 def test_contradictory_metadata_is_refused_before_any_allocation():
@@ -468,7 +475,6 @@ def test_refused_overwrite_leaves_the_original_intact():
             [["a", "b"], ["c"]],
             np.array([["a\0b"]]),
             np.array([[b"a"]]),
-            StoredText((b"a",), "Char", (1, 1)),
         ):
             with pytest.raises((TypeError, ValueError)):
                 db.write_array("keep", bad, overwrite=True)
@@ -551,13 +557,6 @@ def test_workspace_round_trips_text_arrays_and_reports_unsupported_members():
             TypeError,
             "no element frequency",
         ),
-        ("text2_2x3", ["INSERT INTO attributes VALUES(:id,'jeltype','Char')"], TypeError, "Char"),
-        (
-            "text2_2x3",
-            ["INSERT INTO attributes VALUES(:id,'jtype','Matrix{String}')"],
-            TypeError,
-            "Whole-object",
-        ),
         (
             "text2_empty_0x3",
             ["UPDATE mvtseries SET value=x'00' WHERE id=:id"],
@@ -581,12 +580,6 @@ def test_workspace_round_trips_text_arrays_and_reports_unsupported_members():
             ["UPDATE ndtseries SET elfreq=65 WHERE id=:id"],
             TypeError,
             "no element frequency",
-        ),
-        (
-            "text3_2x2x3",
-            ["INSERT INTO attributes VALUES(:id,'jtype','Array{String,3}')"],
-            TypeError,
-            "Whole-object",
         ),
         (
             "text3_2x2x3",

@@ -558,6 +558,66 @@ aliases, `MIT{Monthly}`/`Duration{Monthly}` and `Bool`), plus the Int64
 `tests/dataecon/test_scalars.py`, which checks every row against the
 `StoredScalar` interpretation table: the supported routes reproduce the
 recorded value, Julia's failures raise, and the documented design differences
-(`Symbol` of a printed float, rationalizing in a narrower float width, unverified
-date payload widths, the Int64 wrap, `BigFloat`, `+/-1//0`, a monthly code
-beyond the reliable window) raise the stated class.
+(the Int64 wrap, `+/-1//0`) raise the stated class.
+
+## Marker route probe and the extended marker verifier set
+
+`julia_marker_routes.toml` (11,021 rows, produced by `marker_routes_probe.jl`
+under the same isolated-project and checkout rules; its `.daec` is not kept)
+records what the pinned Julia loader builds or raises for the remaining
+reconstruction routes, in ten sections: `scalar` (fifty-two payloads over
+date, duration, wide, narrow-float and unsigned families times forty-eight
+tokens, including `Complex{Rational{T}}`, `Union{Int64,Float64}` and the
+concrete `MIT`/`Duration` names, plus the explicit `Complex{MIT{F}}` and
+`Complex{Duration{F}}` tokens); `symbol` (Julia's printed text of Float64/
+Float32/Float16 and complex bit patterns, of MIT/Duration codes over all 32
+frequency codes, of wide integers, and of calendar MITs at extreme codes
+where Julia's Int64 date arithmetic wraps); `rational` (`Rational{T}` of
+Float32 and Float16 bit patterns for nine parameters, narrow complex payloads
+and the bare `Rational`); `calendar` (`Date`/`DateTime` of Float32, Float16,
+UInt64, Int128, UInt128, narrow complex and Int64 payloads, including the
+wrapping products); `char` (the `Char` token on the scalar payload grid and
+on integer, float and complex code points, valid and invalid); `series`
+(thirty-three element tokens over twenty-two bases on a dated series and a
+plain vector, with matrix, MVTSeries and tensor spot checks, plus `Char`, the
+dated complex tokens and `Symbol` on extreme calendar codes); `empty`
+(thirty-nine tokens on empty payloads of four kinds in every container, plus
+the dated complex tokens); `text` (whole-object and element tokens on text
+vectors, matrices and tensors, with and without a `Symbol` element marker,
+including every escaping case of Julia's printed strings, invalid UTF-8,
+a label of Unicode-version-dependent characters and the 1-by-2, 2-by-1,
+2-by-0, 0-by-0 and rank-3/4/5 shapes); `object` (a whole-object `Symbol` on
+numeric vectors, matrices and tensors of every element family and shape,
+including empties and the `Symbol` of UInt8 bytes, and on dated containers
+loaded twice under different `LINES`/`COLUMNS` settings); and `bool` (`Bool`
+markers on Int64/Int16/UInt8/Float64/ComplexF64/Int128 plain arrays, with
+Julia's own rewrite metadata). `tests/dataecon/test_marker_routes.py` checks
+every row against the Python interpretation (`StoredScalar`, `StoredSeries`,
+`StoredArray`, `StoredMVTSeries`, `StoredText`): the supported routes
+reproduce the recorded value or type, Julia's failures raise the mapped
+class, and the listed differences raise the stated class: a date-kind scalar
+code outside the native codec's verified window (refused at construction;
+Julia's value there is the C codec's wrapped artefact), `+/-1//0` in a
+Fraction, a `datetime` result outside years 1..9999, a Float16 unix time
+whose `-Inf` product reaches Julia's undefined `unsafe_trunc`, an invalid
+`Char` above U+10FFFF, a printed character this Python's Unicode tables leave
+unassigned, a `Symbol` named by bytes that are not UTF-8, and the display
+text of a dated container.
+
+`verify-wheel` checks the extended marker set on the installed-wheel output:
+the `xm_*` objects the checker writes from Python inputs (`RationalComplex`
+and `BigFloat` constructors, printed `Symbol` markers including calendar
+dates in years 0 and 10000, narrow-float rationals, the remaining calendar
+payload families, an integer-payload `MIT` beyond the native window, dated
+complexes and `Char` scalars, exact rational/integer-complex/rational-complex
+carriers written through `rational_storage`/`integer_complex_storage`/
+`rational_complex_storage` as a series, vector, matrix, MVTSeries and tensor,
+abstract and `Union` element markers, `BigInt`/`BigFloat`, `Date`/`DateTime`/
+`Symbol`/`Char` element markers on plain arrays, a dated complex series,
+empty-only tokens, text whole-object markers including the printed `Symbol`
+of a text vector and matrix, the printed `Symbol` of an Int8 matrix and a
+Float32 vector, the byte-named `Symbol` of a UInt8 vector, a wider `Bool`
+marker on an Int64 matrix, a wrapped Int64 unix time and three opaque
+markers) must load in the pinned Julia as the promised types and values, keep
+both attributes verbatim, and fail with the recorded exception where Julia
+cannot load them. The set has 92 assertions.

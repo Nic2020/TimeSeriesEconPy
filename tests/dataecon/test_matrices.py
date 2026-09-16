@@ -360,8 +360,12 @@ def test_stored_array_interpretation_matches_the_element_table():
 
 def test_stored_array_bool_marker_converts_only_zero_and_one():
     element = StoredElement.numeric("<i8", "Bool")
-    with pytest.raises(TypeError, match="Boolean array"):
+    with pytest.raises(ValueError, match="zero or one"):
         StoredArray(np.array([1, 2], dtype="<i8"), element)
+    with pytest.raises(TypeError, match="Boolean array"):
+        StoredArray(np.array([1, 0], dtype="<i1"), StoredElement.numeric("<i1", "Bool"))
+    wider = StoredArray(np.array([1, 0], dtype="<i8"), element)
+    assert wider.to_bool().tolist() == [True, False]
     words = np.array([0, 0, 1, 0], dtype="<i8").view(INT128.dtype).reshape((1, 2))
     wide = StoredArray(words, INT128.with_bool_marker())
     assert wide.to_bool().tolist() == [[False, True]]
@@ -392,8 +396,10 @@ def test_structure_markers_need_a_square_matrix():
     array = StoredArray(np.zeros((2, 3)), StoredElement.numeric("<f8"), object_marker="Diagonal")
     with pytest.raises(ValueError, match="square matrices only"):
         array.to_interpreted()
-    with pytest.raises(TypeError, match="1-dimensional DataEcon array"):
-        StoredArray(np.zeros(3), StoredElement.numeric("<f8"), object_marker="Diagonal")
+    with pytest.raises(TypeError, match="never evaluated"):
+        StoredArray(
+            np.zeros(3), StoredElement.numeric("<f8"), object_marker="Diagonal"
+        ).to_interpreted()
 
 
 @pytest.mark.parametrize(
@@ -425,19 +431,45 @@ def test_supported_array_object_markers(token, ndim, kind):
 
 
 @pytest.mark.parametrize(
-    "token", ["TSeries", "MVTSeries", "Symbol", "Ref{Int64}", "Vector{Any}", "NoSuchToken"]
+    "token", ["TSeries", "MVTSeries", "Ref{Int64}", "Vector{Any}", "NoSuchToken"]
 )
-def test_unsupported_array_object_markers_are_refused(token):
-    with pytest.raises(TypeError, match="whole-object reconstruction marker"):
-        StoredArray(np.ones(2, dtype="<i8"), StoredElement.numeric("<i8"), object_marker=token)
+def test_unsupported_array_object_markers_are_preserved(token):
+    opaque = StoredArray(np.ones(2, dtype="<i8"), StoredElement.numeric("<i8"), object_marker=token)
+    assert opaque.active_marker == token
+    with pytest.raises(TypeError, match="never evaluated"):
+        opaque.to_interpreted()
+
+
+def test_symbol_object_marker_prints_the_array():
+    # Julia's Symbol(array) is the printed array; the element marker is inactive.
+    printed = StoredArray(
+        np.array([[1, 2], [3, 4]], dtype="<i8"),
+        StoredElement.numeric("<i8", "Bool"),
+        object_marker="Symbol",
+    )
+    assert printed.active_marker == "Symbol"
+    assert printed.to_interpreted() == "[1 2; 3 4]"
+    assert (
+        StoredArray(
+            np.array([1, 2], dtype="<i1"), StoredElement.numeric("<i1"), object_marker="Symbol"
+        ).to_interpreted()
+        == "Int8[1, 2]"
+    )
+    assert (
+        StoredArray(
+            np.array([97, 98], dtype="<u1"), StoredElement.numeric("<u1"), object_marker="Symbol"
+        ).to_interpreted()
+        == "ab"
+    )
 
 
 def test_rank_free_array_token_applies_to_plain_vectors_only():
     # `Array{T}` was verified on plain vectors; a matrix keeps the ranked spellings.
-    with pytest.raises(TypeError, match="whole-object reconstruction marker"):
-        StoredArray(
-            np.ones((2, 2), dtype="<i8"), StoredElement.numeric("<i8"), object_marker="Array{Int64}"
-        )
+    opaque = StoredArray(
+        np.ones((2, 2), dtype="<i8"), StoredElement.numeric("<i8"), object_marker="Array{Int64}"
+    )
+    with pytest.raises(TypeError, match="never evaluated"):
+        opaque.to_interpreted()
 
 
 # ---- native round trips ----------------------------------------------------
@@ -747,11 +779,8 @@ def test_julia_fixture_text_values():
             "UPDATE axes SET ax_type=1 WHERE id=(SELECT axis1_id FROM mvtseries WHERE id=:id)",
             TypeError,
         ),
-        ("matrix_Int16", "INSERT INTO attributes VALUES(:id,'jtype','MVTSeries')", TypeError),
-        ("matrix_Int16", "INSERT INTO attributes VALUES(:id,'jeltype','Bool')", TypeError),
+        ("matrix_Int16", "INSERT INTO attributes VALUES(:id,'jeltype','Bool')", ValueError),
         ("text_ascii", "UPDATE tseries SET value=x'6100' WHERE id=:id", ValueError),
-        ("text_ascii", "INSERT INTO attributes VALUES(:id,'jeltype','Char')", TypeError),
-        ("text_ascii", "INSERT INTO attributes VALUES(:id,'jtype','Vector')", TypeError),
     ],
 )
 def test_malformed_two_dimensional_and_text_objects_are_refused(tmp_path, name, statement, error):
@@ -1107,12 +1136,19 @@ def test_date_bool_marker_preserves_its_carrier(tmp_path):
     assert back.to_bool().tolist() == [False, True]
 
 
-def test_ordinary_boolean_arrays_still_require_one_byte_storage():
-    # An ordinary Bool marker yields Boolean values, which Julia stores as one
-    # signed byte; a stored eight-byte payload claiming it is malformed.
+def test_ordinary_boolean_arrays_keep_a_wider_stored_width():
+    # An ordinary Bool marker on the canonical one-byte encoding yields Boolean
+    # values; on a wider width the stored form is preserved with the marker
+    # and Boolean interpretation stays explicit.
     payload = np.array([0, 1], dtype="<i8").tobytes()
-    with pytest.raises(TypeError, match="canonical one-byte"):
-        validate_array_payload((2, 10, 1, 0, 0, 2, 0, 0, len(payload)), payload, "Bool", None)
+    resolved = validate_array_payload(
+        (2, 10, 1, 0, 0, 2, 0, 0, len(payload)), payload, "Bool", None
+    )
+    assert resolved == StoredElement.numeric("<i8", "Bool")
+    with pytest.raises(ValueError, match="zero or one"):
+        validate_array_payload(
+            (2, 10, 1, 0, 0, 2, 0, 0, 16), np.array([0, 2], dtype="<i8").tobytes(), "Bool", None
+        )
     # The same rule does not touch a represented carrier, which preserves its
     # stored width under the wide-Bool policy.
     words = np.array([0, 0, 1, 0], dtype="<u8").tobytes()

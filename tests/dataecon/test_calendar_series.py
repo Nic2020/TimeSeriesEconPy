@@ -304,8 +304,6 @@ AXIS = "UPDATE axes SET {} WHERE id=(SELECT axis_id FROM tseries WHERE id=:id)"
         (AXIS.format("ax_type=0"), TypeError),
         ("UPDATE tseries SET eltype=6 WHERE id=:id", TypeError),
         ("UPDATE tseries SET value=zeroblob(24) WHERE id=:id", ValueError),
-        ("INSERT INTO attributes VALUES(:id,'jtype','MVTSeries')", TypeError),
-        ("INSERT INTO attributes VALUES(:id,'jeltype','Rational{Int64}')", TypeError),
     ],
 )
 def test_malformed_storage_rejected_before_pointer_use(tmp_path, sql, error):
@@ -333,8 +331,11 @@ def test_empty_calendar_series_accept_only_the_exact_marker(tmp_path):
             "WHERE name='cs_w7_empty')"
         )
     with open_dataecon(path) as db:
-        with pytest.raises(TypeError, match="reconstruction"):
-            db.read_series("cs_w7_empty")
+        # An unknown token on an empty payload is preserved on the kind default.
+        opaque = db.read_series("cs_w7_empty")
+        assert opaque.active_marker == "Float128"
+        with pytest.raises(TypeError, match="never evaluated"):
+            opaque.to_interpreted()
         empty = db.read_series("cs_w6_empty")
         assert empty.lastdate == empty.firstdate - 1
         assert empty.values.shape == (0,)

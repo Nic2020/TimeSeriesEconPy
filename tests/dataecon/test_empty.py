@@ -94,8 +94,17 @@ def test_empty_reconstruction_rejected_without_poisoning_file(tmp_path, key, mar
             (key, marker),
         )
     with open_dataecon(path) as db:
-        with pytest.raises(TypeError, match="reconstruction"):
-            db.read_series("empty")
+        if marker is None:
+            with pytest.raises(TypeError, match="reconstruction"):
+                db.read_series("empty")
+        elif marker == "Base.Float64":
+            # A verified qualified spelling of the stored element: a typed empty.
+            assert db.read_series("empty").to_interpreted().dtype == np.float64
+        else:
+            stored = db.read_series("empty")
+            assert (stored.object_marker or stored.element.marker) == marker
+            with pytest.raises(TypeError):
+                stored.to_interpreted()
         assert db.read_series("empty_later").firstdate == mm(2025, 7)
 
 

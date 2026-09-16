@@ -21,6 +21,7 @@ import subprocess
 import sys
 import tomllib
 from contextlib import closing
+from decimal import Decimal
 from fractions import Fraction
 from pathlib import Path
 
@@ -31,6 +32,7 @@ from tsecon import MIT, Duration, Monthly, Quarterly, Workspace
 from tsecon.dataecon import (
     DataEconError,
     IntegerComplex,
+    RationalComplex,
     StoredScalar,
     open_dataecon,
     open_dataecon_memory,
@@ -394,12 +396,16 @@ def test_stored_value_of_unmarked_and_any():
 # ---- the finite interpretation table against every probed route --------------
 
 
-def canonical(value: object) -> str:  # noqa: PLR0911 - finite canonical text table
+def canonical(value: object) -> str:  # noqa: PLR0911, PLR0912 - finite canonical text table
     """Julia's canonical text of a Python result (the probe's ``value`` convention)."""
     if type(value) is Fraction:
         return f"{value.numerator}//{value.denominator}"
     if type(value) is IntegerComplex:
         return f"{value.real},{value.imag}"
+    if type(value) is RationalComplex:
+        return f"{canonical(value.real)},{canonical(value.imag)}"
+    if type(value) is Decimal:
+        return "NaN" if value.is_nan() else str(value)
     if type(value) is dt.datetime:
         return (
             f"{value.year}-{value.month}-{value.day}T{value.hour}:{value.minute}:"
@@ -423,6 +429,14 @@ def canonical(value: object) -> str:  # noqa: PLR0911 - finite canonical text ta
         return str(value.value)
     assert type(value) is str
     return value
+
+
+def same_decimal(value: Decimal, text: str) -> bool:
+    """Whether Julia's printed BigFloat names exactly this Decimal (NaN compares to NaN)."""
+    expected = Decimal(text)
+    if value.is_nan() or expected.is_nan():
+        return value.is_nan() and expected.is_nan()
+    return value == expected
 
 
 def julia_type_of(value: object, token: str) -> str | None:
@@ -457,47 +471,31 @@ def _narrow_float(payload: str) -> bool:
 
 
 DESIGNED = [
-    # Julia prints the value for a Symbol; the reader reproduces only integer text.
-    (
-        lambda p, t: t == "Symbol" and p.startswith(("f", "c")),
-        TypeError,
-        "printed form",
-    ),
-    # Rationalizing in Float16/Float32 arithmetic is not transcribed.
-    (
-        lambda p, t: t in ("Rational", "Rational{Int}") and _narrow_float(p),
-        TypeError,
-        "narrower float width",
-    ),
-    # Date/DateTime on UInt64/128-bit/narrow-float payloads: unverified promotion.
-    (
-        lambda p, t: (
-            t in ("Date", "DateTime", "Dates.DateTime")
-            and (p.startswith(("u64", "i128", "u128")) or _narrow_float(p))
-        ),
-        TypeError,
-        "not verified",
-    ),
-    # Julia wraps the Int64 product of an integer unix time; the reader refuses.
-    (lambda p, t: p.startswith("i64_wrap"), ValueError, "overflows Int64"),
-    # BigFloat interpretation is deferred (the payload is exact, see to_float/to_int).
-    (lambda p, t: t == "BigFloat", TypeError, "deferred"),
-    # +/-1//0 has no Fraction; to_float() gives the signed infinity.
+    # +/-1//0 has no Fraction; to_float() gives the signed infinity. (The
+    # wrapped Int64 unix times, i64_wrap*, are Julia's defined arithmetic and
+    # are reproduced: their rows take the ordinary Date/DateTime branch.)
     (
         lambda p, t: p == "f64_inf" and t in ("Rational", "Rational{Int}"),
         ValueError,
         "no Fraction can hold",
     ),
-    # A monthly code beyond the reliable native window (Julia builds the MIT).
-    (
-        lambda p, t: t == "MIT{Monthly}" and p == "i64_2p53p1",
-        ValueError,
-        "reliable native date range",
-    ),
 ]
 # Julia's loaded value is a ComplexF16 (printed as its two-byte components);
 # the reader returns a Python complex whose components widen from Float16.
 COMPLEXF16_RESULTS = {"ComplexF16"}
+
+
+# Julia's failure classes: a value the loader refuses is a ValueError, a route
+# it lacks (or text it cannot resolve) a TypeError.
+JULIA_ERRORS = {
+    "InexactError": ValueError,
+    "OverflowError": ValueError,
+    "MethodError": TypeError,
+    "ArgumentError": TypeError,
+    "UndefVarError": TypeError,
+    "TypeError": TypeError,
+    "ErrorException": TypeError,
+}
 
 
 def _designed(payload: str, token: str) -> tuple[type[Exception], str] | None:
@@ -508,7 +506,7 @@ def _designed(payload: str, token: str) -> tuple[type[Exception], str] | None:
 
 
 @pytest.mark.parametrize("row", ROUTES["rows"], ids=[r["name"] for r in ROUTES["rows"]])
-def test_every_probed_route(row: dict) -> None:
+def test_every_probed_route(row: dict) -> None:  # noqa: PLR0912 - one branch per family
     stored = StoredScalar(bytes.fromhex(row["hex"]), row["kind"], 0, row["token"])
     designed = _designed(row["payload"], row["token"])
     if designed is not None:
@@ -518,9 +516,7 @@ def test_every_probed_route(row: dict) -> None:
         return
     if "error" in row:
         # Pin value failures separately from unavailable conversion routes.
-        error = {"InexactError": ValueError, "OverflowError": ValueError, "MethodError": TypeError}[
-            row["error"]
-        ]
+        error = JULIA_ERRORS[row["error"]]
         with pytest.raises(error):
             stored.to_interpreted()
         return
@@ -538,6 +534,11 @@ def test_every_probed_route(row: dict) -> None:
                 stored.to_interpreted()
         return
     value = stored.to_interpreted()
+    if type(value) is Decimal:
+        # Julia prints a BigFloat in its own notation; compare the exact numbers.
+        assert row["type"] == "BigFloat"
+        assert same_decimal(value, row["value"])
+        return
     if row["type"] in COMPLEXF16_RESULTS:
         assert type(value) is complex
         bits = np.float16(value.real).tobytes() + np.float16(value.imag).tobytes()
@@ -551,6 +552,10 @@ def test_every_probed_route(row: dict) -> None:
         assert row["type"].startswith("Rational{")
     if type(value) is IntegerComplex:
         assert row["type"].startswith("Complex{")
+    if type(value) is RationalComplex:
+        assert row["type"].startswith("Complex{Rational{")
+    if type(value) is Decimal:
+        assert row["type"] == "BigFloat"
 
 
 def test_probe_provenance_and_coverage():
@@ -647,8 +652,12 @@ def test_rational_routes_follow_julia_exactly():
         StoredScalar(F64(-128.0), 4, 0, "Rational{Int8}").to_fraction()
     with pytest.raises(TypeError, match="no Rational"):
         StoredScalar(b"1//2\0", 6, 0, "Rational{Int64}").to_fraction()
+    # Rational{Int64}(x::MIT) is Int64(x)//1; every other parameter has no method.
+    assert StoredScalar(struct.pack("<q", 3), 3, 32, "Rational{Int64}").to_fraction() == Fraction(3)
     with pytest.raises(TypeError, match="no Rational"):
-        StoredScalar(struct.pack("<q", 3), 3, 32, "Rational{Int64}").to_fraction()
+        StoredScalar(struct.pack("<q", 3), 3, 32, "Rational{Int32}").to_fraction()
+    with pytest.raises(TypeError, match="no Rational"):
+        StoredScalar(struct.pack("<q", 3), 3, 32, "Rational").to_fraction()
     complex_payload = StoredScalar(struct.pack("<dd", 2.0, 0.0), 5, 0, "Rational{Int64}")
     assert complex_payload.to_fraction() == Fraction(2)
     with pytest.raises(ValueError, match="InexactError"):
@@ -729,8 +738,22 @@ def test_abstract_routes_are_value_dependent():
     for token in ("Real", "Number", "Integer", "Signed", "Unsigned", "AbstractFloat", "BigInt"):
         with pytest.raises(TypeError, match=r"no .* conversion"):
             StoredScalar(b"1\0", 6, 0, token).to_interpreted()
+    # MIT and Duration are Signed: identities, Float64 plotting values, no Unsigned/BigInt.
+    month = StoredScalar(struct.pack("<q", 24288), 3, 32)
+    for token in ("Real", "Number", "Integer", "Signed", "Any"):
+        assert StoredScalar(month.payload, 3, 32, token).to_interpreted() == MIT(Monthly(), 24288)
+    assert StoredScalar(month.payload, 3, 32, "AbstractFloat").to_interpreted() == 2024.0
+    assert StoredScalar(struct.pack("<q", 5), 1, 32, "AbstractFloat").to_interpreted() == 5 / 12
+    for token in ("Unsigned", "BigInt", "BigFloat", "Union{Int64,Float64}"):
         with pytest.raises(TypeError, match=r"no .* conversion"):
-            StoredScalar(struct.pack("<q", 1), 3, 32, token).to_interpreted()
+            StoredScalar(month.payload, 3, 32, token).to_interpreted()
+    # Union{Int64,Float64}: identities plus a ComplexF64 with a zero imaginary part.
+    assert i64(3, "Union{Int64,Float64}").to_interpreted() == 3
+    assert StoredScalar(F64(1.5), 4, 0, "Union{Int64, Float64}").to_interpreted() == 1.5
+    zero_imag = StoredScalar(struct.pack("<dd", 2.0, 0.0), 5, 0, "Union{Int64,Float64}")
+    assert zero_imag.to_interpreted() == 2.0
+    with pytest.raises(TypeError, match="no Union"):
+        StoredScalar(np.int8(3).tobytes(), 1, 0, "Union{Int64,Float64}").to_interpreted()
     assert i64(2**63 - 1, "BigInt").to_interpreted() == 2**63 - 1
     assert StoredScalar(F64(1e300), 4, 0, "BigInt").to_interpreted() == int(1e300)
     with pytest.raises(ValueError, match="InexactError"):

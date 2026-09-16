@@ -2440,6 +2440,365 @@ def check_scalar_markers(db: de.DataEconFile, fixture: Path) -> None:
             raise ValueError(f"Rewritten reference scalar {name} lost or gained a marker.")
 
 
+# ---- extended markers: exact carriers, abstract/empty/text/Bool routes -------
+
+EXTENDED_ANCHOR = mm(2024, 1)
+
+
+def _f64(value: float) -> bytes:
+    return struct.pack("<d", value)
+
+
+def extended_scalar_inventory() -> list[tuple[str, de.StoredScalar, object]]:
+    """Python scalar forms of the remaining routes: (name, stored form, interpreted value)."""
+    from decimal import Decimal  # noqa: PLC0415 - checker-only import
+
+    rc = de.RationalComplex(Fraction(1, 2), Fraction(-2))
+    return [
+        ("xm_rc", de.StoredScalar.rational_complex(rc), rc),
+        (
+            "xm_rc8",
+            de.StoredScalar.rational_complex(Fraction(1, 3), Fraction(0), parameter="Int8"),
+            de.RationalComplex(Fraction(1, 3), Fraction(0)),
+        ),
+        ("xm_bigfloat", de.StoredScalar.bigfloat(Decimal(1) / Decimal(8)), Decimal("0.125")),
+        ("xm_sym_float", de.StoredScalar(_f64(1.5), 4, 0, "Symbol"), "1.5"),
+        ("xm_sym_f32big", de.StoredScalar(np.float32(1e10).tobytes(), 4, 0, "Symbol"), "1.0e10"),
+        (
+            "xm_sym_c64",
+            de.StoredScalar(struct.pack("<dd", 1.5, -2.0), 5, 0, "Symbol"),
+            "1.5 - 2.0im",
+        ),
+        ("xm_sym_mit", de.StoredScalar(struct.pack("<q", 24288), 3, 32, "Symbol"), "2024M1"),
+        (
+            "xm_rat_f32",
+            de.StoredScalar(np.float32(0.1).tobytes(), 4, 0, "Rational{Int64}"),
+            Fraction(13421773, 134217728),
+        ),
+        (
+            "xm_rat_f16",
+            de.StoredScalar(np.float16(1 / 3).tobytes(), 4, 0, "Rational{Int8}"),
+            Fraction(1, 3),
+        ),
+        ("xm_date_u64", de.StoredScalar(struct.pack("<Q", 5), 2, 0, "Date"), dt.date(1970, 1, 1)),
+        (
+            "xm_datetime_i128",
+            de.StoredScalar((1710460800).to_bytes(16, "little", signed=True), 1, 0, "DateTime"),
+            dt.datetime(2024, 3, 15),
+        ),
+        (
+            "xm_mit_big",
+            de.StoredScalar(struct.pack("<q", 2**62), 1, 0, "MIT{Monthly}"),
+            tsecon.MIT(tsecon.Monthly(), 2**62),
+        ),
+        ("xm_abs_dur", de.StoredScalar(struct.pack("<q", 5), 1, 32, "AbstractFloat"), 5 / 12),
+        # Printed calendar Symbols in any
+        # year, the dated complexes, Char and Julia's wrapping unix time.
+        ("xm_sym_daily0", de.StoredScalar(struct.pack("<q", 0), 3, 12, "Symbol"), "0000-12-31"),
+        (
+            "xm_sym_daily_big",
+            de.StoredScalar(struct.pack("<q", 3652060), 3, 12, "Symbol"),
+            "10000-01-01",
+        ),
+        (
+            "xm_dated_complex",
+            de.StoredScalar(struct.pack("<q", 24288), 3, 32, "Complex"),
+            de.DatedComplex(tsecon.MIT(tsecon.Monthly(), 24288), tsecon.MIT(tsecon.Monthly(), 0)),
+        ),
+        (
+            "xm_dated_complex_i8",
+            de.StoredScalar(b"\x05", 1, 0, "Complex{MIT{Daily}}"),
+            de.DatedComplex(tsecon.MIT(tsecon.Daily(), 5), tsecon.MIT(tsecon.Daily(), 0)),
+        ),
+        ("xm_char", de.StoredScalar(struct.pack("<q", 0x1F642), 1, 0, "Char"), "\U0001f642"),
+        ("xm_char_f64", de.StoredScalar(_f64(97.0), 4, 0, "Char"), "a"),
+    ]
+
+
+def extended_container_inventory() -> list[tuple[str, object]]:
+    """Python-written containers of the remaining routes (Julia loads each one)."""
+    rational_values, rational_element = de.rational_storage(
+        [Fraction(1, 2), Fraction(-3, 4), Fraction(5)]
+    )
+    intcomplex_values, intcomplex_element = de.integer_complex_storage(
+        [de.IntegerComplex(2**54, 1), de.IntegerComplex(-3, 0)]
+    )
+    rc_values, rc_element = de.rational_complex_storage(
+        np.array(
+            [
+                [
+                    de.RationalComplex(Fraction(1, 2), Fraction(-2)),
+                    de.RationalComplex(Fraction(1, 3)),
+                ],
+                [de.RationalComplex(Fraction(0)), de.RationalComplex(Fraction(-1, 8), Fraction(7))],
+            ],
+            dtype=object,
+        ),
+        parameter="Int8",
+    )
+    mvt_values, mvt_element = de.rational_storage(
+        np.array([[Fraction(1, 2), Fraction(1)], [Fraction(-1, 4), Fraction(3)]], dtype=object)
+    )
+    tensor_values, tensor_element = de.rational_storage(
+        np.array([[[Fraction(2**70), Fraction(1, 2)], [Fraction(-1), Fraction(0)]]], dtype=object),
+        parameter="Int128",
+    )
+    return [
+        ("xm_rational_series", de.StoredSeries(EXTENDED_ANCHOR, rational_values, rational_element)),
+        ("xm_intcomplex_vector", de.StoredArray(intcomplex_values, intcomplex_element)),
+        ("xm_rc_matrix", de.StoredArray(rc_values, rc_element)),
+        (
+            "xm_rational_mvt",
+            de.StoredMVTSeries(EXTENDED_ANCHOR, ("a", "b"), mvt_values, mvt_element),
+        ),
+        ("xm_rational_tensor", de.StoredArray(tensor_values, tensor_element)),
+        (
+            "xm_abstract_signed",
+            de.StoredSeries(
+                EXTENDED_ANCHOR,
+                np.array([0, 1, 2], dtype="<u1"),
+                de.StoredElement.numeric("<u1", "Signed"),
+            ),
+        ),
+        (
+            "xm_abstract_real_c",
+            de.StoredSeries(
+                EXTENDED_ANCHOR,
+                np.array([1, 2], dtype="<c8"),
+                de.StoredElement.numeric("<c8", "Real"),
+            ),
+        ),
+        (
+            "xm_union",
+            de.StoredSeries(
+                EXTENDED_ANCHOR,
+                np.array([3, -4], dtype="<i8"),
+                de.StoredElement.numeric("<i8", "Union{Int64,Float64}"),
+            ),
+        ),
+        (
+            "xm_bigint",
+            de.StoredArray(np.array([1e300, 2.0]), de.StoredElement.numeric("<f8", "BigInt")),
+        ),
+        (
+            "xm_bigfloat_series",
+            de.StoredSeries(
+                EXTENDED_ANCHOR,
+                np.array([0.1], dtype="<f4"),
+                de.StoredElement.numeric("<f4", "BigFloat"),
+            ),
+        ),
+        (
+            "xm_date_array",
+            de.StoredArray(
+                np.array([0, 86400], dtype="<i8"), de.StoredElement.numeric("<i8", "Date")
+            ),
+        ),
+        (
+            "xm_datetime_matrix",
+            de.StoredArray(
+                np.array([[1710460800.5], [-1.0]]), de.StoredElement.numeric("<f8", "DateTime")
+            ),
+        ),
+        (
+            "xm_symbol_array",
+            de.StoredArray(np.array([0.5, 1e10]), de.StoredElement.numeric("<f8", "Symbol")),
+        ),
+        (
+            "xm_empty_date",
+            de.StoredSeries(
+                EXTENDED_ANCHOR, np.empty(0, dtype="<f8"), de.StoredElement.numeric("<f8", "Date")
+            ),
+        ),
+        (
+            "xm_empty_real",
+            de.StoredSeries(
+                EXTENDED_ANCHOR, np.empty(0, dtype="<f8"), de.StoredElement.numeric("<f8", "Real")
+            ),
+        ),
+        (
+            "xm_empty_rational",
+            de.StoredArray(
+                np.empty(0, dtype="<i8"), de.StoredElement.numeric("<i8", "Rational{Int64}")
+            ),
+        ),
+        ("xm_text_obj", de.StoredText((b"a", b"b"), "Symbol", (2,), "Vector{String}")),
+        ("xm_text_any", de.StoredText((b"a", b"b"), None, (2,), "Vector{Any}")),
+        ("xm_text_empty_symbol", de.StoredText((), None, (0,), "Vector{Symbol}")),
+        (
+            "xm_bool_i64",
+            de.StoredArray(
+                np.array([[0, 1], [1, 0]], dtype="<i8"), de.StoredElement.numeric("<i8", "Bool")
+            ),
+        ),
+        (
+            "xm_opaque_series",
+            de.StoredSeries(
+                EXTENDED_ANCHOR, np.array([1.0]), de.StoredElement.numeric("<f8", "NoSuchType")
+            ),
+        ),
+        ("xm_opaque_text", de.StoredText((b"a",), None, (1,), "NoSuchType")),
+        # The printed whole-object
+        # Symbol of text and numeric arrays, the dated complexes, Char elements
+        # and the wrapped unix time of an Int64 element.
+        ("xm_text_symbol", de.StoredText((b'a"b', b"\xc3\xa9"), "Symbol", (2,), "Symbol")),
+        (
+            "xm_text_symbol_matrix",
+            de.StoredText((b"a", b"b", b"c", b"d"), None, (2, 2), "Symbol"),
+        ),
+        (
+            "xm_array_symbol",
+            de.StoredArray(
+                np.array([[1, 2], [3, 4]], dtype="<i1"),
+                de.StoredElement.numeric("<i1"),
+                object_marker="Symbol",
+            ),
+        ),
+        (
+            "xm_array_symbol_f32",
+            de.StoredArray(
+                np.array([0.5, 1e10], dtype="<f4"),
+                de.StoredElement.numeric("<f4", "Bool"),
+                object_marker="Symbol",
+            ),
+        ),
+        (
+            "xm_bytes_symbol",
+            de.StoredArray(
+                np.array([97, 98], dtype="<u1"),
+                de.StoredElement.numeric("<u1"),
+                object_marker="Symbol",
+            ),
+        ),
+        (
+            "xm_dated_complex_series",
+            de.StoredSeries(
+                EXTENDED_ANCHOR,
+                np.array([24288, 24289], dtype="<i8"),
+                de.StoredElement.date(tsecon.Monthly()).with_marker("Complex"),
+            ),
+        ),
+        (
+            "xm_char_array",
+            de.StoredArray(
+                np.array([97, 0x1F642], dtype="<i8"), de.StoredElement.numeric("<i8", "Char")
+            ),
+        ),
+        (
+            "xm_opaque_object",
+            de.StoredSeries(
+                EXTENDED_ANCHOR,
+                np.array([3], dtype="<i8"),
+                de.StoredElement.numeric("<i8"),
+                object_marker="TSeries{Monthly, Int16}",
+            ),
+        ),
+    ]
+
+
+def write_extended_markers(db: de.DataEconFile) -> None:
+    """Write the extended-marker scalars and containers under the verifier's names."""
+    for name, stored, _ in extended_scalar_inventory():
+        db.write_scalar(name, stored)
+    for name, value in extended_container_inventory():
+        if isinstance(value, (de.StoredSeries, de.StoredMVTSeries)):
+            db.write_series(name, value)
+        else:
+            db.write_array(name, value)
+    db.write_scalar(
+        "xm_datetime_wrap", de.StoredScalar(struct.pack("<q", 9223372036854775), 1, 0, "DateTime")
+    )
+
+
+def check_extended_markers(db: de.DataEconFile) -> None:  # noqa: PLR0912, PLR0915 - finite inventory
+    """Read every extended-marker object back exactly and check its interpretation."""
+    for name, stored, interpreted in extended_scalar_inventory():
+        actual = db.read_scalar(name)
+        if actual != stored:
+            raise ValueError(f"Scalar {name} changed on the way back.")
+        value = actual.to_interpreted()
+        if value != interpreted or type(value) is not type(interpreted):
+            raise ValueError(f"Scalar {name} interprets to {value!r}, not {interpreted!r}.")
+    for name, expected in extended_container_inventory():
+        reader = (
+            db.read_series
+            if isinstance(expected, (de.StoredSeries, de.StoredMVTSeries))
+            else db.read_array
+        )
+        actual = reader(name)
+        if type(actual) is not type(expected) or actual != expected:
+            raise ValueError(f"Container {name} changed on the way back.")
+        if name.startswith("xm_opaque"):
+            try:
+                actual.to_interpreted()
+            except TypeError:
+                continue
+            raise ValueError(f"Opaque marker {name} was interpreted.")
+        value = actual.to_interpreted()
+        if name == "xm_rational_series" and value.tolist() != [
+            Fraction(1, 2),
+            Fraction(-3, 4),
+            Fraction(5),
+        ]:
+            raise ValueError("xm_rational_series does not interpret to its fractions.")
+        if name == "xm_intcomplex_vector" and value.tolist() != [
+            de.IntegerComplex(2**54, 1),
+            de.IntegerComplex(-3, 0),
+        ]:
+            raise ValueError("xm_intcomplex_vector does not interpret to its pairs.")
+        if name == "xm_rc_matrix" and value.tolist()[1][1] != de.RationalComplex(
+            Fraction(-1, 8), Fraction(7)
+        ):
+            raise ValueError("xm_rc_matrix does not interpret to its pairs.")
+        if name == "xm_rational_tensor" and value.tolist()[0][0][0] != Fraction(2**70):
+            raise ValueError("xm_rational_tensor lost its Int128 numerator.")
+        if name == "xm_abstract_signed" and value.values.dtype != np.dtype("<i1"):
+            raise ValueError("xm_abstract_signed did not interpret to Int8.")
+        if name == "xm_bigint" and value.tolist() != [int(1e300), 2]:
+            raise ValueError("xm_bigint did not interpret to exact integers.")
+        if name == "xm_date_array" and value.tolist() != [
+            np.datetime64("1970-01-01").item(),
+            np.datetime64("1970-01-02").item(),
+        ]:
+            raise ValueError("xm_date_array did not interpret to dates.")
+        if name == "xm_symbol_array" and value.tolist() != ["0.5", "1.0e10"]:
+            raise ValueError("xm_symbol_array did not interpret to Julia's printed forms.")
+        if name == "xm_text_obj" and value != ["a", "b"]:
+            raise ValueError("xm_text_obj did not interpret to plain strings.")
+        if name == "xm_bool_i64" and value.tolist() != [[False, True], [True, False]]:
+            raise ValueError("xm_bool_i64 did not interpret to Booleans.")
+        if name == "xm_empty_date" and value.dtype != np.dtype("<M8[D]"):
+            raise ValueError("xm_empty_date did not interpret to an empty datetime64[D].")
+        if name == "xm_text_symbol" and value != '["a\\"b", "\u00e9"]':
+            raise ValueError(f"xm_text_symbol printed {value!r}.")
+        if name == "xm_text_symbol_matrix" and value != '["a" "c"; "b" "d"]':
+            raise ValueError(f"xm_text_symbol_matrix printed {value!r}.")
+        if name == "xm_array_symbol" and value != "Int8[1 2; 3 4]":
+            raise ValueError(f"xm_array_symbol printed {value!r}.")
+        if name == "xm_array_symbol_f32" and value != "Float32[0.5, 1.0f10]":
+            raise ValueError(f"xm_array_symbol_f32 printed {value!r}.")
+        if name == "xm_bytes_symbol" and value != "ab":
+            raise ValueError(f"xm_bytes_symbol named {value!r}.")
+        if name == "xm_dated_complex_series" and value.tolist() != [
+            de.DatedComplex(tsecon.MIT(tsecon.Monthly(), 24288), tsecon.MIT(tsecon.Monthly(), 0)),
+            de.DatedComplex(tsecon.MIT(tsecon.Monthly(), 24289), tsecon.MIT(tsecon.Monthly(), 0)),
+        ]:
+            raise ValueError("xm_dated_complex_series did not interpret to its pairs.")
+        if name == "xm_char_array" and value.tolist() != ["a", "\U0001f642"]:
+            raise ValueError("xm_char_array did not interpret to its characters.")
+    # A wrapped Int64 unix time: Julia's defined arithmetic, exact through to_calendar().
+    wrapped = db.read_scalar("xm_datetime_wrap")
+    if wrapped.to_calendar() != (-292275055, 5, 16, 16, 47, 3, 384):
+        raise ValueError(f"xm_datetime_wrap did not wrap like Julia: {wrapped.to_calendar()!r}.")
+    attributes = db.get_attributes("xm_text_obj")
+    if attributes != {"jeltype": "Symbol", "jtype": "Vector{String}"}:
+        raise ValueError(f"xm_text_obj markers changed: {attributes}.")
+    if db.get_attributes("xm_bool_i64") != {"jeltype": "Bool"}:
+        raise ValueError("xm_bool_i64 lost its Bool marker.")
+    if db.get_attributes("xm_opaque_object") != {"jtype": "TSeries{Monthly, Int16}"}:
+        raise ValueError("xm_opaque_object lost its whole-object marker.")
+
+
 def write_interchange(  # noqa: PLR0915 - one write set per interchange family
     output_dir: Path, series: tsecon.TSeries, fixture: Path
 ) -> Path:
@@ -2461,6 +2820,7 @@ def write_interchange(  # noqa: PLR0915 - one write set per interchange family
         write_workspace_tree(db)
         write_text_arrays(db)
         write_represented_mvtseries(db)
+        write_extended_markers(db)
         for name, value in (
             ("bool_false", False),
             ("bool_true", True),
@@ -2489,6 +2849,7 @@ def write_interchange(  # noqa: PLR0915 - one write set per interchange family
         check_workspace_tree(db)
         check_text_arrays(db)
         check_represented_mvtseries(db)
+        check_extended_markers(db)
         np.testing.assert_array_equal(db.read_series("sample").values, series.values)
         for name, expected in (
             ("bool_false", 0),

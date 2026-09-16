@@ -32,6 +32,7 @@ import datetime as dt
 import math
 import struct
 from dataclasses import dataclass
+from decimal import Decimal
 from fractions import Fraction
 from typing import Any
 
@@ -40,7 +41,7 @@ import numpy as np
 from tsecon.frequencies import Frequency
 from tsecon.mit import MIT, Duration
 
-from . import _exact, _interpret
+from . import _exact, _interpret, _printed
 from ._interpret import Target
 from ._metadata import (
     _CALENDAR_RANGES,
@@ -59,10 +60,21 @@ from ._metadata import (
     MIN_INT64,
     UNIT_FREQUENCY,
 )
-from ._represented import COMPLEXF16, INT128, UINT128, StoredElement, pack_complexf16
+from ._represented import (
+    COMPLEXF16,
+    INT128,
+    UINT128,
+    DatedComplex,
+    IntegerComplex,
+    RationalComplex,
+    StoredElement,
+    _exact_float,
+    pack_complexf16,
+)
 
 __all__ = [
     "IntegerComplex",
+    "RationalComplex",
     "StoredScalar",
     "scalar_frequency",
     "scalar_frequency_code",
@@ -209,70 +221,22 @@ def plain_numeric(kind: int, payload: bytes) -> Any:
     return result
 
 
-# ---- the integer-complex pair ---------------------------------------------
-
-
-@dataclass(frozen=True, slots=True)
-class IntegerComplex:
-    """An exact ``Complex{T}`` value for integer ``T``: two Python integers.
-
-    Julia keeps such components exact at any width, so a Python ``complex``
-    (two Float64) cannot hold them in general; :meth:`to_complex` converts
-    only when both components are exactly representable in Float64.
-    """
-
-    real: int
-    imag: int = 0
-
-    def __post_init__(self) -> None:
-        if type(self.real) is not int or type(self.imag) is not int:
-            raise TypeError("IntegerComplex components must be exact Python int objects.")
-
-    def to_complex(self) -> complex:
-        """Return the Python ``complex`` of the pair, refusing any rounding."""
-        return complex(
-            _exact_float(self.real, "real part"), _exact_float(self.imag, "imaginary part")
-        )
-
-    def __complex__(self) -> complex:
-        return self.to_complex()
-
-
-def _exact_float(component: int, what: str) -> float:
-    try:
-        value = float(component)
-    except OverflowError:
-        raise ValueError(f"The {what} {component} is beyond the Float64 range.") from None
-    if int(value) != component:
-        raise ValueError(f"The {what} {component} is not exactly representable in Float64.")
-    return value
-
-
 # ---- finite marker vocabulary ----------------------------------------------
 
-# Julia spellings the pinned loader resolves to the exact token on the right,
-# each individually verified against the reference (qualified names Julia
-# exports through Base/Core/TimeSeriesEcon/Dates and the recorded spacing
-# variants). The literal text is preserved on rewrite; this table only decides
-# interpretation. No general grammar: an unlisted spelling is opaque.
-SPELLINGS: dict[str, str] = {
-    "Dates.Date": "Date",
-    "Dates.DateTime": "DateTime",
-    "Rational{Int}": "Rational{Int64}",
-    "Complex{Int}": "Complex{Int64}",
-    "Base.Int64": "Int64",
-    "Core.Int64": "Int64",
-    "Main.Int64": "Int64",
-    "Main.Base.Int64": "Int64",
-    "TimeSeriesEcon.Int64": "Int64",
-    "Base.Float64": "Float64",
-    " Int64": "Int64",
-    "Int64 ": "Int64",
-    " Int64 ": "Int64",
-    "Float64 ": "Float64",
-}
+SPELLINGS = _interpret.SPELLINGS
 TEXT_TOKENS = ("Symbol", "SubString{String}", "AbstractString", "String")
-ABSTRACT_TOKENS = ("Any", "Number", "Real", "Integer", "Signed", "Unsigned", "AbstractFloat")
+ABSTRACT_TOKENS = (
+    "Any",
+    "Number",
+    "Real",
+    "Integer",
+    "Signed",
+    "Unsigned",
+    "AbstractFloat",
+    "Union{Int64,Float64}",
+    "Union{Int64, Float64}",
+)
+UNION_TOKENS = ("Union{Int64,Float64}", "Union{Int64, Float64}")
 DATE_TOKENS = ("Date", "DateTime")
 _INTEGER_NAMES: dict[tuple[int, int], str] = {
     (KIND_INTEGER, 1): "Int8",
@@ -292,9 +256,7 @@ _SIGNED_OF: dict[str, str] = {f"UInt{b}": f"Int{b}" for b in (8, 16, 32, 64, 128
 _UNSIGNED_OF: dict[str, str] = {f"Int{b}": f"UInt{b}" for b in (8, 16, 32, 64, 128)}
 
 
-def resolve_spelling(marker: str) -> str:
-    """Return the exact token a verified alternative spelling stands for (else the text)."""
-    return SPELLINGS.get(marker, marker)
+resolve_spelling = _interpret.resolve_spelling
 
 
 def _unsupported(what: str) -> TypeError:
@@ -547,6 +509,82 @@ class StoredScalar:
             struct.pack("<dd", stored_real, stored_imag), KIND_COMPLEX, 0, f"Complex{{{parameter}}}"
         )
 
+    @classmethod
+    def rational_complex(
+        cls,
+        real: Fraction | RationalComplex,
+        imag: Fraction | None = None,
+        *,
+        parameter: str = "Int64",
+        exact: bool = True,
+    ) -> StoredScalar:
+        """Build the storage of a ``Complex{Rational{parameter}}``: ``float(z)`` plus the marker.
+
+        Julia's writer stores the two components as Float64 (``Float64(num) /
+        Float64(den)`` each) and its loader rebuilds each with ``Rational{T}``'s
+        continued-fraction reconstruction. As for :meth:`fraction`, the write is
+        accepted by default only when both components reload exactly;
+        ``exact=False`` stores the floats when Julia can load *some* rational
+        pair from them and leaves the loss explicit.
+        """
+        if isinstance(real, RationalComplex):
+            if imag is not None:
+                raise TypeError("Pass either a RationalComplex or two Fractions, not both.")
+            parts: tuple[Any, Any] = (real.real, real.imag)
+        else:
+            parts = (real, Fraction(0) if imag is None else imag)
+        if any(type(part) is not Fraction for part in parts):
+            raise TypeError("StoredScalar.rational_complex requires fractions.Fraction components.")
+        if parameter not in _exact.RATIONAL_PARAMETERS:
+            raise TypeError(f"Unknown Rational parameter {parameter!r}.")
+        stored = []
+        for part, what in zip(parts, ("real part", "imaginary part"), strict=True):
+            try:
+                value = _exact.julia_float(part.numerator, part.denominator)
+            except OverflowError:
+                raise ValueError(
+                    f"The {what} components exceed Julia's Float64 scalar storage range."
+                ) from None
+            rebuilt = _exact.rationalize(value, parameter)  # ValueError where Julia fails
+            if exact and rebuilt != (part.numerator, part.denominator):
+                raise ValueError(
+                    f"Julia would reload the {what} {part} (stored as {value!r}) as "
+                    f"{rebuilt[0]}//{rebuilt[1]} under Rational{{{parameter}}}; pass "
+                    "exact=False to store that float with the loss explicit."
+                )
+            stored.append(value)
+        return cls(
+            struct.pack("<dd", *stored), KIND_COMPLEX, 0, f"Complex{{Rational{{{parameter}}}}}"
+        )
+
+    @classmethod
+    def bigfloat(cls, value: Decimal | float | int) -> StoredScalar:
+        """Build a Float64 payload with the ``BigFloat`` marker, which Julia's loader accepts.
+
+        This is a storage path this adapter provides, not a transcription of
+        Julia's writer: the pinned writer fails on a ``BigFloat`` (its type
+        mapping recurses), while the pinned loader rebuilds
+        ``BigFloat(::Float64)`` from a Float64 payload under the marker, which
+        is exact. The requested value must therefore itself be exactly a
+        Float64: a ``Decimal``, ``float`` or ``int`` whose value survives
+        ``float(value)`` unchanged (``Decimal("0.1")`` does not, ``Decimal(0.1)``
+        does). Anything else is refused rather than rounded. This is not a
+        general arbitrary-precision interface; only Float64-representable
+        values can be written this way.
+        """
+        if type(value) not in (Decimal, float, int):
+            raise TypeError("StoredScalar.bigfloat takes a Decimal, float or int.")
+        try:
+            stored = float(value)
+        except OverflowError:
+            raise ValueError(f"{value!r} is beyond the Float64 range.") from None
+        if not math.isnan(stored) and _exact.exact_decimal(stored) != Decimal(value):
+            raise ValueError(
+                f"{value!r} is not exactly representable in Float64; the stored float would "
+                "reload as a different BigFloat."
+            )
+        return cls(_exact.float64_bits(stored), KIND_FLOAT, 0, "BigFloat")
+
     # ---- description ---------------------------------------------------------
 
     def __repr__(self) -> str:
@@ -672,17 +710,20 @@ class StoredScalar:
 
         Unmarked wide widths return ``int`` (Int128/UInt128) or ``complex``
         (ComplexF16); unmarked text returns ``str`` when it is clean UTF-8.
-        Marked scalars follow a finite table: text markers give ``str``,
+        Marked scalars follow a finite table: text markers give ``str``
+        (``Symbol`` of a numeric or date payload is Julia's printed form),
         ``Date``/``DateTime`` give ``datetime.date``/``datetime.datetime``
         (years 1..9999 only; ``to_calendar()`` and ``to_datetime64()`` offer
         explicit alternatives with their own bounds), ``Rational{T}`` gives
         ``fractions.Fraction`` (``+/-1//0`` raises; use ``to_float()``), integer
-        ``Complex{T}`` gives :class:`IntegerComplex`, and numeric element and abstract
+        ``Complex{T}`` gives :class:`IntegerComplex`, ``Complex{Rational{T}}``
+        gives :class:`RationalComplex`, ``BigInt`` gives ``int``, ``BigFloat``
+        gives the exact ``decimal.Decimal``, and numeric element and abstract
         ``Any``/``Real``/``Number``/``Integer``/``Signed``/``Unsigned``/
-        ``AbstractFloat``/``BigInt`` names give the converted Python or NumPy
-        value. ``ValueError`` marks a value Julia's loader refuses (or a Python
-        range limit); ``TypeError`` marks a marker route with no supported
-        interpretation, which stays preserved for rewriting.
+        ``AbstractFloat``/``Union{Int64,Float64}`` names give the converted
+        Python or NumPy value. ``ValueError`` marks a value Julia's loader
+        refuses (or a Python range limit); ``TypeError`` marks a marker route
+        with no supported interpretation, which stays preserved for rewriting.
         """
         if self.marker is None:
             return self._stored_value()
@@ -695,40 +736,102 @@ class StoredScalar:
     def _interpret_text(self, token: str) -> str:
         if self.kind == KIND_STRING:
             return self.to_str()
-        if token == "Symbol" and self.kind in (KIND_INTEGER, KIND_UNSIGNED) and self.frequency == 0:
-            # Julia's Symbol(string(n)) of an integer is its decimal text.
-            return str(self.to_int())
         if token == "Symbol":
-            raise _unsupported(
-                "A Symbol marker on a float, complex or date payload names Julia's printed "
-                "form of the value, which this reader does not reproduce"
-            )
+            return self.to_printed()
         raise TypeError(f"Julia has no {token} conversion from a {self.julia_name} payload.")
+
+    def _interpret_char(self, token: str) -> str:
+        """``convert(Char, x)``: ``Char(UInt32(x))`` of an integer, integral float or complex."""
+        if self.kind in (KIND_STRING, KIND_DATE) or self.frequency != 0:
+            raise TypeError(f"Julia has no Char conversion from a {self.julia_name} payload.")
+        return self.to_char()
+
+    def to_char(self) -> str:
+        """Return the one-character ``str`` of Julia's ``Char(x)`` for a numeric payload.
+
+        Integers of any width, integral finite floats and complexes with a
+        zero imaginary part convert through ``UInt32`` (``ValueError`` where
+        Julia raises ``InexactError``); ``Char`` accepts code points below
+        ``0x200000`` (``CodePointError`` above). Julia builds an invalid Char
+        for ``0x110000..0x1fffff``, which no Python ``str`` character
+        represents: that is refused explicitly, while a surrogate is returned.
+        """
+        source = self._source()
+        values = self._carrier()
+        target = Target("char", np.dtype(object))
+        _interpret.check_route(source, target)
+        _interpret.check_values(values, source, target)
+        return str(_interpret.convert_values(values, source, target)[0])
+
+    def to_printed(self) -> str:
+        """Return Julia's ``string(value)`` of the stored family (what a ``Symbol`` marker loads).
+
+        Integers print in decimal, floats and complex values in Julia's
+        shortest round-trip notation (``1.5``, ``1.0e10``, ``NaN``, ``1.0f0 +
+        2.0f0im``, ``Float16(1.5)``), MIT dates as Julia prints them
+        (``2024M1``, ``7U``, and for the calendar frequencies the Date Julia
+        builds in any proleptic year: ``0000-12-31``, ``-0001-12-31``,
+        ``10000-01-01``) and durations as their code.
+        """
+        if self.kind in (KIND_INTEGER, KIND_UNSIGNED) and self.frequency == 0:
+            return str(self.to_int())
+        if self.kind == KIND_FLOAT:
+            return _exact.julia_float_string(self._carrier()[0], self.nbytes)
+        if self.kind == KIND_COMPLEX:
+            real, imag = self._narrow_components()
+            return _exact.julia_complex_string(real, imag, self.nbytes // 2)
+        if self.kind == KIND_STRING:
+            return self.to_str()
+        if self.kind == KIND_DATE:
+            return _printed.mit_string(self._code(), scalar_frequency(self.frequency))
+        return str(self._code())
+
+    def _narrow_components(self) -> tuple[Any, Any]:
+        """Return the two stored components of a complex payload in their own width."""
+        if self.nbytes == 4:
+            return _exact.complexf16_from_bytes(self.payload)
+        real, imag = np.frombuffer(self.payload, dtype=f"<f{self.nbytes // 2}")
+        return real, imag
 
     # -- calendar --
 
     def _rata_die_ms(self, token: str) -> int:
-        """Julia's ``unix2datetime`` of the payload as Rata Die milliseconds."""
-        if self.kind == KIND_FLOAT and self.nbytes == 8:
-            return _exact.rata_die_ms_from_unix_seconds(self.to_float())
-        if self.kind == KIND_COMPLEX and self.nbytes == 16:
-            value = self.to_complex()
-            if value.imag != 0:
-                raise _julia_refuses("InexactError", token, value)
-            return _exact.rata_die_ms_from_unix_seconds(value.real)
-        if (
-            self.kind in (KIND_INTEGER, KIND_UNSIGNED)
-            and self.frequency == 0
-            and (self.nbytes <= 8 and (self.kind, self.nbytes) != (KIND_UNSIGNED, 8))
-        ):
-            # Int8..Int64 and UInt8..UInt32 payloads promote exactly to the Int64 product.
-            return _exact.rata_die_ms_from_unix_integer(self.to_int())
-        if self.kind == KIND_STRING:
-            raise TypeError(f"Julia has no {token} conversion from a String payload.")
-        raise _unsupported(
-            f"{token} interpretation is supported for Float64, ComplexF64 and integer payloads "
-            f"up to Int64/UInt32; this {self.julia_name} payload is not verified"
-        )
+        """Julia's ``unix2datetime`` of the payload as Rata Die milliseconds.
+
+        Float64 payloads multiply in Float64, Float32/Float16 payloads in their
+        own width, a complex payload must have a zero imaginary part
+        (``InexactError`` otherwise), Int8..Int64 and UInt8..UInt32 promote
+        to the Int64 product, UInt64 wraps its unsigned product and the
+        128-bit widths multiply in their own width; every Int64 step
+        (``1000 * n`` and ``UNIXEPOCH + ms``) wraps as Julia's defined
+        integer arithmetic does. Only ``trunc(Int64, -Inf16)`` (a Float16
+        product that overflowed) is refused: Julia's range check lets it
+        through to an undefined conversion.
+        """
+        if self.kind == KIND_FLOAT:
+            if self.nbytes == 8:
+                return _exact.rata_die_ms_from_unix_seconds(self.to_float())
+            return _exact.rata_die_ms_from_unix_narrow(self._carrier()[0], self.nbytes)
+        if self.kind == KIND_COMPLEX:
+            real, imag = self._narrow_components()
+            if imag != 0:
+                raise _julia_refuses("InexactError", token, complex(float(real), float(imag)))
+            if self.nbytes == 16:
+                return _exact.rata_die_ms_from_unix_seconds(float(real))
+            return _exact.rata_die_ms_from_unix_narrow(real, self.nbytes // 2)
+        if self.kind in (KIND_STRING, KIND_DATE):
+            raise TypeError(f"Julia has no {token} conversion from a {self.julia_name} payload.")
+        # A Duration is a Signed count: Int64(1000) * d multiplies its code.
+        return self._rata_die_ms_of_integer()
+
+    def _rata_die_ms_of_integer(self) -> int:
+        if self.nbytes == 16:
+            return _exact.rata_die_ms_from_unix_wide_integer(
+                self.to_int(), signed=self.kind == KIND_INTEGER
+            )
+        if (self.kind, self.nbytes) == (KIND_UNSIGNED, 8):
+            return _exact.rata_die_ms_from_unix_uint64(self.to_int())
+        return _exact.rata_die_ms_from_unix_integer(self.to_int())
 
     def _date_token(self) -> str:
         token = None if self.marker is None else resolve_spelling(self.marker)
@@ -808,7 +911,17 @@ class StoredScalar:
         if token == "Rational":
             if self.kind in (KIND_INTEGER, KIND_UNSIGNED) and self.frequency == 0:
                 return _INTEGER_NAMES[(self.kind, self.nbytes)]  # the payload's own type
-            return "Int64"  # Julia's default for a float payload
+            if (self.kind, self.nbytes) in ((KIND_FLOAT, 2), (KIND_COMPLEX, 4)):
+                # Rational(x::Float16) has no method; a complex payload fails its
+                # imaginary-part check first.
+                if self.kind == KIND_COMPLEX and self._narrow_components()[1] != 0:
+                    raise _julia_refuses("InexactError", "Rational", self.to_complex())
+                raise TypeError(
+                    f"Julia has no Rational conversion from a {self.julia_name} payload."
+                )
+            if self.kind in (KIND_FLOAT, KIND_COMPLEX):
+                return "Int64"  # Rational(x::Float64) and Rational(x::Float32)
+            raise TypeError(f"Julia has no Rational conversion from a {self.julia_name} payload.")
         parameter = None if token is None else _exact.rational_parameter(token)
         if parameter is None:
             raise TypeError("to_fraction applies to Rational-marked scalars only.")
@@ -816,23 +929,28 @@ class StoredScalar:
 
     def _ratio(self) -> tuple[int, int]:
         """Julia's rebuilt ``(numerator, denominator)`` for the Rational marker."""
-        parameter = self._rational_target()
+        return self._ratio_of(self._rational_target())
+
+    def _ratio_of(self, parameter: str) -> tuple[int, int]:
+        """``Rational{parameter}`` of the payload: integers as ``T(n)//1``, floats rationalized."""
         target = f"Rational{{{parameter}}}"
-        if self.kind in (KIND_INTEGER, KIND_UNSIGNED) and self.frequency == 0:
+        if self.kind == KIND_STRING:
+            raise TypeError(f"Julia has no {target} conversion from a String payload.")
+        if self.kind == KIND_DATE or self.frequency != 0:
+            # Rational{Int64}(x::MIT) is Int64(x)//1; every other parameter has no method.
+            if parameter != "Int64":
+                raise TypeError(
+                    f"Julia has no {target} conversion from a {self.julia_name} payload."
+                )
+            return self._code(), 1
+        if self.kind in (KIND_INTEGER, KIND_UNSIGNED):
             return _exact.rational_from_integer(self.to_int(), parameter)
-        if self.kind == KIND_FLOAT and self.nbytes == 8:
-            return _exact.rationalize(self.to_float(), parameter)
-        if self.kind == KIND_COMPLEX and self.nbytes == 16:
-            value = self.to_complex()
-            if value.imag != 0:
-                raise _julia_refuses("InexactError", target, value)
-            return _exact.rationalize(value.real, parameter)
-        if self.kind in (KIND_STRING, KIND_DATE) or self.frequency != 0:
-            raise TypeError(f"Julia has no {target} conversion from a {self.julia_name} payload.")
-        raise _unsupported(
-            f"{target} interpretation of a {self.julia_name} payload runs Julia's "
-            "rationalize in that narrower float width, which this reader does not reproduce"
-        )
+        if self.kind == KIND_FLOAT:
+            return _exact.rationalize(self._carrier()[0], parameter, self.nbytes)
+        real, imag = self._narrow_components()
+        if imag != 0:
+            raise _julia_refuses("InexactError", target, complex(float(real), float(imag)))
+        return _exact.rationalize(real, parameter, self.nbytes // 2)
 
     def to_fraction(self) -> Fraction:
         """Return the ``fractions.Fraction`` Julia rebuilds for a ``Rational`` marker.
@@ -849,6 +967,35 @@ class StoredScalar:
                 "to_float() returns it as a float."
             )
         return Fraction(num, den)
+
+    def to_rational_complex(self) -> RationalComplex:
+        """Return the :class:`RationalComplex` Julia rebuilds for a ``Complex{Rational{T}}`` marker.
+
+        Each component follows the ``Rational{T}`` route of its payload width
+        (an integer, MIT or Duration payload contributes ``n//1`` and a zero
+        imaginary part; a float payload contributes its rationalization and
+        ``0//1``). A component Julia loads as ``±1//0`` raises ``ValueError``.
+        """
+        token = None if self.marker is None else resolve_spelling(self.marker)
+        parameter = None if token is None else _exact.rational_complex_parameter(token)
+        if parameter is None:
+            raise TypeError("to_rational_complex applies to Complex{Rational{T}}-marked scalars.")
+        if self.kind == KIND_COMPLEX:
+            components = self._narrow_components()
+            real = _exact.rationalize(components[0], parameter, self.nbytes // 2)
+            imag = _exact.rationalize(components[1], parameter, self.nbytes // 2)
+        else:
+            real, imag = self._ratio_of(parameter), (0, 1)
+        for num, den in (real, imag):
+            if den == 0:
+                raise ValueError(
+                    f"Julia rebuilds a component {num}//0, a signed infinity no Fraction can "
+                    "hold; to_complex() returns the stored floats."
+                )
+        return RationalComplex(Fraction(*real), Fraction(*imag))
+
+    def _interpret_rationalcomplex(self, token: str) -> RationalComplex:
+        return self.to_rational_complex()
 
     # -- integer complex --
 
@@ -875,7 +1022,15 @@ class StoredScalar:
         if parameter is None:
             raise TypeError("to_integer_complex applies to integer Complex{T}-marked scalars only.")
         target = f"Complex{{{parameter}}}"
-        if self.kind in (KIND_INTEGER, KIND_UNSIGNED) and self.frequency == 0:
+        if self.kind == KIND_DATE or self.frequency != 0:
+            # Complex{Int64}(x::MIT) is Int64(x) + 0im and Complex{Bool} needs a 0/1 code;
+            # every other parameter has no method.
+            if parameter not in ("Int64", "Bool"):
+                raise TypeError(
+                    f"Julia has no {target} conversion from a {self.julia_name} payload."
+                )
+            return IntegerComplex(_exact.integer_from_integer(self._code(), parameter))
+        if self.kind in (KIND_INTEGER, KIND_UNSIGNED):
             pair = _exact.integer_complex_from_integer(self.to_int(), parameter)
         else:
             pair = _exact.integer_complex_from_floats(*self._float_components(target), parameter)
@@ -890,7 +1045,45 @@ class StoredScalar:
             return self._convert_element(_interpret.ACTIVE_TOKENS[name])
         if self.kind == KIND_COMPLEX:
             return self._stored_value()
+        if self.kind == KIND_DATE or self.frequency != 0:
+            return self.to_dated_complex()
         raise TypeError(f"Julia has no Complex conversion from a {self.julia_name} payload.")
+
+    def to_dated_complex(self) -> DatedComplex:
+        """Return the :class:`DatedComplex` Julia rebuilds under ``Complex``/``Complex{MIT{F}}``.
+
+        ``convert(Complex, x)`` on an MIT or Duration payload is
+        ``Complex(x, zero(x))``; the explicit ``Complex{MIT{F}}`` token also
+        takes any integer payload (``MIT{F}(Int64(n))``, ``InexactError``
+        outside Int64) and ``Complex{Duration{F}}`` an Int64 payload; every
+        other family has no method (``TypeError``).
+        """
+        token = None if self.marker is None else resolve_spelling(self.marker)
+        if token == "Complex" and (self.kind == KIND_DATE or self.frequency != 0):
+            target = _interpret.bare_complex_target(self._source())
+        else:
+            target = None if token is None else _interpret._dated_complex_token(token)
+        if target is None:
+            raise TypeError(
+                "to_dated_complex applies to Complex-marked date/duration scalars and to "
+                "Complex{MIT{F}}/Complex{Duration{F}}-marked scalars only."
+            )
+        if self.kind == KIND_STRING:
+            raise TypeError(f"Julia has no {target.julia_name} conversion from a String payload.")
+        source = self._source()
+        _interpret.check_route(source, target)
+        values = self._carrier()
+        _interpret.check_values(values, source, target)
+        converted = _interpret.convert_values(values, source, target)
+        assert target.frequency is not None
+        family = MIT if target.parameter == "MIT" else Duration
+        return DatedComplex(
+            family(target.frequency, int(converted["re"][0])),
+            family(target.frequency, int(converted["im"][0])),
+        )
+
+    def _interpret_datedcomplex(self, token: str) -> DatedComplex:
+        return self.to_dated_complex()
 
     # -- abstract numeric names --
 
@@ -911,16 +1104,42 @@ class StoredScalar:
     def _interpret_abstract(self, token: str) -> Any:
         if token == "Any":
             return self._stored_value()
-        self._numeric_only(token)
+        if self.kind == KIND_STRING:
+            raise TypeError(f"Julia has no {token} conversion from a String payload.")
+        if self.kind == KIND_DATE or self.frequency != 0:
+            return self._interpret_abstract_date(token)
+        if token in UNION_TOKENS:
+            return self._interpret_union(token)
+        if token in ("Real", "AbstractFloat"):
+            return self._interpret_real_kind(token)
         if token == "Number":
             return self._stored_value()
-        if token in ("Real", "AbstractFloat"):
-            if self.kind == KIND_COMPLEX:
-                return self._real_part(token)._stored_value()
-            if token == "Real" or self.kind == KIND_FLOAT:
-                return self._stored_value()
-            return float(self.to_int())  # Float64(n): nearest-even, as Julia's convert
         return self._interpret_integer_kind(token)
+
+    def _interpret_real_kind(self, token: str) -> Any:
+        """``Real`` is an identity on real payloads; ``AbstractFloat`` makes integers Float64."""
+        if self.kind == KIND_COMPLEX:
+            return self._real_part(token)._stored_value()
+        if token == "Real" or self.kind == KIND_FLOAT:
+            return self._stored_value()
+        return float(self.to_int())  # Float64(n): nearest-even, as Julia's convert
+
+    def _interpret_union(self, token: str) -> Any:
+        """``Union{Int64,Float64}``: identities, plus ComplexF64 with a zero imaginary part."""
+        if (self.kind, self.nbytes) in ((KIND_INTEGER, 8), (KIND_FLOAT, 8)):
+            return self._stored_value()
+        if (self.kind, self.nbytes) == (KIND_COMPLEX, 16) and self.to_complex().imag == 0:
+            return self._real_part(token)._stored_value()
+        raise TypeError(f"Julia has no {token} conversion from a {self.julia_name} payload.")
+
+    def _interpret_abstract_date(self, token: str) -> Any:
+        """``MIT``/``Duration`` are ``Signed``: identities except the two conversions Julia has."""
+        if token in ("Number", "Real", "Integer", "Signed"):
+            return self._stored_value()
+        if token == "AbstractFloat":
+            # Float64(x::MIT) is the plotting value; Float64(x::Duration) the count per year.
+            return self._convert_element(_interpret.ACTIVE_TOKENS["Float64"])
+        raise TypeError(f"Julia has no {token} conversion from a {self.julia_name} payload.")
 
     def _interpret_integer_kind(self, token: str) -> Any:
         """Apply ``Integer``, ``Signed`` or ``Unsigned``.
@@ -945,11 +1164,27 @@ class StoredScalar:
     def _interpret_rational(self, token: str) -> Fraction:
         return self.to_fraction()
 
-    def _interpret_deferred(self, token: str) -> Any:
-        raise _unsupported(
-            "BigFloat interpretation is deferred; the stored payload holds the exact value, "
-            "readable through to_float() or to_int()"
-        )
+    def _interpret_bigfloat(self, token: str) -> Decimal:
+        return self.to_decimal()
+
+    def to_decimal(self) -> Decimal:
+        """Return the exact ``decimal.Decimal`` of the ``BigFloat`` Julia rebuilds.
+
+        ``BigFloat(x)`` is exact for every bit-integer and IEEE float payload
+        at Julia's default precision, so the loaded number is the payload's
+        own value; a complex payload needs a zero imaginary part and a date or
+        duration payload has no ``BigFloat`` method. Arithmetic in Julia's
+        arbitrary precision is not reproduced; this is the loaded value only.
+        """
+        self._numeric_only("BigFloat")
+        if self.kind in (KIND_INTEGER, KIND_UNSIGNED):
+            return _exact.exact_decimal(self.to_int())
+        if self.kind == KIND_COMPLEX:
+            real, imag = self._narrow_components()
+            if imag != 0:
+                raise _julia_refuses("InexactError", "BigFloat", complex(float(real), float(imag)))
+            return _exact.exact_decimal(float(real))
+        return _exact.exact_decimal(self.to_float())
 
     def _interpret_date(self, token: str) -> dt.date | dt.datetime:
         return self._civil(token)
@@ -958,10 +1193,22 @@ class StoredScalar:
         self._numeric_only("BigInt")
         if self.kind in (KIND_INTEGER, KIND_UNSIGNED):
             return self.to_int()
+        if self.kind == KIND_COMPLEX and self.nbytes < 16:
+            real, imag = self._narrow_components()
+            if imag != 0:
+                raise _julia_refuses("InexactError", "BigInt", complex(float(real), float(imag)))
+            return self._big_of(real)
         real, imag = self._float_components("BigInt")
-        if imag != 0 or not math.isfinite(real) or real != math.floor(real):
-            raise _julia_refuses("InexactError", "BigInt", complex(real, imag) if imag else real)
-        return int(real)
+        if imag != 0:
+            raise _julia_refuses("InexactError", "BigInt", complex(real, imag))
+        return self._big_of(real)
+
+    @staticmethod
+    def _big_of(real: Any) -> int:
+        value = float(real)
+        if not math.isfinite(value) or value != math.floor(value):
+            raise _julia_refuses("InexactError", "BigInt", value)
+        return int(value)
 
     # -- numeric element tokens through the shared series kernels --
 
@@ -993,9 +1240,10 @@ _FIXED_ROUTES: dict[str, str] = {
     **dict.fromkeys(DATE_TOKENS, "date"),
     **dict.fromkeys(ABSTRACT_TOKENS, "abstract"),
     "BigInt": "bigint",
-    "BigFloat": "deferred",
+    "BigFloat": "bigfloat",
     "Rational": "rational",
     "Complex": "complex",
+    "Char": "char",
 }
 
 
@@ -1008,6 +1256,10 @@ def _route(token: str) -> str:
         return "rational"
     if _exact.integer_complex_parameter(token) is not None:
         return "complex"
+    if _exact.rational_complex_parameter(token) is not None:
+        return "rationalcomplex"
+    if _interpret._dated_complex_token(token) is not None:
+        return "datedcomplex"
     return "element"
 
 
@@ -1023,8 +1275,10 @@ def _target_value(values: np.ndarray[Any, Any], target: Target) -> Any:
         return complex(float(values["real"][0]), float(values["imag"][0]))
     code = int(values[0])
     assert target.frequency is not None
+    # convert(MIT{F}, n) and convert(Duration{F}, n) reinterpret the Int64 code
+    # without the native date codec, so no reliable-window check applies here;
+    # writing such a date back is the scalar writer's own decision.
     if target.kind == "date":
-        validate_date_code(scalar_frequency_code(target.frequency), code)
         return MIT(target.frequency, code)
     return Duration(target.frequency, code)
 

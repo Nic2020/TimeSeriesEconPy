@@ -68,11 +68,17 @@ from ._represented import (
     COMPLEXF16,
     INT128,
     UINT128,
+    DatedComplex,
+    IntegerComplex,
+    RationalComplex,
     StoredElement,
     StoredMVTSeries,
     StoredSeries,
+    integer_complex_storage,
+    rational_complex_storage,
+    rational_storage,
 )
-from ._scalars import IntegerComplex, StoredScalar
+from ._scalars import StoredScalar
 from ._workspace import (
     LoadedWorkspace,
     SkippedMember,
@@ -94,9 +100,11 @@ __all__ = [
     "ArrayValue",
     "DataEconError",
     "DataEconFile",
+    "DatedComplex",
     "IntegerComplex",
     "LoadedWorkspace",
     "ObjectInfo",
+    "RationalComplex",
     "ScalarResult",
     "ScalarValue",
     "SeriesValue",
@@ -108,9 +116,12 @@ __all__ = [
     "StoredSeries",
     "StoredText",
     "WorkspaceReport",
+    "integer_complex_storage",
     "load_workspace",
     "open_dataecon",
     "open_dataecon_memory",
+    "rational_complex_storage",
+    "rational_storage",
     "save_workspace",
 ]
 

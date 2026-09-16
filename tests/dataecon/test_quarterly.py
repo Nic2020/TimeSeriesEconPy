@@ -258,6 +258,17 @@ def test_quarterly_reconstruction_markers_rejected(tmp_path, suffix, key, marker
             (key, marker, name),
         )
     with open_dataecon(path) as db:
-        with pytest.raises(TypeError, match="reconstruction"):
-            db.read_series(name)
+        if marker is None:
+            with pytest.raises(TypeError, match="reconstruction"):
+                db.read_series(name)
+        elif marker == "Symbol":
+            # Julia has no Symbol route on a dated series (MethodError): refused at read.
+            with pytest.raises(TypeError, match="Symbol"):
+                db.read_series(name)
+        else:
+            # Unknown or unavailable text is preserved; interpretation is refused.
+            stored = db.read_series(name)
+            assert (stored.object_marker or stored.element.marker) == marker
+            with pytest.raises(TypeError):
+                stored.to_interpreted()
         assert_series(db.read_series("q2_empty"), 2, 8096, [])

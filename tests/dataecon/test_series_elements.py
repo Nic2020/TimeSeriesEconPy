@@ -129,8 +129,15 @@ def test_noncanonical_boolean_array_bytes_are_canonicalized_without_mutation():
     ],
 )
 def test_reconstruction_allowlist(element, nbytes, length, marker):
-    with pytest.raises(TypeError):
-        decode_series(32, 24288, bytes(nbytes), element, 0, length, marker)
+    # Julia fails on each spelling except the identities; every marker is
+    # preserved in its stored form and only its explicit interpretation raises.
+    stored = decode_series(32, 24288, bytes(nbytes), element, 0, length, marker)
+    assert stored.active_marker == marker
+    if marker in ("Any", "Rational{Int64}"):
+        stored.to_interpreted()  # identity, or an empty exact carrier
+    else:
+        with pytest.raises(TypeError):
+            stored.to_interpreted()
 
 
 @pytest.mark.parametrize(("kind", "width"), [(1, 1), (2, 2), (4, 4), (5, 16)])
@@ -212,8 +219,13 @@ def test_widths_over_all_existing_axis_families(frequency, dtype, tmp_path):
     ],
 )
 def test_fixture_rejections(name):
-    with open_dataecon(FIXTURE) as db, pytest.raises((TypeError, ValueError)):
-        db.read_series(name)
+    with open_dataecon(FIXTURE) as db:
+        if name == "unknown_marker":
+            with pytest.raises(TypeError, match="never evaluated"):
+                db.read_series(name).to_interpreted()
+        else:
+            with pytest.raises((TypeError, ValueError)):
+                db.read_series(name)
 
 
 @NATIVE

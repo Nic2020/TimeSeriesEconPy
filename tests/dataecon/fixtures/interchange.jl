@@ -3407,6 +3407,135 @@ if action == "verify-wheel"
     end
 end
 
+# Extended markers (checked by verify-wheel): exact rational and integer-complex
+# carriers written through their marked Float64/ComplexF64 storage, the remaining
+# scalar routes (Complex{Rational{T}}, BigFloat, printed Symbol forms,
+# narrow-float rationals, the remaining calendar payload families, integer-payload
+# dates beyond the native window), abstract/Union element tokens, BigInt/BigFloat
+# element markers, Date/DateTime/Symbol element markers on plain arrays, empty-only
+# tokens, text whole-object markers, wider Bool markers on plain arrays and
+# opaque markers Julia cannot load. Every object was written by Python.
+if action == "verify-wheel"
+    @testset "DataEcon extended marker interchange" begin
+        DE.opendaec(filename) do db
+            xm_id(name) = DE.find_object(db, DE.root_id, name)
+            xm_scalar(name) = DE.load_scalar(db, xm_id(name))
+            xm_ts(name) = DE.load_tseries(db, xm_id(name))
+            xm_mv(name) = DE.load_mvtseries(db, xm_id(name))
+            xm_nd(name) = DE.load_ndtseries(db, xm_id(name))
+            xm_attrs(name) = Dict(string(k) => string(v) for (k, v) in DE.get_all_attributes(db, xm_id(name)))
+            function xm_check(name, expected)
+                loaded = xm_scalar(name)
+                @test typeof(loaded) == typeof(expected)
+                @test isequal(loaded, expected)
+            end
+            # ---- scalars
+            xm_check("xm_rc", Complex{Rational{Int64}}(1 // 2, -2 // 1))
+            xm_check("xm_rc8", Complex{Rational{Int8}}(Rational{Int8}(1, 3), Rational{Int8}(0, 1)))
+            xm_check("xm_bigfloat", BigFloat(0.125))
+            xm_check("xm_sym_float", Symbol("1.5"))
+            xm_check("xm_sym_f32big", Symbol("1.0e10"))
+            xm_check("xm_sym_c64", Symbol("1.5 - 2.0im"))
+            xm_check("xm_sym_mit", Symbol("2024M1"))
+            xm_check("xm_rat_f32", 13421773 // 134217728)
+            xm_check("xm_rat_f16", Rational{Int8}(1, 3))
+            xm_check("xm_date_u64", Date(1970, 1, 1))
+            xm_check("xm_datetime_i128", DateTime(2024, 3, 15))
+            xm_check("xm_mit_big", MIT{Monthly}(Int64(2)^62))
+            xm_check("xm_abs_dur", 5 / 12)
+            xm_check("xm_sym_daily0", Symbol("0000-12-31"))
+            xm_check("xm_sym_daily_big", Symbol("10000-01-01"))
+            xm_check("xm_dated_complex", Complex(2024M1, MIT{Monthly}(0)))
+            xm_check("xm_dated_complex_i8", Complex(MIT{Daily}(5), MIT{Daily}(0)))
+            xm_check("xm_char", Char(0x1f642))
+            xm_check("xm_char_f64", 'a')
+            @test xm_attrs("xm_rc") == Dict("jtype" => "Complex{Rational{Int64}}")
+            @test xm_attrs("xm_bigfloat") == Dict("jtype" => "BigFloat")
+            @test xm_attrs("xm_mit_big") == Dict("jtype" => "MIT{Monthly}")
+            # ---- exact carriers reloaded from their storage form
+            rs = xm_ts("xm_rational_series")
+            @test rs isa TSeries{Monthly, Rational{Int64}}
+            @test firstdate(rs) == 2024M1
+            @test rs.values == [1 // 2, -3 // 4, 5 // 1]
+            @test xm_attrs("xm_rational_series") == Dict("jeltype" => "Rational{Int64}")
+            ic = xm_ts("xm_intcomplex_vector")
+            @test ic isa Vector{Complex{Int64}}
+            @test ic == [Complex(Int64(2)^54, 1), Complex(-3, 0)]
+            rcm = xm_mv("xm_rc_matrix")
+            @test rcm isa Matrix{Complex{Rational{Int8}}}
+            @test rcm == [Complex{Rational{Int8}}(1 // 2, -2 // 1) Complex{Rational{Int8}}(1 // 3, 0 // 1);
+                          Complex{Rational{Int8}}(0 // 1, 0 // 1) Complex{Rational{Int8}}(-1 // 8, 7 // 1)]
+            rmv = xm_mv("xm_rational_mvt")
+            @test rmv isa MVTSeries{Monthly, Rational{Int64}}
+            @test collect(colnames(rmv)) == [:a, :b]
+            @test rmv.values == [1 // 2 1 // 1; -1 // 4 3 // 1]
+            rt = xm_nd("xm_rational_tensor")
+            @test rt isa Array{Rational{Int128}, 3}
+            @test size(rt) == (1, 2, 2)
+            @test rt[1, 1, 1] == Rational{Int128}(Int128(2)^70, 1) && rt[1, 1, 2] == 1 // 2
+            @test rt[1, 2, 1] == -1 // 1 && rt[1, 2, 2] == 0 // 1
+            # ---- abstract, Union, Big and calendar element tokens
+            sg = xm_ts("xm_abstract_signed")
+            @test sg isa TSeries{Monthly, Int8} && sg.values == Int8[0, 1, 2]
+            rc = xm_ts("xm_abstract_real_c")
+            @test rc isa TSeries{Monthly, Float32} && rc.values == Float32[1, 2]
+            un = xm_ts("xm_union")
+            @test un isa TSeries{Monthly, Int64} && un.values == [3, -4]
+            bi = xm_ts("xm_bigint")
+            @test bi isa Vector{BigInt} && bi == [BigInt(1e300), BigInt(2)]
+            bf = xm_ts("xm_bigfloat_series")
+            @test bf isa TSeries{Monthly, BigFloat} && bf.values == [BigFloat(Float32(0.1))]
+            da = xm_ts("xm_date_array")
+            @test da isa Vector{Date} && da == [Date(1970, 1, 1), Date(1970, 1, 2)]
+            dm = xm_mv("xm_datetime_matrix")
+            @test dm isa Matrix{DateTime} && size(dm) == (2, 1)
+            @test dm[1, 1] == DateTime(2024, 3, 15, 0, 0, 0, 500) && dm[2, 1] == DateTime(1969, 12, 31, 23, 59, 59)
+            sa = xm_ts("xm_symbol_array")
+            @test sa isa Vector{Symbol} && sa == [Symbol("0.5"), Symbol("1.0e10")]
+            # ---- empty-only tokens
+            @test xm_ts("xm_empty_date") isa Vector{Date} && isempty(xm_ts("xm_empty_date"))
+            @test xm_ts("xm_empty_real") isa Vector{Real} && isempty(xm_ts("xm_empty_real"))
+            @test xm_ts("xm_empty_rational") isa Vector{Rational{Int64}} && isempty(xm_ts("xm_empty_rational"))
+            # ---- text whole-object markers (the whole-object token wins over the element one)
+            to = xm_ts("xm_text_obj")
+            @test to isa Vector{String} && to == ["a", "b"]
+            @test xm_attrs("xm_text_obj") == Dict("jeltype" => "Symbol", "jtype" => "Vector{String}")
+            ta = xm_ts("xm_text_any")
+            @test ta isa Vector{Any} && ta == ["a", "b"]
+            te = xm_ts("xm_text_empty_symbol")
+            @test te isa Vector{Symbol} && isempty(te)
+            # ---- a wider Bool marker on a plain matrix keeps its Int64 storage
+            bm = xm_mv("xm_bool_i64")
+            @test bm isa Matrix{Bool} && bm == [false true; true false]
+            ref = Ref{C.mvtseries_t}()
+            @test C.de_load_mvtseries(db, xm_id("xm_bool_i64"), ref) == 0
+            @test Int(ref[].eltype) == 1 && Int(ref[].nbytes) == 32
+            @test xm_attrs("xm_bool_i64") == Dict("jeltype" => "Bool")
+            # ---- printed whole-object Symbols, dated complexes, Char and the wrapped unix time
+            @test xm_ts("xm_text_symbol") === Symbol("[\"a\\\"b\", \"\u00e9\"]")
+            @test xm_mv("xm_text_symbol_matrix") === Symbol("[\"a\" \"c\"; \"b\" \"d\"]")
+            @test xm_mv("xm_array_symbol") === Symbol("Int8[1 2; 3 4]")
+            @test xm_ts("xm_array_symbol_f32") === Symbol("Float32[0.5, 1.0f10]")
+            @test xm_ts("xm_bytes_symbol") === :ab
+            dc = xm_ts("xm_dated_complex_series")
+            @test dc isa TSeries{Monthly, Complex{MIT{Monthly}}}
+            @test dc.values == [Complex(2024M1, MIT{Monthly}(0)), Complex(2024M2, MIT{Monthly}(0))]
+            ch = xm_ts("xm_char_array")
+            @test ch isa Vector{Char} && ch == ['a', Char(0x1f642)]
+            dw = xm_scalar("xm_datetime_wrap")
+            @test dw isa DateTime && Dates.value(dw) == Dates.UNIXEPOCH + Int64(9223372036854775000)
+            @test Dates.year(dw) == -292275055 && Dates.millisecond(dw) == 384
+            # ---- opaque markers: preserved verbatim, unloadable here
+            @test_throws UndefVarError xm_ts("xm_opaque_series")
+            @test xm_attrs("xm_opaque_series") == Dict("jeltype" => "NoSuchType")
+            @test_throws UndefVarError xm_ts("xm_opaque_text")
+            @test xm_attrs("xm_opaque_text") == Dict("jtype" => "NoSuchType")
+            @test_throws MethodError xm_ts("xm_opaque_object")
+            @test xm_attrs("xm_opaque_object") == Dict("jtype" => "TSeries{Monthly, Int16}")
+        end
+    end
+end
+
 if action in ("generate", "generate-empty", "generate-scalars", "generate-quarterly", "generate-annual", "generate-halfyearly", "generate-int64", "generate-strings", "generate-dates", "generate-calendar", "generate-widths", "generate-fileops", "generate-calendar-series", "generate-series-elements", "generate-represented-elements", "generate-foreign-markers", "generate-arrays-unit", "generate-matrices-text", "generate-tensors", "generate-catalogs", "generate-workspace", "generate-text-arrays", "generate-represented-mvtseries", "generate-scalar-markers")
     layout = Dict{String,Any}(
         "enums" => sizeof.([C.class_t, C.type_t, C.frequency_t, C.axis_type_t]),

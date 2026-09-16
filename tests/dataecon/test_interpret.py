@@ -9,6 +9,7 @@ generic NumPy cast.
 """
 
 import math
+from fractions import Fraction
 
 import numpy as np
 import pytest
@@ -142,13 +143,18 @@ class TestObjectPrecedence:
             "AbstractArray",
             "Real",
             "MVTSeries",
-            "Symbol",
             "",
         ],
     )
-    def test_other_object_tokens_are_refused_without_fallback(self, token):
-        with pytest.raises(TypeError):
-            interp.object_interpretation(token, Monthly(), target(I16), 2)
+    def test_other_object_tokens_are_opaque_without_fallback(self, token):
+        assert interp.object_interpretation(token, Monthly(), target(I16), 2) == "opaque"
+
+    def test_symbol_is_the_display_text_on_dated_containers(self):
+        # Julia's Symbol(::TSeries) is the display text, which the loading
+        # session's LINES/COLUMNS shape; classified apart from the opaque tokens.
+        assert interp.object_interpretation("Symbol", Monthly(), target(I16), 2) == "display"
+        assert interp.mvtseries_object_interpretation("Symbol", Monthly(), target(I16)) == "display"
+        assert "LINES/COLUMNS" in str(interp.display_text_error("TSeries"))
 
     def test_vector_tokens_apply_to_empty_numeric_bases_only(self):
         assert interp.object_interpretation("Vector", Monthly(), target(I64), 0) == "vector"
@@ -182,8 +188,8 @@ class TestObjectPrecedence:
                 "Vector", Monthly(), target(StoredElement.date(Monthly())), 0
             )
         for token in ("Vector{Int}", "Vector{Complex{Float16}}", "Array{Int8,2}", "Vector{Real}"):
-            with pytest.raises(TypeError):
-                interp.object_interpretation(token, Monthly(), target(I64), 0)
+            # Unverified spellings are preserved opaquely, never mapped to a dtype.
+            assert interp.object_interpretation(token, Monthly(), target(I64), 0) == "opaque"
 
 
 # ---- routes ---------------------------------------------------------------
@@ -686,8 +692,10 @@ class TestStoredSeriesInterpretation:
         assert identity.to_interpreted().values.tolist() == [1]
         with pytest.raises(TypeError, match="Boolean TSeries"):
             numeric(I16, [1], "Bool")
+        assert numeric(I16, [1], "Rational{Int64}").to_interpreted().tolist() == [Fraction(1)]
+        opaque = numeric(I16, [1], "NoSuchType")
         with pytest.raises(TypeError, match="never evaluated"):
-            numeric(I16, [1], "Rational{Int64}")
+            opaque.to_interpreted()
         with pytest.raises(TypeError, match="from_list"):
             StoredSeries.from_list(ANCHOR, StoredElement.numeric("<i2", marker="Int64"), [1])
 
@@ -887,17 +895,15 @@ class TestStoredSeriesInterpretation:
         assert dated.to_interpreted() == StoredSeries(
             MIT(Daily(), 739191), np.array([2024], dtype="<i8"), StoredElement.date(Yearly(12))
         )
-        with pytest.raises(TypeError):
-            StoredSeries(
-                ANCHOR,
-                np.array([1], dtype="i1"),
-                StoredElement.numeric("i1"),
-                object_marker="TSeries{Monthly, Int16}",
+        # A mismatched parameter or empty text is preserved opaquely (Julia fails
+        # to load it); only the explicit interpretation raises.
+        for token in ("TSeries{Monthly, Int16}", ""):
+            opaque = StoredSeries(
+                ANCHOR, np.array([1], dtype="i1"), StoredElement.numeric("i1"), object_marker=token
             )
-        with pytest.raises(TypeError):
-            StoredSeries(
-                ANCHOR, np.array([1], dtype="i1"), StoredElement.numeric("i1"), object_marker=""
-            )
+            assert opaque.object_marker == token
+            with pytest.raises(TypeError, match="never evaluated"):
+                opaque.to_interpreted()
 
     def test_vector_object_markers_give_empty_arrays(self):
         empty = StoredSeries(

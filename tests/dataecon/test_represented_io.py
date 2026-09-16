@@ -654,9 +654,11 @@ def test_both_reserved_attributes_are_written_and_preserved(tmp_path):
     assert result.object_marker == "TSeries"
     assert result.element.marker == "NoSuchElement"
     assert result.active_marker is None
-    # Dropping the whole-object marker would activate the unknown text: refused.
+    # Dropping the whole-object marker activates the unknown text: preserved
+    # opaquely, with its interpretation refused.
+    exposed = StoredSeries(result.firstdate, result.values, result.element)
     with pytest.raises(TypeError, match="never evaluated"):
-        StoredSeries(result.firstdate, result.values, result.element)
+        exposed.to_interpreted()
 
 
 @NATIVE
@@ -667,18 +669,11 @@ def test_both_reserved_attributes_are_written_and_preserved(tmp_path):
         ("<f8", [2.5], "jeltype", "Int64", ValueError),
         ("<i8", [2], "jeltype", "Bool", ValueError),
         ("<i8", [3], "jeltype", "Symbol", TypeError),
-        ("<i8", [3], "jeltype", "Base.Int64", TypeError),
-        ("<i8", [3], "jeltype", "", TypeError),
-        ("<i8", [3], "jtype", "", TypeError),
         ("<i8", [3], "jtype", "Vector", ValueError),
-        ("<i8", [3], "jtype", "TSeries{Monthly, Int16}", TypeError),
-        ("<i8", [3], "jtype", "Symbol", TypeError),
         ("<i2", [3], "jeltype", "Duration{Monthly}", TypeError),
     ],
 )
-def test_unsupported_or_inconvertible_markers_are_refused_on_read(
-    tmp_path, dtype, values, key, text, error
-):
+def test_inconvertible_markers_are_refused_on_read(tmp_path, dtype, values, key, text, error):
     path = tmp_path / "refused.daec"
     with open_dataecon(path, "a") as db:
         db.write_series("s", TSeries(mm(2024, 11), np.array(values, dtype=dtype)))
@@ -686,6 +681,40 @@ def test_unsupported_or_inconvertible_markers_are_refused_on_read(
         sql.execute("INSERT INTO attributes SELECT id,?,? FROM objects WHERE name='s'", (key, text))
     with open_dataecon(path) as db, pytest.raises(error):
         db.read_series("s")
+
+
+@NATIVE
+@pytest.mark.parametrize(
+    ("key", "text", "loads"),
+    [
+        ("jeltype", "Base.Int64", True),  # a verified qualified spelling: identity
+        ("jeltype", "", False),
+        ("jtype", "", False),
+        ("jtype", "TSeries{Monthly, Int16}", False),  # mismatched parameter: Julia MethodError
+        ("jtype", "Symbol", None),  # Julia builds a Symbol of the display text (LINES/COLUMNS)
+        ("jeltype", "NoSuchType", False),
+    ],
+)
+def test_unknown_markers_are_preserved_on_read(tmp_path, key, text, loads):
+    path = tmp_path / "opaque.daec"
+    with open_dataecon(path, "a") as db:
+        db.write_series("s", TSeries(mm(2024, 11), np.array([3], dtype="<i8")))
+    with closing(sqlite3.connect(path)) as sql, sql:
+        sql.execute("INSERT INTO attributes SELECT id,?,? FROM objects WHERE name='s'", (key, text))
+    with open_dataecon(path, "a") as db:
+        stored = db.read_series("s")
+        assert (stored.object_marker if key == "jtype" else stored.element.marker) == text
+        assert stored.tolist() == [3]
+        if loads:
+            assert stored.to_interpreted().values.tolist() == [3]
+        elif loads is None:
+            with pytest.raises(TypeError, match="LINES/COLUMNS"):
+                stored.to_interpreted()
+        else:
+            with pytest.raises(TypeError, match="never evaluated"):
+                stored.to_interpreted()
+        db.write_series("copy", stored)
+        assert db.get_attributes("copy") == {key: text}
 
 
 @NATIVE
@@ -787,7 +816,12 @@ print(json.dumps(report))
     ("stage", "attribute", "read", "attributes"),
     [
         ("element", "jeltype", ["TSeries", "int16", [1, 2]], []),
-        ("object_unknown", "jtype", "TypeError", [("jeltype", "NoSuchElement")]),
+        (
+            "object_unknown",
+            "jtype",
+            ["StoredSeries", "int16", [1, 2]],
+            [("jeltype", "NoSuchElement")],
+        ),
         ("object_bool", "jtype", ["TSeries", "bool", [False, True]], [("jeltype", "Bool")]),
     ],
 )
@@ -796,9 +830,10 @@ def test_attribute_write_failure_residue_at_each_stage(
 ):
     # A failed element-marker write leaves the plain stored values; a failed
     # whole-object write after a successful element marker leaves that element
-    # marker active, so the residue is refused (unknown text) or reads as a
-    # different valid value (a Boolean series instead of Int8). No cleanup is
-    # attempted and the later close fails and quarantines the owner.
+    # marker active, so the residue reads as a preserved opaque container
+    # (unknown text) or as a different valid value (a Boolean series instead
+    # of Int8). No cleanup is attempted and the later close fails and
+    # quarantines the owner.
     path = tmp_path / "fault.daec"
     with open_dataecon(path, "a") as db:
         db.write_scalar("other", 9)

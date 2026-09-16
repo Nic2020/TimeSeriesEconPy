@@ -33,6 +33,7 @@ import sqlite3
 import struct
 import tomllib
 from contextlib import closing
+from decimal import Decimal
 from fractions import Fraction
 from pathlib import Path
 
@@ -40,7 +41,13 @@ import numpy as np
 import pytest
 
 from tsecon import MIT, Duration
-from tsecon.dataecon import IntegerComplex, StoredScalar, open_dataecon, open_dataecon_memory
+from tsecon.dataecon import (
+    IntegerComplex,
+    RationalComplex,
+    StoredScalar,
+    open_dataecon,
+    open_dataecon_memory,
+)
 from tsecon.dataecon import _exact as ex
 
 NATIVE = pytest.mark.skipif(
@@ -295,12 +302,16 @@ def test_recorded_julia_facts():
 # ---- the public reader: stored form, explicit interpretation, rewrites -------
 
 
-def canonical(value):  # noqa: PLR0911 - finite canonical text table
+def canonical(value):  # noqa: PLR0911, PLR0912 - finite canonical text table
     """Julia's canonical text (the ``_value`` sibling convention) of a Python result."""
     if type(value) is Fraction:
         return f"{value.numerator}//{value.denominator}"
     if type(value) is IntegerComplex:
         return f"{value.real},{value.imag}"
+    if type(value) is RationalComplex:
+        return f"{canonical(value.real)},{canonical(value.imag)}"
+    if type(value) is Decimal:
+        return "NaN" if value.is_nan() else str(value)
     if type(value) is dt.datetime:
         return (
             f"{value.year}-{value.month}-{value.day}T{value.hour}:{value.minute}:"
@@ -360,11 +371,6 @@ DESIGNED = {
     "sm_string_invalid_utf8": "raw",
     "sm_string_only_nul": "raw",
     "sm_symbol_invalid_utf8": "raw",
-    # Explicitly unsupported interpretations (preserved, TypeError).
-    "sm_inj_bigfloat_on_float": "deferred",  # decision: no arbitrary-precision API
-    "sm_complex_rational": "unsupported",  # Complex{Rational{T}} is not in the table
-    "sm_inj_symbol_on_date_kind": "unsupported",  # Julia's printed form
-    "sm_inj_symbol_on_float": "unsupported",
 }
 
 
@@ -399,7 +405,12 @@ def test_interpretation_reproduces_julia_or_raises_its_class(name):
             assert "error(" not in str(info.value)
             assert "NoSuchType" not in str(info.value)
         else:
-            assert canonical(stored.to_interpreted()) == expected[1], name
+            value = stored.to_interpreted()
+            if type(value) is Decimal:
+                assert expected[0] == "BigFloat", name
+                assert value == Decimal(expected[1]), name
+            else:
+                assert canonical(value) == expected[1], name
         return
     if designed == "complexf16":
         value = stored.to_interpreted()
@@ -422,13 +433,8 @@ def test_interpretation_reproduces_julia_or_raises_its_class(name):
         with pytest.raises(ValueError):
             stored.to_interpreted()
         assert stored.to_bytes() == payload
-    elif designed == "deferred":
-        with pytest.raises(TypeError, match="deferred"):
-            stored.to_interpreted()
-        assert stored.to_float() == 0.1  # BigFloat(0.1) is exactly this Float64
-    else:
-        with pytest.raises(TypeError, match=r"not reproduce|no supported interpretation"):
-            stored.to_interpreted()
+    else:  # pragma: no cover - every designed key above is handled
+        raise AssertionError(designed)
 
 
 @NATIVE

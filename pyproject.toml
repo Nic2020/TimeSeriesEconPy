@@ -246,7 +246,7 @@ indent-style = "space"
 line-ending = "lf"
 
 # ---------------------------------------------------------------------------
-# mypy: strict on src, relaxed on tests
+# mypy: strict on src (tests are not type-checked)
 # ---------------------------------------------------------------------------
 [tool.mypy]
 python_version = "3.11"
@@ -256,12 +256,6 @@ warn_redundant_casts = true
 warn_unreachable = true
 show_error_codes = true
 files = ["src/tsecon"]
-
-[[tool.mypy.overrides]]
-module = "tests.*"
-disallow_untyped_defs = false
-disallow_incomplete_defs = false
-check_untyped_defs = true
 
 [[tool.mypy.overrides]]
 module = [

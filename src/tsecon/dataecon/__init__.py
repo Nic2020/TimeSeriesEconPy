@@ -332,11 +332,11 @@ class DataEconFile:
         stored newline-joined, so a name can contain neither a newline nor NUL;
         duplicate names and a zero-column object are refused rather than read
         back as a narrower value. A plain matrix is read with
-        `read_array` instead. A multivariate object whose elements are
-        dates, durations, Int128/UInt128 or ComplexF16, or which carries a
-        preserved reconstruction marker, returns a `StoredMVTSeries`:
-        the row anchor, the column names, a rows-by-columns carrier with the
-        exact stored bytes and the element descriptor, with
+        [`read_array`][tsecon.dataecon.DataEconFile.read_array] instead. A multivariate object whose
+        elements are dates, durations, Int128/UInt128 or ComplexF16, or which carries a
+        preserved reconstruction marker, returns a
+        [`StoredMVTSeries`][tsecon.dataecon.StoredMVTSeries]: the row anchor, the column names, a
+        rows-by-columns carrier with the exact stored bytes and the element descriptor, with
         ``to_interpreted()`` as the explicit conversion. The element rules
         below apply to it unchanged; its whole-object markers are limited to
         the identity spellings (``MVTSeries``, the exact parameterised
@@ -402,7 +402,7 @@ class DataEconFile:
 
         An ``MVTSeries`` stores its dated row axis, its newline-joined column
         names and a column-major payload. Its element rules are the ordinary
-        numeric and Boolean ones; a `StoredMVTSeries` adds the
+        numeric and Boolean ones; a [`StoredMVTSeries`][tsecon.dataecon.StoredMVTSeries] adds the
         represented element families and preserved markers with the
         ``StoredSeries`` rules below (the element frequency is independent of
         the row axis, empty carriers keep Julia's element token, markers are
@@ -498,7 +498,7 @@ class DataEconFile:
         contiguous carrier plus its stored element descriptor, with
         ``to_interpreted()`` as the explicit conversion. A ``StoredArray`` has
         no first date; a dated matrix is an ``MVTSeries`` read with
-        `read_series` instead.
+        [`read_series`][tsecon.dataecon.DataEconFile.read_series] instead.
 
         Reconstruction text is matched against a finite table and never
         evaluated. A marker whose conversion the stored values cannot satisfy
@@ -622,7 +622,7 @@ class DataEconFile:
         codes and are not range-checked. A stored Julia ``Bool`` reads as
         ``np.int8``, exactly as Julia itself reloads it.
 
-        Everything else returns a `StoredScalar` holding the exact
+        Everything else returns a [`StoredScalar`][tsecon.dataecon.StoredScalar] holding the exact
         stored form (payload bytes, type code, frequency and ``jtype`` text):
         sixteen-byte Int128/UInt128 and four-byte ComplexF16 objects, text that
         is not a single NUL-terminated valid UTF-8 string (Julia's own loader
@@ -681,11 +681,11 @@ class DataEconFile:
         a different fraction), an exact ``datetime.date`` or naive
         millisecond ``datetime.datetime`` as Float64 unix seconds plus
         ``Date``/``DateTime`` (timezone-aware values ``TypeError``,
-        sub-millisecond values ``ValueError``), and `IntegerComplex` as
-        two Float64 plus ``Complex{Int64}``. A `StoredScalar` writes
-        its payload, type, frequency and marker exactly, so a read value is
-        rewritten byte for byte even where Julia's own writer cannot
-        reproduce it; its constructors cover Int128/UInt128, ComplexF16,
+        sub-millisecond values ``ValueError``), and
+        [`IntegerComplex`][tsecon.dataecon.IntegerComplex] as two Float64 plus ``Complex{Int64}``. A
+        [`StoredScalar`][tsecon.dataecon.StoredScalar] writes its payload, type, frequency and
+        marker exactly, so a read value is rewritten byte for byte even where Julia's own writer
+        cannot reproduce it; its constructors cover Int128/UInt128, ComplexF16,
         ``Symbol``, raw text, other Rational/Complex parameters and calendar
         dates outside ``datetime``'s years. The marker is stored after the
         value; a failed marker write leaves the plain value readable without
@@ -780,8 +780,8 @@ class DataEconFile:
     def object_info_by_id(self, object_id: int) -> ObjectInfo:
         """Describe an object by its native id (the explicit advanced interface).
 
-        Ids come from `ObjectInfo.id` or `object_id`; a stale id
-        raises ``DataEconError`` (code -989) and a negative one ``ValueError``.
+        Ids come from `ObjectInfo.id` or [`object_id`][tsecon.dataecon.DataEconFile.object_id]; a
+        stale id raises ``DataEconError`` (code -989) and a negative one ``ValueError``.
         """
         with self._lock:
             self._require_open()
@@ -897,12 +897,12 @@ class DataEconFile:
         Each member is stored under its key through the typed writer its
         Python type selects: a nested ``Workspace`` becomes a catalog holding
         its own members; ``TSeries``, ``MVTSeries`` and ``StoredSeries`` go
-        through `write_series`; NumPy arrays, ``StoredArray``,
-        ``StoredText``, ``list``/``tuple`` text, ``range`` and ``MITRange``
-        through `write_array`; ``bool``, ``int``, ``float``, ``complex``,
-        ``str``, ``MIT``, ``Duration`` and NumPy scalars through
-        `write_scalar`, each with that method's own validation, markers
-        and residue rules and encoded once. Members are visited depth-first in
+        through [`write_series`][tsecon.dataecon.DataEconFile.write_series]; NumPy arrays,
+        ``StoredArray``, ``StoredText``, ``list``/``tuple`` text, ``range`` and ``MITRange``
+        through [`write_array`][tsecon.dataecon.DataEconFile.write_array]; ``bool``, ``int``,
+        ``float``, ``complex``, ``str``, ``MIT``, ``Duration`` and NumPy scalars through
+        [`write_scalar`][tsecon.dataecon.DataEconFile.write_scalar], each with that method's own
+        validation, markers and residue rules and encoded once. Members are visited depth-first in
         insertion order from an explicit stack, so any nesting depth is fine.
         A key must be a valid object name (nonempty, not blank, no ``/`` or
         NUL); it is a name, never a path.
@@ -924,8 +924,9 @@ class DataEconFile:
         raises its original ``TypeError``, ``ValueError`` or
         ``DataEconError`` with a note naming the member; members already
         stored stay stored. Neither mode is a transaction: nothing is rolled
-        back, and a native failure leaves the residue `write_series`
-        documents (a partial object, a possible later close failure).
+        back, and a native failure leaves the residue
+        [`write_series`][tsecon.dataecon.DataEconFile.write_series] documents (a partial object, a
+        possible later close failure).
 
         With ``overwrite=True`` a member replaces an existing object of its
         name: a value replaces a scalar/series/array through the typed
@@ -953,7 +954,9 @@ class DataEconFile:
 
         Returns a [`LoadedWorkspace`][tsecon.dataecon.LoadedWorkspace] named tuple
         ``(workspace, report)``. Every member is read with the typed reader for its stored class and
-        type - `read_scalar`, `read_series` or `read_array`
+        type - [`read_scalar`][tsecon.dataecon.DataEconFile.read_scalar],
+        [`read_series`][tsecon.dataecon.DataEconFile.read_series] or
+        [`read_array`][tsecon.dataecon.DataEconFile.read_array]
         - and inserted unchanged, so representations are exactly what those
         readers return (``StoredSeries``/``StoredArray``/``StoredText``
         carriers with their markers, empty series with their axis, ``range``
@@ -980,8 +983,8 @@ class DataEconFile:
         failing member inside a catalog is reported alone and its siblings
         survive. With ``strict=True`` the first such member raises its
         original exception with a note naming it. ``path`` must be a catalog
-        (``ValueError`` otherwise; use `read_object` for one object).
-        Attributes other than the codec's markers are not read.
+        (``ValueError`` otherwise; use [`read_object`][tsecon.dataecon.DataEconFile.read_object] for
+        one object). Attributes other than the codec's markers are not read.
         """
         with self._lock:
             self._require_open()
@@ -995,10 +998,11 @@ class DataEconFile:
     def write_object(self, path: str, value: object, *, overwrite: bool = False) -> None:
         """Store one value through the typed writer for its type (Julia's ``write_data``).
 
-        The dispatch is the one `write_workspace` uses; the typed
-        method's rules apply unchanged. A ``Workspace`` is refused with
-        ``TypeError`` (store it with `write_workspace`), as is any type
-        without a storage class.
+        The dispatch is the one [`write_workspace`][tsecon.dataecon.DataEconFile.write_workspace]
+        uses; the typed method's rules apply unchanged. A ``Workspace`` is refused with
+        ``TypeError`` (store it with
+        [`write_workspace`][tsecon.dataecon.DataEconFile.write_workspace]), as is any type without a
+        storage class.
         """
         family = classify(value)
         if family == "workspace":
@@ -1021,9 +1025,11 @@ class DataEconFile:
         """Read one object with the typed reader its stored class selects (Julia's ``read_data``).
 
         Scalars, dated series/MVTSeries and plain arrays return exactly what
-        `read_scalar`, `read_series` and `read_array`
-        return. A catalog raises ``ValueError`` (use `read_workspace`);
-        a native-only object type raises ``TypeError``.
+        [`read_scalar`][tsecon.dataecon.DataEconFile.read_scalar],
+        [`read_series`][tsecon.dataecon.DataEconFile.read_series] and
+        [`read_array`][tsecon.dataecon.DataEconFile.read_array] return. A catalog raises
+        ``ValueError`` (use [`read_workspace`][tsecon.dataecon.DataEconFile.read_workspace]); a
+        native-only object type raises ``TypeError``.
         """
         with self._lock:
             self._require_open()
@@ -1074,8 +1080,8 @@ class DataEconFile:
         once it is longer than any name), so the loop always ends; a damaged
         name (one holding NUL) can never be proved and raises ``ValueError``,
         as does a SQL NULL value. Each value is then read individually with
-        `get_attribute`, so the enumeration is exact for valid UTF-8
-        attribute names and values without NUL;
+        [`get_attribute`][tsecon.dataecon.DataEconFile.get_attribute], so the enumeration is exact
+        for valid UTF-8 attribute names and values without NUL;
         a foreign value containing NUL is cut at that NUL, as in Julia.
         """
         with self._lock:
@@ -1202,7 +1208,8 @@ def save_workspace(
     ``mode="a"`` creates or appends (Julia's ``append=true``); ``mode="w"``
     empties an existing file first. The file is closed on every exit path;
     the function owns the handle only for this call. Everything else follows
-    `DataEconFile.write_workspace`, including its report and residue.
+    [`DataEconFile.write_workspace`][tsecon.dataecon.DataEconFile.write_workspace], including its
+    report and residue.
     """
     # Argument validation precedes the open: mode "w" truncates an existing
     # file on open, so a wrong Workspace or path argument must be refused
@@ -1225,7 +1232,8 @@ def load_workspace(
 
     The returned Workspace and its values own their storage and stay usable
     after the file is closed; the function owns the handle only for this
-    call. Everything else follows `DataEconFile.read_workspace`.
+    call. Everything else follows
+    [`DataEconFile.read_workspace`][tsecon.dataecon.DataEconFile.read_workspace].
     """
     _normalize(path)
     with open_dataecon(file, "r") as db:

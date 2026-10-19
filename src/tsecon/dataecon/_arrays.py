@@ -558,6 +558,11 @@ def resolve_array_interpretation(
 # refuses. Four times the native payload cap is the size of a uniform
 # 128 MiB ASCII payload, so no padding-free payload is ever refused.
 MAX_UNICODE_BYTES = 4 * MAX_BYTES
+"""Largest fixed-width NumPy Unicode array (in bytes) a text read materializes.
+
+Above this size a read returns the lossless shaped ``StoredText`` instead, and
+``StoredText.to_numpy`` refuses.
+"""
 
 
 def check_text_capacity(total: int) -> None:
@@ -773,8 +778,8 @@ class StoredText:
     exactly as before. Ordinary text that is valid UTF-8 and carries no foreign
     marker is returned as an ordinary ``list[str]`` (vectors) or NumPy ``str_``
     array (matrices and tensors) instead, unless that array would exceed
-    `MAX_UNICODE_BYTES`; this container exists for the values that would
-    otherwise lose their marker, their exact bytes or their shape, or cost a
+    [`MAX_UNICODE_BYTES`][tsecon.dataecon.MAX_UNICODE_BYTES]; this container exists for the values
+    that would otherwise lose their marker, their exact bytes or their shape, or cost a
     padded allocation far beyond the packed payload.
 
     ``object_marker`` is a preserved whole-object ``jtype`` text. When present
@@ -974,8 +979,9 @@ class StoredText:
         """Decode into an owning, C-contiguous NumPy ``str_`` array of the stored shape.
 
         Refuses before allocating when the fixed-width array would exceed
-        `MAX_UNICODE_BYTES`; [`tolist`][tsecon.dataecon.StoredText.tolist] and the container itself
-        remain available for such values.
+        [`MAX_UNICODE_BYTES`][tsecon.dataecon.MAX_UNICODE_BYTES];
+        [`tolist`][tsecon.dataecon.StoredText.tolist] and the container itself remain available for
+        such values.
         """
         assert self.shape is not None
         decoded = self._decoded()

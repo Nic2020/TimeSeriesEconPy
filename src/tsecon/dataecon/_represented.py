@@ -7,8 +7,8 @@ independent of the axis), ``Int128``/``UInt128`` integers and ``ComplexF16``
 values. NumPy has no scalar type for any of them, so [`StoredSeries`][tsecon.dataecon.StoredSeries]
 keeps such a series in its stored form: a dated anchor, a contiguous carrier
 array with the exact stored bytes, and a [`StoredElement`][tsecon.dataecon.StoredElement] describing
-the element family. `StoredMVTSeries` is the same representation for a
-dated matrix: a dated row anchor, the column names and a two-dimensional
+the element family. [`StoredMVTSeries`][tsecon.dataecon.StoredMVTSeries] is the same representation
+for a dated matrix: a dated row anchor, the column names and a two-dimensional
 carrier, sharing the descriptor, the packers and the marker rules.
 
 A file may also carry Julia's reconstruction markers: ``jeltype`` names an
@@ -143,8 +143,9 @@ class IntegerComplex:
     """An exact ``Complex{T}`` value for integer ``T``: two Python integers.
 
     Julia keeps such components exact at any width, so a Python ``complex``
-    (two Float64) cannot hold them in general; `to_complex` converts
-    only when both components are exactly representable in Float64.
+    (two Float64) cannot hold them in general;
+    [`to_complex`][tsecon.dataecon.IntegerComplex.to_complex] converts only when both components are
+    exactly representable in Float64.
     """
 
     real: int
@@ -179,10 +180,10 @@ class RationalComplex:
     """An exact ``Complex{Rational{T}}`` value: two ``fractions.Fraction`` components.
 
     Julia rebuilds each component with its ``Rational{T}`` reconstruction of
-    the stored Float64 (see `StoredScalar.to_fraction`); a component
-    Julia loads as ``±1//0`` has no Fraction, so such a value raises before
-    this pair is built. `to_complex` returns Julia's ``float(z)``, the
-    two components as Float64 (a rounding conversion, explicitly requested).
+    the stored Float64 (see [`StoredScalar.to_fraction`][tsecon.dataecon.StoredScalar.to_fraction]);
+    a component Julia loads as ``±1//0`` has no Fraction, so such a value raises before
+    this pair is built. [`to_complex`][tsecon.dataecon.RationalComplex.to_complex] returns Julia's
+    ``float(z)``, the two components as Float64 (a rounding conversion, explicitly requested).
     """
 
     real: Fraction
@@ -460,8 +461,11 @@ def _no_storage(element: StoredElement) -> str:
 
 
 INT128 = StoredElement("int128")
+"""Element descriptor for Julia ``Int128`` values (16-byte signed storage)."""
 UINT128 = StoredElement("uint128")
+"""Element descriptor for Julia ``UInt128`` values (16-byte unsigned storage)."""
 COMPLEXF16 = StoredElement("complexf16")
+"""Element descriptor for Julia ``ComplexF16`` values (two half-precision parts)."""
 
 
 def _element_from_target(target: Target) -> StoredElement:
@@ -1231,7 +1235,8 @@ def rational_storage(
     pinned loader rebuilds exactly that fraction; ``exact=False`` stores the
     float when Julia can load *some* rational from it and leaves the loss
     explicit. The result pairs with [`StoredSeries`][tsecon.dataecon.StoredSeries],
-    [`StoredArray`][tsecon.dataecon.StoredArray] or `StoredMVTSeries`;
+    [`StoredArray`][tsecon.dataecon.StoredArray] or
+    [`StoredMVTSeries`][tsecon.dataecon.StoredMVTSeries];
     [`to_interpreted`][tsecon.dataecon.StoredSeries.to_interpreted] returns the exact carrier back.
     An input whose Float64 storage would exceed the payload limit is refused before anything is
     copied or allocated.
@@ -1269,8 +1274,8 @@ def integer_complex_storage(
 ) -> tuple[np.ndarray[Any, Any], StoredElement]:
     """Build the ComplexF64 carrier and marked descriptor Julia reloads as ``Complex{parameter}``.
 
-    ``items`` are `IntegerComplex` values (an iterable, an object array
-    or an exact ``intcomplex`` carrier). Each component must lie within
+    ``items`` are [`IntegerComplex`][tsecon.dataecon.IntegerComplex] values (an iterable, an object
+    array or an exact ``intcomplex`` carrier). Each component must lie within
     ``parameter`` and be exactly representable in Float64, which is what
     Julia's own writer stores and reloads (no ``2**53`` cutoff). An input
     whose ComplexF64 storage would exceed the payload limit is refused before
@@ -1299,9 +1304,9 @@ def rational_complex_storage(
 ) -> tuple[np.ndarray[Any, Any], StoredElement]:
     """Build the ComplexF64 storage Julia reloads as ``Complex{Rational{parameter}}``.
 
-    ``items`` are `RationalComplex` values; each component follows the
-    rule of `rational_storage` (exact by default, ``exact=False`` for a
-    documented loss) and the same capacity rule.
+    ``items`` are [`RationalComplex`][tsecon.dataecon.RationalComplex] values; each component
+    follows the rule of [`rational_storage`][tsecon.dataecon.rational_storage] (exact by default,
+    ``exact=False`` for a documented loss) and the same capacity rule.
     """
     if parameter not in _exact.RATIONAL_PARAMETERS:
         raise TypeError(f"Unknown Rational parameter {parameter!r}.")
@@ -1432,7 +1437,8 @@ class StoredMVTSeries:
     constructor copies by default; with ``copy=False`` a writable, C-contiguous
     array of the exact dtype is shared with the caller and anything else is
     copied. Input of another dtype is refused rather than converted; build the
-    carrier with `from_list` or an explicit ``np.array(..., dtype=...)``.
+    carrier with [`from_list`][tsecon.dataecon.StoredMVTSeries.from_list] or an explicit
+    ``np.array(..., dtype=...)``.
 
     ``object_marker`` is a preserved whole-object ``jtype`` text; when present
     it takes precedence and the element marker is inactive, as in Julia. The
@@ -1613,7 +1619,8 @@ class StoredMVTSeries:
         element frequency, 128-bit values Python ``int``, ComplexF16 values
         Python ``complex`` and ordinary numeric carriers NumPy's ``tolist``
         values. A preserved marker does not change this; use
-        `to_interpreted` for Julia's converted values.
+        [`to_interpreted`][tsecon.dataecon.StoredMVTSeries.to_interpreted] for Julia's converted
+        values.
         """
         _check_matrix_carrier(self._values, self._element, len(self._columns))
         rows, columns = self.shape

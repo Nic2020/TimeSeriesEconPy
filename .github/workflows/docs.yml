@@ -25,9 +25,30 @@ jobs:
           enable-cache: true
       - name: Install dependencies
         run: uv sync --group dev --extra all
+      # The executed X-13 examples in docs/reference/x13.md need the binary,
+      # which is gitignored and otherwise only vendored into wheels.
+      - name: Build X-13ARIMA-SEATS from pinned source
+        run: bash scripts/build_x13as_source.sh
+      # Build and verify before publishing, with the same gates as the
+      # checks.yml docs job. 2026-10-19: a non-strict `gh-deploy` published
+      # an X-13 example's RuntimeError on reference/x13 while checks.yml
+      # failed on the same commit.
+      - name: mkdocs build --strict
+        run: uv run mkdocs build --strict
+      - name: Verify no embedded tracebacks in built site
+        run: |
+          if grep -lr --include='*.html' 'markdown_exec/_internal/formatters' site/; then
+            echo "::error::Embedded markdown-exec runtime traceback(s) detected in built site."
+            exit 1
+          fi
+          echo "OK: no embedded markdown-exec tracebacks in site/"
       - name: Configure git for gh-pages
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-      - name: Build and deploy
-        run: uv run mkdocs gh-deploy --force --clean
+      # Publish the verified site/ as is (what `mkdocs gh-deploy` does after
+      # its own build), so the deployed pages are exactly the checked ones.
+      - name: Deploy verified site to gh-pages
+        run: >-
+          uv run ghp-import --no-jekyll --push --force --branch gh-pages
+          --message "Deployed $(git rev-parse --short HEAD) with MkDocs" site

@@ -41,10 +41,14 @@ jobs:
           enable-cache: true
       - name: Install dependencies
         run: uv sync --all-extras --group dev
+      # The executed X-13 examples in docs/reference/x13.md need the binary,
+      # which is gitignored and otherwise only vendored into wheels.
+      - name: Build X-13ARIMA-SEATS from pinned source
+        run: bash scripts/build_x13as_source.sh
       # `--strict` upgrades broken links / undocumented references to errors.
-      # `markdown-exec`, by contrast, CAPTURES uncaught exceptions in
-      # executable fenced blocks and embeds the traceback inline in the
-      # rendered HTML — it does NOT fail the build by default. We
+      # `markdown-exec` also logs a warning when an executable fenced block
+      # raises (which `--strict` turns into a failure), but it embeds the
+      # traceback inline in the rendered HTML rather than raising itself. We
       # therefore need the explicit "Verify no embedded tracebacks" step
       # below to gate the kind of failure mode the deploy-on-merge
       # `docs.yml` workflow would otherwise publish silently.

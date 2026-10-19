@@ -11,24 +11,8 @@ order they appear in `tsecon/__init__.py`.
       filters: ["!^_"]
       heading_level: 2
 
-## DataEcon represented values
+## DataEcon
 
-::: tsecon.dataecon.StoredElement
-
-::: tsecon.dataecon.StoredSeries
-
-::: tsecon.dataecon.StoredArray
-
-::: tsecon.dataecon.StoredText
-
-## DataEcon Workspace interchange
-
-::: tsecon.dataecon.WorkspaceReport
-
-::: tsecon.dataecon.SkippedMember
-
-::: tsecon.dataecon.LoadedWorkspace
-
-::: tsecon.dataecon.save_workspace
-
-::: tsecon.dataecon.load_workspace
+The `tsecon.dataecon` subpackage (files, scalars, series, arrays, catalogs,
+attributes, workspaces and the represented `Stored*` carriers) has its own
+[DataEcon API reference](reference/dataecon.md).

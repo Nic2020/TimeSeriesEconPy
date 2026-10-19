@@ -186,6 +186,7 @@ ScalarValue: TypeAlias = (
     | dt.datetime
     | IntegerComplex
 )
+"""Python values ``DataEconFile.write_scalar`` accepts."""
 ScalarResult: TypeAlias = (
     float
     | np.float32
@@ -205,6 +206,7 @@ ScalarResult: TypeAlias = (
     | Duration
     | StoredScalar
 )
+"""Python values ``DataEconFile.read_scalar`` returns."""
 _SCALAR_SUPPORT = (
     "DataEcon scalar support covers Float16/32/64, Int8/16/32/64, UInt8/16/32/64, "
     "Complex64/128, Booleans stored as Int8, strings, and MIT dates or Durations "
@@ -287,11 +289,13 @@ _SERIES_WIDTHS = dict(NUMERIC_WIDTHS)
 _WIDE_ELEMENTS = {(1, 16): INT128, (2, 16): UINT128, (5, 4): COMPLEXF16}
 _WIDE_NAMES = {e.julia_name: e for e in _WIDE_ELEMENTS.values()}
 SeriesValue: TypeAlias = TSeries | StoredSeries | MVTSeries | StoredMVTSeries
+"""Series values ``DataEconFile.write_series`` accepts and ``read_series`` returns."""
 # Text input is a flat or rectangular nested sequence of ``str`` (list/tuple),
 # a NumPy ``str_`` array, or a StoredText of one to five dimensions.
 ArrayValue: TypeAlias = (
     np.ndarray[Any, Any] | range | MITRange | StoredArray | StoredText | list[Any] | tuple[Any, ...]
 )
+"""Array values ``DataEconFile.write_array`` accepts and ``read_array`` returns."""
 MatrixMetadata: TypeAlias = tuple[int, ...]
 # Six header integers (class, object type, element, element frequency, axis
 # count, nbytes) followed by DE_MAX_AXES slots of (id, axis type, length,

@@ -1856,19 +1856,19 @@ directly without an external dependency.</p>
 <p>Both attribute access (<code>w.a</code>) and bracket access (<code>w["a"]</code>) are supported,
 matching the Julia idiom of dual access via <code>getproperty</code> and <code>getindex</code>.
 Subset access (<code>w["a", "b"]</code> or <code>w[["a", "b"]]</code>) returns a new Workspace.</p>
-<p>The :func:<code>copyto</code> free function mirrors Julia's
+<p>The <a class="autorefs autorefs-internal" title="copyto" href="#tsecon.workspace.copyto"><code>copyto</code></a> free function mirrors Julia's
 <code>Base.copyto!(::MVTSeries, ::Workspace; verbose=, trange=)</code>: an in-place
 materialiser that writes Workspace members into the matching columns of a
 pre-allocated MVTSeries without re-allocating the matrix buffer.</p>
-<p>The :meth:<code>Workspace.as_namespace</code> context manager exposes members as
-attributes on a snapshot <code>SimpleNamespace</code>, the Pythonic alternative to
+<p>The <a class="autorefs autorefs-internal" title="as_namespace" href="#tsecon.workspace.Workspace.as_namespace"><code>Workspace.as_namespace</code></a> context manager exposes
+members as attributes on a snapshot <code>SimpleNamespace</code>, the Pythonic alternative to
 Julia's <code>@weval</code> macro.</p>
 <p>Intentional non-ports (do not re-litigate):</p>
 <ul>
 <li><code>@weval</code> — Julia AST-rewriting macro. Python has no analogue; the
   idiomatic shapes are direct attribute access (<code>w.x + w.alpha</code>) or
-  the snapshot context manager :meth:<code>Workspace.as_namespace</code>. An
-  <code>eval</code>-based form is not provided because runtime <code>eval</code> of
+  the snapshot context manager <a class="autorefs autorefs-internal" title="as_namespace" href="#tsecon.workspace.Workspace.as_namespace"><code>Workspace.as_namespace</code></a>.
+  An <code>eval</code>-based form is not provided because runtime <code>eval</code> of
   arbitrary expression strings breaks static tooling (mypy, IDE refactors,
   "find references") and is a security footgun on untrusted workspaces.</li>
 <li><code>clean_old_frequencies</code> — Julia compatibility shim for legacy
@@ -1877,8 +1877,8 @@ Julia's <code>@weval</code> macro.</p>
   the migration helper has no input to operate on.</li>
 </ul>
 <p>The standalone <code>strip!(t::TSeries)</code> helper now lives in the ported fconvert
-subpackage as :func:<code>tsecon.fconvert.strip_tseries_inplace</code>; the workspace
-delegates to it.</p>
+subpackage as <a class="autorefs autorefs-internal" title="strip_tseries_inplace" href="../fconvert/#tsecon.fconvert.strip_tseries_inplace"><code>tsecon.fconvert.strip_tseries_inplace</code></a>; the
+workspace delegates to it.</p>
 
 
 
@@ -2499,9 +2499,9 @@ strings.)</p>
 <a id="__codelineno-0-290" name="__codelineno-0-290"></a>
 <a id="__codelineno-0-291" name="__codelineno-0-291"></a><span class="sd">        With ``deep=False`` (the default) the storage dict is fresh but</span>
 <a id="__codelineno-0-292" name="__codelineno-0-292"></a><span class="sd">        values are shared by reference — Python-dict semantics. With</span>
-<a id="__codelineno-0-293" name="__codelineno-0-293"></a><span class="sd">        ``deep=True``, every value is recursively :func:`copy.deepcopy`-ed,</span>
+<a id="__codelineno-0-293" name="__codelineno-0-293"></a><span class="sd">        ``deep=True``, every value is recursively [`copy.deepcopy`][copy.deepcopy]-ed,</span>
 <a id="__codelineno-0-294" name="__codelineno-0-294"></a><span class="sd">        equivalent to ``copy.deepcopy(self)``. The kwarg matches the</span>
-<a id="__codelineno-0-295" name="__codelineno-0-295"></a><span class="sd">        :meth:`TSeries.copy` signature for API uniformity.</span>
+<a id="__codelineno-0-295" name="__codelineno-0-295"></a><span class="sd">        [`TSeries.copy`][tsecon.tseries.TSeries.copy] signature for API uniformity.</span>
 <a id="__codelineno-0-296" name="__codelineno-0-296"></a><span class="sd">        &quot;&quot;&quot;</span>
 <a id="__codelineno-0-297" name="__codelineno-0-297"></a>        <span class="k">if</span> <span class="n">deep</span><span class="p">:</span>
 <a id="__codelineno-0-298" name="__codelineno-0-298"></a>            <span class="k">return</span> <span class="n">deepcopy</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
@@ -2551,8 +2551,8 @@ strings.)</p>
 <a id="__codelineno-0-342" name="__codelineno-0-342"></a><span class="sd">        nested Workspaces. Mirrors Julia&#39;s ``strip!(w; recursive)``.</span>
 <a id="__codelineno-0-343" name="__codelineno-0-343"></a>
 <a id="__codelineno-0-344" name="__codelineno-0-344"></a><span class="sd">        Delegates the per-TSeries trim to</span>
-<a id="__codelineno-0-345" name="__codelineno-0-345"></a><span class="sd">        :func:`tsecon.fconvert.strip_tseries_inplace`. Bool-dtype TSeries are</span>
-<a id="__codelineno-0-346" name="__codelineno-0-346"></a><span class="sd">        left alone (their typenan is ``False``, which would erase the array).</span>
+<a id="__codelineno-0-345" name="__codelineno-0-345"></a><span class="sd">        [`tsecon.fconvert.strip_tseries_inplace`][tsecon.fconvert.strip_tseries_inplace]. Bool-dtype</span>
+<a id="__codelineno-0-346" name="__codelineno-0-346"></a><span class="sd">        TSeries are left alone (their typenan is ``False``, which would erase the array).</span>
 <a id="__codelineno-0-347" name="__codelineno-0-347"></a><span class="sd">        &quot;&quot;&quot;</span>
 <a id="__codelineno-0-348" name="__codelineno-0-348"></a>        <span class="k">for</span> <span class="n">value</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_c</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
 <a id="__codelineno-0-349" name="__codelineno-0-349"></a>            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">TSeries</span><span class="p">):</span>
@@ -2602,8 +2602,8 @@ strings.)</p>
 <a id="__codelineno-0-393" name="__codelineno-0-393"></a><span class="sd">        method</span>
 <a id="__codelineno-0-394" name="__codelineno-0-394"></a><span class="sd">            ``&quot;intersect&quot;`` (default) returns the intersection of all member</span>
 <a id="__codelineno-0-395" name="__codelineno-0-395"></a><span class="sd">            ranges. ``&quot;union&quot;`` returns the spanning union, equivalent to</span>
-<a id="__codelineno-0-396" name="__codelineno-0-396"></a><span class="sd">            :meth:`rangeof_span`. Mirrors Julia&#39;s ``rangeof(w; method=intersect)``</span>
-<a id="__codelineno-0-397" name="__codelineno-0-397"></a><span class="sd">            policy switch.</span>
+<a id="__codelineno-0-396" name="__codelineno-0-396"></a><span class="sd">            [`rangeof_span`][tsecon.workspace.Workspace.rangeof_span]. Mirrors Julia&#39;s</span>
+<a id="__codelineno-0-397" name="__codelineno-0-397"></a><span class="sd">            ``rangeof(w; method=intersect)`` policy switch.</span>
 <a id="__codelineno-0-398" name="__codelineno-0-398"></a><span class="sd">        &quot;&quot;&quot;</span>
 <a id="__codelineno-0-399" name="__codelineno-0-399"></a>        <span class="k">if</span> <span class="n">method</span> <span class="o">==</span> <span class="s2">&quot;union&quot;</span><span class="p">:</span>
 <a id="__codelineno-0-400" name="__codelineno-0-400"></a>            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">rangeof_span</span><span class="p">()</span>
@@ -3107,9 +3107,9 @@ unprefixed reads in a row earn their keep over the explicit prefix.</p>
         <p>Return a copy of the Workspace.</p>
 <p>With <code>deep=False</code> (the default) the storage dict is fresh but
 values are shared by reference — Python-dict semantics. With
-<code>deep=True</code>, every value is recursively :func:<code>copy.deepcopy</code>-ed,
+<code>deep=True</code>, every value is recursively <a class="autorefs autorefs-external" href="https://docs.python.org/3/library/copy.html#copy.deepcopy"><code>copy.deepcopy</code></a>-ed,
 equivalent to <code>copy.deepcopy(self)</code>. The kwarg matches the
-:meth:<code>TSeries.copy</code> signature for API uniformity.</p>
+<a class="autorefs autorefs-internal" title="copy" href="../tseries/#tsecon.tseries.TSeries.copy"><code>TSeries.copy</code></a> signature for API uniformity.</p>
 
 
             <details class="mkdocstrings-source">
@@ -3132,9 +3132,9 @@ equivalent to <code>copy.deepcopy(self)</code>. The kwarg matches the
 <a id="__codelineno-0-290" name="__codelineno-0-290"></a>
 <a id="__codelineno-0-291" name="__codelineno-0-291"></a><span class="sd">    With ``deep=False`` (the default) the storage dict is fresh but</span>
 <a id="__codelineno-0-292" name="__codelineno-0-292"></a><span class="sd">    values are shared by reference — Python-dict semantics. With</span>
-<a id="__codelineno-0-293" name="__codelineno-0-293"></a><span class="sd">    ``deep=True``, every value is recursively :func:`copy.deepcopy`-ed,</span>
+<a id="__codelineno-0-293" name="__codelineno-0-293"></a><span class="sd">    ``deep=True``, every value is recursively [`copy.deepcopy`][copy.deepcopy]-ed,</span>
 <a id="__codelineno-0-294" name="__codelineno-0-294"></a><span class="sd">    equivalent to ``copy.deepcopy(self)``. The kwarg matches the</span>
-<a id="__codelineno-0-295" name="__codelineno-0-295"></a><span class="sd">    :meth:`TSeries.copy` signature for API uniformity.</span>
+<a id="__codelineno-0-295" name="__codelineno-0-295"></a><span class="sd">    [`TSeries.copy`][tsecon.tseries.TSeries.copy] signature for API uniformity.</span>
 <a id="__codelineno-0-296" name="__codelineno-0-296"></a><span class="sd">    &quot;&quot;&quot;</span>
 <a id="__codelineno-0-297" name="__codelineno-0-297"></a>    <span class="k">if</span> <span class="n">deep</span><span class="p">:</span>
 <a id="__codelineno-0-298" name="__codelineno-0-298"></a>        <span class="k">return</span> <span class="n">deepcopy</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
@@ -3277,8 +3277,8 @@ pair).</p>
 <p>With <code>recursive=True</code> (the default) also strips TSeries inside
 nested Workspaces. Mirrors Julia's <code>strip!(w; recursive)</code>.</p>
 <p>Delegates the per-TSeries trim to
-:func:<code>tsecon.fconvert.strip_tseries_inplace</code>. Bool-dtype TSeries are
-left alone (their typenan is <code>False</code>, which would erase the array).</p>
+<a class="autorefs autorefs-internal" title="strip_tseries_inplace" href="../fconvert/#tsecon.fconvert.strip_tseries_inplace"><code>tsecon.fconvert.strip_tseries_inplace</code></a>. Bool-dtype
+TSeries are left alone (their typenan is <code>False</code>, which would erase the array).</p>
 
 
             <details class="mkdocstrings-source">
@@ -3305,8 +3305,8 @@ left alone (their typenan is <code>False</code>, which would erase the array).</
 <a id="__codelineno-0-342" name="__codelineno-0-342"></a><span class="sd">    nested Workspaces. Mirrors Julia&#39;s ``strip!(w; recursive)``.</span>
 <a id="__codelineno-0-343" name="__codelineno-0-343"></a>
 <a id="__codelineno-0-344" name="__codelineno-0-344"></a><span class="sd">    Delegates the per-TSeries trim to</span>
-<a id="__codelineno-0-345" name="__codelineno-0-345"></a><span class="sd">    :func:`tsecon.fconvert.strip_tseries_inplace`. Bool-dtype TSeries are</span>
-<a id="__codelineno-0-346" name="__codelineno-0-346"></a><span class="sd">    left alone (their typenan is ``False``, which would erase the array).</span>
+<a id="__codelineno-0-345" name="__codelineno-0-345"></a><span class="sd">    [`tsecon.fconvert.strip_tseries_inplace`][tsecon.fconvert.strip_tseries_inplace]. Bool-dtype</span>
+<a id="__codelineno-0-346" name="__codelineno-0-346"></a><span class="sd">    TSeries are left alone (their typenan is ``False``, which would erase the array).</span>
 <a id="__codelineno-0-347" name="__codelineno-0-347"></a><span class="sd">    &quot;&quot;&quot;</span>
 <a id="__codelineno-0-348" name="__codelineno-0-348"></a>    <span class="k">for</span> <span class="n">value</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_c</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
 <a id="__codelineno-0-349" name="__codelineno-0-349"></a>        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">TSeries</span><span class="p">):</span>
@@ -3434,14 +3434,14 @@ etc.) are skipped. If no member has a range, raises <code>ValueError</code>.</p>
                 <code>method</code>
             </td>
             <td>
-                  <code><span title="str">str</span></code>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></code>
             </td>
             <td>
               <div class="doc-md-description">
                 <p><code>"intersect"</code> (default) returns the intersection of all member
 ranges. <code>"union"</code> returns the spanning union, equivalent to
-:meth:<code>rangeof_span</code>. Mirrors Julia's <code>rangeof(w; method=intersect)</code>
-policy switch.</p>
+<a class="autorefs autorefs-internal" title="rangeof_span" href="#tsecon.workspace.Workspace.rangeof_span"><code>rangeof_span</code></a>. Mirrors Julia's
+<code>rangeof(w; method=intersect)</code> policy switch.</p>
               </div>
             </td>
             <td>
@@ -3505,8 +3505,8 @@ policy switch.</p>
 <a id="__codelineno-0-393" name="__codelineno-0-393"></a><span class="sd">    method</span>
 <a id="__codelineno-0-394" name="__codelineno-0-394"></a><span class="sd">        ``&quot;intersect&quot;`` (default) returns the intersection of all member</span>
 <a id="__codelineno-0-395" name="__codelineno-0-395"></a><span class="sd">        ranges. ``&quot;union&quot;`` returns the spanning union, equivalent to</span>
-<a id="__codelineno-0-396" name="__codelineno-0-396"></a><span class="sd">        :meth:`rangeof_span`. Mirrors Julia&#39;s ``rangeof(w; method=intersect)``</span>
-<a id="__codelineno-0-397" name="__codelineno-0-397"></a><span class="sd">        policy switch.</span>
+<a id="__codelineno-0-396" name="__codelineno-0-396"></a><span class="sd">        [`rangeof_span`][tsecon.workspace.Workspace.rangeof_span]. Mirrors Julia&#39;s</span>
+<a id="__codelineno-0-397" name="__codelineno-0-397"></a><span class="sd">        ``rangeof(w; method=intersect)`` policy switch.</span>
 <a id="__codelineno-0-398" name="__codelineno-0-398"></a><span class="sd">    &quot;&quot;&quot;</span>
 <a id="__codelineno-0-399" name="__codelineno-0-399"></a>    <span class="k">if</span> <span class="n">method</span> <span class="o">==</span> <span class="s2">&quot;union&quot;</span><span class="p">:</span>
 <a id="__codelineno-0-400" name="__codelineno-0-400"></a>        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">rangeof_span</span><span class="p">()</span>
@@ -3625,7 +3625,7 @@ Julia's <code>rangeof_span(values(w)...)</code> idiom.</p>
         <p>Copy Workspace members into a pre-allocated MVTSeries in place.</p>
 <p>Mirrors Julia's <code>Base.copyto!(x::MVTSeries, w::AbstractWorkspace;
 verbose=false, trange=rangeof(x))</code>. For each column name in
-<code>dst.column_names</code>, the matching <code>src[name]</code> :class:<code>TSeries</code> is
+<code>dst.column_names</code>, the matching <code>src[name]</code> <a class="autorefs autorefs-internal" title="TSeries" href="../tseries/#tsecon.tseries.TSeries"><code>TSeries</code></a> is
 written into the destination column over the overlap of <code>trange</code> and
 the source TSeries's range; <code>dst._values</code> is mutated, never replaced.</p>
 
@@ -3680,11 +3680,11 @@ identity is preserved (<code>id(dst._values)</code> is unchanged on return).</p>
                 <code>verbose</code>
             </td>
             <td>
-                  <code><span title="bool">bool</span></code>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>When True, a single :class:<code>UserWarning</code> is emitted at the end of
+                <p>When True, a single <a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/exceptions.html#UserWarning"><code>UserWarning</code></a> is emitted at the end of
 the loop listing every column that was not written because its name
 is absent from <code>src</code>. Matches Julia's end-of-loop <code>@warn</code> shape.</p>
               </div>
@@ -3707,11 +3707,16 @@ is absent from <code>src</code>. Matches Julia's end-of-loop <code>@warn</code> 
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Optional :class:<code>MITRange</code> restricting the rows to write. Defaults
+                <p>Optional <a class="autorefs autorefs-internal" title="MITRange
+
+
+  
+      dataclass
+  " href="../mit/#tsecon.mitrange.MITRange"><code>MITRange</code></a> restricting the rows to write. Defaults
 to <code>dst.range</code>. Must share <code>dst</code>'s frequency, have <code>step == 1</code>,
 and be contained in <code>dst.range</code>. The actual rows written for any
 given column are the intersection of <code>trange</code> with that column's
-source :class:<code>TSeries</code> range (so a source that doesn't cover all
+source <a class="autorefs autorefs-internal" title="TSeries" href="../tseries/#tsecon.tseries.TSeries"><code>TSeries</code></a> range (so a source that doesn't cover all
 of <code>trange</code> writes only the overlap, never raises).</p>
               </div>
             </td>
@@ -3758,19 +3763,19 @@ preserved).</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="TypeError">TypeError</span></code>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/exceptions.html#TypeError">TypeError</a></code>
             </td>
             <td>
               <div class="doc-md-description">
                 <p>If <code>trange</code> (or, by default, <code>dst</code>'s frequency) does not match a
 matching source member's frequency, or if a Workspace member at a
-matching key is not a :class:<code>TSeries</code>.</p>
+matching key is not a <a class="autorefs autorefs-internal" title="TSeries" href="../tseries/#tsecon.tseries.TSeries"><code>TSeries</code></a>.</p>
               </div>
             </td>
           </tr>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="ValueError">ValueError</span></code>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/exceptions.html#ValueError">ValueError</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -3780,7 +3785,7 @@ matching key is not a :class:<code>TSeries</code>.</p>
           </tr>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="IndexError">IndexError</span></code>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/exceptions.html#IndexError">IndexError</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -3944,7 +3949,7 @@ Workspace : the source type.</p>
 <a id="__codelineno-0-562" name="__codelineno-0-562"></a>
 <a id="__codelineno-0-563" name="__codelineno-0-563"></a><span class="sd">    Mirrors Julia&#39;s ``Base.copyto!(x::MVTSeries, w::AbstractWorkspace;</span>
 <a id="__codelineno-0-564" name="__codelineno-0-564"></a><span class="sd">    verbose=false, trange=rangeof(x))``. For each column name in</span>
-<a id="__codelineno-0-565" name="__codelineno-0-565"></a><span class="sd">    ``dst.column_names``, the matching ``src[name]`` :class:`TSeries` is</span>
+<a id="__codelineno-0-565" name="__codelineno-0-565"></a><span class="sd">    ``dst.column_names``, the matching ``src[name]`` [`TSeries`][tsecon.tseries.TSeries] is</span>
 <a id="__codelineno-0-566" name="__codelineno-0-566"></a><span class="sd">    written into the destination column over the overlap of ``trange`` and</span>
 <a id="__codelineno-0-567" name="__codelineno-0-567"></a><span class="sd">    the source TSeries&#39;s range; ``dst._values`` is mutated, never replaced.</span>
 <a id="__codelineno-0-568" name="__codelineno-0-568"></a>
@@ -3957,15 +3962,15 @@ Workspace : the source type.</p>
 <a id="__codelineno-0-575" name="__codelineno-0-575"></a><span class="sd">        Source Workspace. Only members whose names appear in</span>
 <a id="__codelineno-0-576" name="__codelineno-0-576"></a><span class="sd">        ``dst.column_names`` are visited; extra Workspace entries are ignored.</span>
 <a id="__codelineno-0-577" name="__codelineno-0-577"></a><span class="sd">    verbose</span>
-<a id="__codelineno-0-578" name="__codelineno-0-578"></a><span class="sd">        When True, a single :class:`UserWarning` is emitted at the end of</span>
+<a id="__codelineno-0-578" name="__codelineno-0-578"></a><span class="sd">        When True, a single [`UserWarning`][UserWarning] is emitted at the end of</span>
 <a id="__codelineno-0-579" name="__codelineno-0-579"></a><span class="sd">        the loop listing every column that was not written because its name</span>
 <a id="__codelineno-0-580" name="__codelineno-0-580"></a><span class="sd">        is absent from ``src``. Matches Julia&#39;s end-of-loop ``@warn`` shape.</span>
 <a id="__codelineno-0-581" name="__codelineno-0-581"></a><span class="sd">    trange</span>
-<a id="__codelineno-0-582" name="__codelineno-0-582"></a><span class="sd">        Optional :class:`MITRange` restricting the rows to write. Defaults</span>
+<a id="__codelineno-0-582" name="__codelineno-0-582"></a><span class="sd">        Optional [`MITRange`][tsecon.mitrange.MITRange] restricting the rows to write. Defaults</span>
 <a id="__codelineno-0-583" name="__codelineno-0-583"></a><span class="sd">        to ``dst.range``. Must share ``dst``&#39;s frequency, have ``step == 1``,</span>
 <a id="__codelineno-0-584" name="__codelineno-0-584"></a><span class="sd">        and be contained in ``dst.range``. The actual rows written for any</span>
 <a id="__codelineno-0-585" name="__codelineno-0-585"></a><span class="sd">        given column are the intersection of ``trange`` with that column&#39;s</span>
-<a id="__codelineno-0-586" name="__codelineno-0-586"></a><span class="sd">        source :class:`TSeries` range (so a source that doesn&#39;t cover all</span>
+<a id="__codelineno-0-586" name="__codelineno-0-586"></a><span class="sd">        source [`TSeries`][tsecon.tseries.TSeries] range (so a source that doesn&#39;t cover all</span>
 <a id="__codelineno-0-587" name="__codelineno-0-587"></a><span class="sd">        of ``trange`` writes only the overlap, never raises).</span>
 <a id="__codelineno-0-588" name="__codelineno-0-588"></a>
 <a id="__codelineno-0-589" name="__codelineno-0-589"></a><span class="sd">    Returns</span>
@@ -3979,7 +3984,7 @@ Workspace : the source type.</p>
 <a id="__codelineno-0-597" name="__codelineno-0-597"></a><span class="sd">    TypeError</span>
 <a id="__codelineno-0-598" name="__codelineno-0-598"></a><span class="sd">        If ``trange`` (or, by default, ``dst``&#39;s frequency) does not match a</span>
 <a id="__codelineno-0-599" name="__codelineno-0-599"></a><span class="sd">        matching source member&#39;s frequency, or if a Workspace member at a</span>
-<a id="__codelineno-0-600" name="__codelineno-0-600"></a><span class="sd">        matching key is not a :class:`TSeries`.</span>
+<a id="__codelineno-0-600" name="__codelineno-0-600"></a><span class="sd">        matching key is not a [`TSeries`][tsecon.tseries.TSeries].</span>
 <a id="__codelineno-0-601" name="__codelineno-0-601"></a><span class="sd">    ValueError</span>
 <a id="__codelineno-0-602" name="__codelineno-0-602"></a><span class="sd">        If ``trange`` has a non-unit step.</span>
 <a id="__codelineno-0-603" name="__codelineno-0-603"></a><span class="sd">    IndexError</span>

@@ -1616,7 +1616,7 @@ the compiled extension is importable — see
 
     <div class="doc doc-contents first">
 
-        <p>Statistics reductions for :class:<code>TSeries</code> and :class:<code>MVTSeries</code>.</p>
+        <p>Statistics reductions for <code>TSeries</code> and <code>MVTSeries</code>.</p>
 <p>Mirrors the <code>Statistics.*</code> overloads in <code>TimeSeriesEcon.jl/src/tsmath.jl</code>
 (lines 238-298). Six TSeries reductions (<code>mean</code> / <code>std</code> / <code>var</code> /
 <code>median</code> / <code>quantile</code> / <code>stdm</code> / <code>varm</code>) and a <code>cor</code> / <code>cov</code>
@@ -1624,11 +1624,16 @@ pair (both for one and two arguments). MVTSeries has the same six
 single-argument reductions; <code>cor(MVTSeries)</code> / <code>cov(MVTSeries)</code> return
 column-correlation / column-covariance matrices.</p>
 <p>For non-BDaily series, the functions are thin wrappers around the
-corresponding <code>numpy</code> calls. For :class:<code>~tsecon.frequencies.BDaily</code> series
+corresponding <code>numpy</code> calls. For <a class="autorefs autorefs-internal" title="BDaily
+
+
+  
+      dataclass
+  " href="../frequencies/#tsecon.frequencies.BDaily"><code>BDaily</code></a> series
 they additionally accept <code>skip_all_nans</code> / <code>skip_holidays</code> /
 <code>holidays_map</code> kwargs that filter the underlying values through
-:func:<code>tsecon._bdaily.cleanedvalues</code> before the reduction. Passing those
-kwargs on a non-BDaily series raises :class:<code>TypeError</code>.</p>
+<a class="autorefs autorefs-internal" title="cleanedvalues" href="../../api_index/#tsecon.cleanedvalues"><code>tsecon._bdaily.cleanedvalues</code></a> before the reduction. Passing those
+kwargs on a non-BDaily series raises <a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/exceptions.html#TypeError"><code>TypeError</code></a>.</p>
 <p>The Julia overloads return scalar values for the single-series form and
 matrices for the MVTSeries <code>cor</code> / <code>cov</code>. We follow the same shape; the
 column orientation matches Julia (variables = columns) by passing
@@ -1669,9 +1674,9 @@ column orientation matches Julia (variables = columns) by passing
 
         <p>Return True iff the Cython-compiled stats kernels were importable.</p>
 <p>Useful for tests, benchmarks, and diagnostic prints — the public
-:func:<code>mean</code> / :func:<code>var</code> / :func:<code>std</code> / :func:<code>cor</code> are
-implementation-agnostic. When this returns <code>False</code> the same calls
-go through the pure-NumPy kernels in <code>_stats_kernels.py</code>;
+<a class="autorefs autorefs-internal" title="mean" href="#tsecon._stats.mean"><code>mean</code></a> / <a class="autorefs autorefs-internal" title="var" href="#tsecon._stats.var"><code>var</code></a> / <a class="autorefs autorefs-internal" title="std" href="#tsecon._stats.std"><code>std</code></a> /
+<a class="autorefs autorefs-internal" title="cor" href="#tsecon._stats.cor"><code>cor</code></a> are implementation-agnostic. When this returns <code>False</code> the same
+calls go through the pure-NumPy kernels in <code>_stats_kernels.py</code>;
 behaviour is identical, only speed differs.</p>
 
 
@@ -1690,9 +1695,9 @@ behaviour is identical, only speed differs.</p>
 <a id="__codelineno-0-81" name="__codelineno-0-81"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Return True iff the Cython-compiled stats kernels were importable.</span>
 <a id="__codelineno-0-82" name="__codelineno-0-82"></a>
 <a id="__codelineno-0-83" name="__codelineno-0-83"></a><span class="sd">    Useful for tests, benchmarks, and diagnostic prints — the public</span>
-<a id="__codelineno-0-84" name="__codelineno-0-84"></a><span class="sd">    :func:`mean` / :func:`var` / :func:`std` / :func:`cor` are</span>
-<a id="__codelineno-0-85" name="__codelineno-0-85"></a><span class="sd">    implementation-agnostic. When this returns ``False`` the same calls</span>
-<a id="__codelineno-0-86" name="__codelineno-0-86"></a><span class="sd">    go through the pure-NumPy kernels in ``_stats_kernels.py``;</span>
+<a id="__codelineno-0-84" name="__codelineno-0-84"></a><span class="sd">    [`mean`][tsecon._stats.mean] / [`var`][tsecon._stats.var] / [`std`][tsecon._stats.std] /</span>
+<a id="__codelineno-0-85" name="__codelineno-0-85"></a><span class="sd">    [`cor`][tsecon._stats.cor] are implementation-agnostic. When this returns ``False`` the same</span>
+<a id="__codelineno-0-86" name="__codelineno-0-86"></a><span class="sd">    calls go through the pure-NumPy kernels in ``_stats_kernels.py``;</span>
 <a id="__codelineno-0-87" name="__codelineno-0-87"></a><span class="sd">    behaviour is identical, only speed differs.</span>
 <a id="__codelineno-0-88" name="__codelineno-0-88"></a><span class="sd">    &quot;&quot;&quot;</span>
 <a id="__codelineno-0-89" name="__codelineno-0-89"></a>    <span class="k">return</span> <span class="n">_CYTHON_AVAILABLE</span>
@@ -1723,8 +1728,8 @@ behaviour is identical, only speed differs.</p>
     <div class="doc doc-contents ">
 
         <p>Arithmetic mean.</p>
-<p>For a :class:<code>~tsecon.tseries.TSeries</code> returns a scalar; for an
-:class:<code>~tsecon.mvtseries.MVTSeries</code> the default (<code>axis=None</code>) returns
+<p>For a <a class="autorefs autorefs-internal" title="TSeries" href="../tseries/#tsecon.tseries.TSeries"><code>TSeries</code></a> returns a scalar; for an
+<a class="autorefs autorefs-internal" title="MVTSeries" href="../mvtseries/#tsecon.mvtseries.MVTSeries"><code>MVTSeries</code></a> the default (<code>axis=None</code>) returns
 the overall mean (matching Julia's <code>mean(::MVTSeries)</code> which iterates
 the matrix flat). <code>axis=0</code> reduces along rows to a single-row
 MVTSeries (per-column means); <code>axis=1</code> reduces along columns to a 1-D
@@ -1763,7 +1768,7 @@ TSeries (per-row means).</p>
                 <code>axis</code>
             </td>
             <td>
-                  <code><span title="int">int</span> or None</code>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#int">int</a> or None</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -1787,7 +1792,7 @@ TSeries (per-row means).</p>
                 <code>skip_all_nans</code>
             </td>
             <td>
-                  <code><span title="bool">bool</span></code>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -1804,7 +1809,7 @@ TSeries (per-row means).</p>
                 <code>skip_holidays</code>
             </td>
             <td>
-                  <code><span title="bool">bool</span></code>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -1999,8 +2004,8 @@ an MVTSeries; 1-D TSeries for <code>axis=1</code> on an MVTSeries.</p>
 <a id="__codelineno-0-236" name="__codelineno-0-236"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
 <a id="__codelineno-0-237" name="__codelineno-0-237"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Arithmetic mean.</span>
 <a id="__codelineno-0-238" name="__codelineno-0-238"></a>
-<a id="__codelineno-0-239" name="__codelineno-0-239"></a><span class="sd">    For a :class:`~tsecon.tseries.TSeries` returns a scalar; for an</span>
-<a id="__codelineno-0-240" name="__codelineno-0-240"></a><span class="sd">    :class:`~tsecon.mvtseries.MVTSeries` the default (``axis=None``) returns</span>
+<a id="__codelineno-0-239" name="__codelineno-0-239"></a><span class="sd">    For a [`TSeries`][tsecon.tseries.TSeries] returns a scalar; for an</span>
+<a id="__codelineno-0-240" name="__codelineno-0-240"></a><span class="sd">    [`MVTSeries`][tsecon.mvtseries.MVTSeries] the default (``axis=None``) returns</span>
 <a id="__codelineno-0-241" name="__codelineno-0-241"></a><span class="sd">    the overall mean (matching Julia&#39;s ``mean(::MVTSeries)`` which iterates</span>
 <a id="__codelineno-0-242" name="__codelineno-0-242"></a><span class="sd">    the matrix flat). ``axis=0`` reduces along rows to a single-row</span>
 <a id="__codelineno-0-243" name="__codelineno-0-243"></a><span class="sd">    MVTSeries (per-column means); ``axis=1`` reduces along columns to a 1-D</span>
@@ -2157,11 +2162,11 @@ population deviation.</p>
                 <code>axis</code>
             </td>
             <td>
-                  <code><span title="int">int</span> or None</code>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#int">int</a> or None</code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Reduction axis (NumPy convention; see :func:<code>mean</code> for the return-
+                <p>Reduction axis (NumPy convention; see <a class="autorefs autorefs-internal" title="mean" href="#tsecon._stats.mean"><code>mean</code></a> for the return-
 shape contract). <code>None</code> → scalar. <code>0</code> → per-column → single-row
 MVTSeries. <code>1</code> → per-row → 1-D TSeries (MVTSeries only).</p>
               </div>
@@ -2175,7 +2180,7 @@ MVTSeries. <code>1</code> → per-row → 1-D TSeries (MVTSeries only).</p>
                 <code>skip_all_nans</code>
             </td>
             <td>
-                  <code><span title="bool">bool</span></code>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -2191,7 +2196,7 @@ MVTSeries. <code>1</code> → per-row → 1-D TSeries (MVTSeries only).</p>
                 <code>skip_holidays</code>
             </td>
             <td>
-                  <code><span title="bool">bool</span></code>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -2355,7 +2360,7 @@ single-element input.</p>
 <a id="__codelineno-0-351" name="__codelineno-0-351"></a><span class="sd">    t : TSeries or MVTSeries</span>
 <a id="__codelineno-0-352" name="__codelineno-0-352"></a><span class="sd">        Input series. Any non-Unit frequency.</span>
 <a id="__codelineno-0-353" name="__codelineno-0-353"></a><span class="sd">    axis : int or None, default None</span>
-<a id="__codelineno-0-354" name="__codelineno-0-354"></a><span class="sd">        Reduction axis (NumPy convention; see :func:`mean` for the return-</span>
+<a id="__codelineno-0-354" name="__codelineno-0-354"></a><span class="sd">        Reduction axis (NumPy convention; see [`mean`][tsecon._stats.mean] for the return-</span>
 <a id="__codelineno-0-355" name="__codelineno-0-355"></a><span class="sd">        shape contract). ``None`` → scalar. ``0`` → per-column → single-row</span>
 <a id="__codelineno-0-356" name="__codelineno-0-356"></a><span class="sd">        MVTSeries. ``1`` → per-row → 1-D TSeries (MVTSeries only).</span>
 <a id="__codelineno-0-357" name="__codelineno-0-357"></a><span class="sd">    skip_all_nans : bool, default False</span>
@@ -2475,11 +2480,11 @@ single-element input.</p>
                 <code>axis</code>
             </td>
             <td>
-                  <code><span title="int">int</span> or None</code>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#int">int</a> or None</code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Reduction axis (NumPy convention; see :func:<code>mean</code> for the return-
+                <p>Reduction axis (NumPy convention; see <a class="autorefs autorefs-internal" title="mean" href="#tsecon._stats.mean"><code>mean</code></a> for the return-
 shape contract). <code>None</code> → scalar. <code>0</code> → per-column → single-row
 MVTSeries. <code>1</code> → per-row → 1-D TSeries (MVTSeries only).</p>
               </div>
@@ -2493,7 +2498,7 @@ MVTSeries. <code>1</code> → per-row → 1-D TSeries (MVTSeries only).</p>
                 <code>skip_all_nans</code>
             </td>
             <td>
-                  <code><span title="bool">bool</span></code>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -2509,7 +2514,7 @@ MVTSeries. <code>1</code> → per-row → 1-D TSeries (MVTSeries only).</p>
                 <code>skip_holidays</code>
             </td>
             <td>
-                  <code><span title="bool">bool</span></code>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -2663,7 +2668,7 @@ Returns <code>nan</code> for an empty or single-element input.</p>
 <a id="__codelineno-0-427" name="__codelineno-0-427"></a><span class="sd">    t : TSeries or MVTSeries</span>
 <a id="__codelineno-0-428" name="__codelineno-0-428"></a><span class="sd">        Input series. Any non-Unit frequency.</span>
 <a id="__codelineno-0-429" name="__codelineno-0-429"></a><span class="sd">    axis : int or None, default None</span>
-<a id="__codelineno-0-430" name="__codelineno-0-430"></a><span class="sd">        Reduction axis (NumPy convention; see :func:`mean` for the return-</span>
+<a id="__codelineno-0-430" name="__codelineno-0-430"></a><span class="sd">        Reduction axis (NumPy convention; see [`mean`][tsecon._stats.mean] for the return-</span>
 <a id="__codelineno-0-431" name="__codelineno-0-431"></a><span class="sd">        shape contract). ``None`` → scalar. ``0`` → per-column → single-row</span>
 <a id="__codelineno-0-432" name="__codelineno-0-432"></a><span class="sd">        MVTSeries. ``1`` → per-row → 1-D TSeries (MVTSeries only).</span>
 <a id="__codelineno-0-433" name="__codelineno-0-433"></a><span class="sd">    skip_all_nans : bool, default False</span>
@@ -2784,11 +2789,11 @@ midpoint of the two middle values is returned.</p>
                 <code>axis</code>
             </td>
             <td>
-                  <code><span title="int">int</span> or None</code>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#int">int</a> or None</code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Reduction axis (NumPy convention; see :func:<code>mean</code> for the return-
+                <p>Reduction axis (NumPy convention; see <a class="autorefs autorefs-internal" title="mean" href="#tsecon._stats.mean"><code>mean</code></a> for the return-
 shape contract). <code>None</code> → scalar. <code>0</code> → per-column → single-row
 MVTSeries. <code>1</code> → per-row → 1-D TSeries (MVTSeries only).</p>
               </div>
@@ -2802,7 +2807,7 @@ MVTSeries. <code>1</code> → per-row → 1-D TSeries (MVTSeries only).</p>
                 <code>skip_all_nans</code>
             </td>
             <td>
-                  <code><span title="bool">bool</span></code>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -2818,7 +2823,7 @@ MVTSeries. <code>1</code> → per-row → 1-D TSeries (MVTSeries only).</p>
                 <code>skip_holidays</code>
             </td>
             <td>
-                  <code><span title="bool">bool</span></code>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -2973,7 +2978,7 @@ single-row MVTSeries for <code>axis=0</code>; 1-D TSeries for <code>axis=1</code
 <a id="__codelineno-0-505" name="__codelineno-0-505"></a><span class="sd">    t : TSeries or MVTSeries</span>
 <a id="__codelineno-0-506" name="__codelineno-0-506"></a><span class="sd">        Input series. Any non-Unit frequency.</span>
 <a id="__codelineno-0-507" name="__codelineno-0-507"></a><span class="sd">    axis : int or None, default None</span>
-<a id="__codelineno-0-508" name="__codelineno-0-508"></a><span class="sd">        Reduction axis (NumPy convention; see :func:`mean` for the return-</span>
+<a id="__codelineno-0-508" name="__codelineno-0-508"></a><span class="sd">        Reduction axis (NumPy convention; see [`mean`][tsecon._stats.mean] for the return-</span>
 <a id="__codelineno-0-509" name="__codelineno-0-509"></a><span class="sd">        shape contract). ``None`` → scalar. ``0`` → per-column → single-row</span>
 <a id="__codelineno-0-510" name="__codelineno-0-510"></a><span class="sd">        MVTSeries. ``1`` → per-row → 1-D TSeries (MVTSeries only).</span>
 <a id="__codelineno-0-511" name="__codelineno-0-511"></a><span class="sd">    skip_all_nans : bool, default False</span>
@@ -3109,11 +3114,11 @@ single-row MVTSeries for <code>axis=0</code>; 1-D TSeries for <code>axis=1</code
                 <code>axis</code>
             </td>
             <td>
-                  <code><span title="int">int</span> or None</code>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#int">int</a> or None</code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Reduction axis (NumPy convention; see :func:<code>mean</code> for the return-
+                <p>Reduction axis (NumPy convention; see <a class="autorefs autorefs-internal" title="mean" href="#tsecon._stats.mean"><code>mean</code></a> for the return-
 shape contract). <code>None</code> → scalar (or ndarray when <code>p</code> is
 array-like). <code>0</code> → per-column → single-row MVTSeries. <code>1</code> →
 per-row → 1-D TSeries (MVTSeries only).</p>
@@ -3128,7 +3133,7 @@ per-row → 1-D TSeries (MVTSeries only).</p>
                 <code>skip_all_nans</code>
             </td>
             <td>
-                  <code><span title="bool">bool</span></code>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -3144,7 +3149,7 @@ per-row → 1-D TSeries (MVTSeries only).</p>
                 <code>skip_holidays</code>
             </td>
             <td>
-                  <code><span title="bool">bool</span></code>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -3324,7 +3329,7 @@ MVTSeries for <code>axis=0</code>; 1-D TSeries for <code>axis=1</code>.</p>
 <a id="__codelineno-0-584" name="__codelineno-0-584"></a><span class="sd">        2-D return shape that does not fit the single-row-MVTSeries /</span>
 <a id="__codelineno-0-585" name="__codelineno-0-585"></a><span class="sd">        1-D-TSeries contract; raises ``TypeError`` in that combination.</span>
 <a id="__codelineno-0-586" name="__codelineno-0-586"></a><span class="sd">    axis : int or None, default None</span>
-<a id="__codelineno-0-587" name="__codelineno-0-587"></a><span class="sd">        Reduction axis (NumPy convention; see :func:`mean` for the return-</span>
+<a id="__codelineno-0-587" name="__codelineno-0-587"></a><span class="sd">        Reduction axis (NumPy convention; see [`mean`][tsecon._stats.mean] for the return-</span>
 <a id="__codelineno-0-588" name="__codelineno-0-588"></a><span class="sd">        shape contract). ``None`` → scalar (or ndarray when ``p`` is</span>
 <a id="__codelineno-0-589" name="__codelineno-0-589"></a><span class="sd">        array-like). ``0`` → per-column → single-row MVTSeries. ``1`` →</span>
 <a id="__codelineno-0-590" name="__codelineno-0-590"></a><span class="sd">        per-row → 1-D TSeries (MVTSeries only).</span>
@@ -3456,7 +3461,7 @@ several reductions) and want to avoid a redundant pass over <code>t</code>.</p>
                 <code>m</code>
             </td>
             <td>
-                  <code><span title="float">float</span></code>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#float">float</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -3472,7 +3477,7 @@ several reductions) and want to avoid a redundant pass over <code>t</code>.</p>
                 <code>skip_all_nans</code>
             </td>
             <td>
-                  <code><span title="bool">bool</span></code>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -3488,7 +3493,7 @@ several reductions) and want to avoid a redundant pass over <code>t</code>.</p>
                 <code>skip_holidays</code>
             </td>
             <td>
-                  <code><span title="bool">bool</span></code>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -3530,7 +3535,7 @@ several reductions) and want to avoid a redundant pass over <code>t</code>.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="float">float</span></code>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#float">float</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -3679,7 +3684,7 @@ several reductions) and want to avoid a redundant pass over <code>t</code>.</p>
 
         <p>Sample variance with the mean <code>m</code> supplied externally.</p>
 <p>Mirrors Julia's <code>Statistics.varm</code>. The variance counterpart of
-:func:<code>stdm</code>.</p>
+<a class="autorefs autorefs-internal" title="stdm" href="#tsecon._stats.stdm"><code>stdm</code></a>.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -3714,7 +3719,7 @@ several reductions) and want to avoid a redundant pass over <code>t</code>.</p>
                 <code>m</code>
             </td>
             <td>
-                  <code><span title="float">float</span></code>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#float">float</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -3730,7 +3735,7 @@ several reductions) and want to avoid a redundant pass over <code>t</code>.</p>
                 <code>skip_all_nans</code>
             </td>
             <td>
-                  <code><span title="bool">bool</span></code>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -3746,7 +3751,7 @@ several reductions) and want to avoid a redundant pass over <code>t</code>.</p>
                 <code>skip_holidays</code>
             </td>
             <td>
-                  <code><span title="bool">bool</span></code>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -3788,7 +3793,7 @@ several reductions) and want to avoid a redundant pass over <code>t</code>.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="float">float</span></code>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#float">float</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -3868,7 +3873,7 @@ several reductions) and want to avoid a redundant pass over <code>t</code>.</p>
 <a id="__codelineno-0-716" name="__codelineno-0-716"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Sample variance with the mean ``m`` supplied externally.</span>
 <a id="__codelineno-0-717" name="__codelineno-0-717"></a>
 <a id="__codelineno-0-718" name="__codelineno-0-718"></a><span class="sd">    Mirrors Julia&#39;s ``Statistics.varm``. The variance counterpart of</span>
-<a id="__codelineno-0-719" name="__codelineno-0-719"></a><span class="sd">    :func:`stdm`.</span>
+<a id="__codelineno-0-719" name="__codelineno-0-719"></a><span class="sd">    [`stdm`][tsecon._stats.stdm].</span>
 <a id="__codelineno-0-720" name="__codelineno-0-720"></a>
 <a id="__codelineno-0-721" name="__codelineno-0-721"></a><span class="sd">    Parameters</span>
 <a id="__codelineno-0-722" name="__codelineno-0-722"></a><span class="sd">    ----------</span>
@@ -3934,9 +3939,9 @@ several reductions) and want to avoid a redundant pass over <code>t</code>.</p>
 <p>Mirrors Julia's <code>Statistics.cor</code> overloads in <code>tsmath.jl</code>
 (lines 249-272 and 297). Two call shapes:</p>
 <ul>
-<li><code>cor(t)</code> — for a :class:<code>~tsecon.tseries.TSeries</code> this returns
+<li><code>cor(t)</code> — for a <a class="autorefs autorefs-internal" title="TSeries" href="../tseries/#tsecon.tseries.TSeries"><code>TSeries</code></a> this returns
   <code>1.0</code> (the trivial self-correlation). For an
-  :class:<code>~tsecon.mvtseries.MVTSeries</code> it returns the column-
+  <a class="autorefs autorefs-internal" title="MVTSeries" href="../mvtseries/#tsecon.mvtseries.MVTSeries"><code>MVTSeries</code></a> it returns the column-
   correlation matrix (variables on rows = columns of the input).</li>
 <li><code>cor(x, y)</code> — two TSeries of the same frequency, firstdate and
   length; returns the scalar Pearson correlation between them.</li>
@@ -3993,7 +3998,7 @@ TSeries with matching frequency, firstdate, and length.</p>
                 <code>skip_all_nans</code>
             </td>
             <td>
-                  <code><span title="bool">bool</span></code>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -4009,7 +4014,7 @@ TSeries with matching frequency, firstdate, and length.</p>
                 <code>skip_holidays</code>
             </td>
             <td>
-                  <code><span title="bool">bool</span></code>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -4051,7 +4056,7 @@ TSeries with matching frequency, firstdate, and length.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="float">float</span> or <span title="ndarray">ndarray</span></code>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#float">float</a> or <span title="ndarray">ndarray</span></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -4076,7 +4081,7 @@ fewer than two filtered values remain.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="TypeError">TypeError</span></code>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/exceptions.html#TypeError">TypeError</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -4086,7 +4091,7 @@ fewer than two filtered values remain.</p>
           </tr>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="ValueError">ValueError</span></code>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/exceptions.html#ValueError">ValueError</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -4245,9 +4250,9 @@ in <code>np.corrcoef</code> would otherwise silently return <code>1.0</code>).</
 <a id="__codelineno-0-767" name="__codelineno-0-767"></a><span class="sd">    Mirrors Julia&#39;s ``Statistics.cor`` overloads in ``tsmath.jl``</span>
 <a id="__codelineno-0-768" name="__codelineno-0-768"></a><span class="sd">    (lines 249-272 and 297). Two call shapes:</span>
 <a id="__codelineno-0-769" name="__codelineno-0-769"></a>
-<a id="__codelineno-0-770" name="__codelineno-0-770"></a><span class="sd">    * ``cor(t)`` — for a :class:`~tsecon.tseries.TSeries` this returns</span>
+<a id="__codelineno-0-770" name="__codelineno-0-770"></a><span class="sd">    * ``cor(t)`` — for a [`TSeries`][tsecon.tseries.TSeries] this returns</span>
 <a id="__codelineno-0-771" name="__codelineno-0-771"></a><span class="sd">      ``1.0`` (the trivial self-correlation). For an</span>
-<a id="__codelineno-0-772" name="__codelineno-0-772"></a><span class="sd">      :class:`~tsecon.mvtseries.MVTSeries` it returns the column-</span>
+<a id="__codelineno-0-772" name="__codelineno-0-772"></a><span class="sd">      [`MVTSeries`][tsecon.mvtseries.MVTSeries] it returns the column-</span>
 <a id="__codelineno-0-773" name="__codelineno-0-773"></a><span class="sd">      correlation matrix (variables on rows = columns of the input).</span>
 <a id="__codelineno-0-774" name="__codelineno-0-774"></a><span class="sd">    * ``cor(x, y)`` — two TSeries of the same frequency, firstdate and</span>
 <a id="__codelineno-0-775" name="__codelineno-0-775"></a><span class="sd">      length; returns the scalar Pearson correlation between them.</span>
@@ -4369,9 +4374,9 @@ in <code>np.corrcoef</code> would otherwise silently return <code>1.0</code>).</
     <div class="doc doc-contents ">
 
         <p>Sample covariance (<code>ddof=1</code> to match Julia's <code>Statistics.cov</code>).</p>
-<p>Same call shapes as :func:<code>cor</code>:</p>
+<p>Same call shapes as <a class="autorefs autorefs-internal" title="cor" href="#tsecon._stats.cor"><code>cor</code></a>:</p>
 <ul>
-<li><code>cov(t)</code> for a TSeries collapses to :func:<code>var</code>.</li>
+<li><code>cov(t)</code> for a TSeries collapses to <a class="autorefs autorefs-internal" title="var" href="#tsecon._stats.var"><code>var</code></a>.</li>
 <li><code>cov(mvts)</code> returns the column-covariance matrix.</li>
 <li><code>cov(x, y)</code> returns the scalar covariance between two TSeries
   of the same frequency, firstdate, and length.</li>
@@ -4428,7 +4433,7 @@ TSeries with matching frequency, firstdate, and length.</p>
                 <code>skip_all_nans</code>
             </td>
             <td>
-                  <code><span title="bool">bool</span></code>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -4444,7 +4449,7 @@ TSeries with matching frequency, firstdate, and length.</p>
                 <code>skip_holidays</code>
             </td>
             <td>
-                  <code><span title="bool">bool</span></code>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -4486,7 +4491,7 @@ TSeries with matching frequency, firstdate, and length.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="float">float</span> or <span title="ndarray">ndarray</span></code>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#float">float</a> or <span title="ndarray">ndarray</span></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -4510,7 +4515,7 @@ in the MVTSeries form.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="TypeError">TypeError</span></code>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/exceptions.html#TypeError">TypeError</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -4520,7 +4525,7 @@ in the MVTSeries form.</p>
           </tr>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="ValueError">ValueError</span></code>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/exceptions.html#ValueError">ValueError</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -4652,9 +4657,9 @@ length; or the BDaily filters produce mismatched lengths.</p>
 <a id="__codelineno-0-876" name="__codelineno-0-876"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
 <a id="__codelineno-0-877" name="__codelineno-0-877"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Sample covariance (``ddof=1`` to match Julia&#39;s ``Statistics.cov``).</span>
 <a id="__codelineno-0-878" name="__codelineno-0-878"></a>
-<a id="__codelineno-0-879" name="__codelineno-0-879"></a><span class="sd">    Same call shapes as :func:`cor`:</span>
+<a id="__codelineno-0-879" name="__codelineno-0-879"></a><span class="sd">    Same call shapes as [`cor`][tsecon._stats.cor]:</span>
 <a id="__codelineno-0-880" name="__codelineno-0-880"></a>
-<a id="__codelineno-0-881" name="__codelineno-0-881"></a><span class="sd">    * ``cov(t)`` for a TSeries collapses to :func:`var`.</span>
+<a id="__codelineno-0-881" name="__codelineno-0-881"></a><span class="sd">    * ``cov(t)`` for a TSeries collapses to [`var`][tsecon._stats.var].</span>
 <a id="__codelineno-0-882" name="__codelineno-0-882"></a><span class="sd">    * ``cov(mvts)`` returns the column-covariance matrix.</span>
 <a id="__codelineno-0-883" name="__codelineno-0-883"></a><span class="sd">    * ``cov(x, y)`` returns the scalar covariance between two TSeries</span>
 <a id="__codelineno-0-884" name="__codelineno-0-884"></a><span class="sd">      of the same frequency, firstdate, and length.</span>

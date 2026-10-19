@@ -1520,23 +1520,28 @@ sharing the <em>LikeWorkspace</em> dispatch (Workspace / MVTSeries / Mapping):</
 
         <p>Misc helpers from <code>TimeSeriesEcon.jl</code>'s <code>various.jl</code>.</p>
 <p>Three sibling functions sharing the <code>LikeWorkspace</code> dispatch (Workspace /
-MVTSeries / :class:<code>collections.abc.Mapping</code>):</p>
+MVTSeries / <a class="autorefs autorefs-external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Mapping"><code>collections.abc.Mapping</code></a>):</p>
 <ul>
-<li>:func:<code>overlay</code> — first-valid-wins composition over TSeries / Workspace /
+<li><a class="autorefs autorefs-internal" title="overlay" href="#tsecon._various.overlay"><code>overlay</code></a> — first-valid-wins composition over TSeries / Workspace /
   MVTSeries values. NaN (and the dtype-appropriate <code>typenan</code>) marks
   "missing"; the leftmost non-missing value wins position-by-position.</li>
-<li>:func:<code>compare</code> — recursive structural / numeric comparison. Returns a
-  :class:<code>CompareResult</code> (truthy on equality; <code>.differences</code> carries the
+<li><a class="autorefs autorefs-internal" title="compare" href="#tsecon._various.compare"><code>compare</code></a> — recursive structural / numeric comparison. Returns a
+  <a class="autorefs autorefs-internal" title="CompareResult
+
+
+  
+      dataclass
+  " href="#tsecon._various.CompareResult"><code>CompareResult</code></a> (truthy on equality; <code>.differences</code> carries the
   per-leaf diff). Tolerance kwargs (<code>atol</code> / <code>rtol</code> / <code>nans</code>) and
   walk kwargs (<code>ignoremissing</code> / <code>showequal</code> / <code>quiet</code> / <code>trange</code>)
   match the Julia surface name-for-name.</li>
-<li>:func:<code>reindex</code> — shift every MIT-keyed position inside a container so
+<li><a class="autorefs autorefs-internal" title="reindex" href="#tsecon._various.reindex"><code>reindex</code></a> — shift every MIT-keyed position inside a container so
   that <code>from</code> maps to <code>to</code>; the underlying values are preserved.
   Dispatches over MIT / MITRange / TSeries / MVTSeries / Workspace.</li>
 </ul>
 <p>Julia's <code>@compare</code> macro collapses to a plain function alias here: the
 macro existed only to capture the variable names for printing, and
-:class:<code>CompareResult.differences</code> already exposes that information without
+<code>CompareResult.differences</code> already exposes that information without
 needing AST rewriting. Code that wrote <code>@compare(v1, v2, atol=1e-5)</code>
 ports to <code>compare(v1, v2, atol=1e-5)</code> — the Python idiom of returning a
 structured diff matches the Julia behaviour for both interactive (<code>print(result)</code>)
@@ -1552,7 +1557,7 @@ and programmatic (<code>result.differences</code>) use.</p>
 <li><code>TOML.print</code> overloads — left to v1.0 if the JSON round-trip
   (<code>io/json.py</code>) doesn't cover the use case.</li>
 <li><code>is_yearly</code> / <code>is_quarterly</code> / etc. — already ported in
-  :mod:<code>tsecon.frequencies</code> with PEP-8 underscore naming.</li>
+  <a class="autorefs autorefs-internal" title="tsecon.frequencies" href="../frequencies/#tsecon.frequencies"><code>tsecon.frequencies</code></a> with PEP-8 underscore naming.</li>
 </ul>
 
 
@@ -1593,7 +1598,7 @@ and programmatic (<code>result.differences</code>) use.</p>
 
 
 
-        <p>One line of the recursive diff produced by :func:<code>compare</code>.</p>
+        <p>One line of the recursive diff produced by <a class="autorefs autorefs-internal" title="compare" href="#tsecon._various.compare"><code>compare</code></a>.</p>
 
 
 <p><span class="doc-section-title">Attributes:</span></p>
@@ -1609,7 +1614,7 @@ and programmatic (<code>result.differences</code>) use.</p>
           <tr class="doc-section-item">
             <td><code><span title="tsecon._various.CompareDifference.path">path</span></code></td>
             <td>
-                  <code><span title="tuple">tuple</span>[<span title="str">str</span>, ...]</code>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#tuple">tuple</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a>, ...]</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -1620,7 +1625,7 @@ and programmatic (<code>result.differences</code>) use.</p>
           <tr class="doc-section-item">
             <td><code><span title="tsecon._various.CompareDifference.message">message</span></code></td>
             <td>
-                  <code><span title="str">str</span></code>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -1660,7 +1665,7 @@ and programmatic (<code>result.differences</code>) use.</p>
 <span class="normal"><a href="#__codelineno-0-367">367</a></span>
 <span class="normal"><a href="#__codelineno-0-368">368</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-351" name="__codelineno-0-351"></a><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 <a id="__codelineno-0-352" name="__codelineno-0-352"></a><span class="k">class</span><span class="w"> </span><span class="nc">CompareDifference</span><span class="p">:</span>
-<a id="__codelineno-0-353" name="__codelineno-0-353"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;One line of the recursive diff produced by :func:`compare`.</span>
+<a id="__codelineno-0-353" name="__codelineno-0-353"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;One line of the recursive diff produced by [`compare`][tsecon._various.compare].</span>
 <a id="__codelineno-0-354" name="__codelineno-0-354"></a>
 <a id="__codelineno-0-355" name="__codelineno-0-355"></a><span class="sd">    Attributes</span>
 <a id="__codelineno-0-356" name="__codelineno-0-356"></a><span class="sd">    ----------</span>
@@ -1719,11 +1724,16 @@ and programmatic (<code>result.differences</code>) use.</p>
 
 
 
-        <p>The structured return value of :func:<code>compare</code>.</p>
+        <p>The structured return value of <a class="autorefs autorefs-internal" title="compare" href="#tsecon._various.compare"><code>compare</code></a>.</p>
 <p>Truthy iff the two inputs compared as equal — use
 <code>if compare(a, b): ...</code> for the Julia-style one-line check.
 <code>str(result)</code> reproduces the printed diff (one line per
-:class:<code>CompareDifference</code>). <code>.differences</code> exposes the diff
+<a class="autorefs autorefs-internal" title="CompareDifference
+
+
+  
+      dataclass
+  " href="#tsecon._various.CompareDifference"><code>CompareDifference</code></a>). <code>.differences</code> exposes the diff
 programmatically.</p>
 
 
@@ -1762,12 +1772,12 @@ programmatically.</p>
 <span class="normal"><a href="#__codelineno-0-395">395</a></span>
 <span class="normal"><a href="#__codelineno-0-396">396</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-371" name="__codelineno-0-371"></a><span class="nd">@dataclass</span>
 <a id="__codelineno-0-372" name="__codelineno-0-372"></a><span class="k">class</span><span class="w"> </span><span class="nc">CompareResult</span><span class="p">:</span>
-<a id="__codelineno-0-373" name="__codelineno-0-373"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;The structured return value of :func:`compare`.</span>
+<a id="__codelineno-0-373" name="__codelineno-0-373"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;The structured return value of [`compare`][tsecon._various.compare].</span>
 <a id="__codelineno-0-374" name="__codelineno-0-374"></a>
 <a id="__codelineno-0-375" name="__codelineno-0-375"></a><span class="sd">    Truthy iff the two inputs compared as equal — use</span>
 <a id="__codelineno-0-376" name="__codelineno-0-376"></a><span class="sd">    ``if compare(a, b): ...`` for the Julia-style one-line check.</span>
 <a id="__codelineno-0-377" name="__codelineno-0-377"></a><span class="sd">    ``str(result)`` reproduces the printed diff (one line per</span>
-<a id="__codelineno-0-378" name="__codelineno-0-378"></a><span class="sd">    :class:`CompareDifference`). ``.differences`` exposes the diff</span>
+<a id="__codelineno-0-378" name="__codelineno-0-378"></a><span class="sd">    [`CompareDifference`][tsecon._various.CompareDifference]). ``.differences`` exposes the diff</span>
 <a id="__codelineno-0-379" name="__codelineno-0-379"></a><span class="sd">    programmatically.</span>
 <a id="__codelineno-0-380" name="__codelineno-0-380"></a><span class="sd">    &quot;&quot;&quot;</span>
 <a id="__codelineno-0-381" name="__codelineno-0-381"></a>
@@ -1830,16 +1840,16 @@ floats, <code>iinfo(dtype).max</code> for integers, <code>False</code> for boole
 The dispatch is on the argument types — all arguments must agree on a
 container family for the recursive form to apply:</p>
 <ul>
-<li><strong>All :class:<code>~tsecon.tseries.TSeries</code></strong> — build a new TSeries over
+<li><strong>All <a class="autorefs autorefs-internal" title="TSeries" href="../tseries/#tsecon.tseries.TSeries"><code>TSeries</code></a></strong> — build a new TSeries over
   either <code>rng=</code> (when given) or the union of all input ranges
   (<code>rangeof_span(*args)</code>). For each position, the leftmost input
   that has a non-typenan value at that position wins. The output
   dtype is the NumPy promotion of all input dtypes.</li>
-<li><strong>All :class:<code>~tsecon.mvtseries.MVTSeries</code></strong> — return an MVTSeries
+<li><strong>All <a class="autorefs autorefs-internal" title="MVTSeries" href="../mvtseries/#tsecon.mvtseries.MVTSeries"><code>MVTSeries</code></a></strong> — return an MVTSeries
   over the union range and the ordered union of column names; each
   column is the overlay of the corresponding TSeries columns.</li>
 <li><strong>All Workspace / MVTSeries / Mapping</strong> — return a
-  :class:<code>~tsecon.workspace.Workspace</code>. For each key present in any
+  <a class="autorefs autorefs-internal" title="Workspace" href="../workspace/#tsecon.workspace.Workspace"><code>Workspace</code></a>. For each key present in any
   input, collect the values across inputs that have it and recurse;
   the recursive call may dispatch back into the TSeries / Workspace
   / MVTSeries / scalar paths.</li>
@@ -1864,7 +1874,7 @@ container family for the recursive form to apply:</p>
                 <code>*args</code>
             </td>
             <td>
-                  <code><span title="typing.Any">Any</span></code>
+                  <code><a class="autorefs autorefs-external" title="typing.Any" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -1889,9 +1899,14 @@ container family for the recursive form to apply:</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Optional :class:<code>~tsecon.mitrange.MITRange</code> to force the output
+                <p>Optional <a class="autorefs autorefs-internal" title="MITRange
+
+
+  
+      dataclass
+  " href="../mit/#tsecon.mitrange.MITRange"><code>MITRange</code></a> to force the output
 range. Only valid when all arguments are TSeries; raises
-:class:<code>TypeError</code> otherwise.</p>
+<a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/exceptions.html#TypeError"><code>TypeError</code></a> otherwise.</p>
               </div>
             </td>
             <td>
@@ -1913,7 +1928,7 @@ range. Only valid when all arguments are TSeries; raises
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="typing.Any">Any</span></code>
+                  <code><a class="autorefs autorefs-external" title="typing.Any" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -1937,7 +1952,7 @@ family.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="TypeError">TypeError</span></code>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/exceptions.html#TypeError">TypeError</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -2034,16 +2049,16 @@ family.</p>
 <a id="__codelineno-0-192" name="__codelineno-0-192"></a><span class="sd">    The dispatch is on the argument types — all arguments must agree on a</span>
 <a id="__codelineno-0-193" name="__codelineno-0-193"></a><span class="sd">    container family for the recursive form to apply:</span>
 <a id="__codelineno-0-194" name="__codelineno-0-194"></a>
-<a id="__codelineno-0-195" name="__codelineno-0-195"></a><span class="sd">    * **All :class:`~tsecon.tseries.TSeries`** — build a new TSeries over</span>
+<a id="__codelineno-0-195" name="__codelineno-0-195"></a><span class="sd">    * **All [`TSeries`][tsecon.tseries.TSeries]** — build a new TSeries over</span>
 <a id="__codelineno-0-196" name="__codelineno-0-196"></a><span class="sd">      either ``rng=`` (when given) or the union of all input ranges</span>
 <a id="__codelineno-0-197" name="__codelineno-0-197"></a><span class="sd">      (``rangeof_span(*args)``). For each position, the leftmost input</span>
 <a id="__codelineno-0-198" name="__codelineno-0-198"></a><span class="sd">      that has a non-typenan value at that position wins. The output</span>
 <a id="__codelineno-0-199" name="__codelineno-0-199"></a><span class="sd">      dtype is the NumPy promotion of all input dtypes.</span>
-<a id="__codelineno-0-200" name="__codelineno-0-200"></a><span class="sd">    * **All :class:`~tsecon.mvtseries.MVTSeries`** — return an MVTSeries</span>
+<a id="__codelineno-0-200" name="__codelineno-0-200"></a><span class="sd">    * **All [`MVTSeries`][tsecon.mvtseries.MVTSeries]** — return an MVTSeries</span>
 <a id="__codelineno-0-201" name="__codelineno-0-201"></a><span class="sd">      over the union range and the ordered union of column names; each</span>
 <a id="__codelineno-0-202" name="__codelineno-0-202"></a><span class="sd">      column is the overlay of the corresponding TSeries columns.</span>
 <a id="__codelineno-0-203" name="__codelineno-0-203"></a><span class="sd">    * **All Workspace / MVTSeries / Mapping** — return a</span>
-<a id="__codelineno-0-204" name="__codelineno-0-204"></a><span class="sd">      :class:`~tsecon.workspace.Workspace`. For each key present in any</span>
+<a id="__codelineno-0-204" name="__codelineno-0-204"></a><span class="sd">      [`Workspace`][tsecon.workspace.Workspace]. For each key present in any</span>
 <a id="__codelineno-0-205" name="__codelineno-0-205"></a><span class="sd">      input, collect the values across inputs that have it and recurse;</span>
 <a id="__codelineno-0-206" name="__codelineno-0-206"></a><span class="sd">      the recursive call may dispatch back into the TSeries / Workspace</span>
 <a id="__codelineno-0-207" name="__codelineno-0-207"></a><span class="sd">      / MVTSeries / scalar paths.</span>
@@ -2055,9 +2070,9 @@ family.</p>
 <a id="__codelineno-0-213" name="__codelineno-0-213"></a><span class="sd">    *args</span>
 <a id="__codelineno-0-214" name="__codelineno-0-214"></a><span class="sd">        One or more values to overlay. At least one is required.</span>
 <a id="__codelineno-0-215" name="__codelineno-0-215"></a><span class="sd">    rng</span>
-<a id="__codelineno-0-216" name="__codelineno-0-216"></a><span class="sd">        Optional :class:`~tsecon.mitrange.MITRange` to force the output</span>
+<a id="__codelineno-0-216" name="__codelineno-0-216"></a><span class="sd">        Optional [`MITRange`][tsecon.mitrange.MITRange] to force the output</span>
 <a id="__codelineno-0-217" name="__codelineno-0-217"></a><span class="sd">        range. Only valid when all arguments are TSeries; raises</span>
-<a id="__codelineno-0-218" name="__codelineno-0-218"></a><span class="sd">        :class:`TypeError` otherwise.</span>
+<a id="__codelineno-0-218" name="__codelineno-0-218"></a><span class="sd">        [`TypeError`][TypeError] otherwise.</span>
 <a id="__codelineno-0-219" name="__codelineno-0-219"></a>
 <a id="__codelineno-0-220" name="__codelineno-0-220"></a><span class="sd">    Returns</span>
 <a id="__codelineno-0-221" name="__codelineno-0-221"></a><span class="sd">    -------</span>
@@ -2134,21 +2149,21 @@ family.</p>
 
     <div class="doc doc-contents ">
 
-        <p>Recursively compare <code>x</code> and <code>y</code>, returning a :class:<code>CompareResult</code>.</p>
+        <p>Recursively compare <code>x</code> and <code>y</code>, returning a <code>CompareResult</code>.</p>
 <p>The walk dispatches over:</p>
 <ul>
-<li>:class:<code>~tsecon.workspace.Workspace</code>, :class:<code>~tsecon.mvtseries.MVTSeries</code>,
-  and :class:<code>collections.abc.Mapping</code> — treated as name-keyed
+<li><a class="autorefs autorefs-internal" title="Workspace" href="../workspace/#tsecon.workspace.Workspace"><code>Workspace</code></a>, <a class="autorefs autorefs-internal" title="MVTSeries" href="../mvtseries/#tsecon.mvtseries.MVTSeries"><code>MVTSeries</code></a>,
+  and <a class="autorefs autorefs-external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Mapping"><code>collections.abc.Mapping</code></a> — treated as name-keyed
   containers and recursed key-by-key. Missing keys produce
   <code>"missing in &lt;left|right&gt;"</code> lines (unless <code>ignoremissing=True</code>).</li>
-<li>:class:<code>~tsecon.tseries.TSeries</code> — compared range-by-range using
-  :func:<code>numpy.allclose</code> with the given <code>atol</code> / <code>rtol</code> / <code>nans</code>.
+<li><a class="autorefs autorefs-internal" title="TSeries" href="../tseries/#tsecon.tseries.TSeries"><code>TSeries</code></a> — compared range-by-range using
+  <a class="autorefs autorefs-external" href="https://numpy.org/doc/stable/reference/generated/numpy.allclose.html#numpy.allclose"><code>numpy.allclose</code></a> with the given <code>atol</code> / <code>rtol</code> / <code>nans</code>.
   Mismatched ranges count as different (unless <code>ignoremissing=True</code>,
   in which case the intersection is compared).</li>
 <li>NumPy arrays of numbers — compared by shape + element-wise
-  :func:<code>numpy.allclose</code>.</li>
+  <a class="autorefs autorefs-external" href="https://numpy.org/doc/stable/reference/generated/numpy.allclose.html#numpy.allclose"><code>numpy.allclose</code></a>.</li>
 <li>NumPy arrays of other dtypes — walked element-by-element.</li>
-<li>Scalars — compared via :func:<code>numpy.isclose</code>.</li>
+<li>Scalars — compared via <a class="autorefs autorefs-external" href="https://numpy.org/doc/stable/reference/generated/numpy.isclose.html#numpy.isclose"><code>numpy.isclose</code></a>.</li>
 <li>Everything else — compared with <code>==</code>.</li>
 </ul>
 
@@ -2169,7 +2184,7 @@ family.</p>
                 <code>x</code>
             </td>
             <td>
-                  <code><span title="typing.Any">Any</span></code>
+                  <code><a class="autorefs autorefs-external" title="typing.Any" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -2185,7 +2200,7 @@ family.</p>
                 <code>y</code>
             </td>
             <td>
-                  <code><span title="typing.Any">Any</span></code>
+                  <code><a class="autorefs autorefs-external" title="typing.Any" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -2201,7 +2216,7 @@ family.</p>
                 <code>name</code>
             </td>
             <td>
-                  <code><span title="str">str</span></code>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -2218,7 +2233,7 @@ matches Julia's <code>Symbol("_")</code>).</p>
                 <code>showequal</code>
             </td>
             <td>
-                  <code><span title="bool">bool</span></code>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -2236,7 +2251,7 @@ top-level summary line).</p>
                 <code>ignoremissing</code>
             </td>
             <td>
-                  <code><span title="bool">bool</span></code>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -2253,11 +2268,16 @@ top-level summary line).</p>
                 <code>quiet</code>
             </td>
             <td>
-                  <code><span title="bool">bool</span></code>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>When True, suppress printing to stdout. The :class:<code>CompareResult</code>
+                <p>When True, suppress printing to stdout. The <a class="autorefs autorefs-internal" title="CompareResult
+
+
+  
+      dataclass
+  " href="#tsecon._various.CompareResult"><code>CompareResult</code></a>
 is still populated either way.</p>
               </div>
             </td>
@@ -2270,7 +2290,7 @@ is still populated either way.</p>
                 <code>left</code>
             </td>
             <td>
-                  <code><span title="str">str</span></code>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -2287,7 +2307,7 @@ is still populated either way.</p>
                 <code>right</code>
             </td>
             <td>
-                  <code><span title="str">str</span></code>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -2304,13 +2324,13 @@ is still populated either way.</p>
                 <code>atol</code>
             </td>
             <td>
-                  <code><span title="float">float</span></code>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#float">float</a></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Tolerances forwarded to :func:<code>numpy.isclose</code> /
-:func:<code>numpy.allclose</code>. <code>rtol=None</code> (the default) resolves to
-:math:<code>\\sqrt{\\varepsilon}</code> when <code>atol == 0</code> and to <code>0</code> when
+                <p>Tolerances forwarded to <a class="autorefs autorefs-external" href="https://numpy.org/doc/stable/reference/generated/numpy.isclose.html#numpy.isclose"><code>numpy.isclose</code></a> /
+<a class="autorefs autorefs-external" href="https://numpy.org/doc/stable/reference/generated/numpy.allclose.html#numpy.allclose"><code>numpy.allclose</code></a>. <code>rtol=None</code> (the default) resolves to
+<code>\\sqrt{\\varepsilon}</code> when <code>atol == 0</code> and to <code>0</code> when
 <code>atol &gt; 0</code> (matching Julia's <code>isapprox</code> precedent).</p>
               </div>
             </td>
@@ -2323,13 +2343,13 @@ is still populated either way.</p>
                 <code>rtol</code>
             </td>
             <td>
-                  <code><span title="float">float</span></code>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#float">float</a></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Tolerances forwarded to :func:<code>numpy.isclose</code> /
-:func:<code>numpy.allclose</code>. <code>rtol=None</code> (the default) resolves to
-:math:<code>\\sqrt{\\varepsilon}</code> when <code>atol == 0</code> and to <code>0</code> when
+                <p>Tolerances forwarded to <a class="autorefs autorefs-external" href="https://numpy.org/doc/stable/reference/generated/numpy.isclose.html#numpy.isclose"><code>numpy.isclose</code></a> /
+<a class="autorefs autorefs-external" href="https://numpy.org/doc/stable/reference/generated/numpy.allclose.html#numpy.allclose"><code>numpy.allclose</code></a>. <code>rtol=None</code> (the default) resolves to
+<code>\\sqrt{\\varepsilon}</code> when <code>atol == 0</code> and to <code>0</code> when
 <code>atol &gt; 0</code> (matching Julia's <code>isapprox</code> precedent).</p>
               </div>
             </td>
@@ -2342,13 +2362,13 @@ is still populated either way.</p>
                 <code>nans</code>
             </td>
             <td>
-                  <code><span title="float">float</span></code>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#float">float</a></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Tolerances forwarded to :func:<code>numpy.isclose</code> /
-:func:<code>numpy.allclose</code>. <code>rtol=None</code> (the default) resolves to
-:math:<code>\\sqrt{\\varepsilon}</code> when <code>atol == 0</code> and to <code>0</code> when
+                <p>Tolerances forwarded to <a class="autorefs autorefs-external" href="https://numpy.org/doc/stable/reference/generated/numpy.isclose.html#numpy.isclose"><code>numpy.isclose</code></a> /
+<a class="autorefs autorefs-external" href="https://numpy.org/doc/stable/reference/generated/numpy.allclose.html#numpy.allclose"><code>numpy.allclose</code></a>. <code>rtol=None</code> (the default) resolves to
+<code>\\sqrt{\\varepsilon}</code> when <code>atol == 0</code> and to <code>0</code> when
 <code>atol &gt; 0</code> (matching Julia's <code>isapprox</code> precedent).</p>
               </div>
             </td>
@@ -2370,7 +2390,12 @@ is still populated either way.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Optional :class:<code>~tsecon.mitrange.MITRange</code> restricting the
+                <p>Optional <a class="autorefs autorefs-internal" title="MITRange
+
+
+  
+      dataclass
+  " href="../mit/#tsecon.mitrange.MITRange"><code>MITRange</code></a> restricting the
 compared window for TSeries-vs-TSeries leaves only.</p>
               </div>
             </td>
@@ -2527,22 +2552,22 @@ they want the same labelling.</p>
 <a id="__codelineno-0-426" name="__codelineno-0-426"></a>    <span class="n">nans</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
 <a id="__codelineno-0-427" name="__codelineno-0-427"></a>    <span class="n">trange</span><span class="p">:</span> <span class="n">MITRange</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <a id="__codelineno-0-428" name="__codelineno-0-428"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CompareResult</span><span class="p">:</span>
-<a id="__codelineno-0-429" name="__codelineno-0-429"></a><span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;Recursively compare ``x`` and ``y``, returning a :class:`CompareResult`.</span>
+<a id="__codelineno-0-429" name="__codelineno-0-429"></a><span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;Recursively compare ``x`` and ``y``, returning a `CompareResult`.</span>
 <a id="__codelineno-0-430" name="__codelineno-0-430"></a>
 <a id="__codelineno-0-431" name="__codelineno-0-431"></a><span class="sd">    The walk dispatches over:</span>
 <a id="__codelineno-0-432" name="__codelineno-0-432"></a>
-<a id="__codelineno-0-433" name="__codelineno-0-433"></a><span class="sd">    * :class:`~tsecon.workspace.Workspace`, :class:`~tsecon.mvtseries.MVTSeries`,</span>
-<a id="__codelineno-0-434" name="__codelineno-0-434"></a><span class="sd">      and :class:`collections.abc.Mapping` — treated as name-keyed</span>
+<a id="__codelineno-0-433" name="__codelineno-0-433"></a><span class="sd">    * [`Workspace`][tsecon.workspace.Workspace], [`MVTSeries`][tsecon.mvtseries.MVTSeries],</span>
+<a id="__codelineno-0-434" name="__codelineno-0-434"></a><span class="sd">      and [`collections.abc.Mapping`][collections.abc.Mapping] — treated as name-keyed</span>
 <a id="__codelineno-0-435" name="__codelineno-0-435"></a><span class="sd">      containers and recursed key-by-key. Missing keys produce</span>
 <a id="__codelineno-0-436" name="__codelineno-0-436"></a><span class="sd">      ``&quot;missing in &lt;left|right&gt;&quot;`` lines (unless ``ignoremissing=True``).</span>
-<a id="__codelineno-0-437" name="__codelineno-0-437"></a><span class="sd">    * :class:`~tsecon.tseries.TSeries` — compared range-by-range using</span>
-<a id="__codelineno-0-438" name="__codelineno-0-438"></a><span class="sd">      :func:`numpy.allclose` with the given ``atol`` / ``rtol`` / ``nans``.</span>
+<a id="__codelineno-0-437" name="__codelineno-0-437"></a><span class="sd">    * [`TSeries`][tsecon.tseries.TSeries] — compared range-by-range using</span>
+<a id="__codelineno-0-438" name="__codelineno-0-438"></a><span class="sd">      [`numpy.allclose`][numpy.allclose] with the given ``atol`` / ``rtol`` / ``nans``.</span>
 <a id="__codelineno-0-439" name="__codelineno-0-439"></a><span class="sd">      Mismatched ranges count as different (unless ``ignoremissing=True``,</span>
 <a id="__codelineno-0-440" name="__codelineno-0-440"></a><span class="sd">      in which case the intersection is compared).</span>
 <a id="__codelineno-0-441" name="__codelineno-0-441"></a><span class="sd">    * NumPy arrays of numbers — compared by shape + element-wise</span>
-<a id="__codelineno-0-442" name="__codelineno-0-442"></a><span class="sd">      :func:`numpy.allclose`.</span>
+<a id="__codelineno-0-442" name="__codelineno-0-442"></a><span class="sd">      [`numpy.allclose`][numpy.allclose].</span>
 <a id="__codelineno-0-443" name="__codelineno-0-443"></a><span class="sd">    * NumPy arrays of other dtypes — walked element-by-element.</span>
-<a id="__codelineno-0-444" name="__codelineno-0-444"></a><span class="sd">    * Scalars — compared via :func:`numpy.isclose`.</span>
+<a id="__codelineno-0-444" name="__codelineno-0-444"></a><span class="sd">    * Scalars — compared via [`numpy.isclose`][numpy.isclose].</span>
 <a id="__codelineno-0-445" name="__codelineno-0-445"></a><span class="sd">    * Everything else — compared with ``==``.</span>
 <a id="__codelineno-0-446" name="__codelineno-0-446"></a>
 <a id="__codelineno-0-447" name="__codelineno-0-447"></a><span class="sd">    Parameters</span>
@@ -2560,18 +2585,18 @@ they want the same labelling.</p>
 <a id="__codelineno-0-459" name="__codelineno-0-459"></a><span class="sd">        When True, ignore keys present in one side but not the other</span>
 <a id="__codelineno-0-460" name="__codelineno-0-460"></a><span class="sd">        (they don&#39;t print and don&#39;t affect ``equal``). Default False.</span>
 <a id="__codelineno-0-461" name="__codelineno-0-461"></a><span class="sd">    quiet</span>
-<a id="__codelineno-0-462" name="__codelineno-0-462"></a><span class="sd">        When True, suppress printing to stdout. The :class:`CompareResult`</span>
+<a id="__codelineno-0-462" name="__codelineno-0-462"></a><span class="sd">        When True, suppress printing to stdout. The [`CompareResult`][tsecon._various.CompareResult]</span>
 <a id="__codelineno-0-463" name="__codelineno-0-463"></a><span class="sd">        is still populated either way.</span>
 <a id="__codelineno-0-464" name="__codelineno-0-464"></a><span class="sd">    left, right</span>
 <a id="__codelineno-0-465" name="__codelineno-0-465"></a><span class="sd">        Names used in ``&quot;missing in &lt;name&gt;&quot;`` messages. Default</span>
 <a id="__codelineno-0-466" name="__codelineno-0-466"></a><span class="sd">        ``&quot;left&quot;`` / ``&quot;right&quot;``.</span>
 <a id="__codelineno-0-467" name="__codelineno-0-467"></a><span class="sd">    atol, rtol, nans</span>
-<a id="__codelineno-0-468" name="__codelineno-0-468"></a><span class="sd">        Tolerances forwarded to :func:`numpy.isclose` /</span>
-<a id="__codelineno-0-469" name="__codelineno-0-469"></a><span class="sd">        :func:`numpy.allclose`. ``rtol=None`` (the default) resolves to</span>
-<a id="__codelineno-0-470" name="__codelineno-0-470"></a><span class="sd">        :math:`\\sqrt{\\varepsilon}` when ``atol == 0`` and to ``0`` when</span>
+<a id="__codelineno-0-468" name="__codelineno-0-468"></a><span class="sd">        Tolerances forwarded to [`numpy.isclose`][numpy.isclose] /</span>
+<a id="__codelineno-0-469" name="__codelineno-0-469"></a><span class="sd">        [`numpy.allclose`][numpy.allclose]. ``rtol=None`` (the default) resolves to</span>
+<a id="__codelineno-0-470" name="__codelineno-0-470"></a><span class="sd">        `\\sqrt{\\varepsilon}` when ``atol == 0`` and to ``0`` when</span>
 <a id="__codelineno-0-471" name="__codelineno-0-471"></a><span class="sd">        ``atol &gt; 0`` (matching Julia&#39;s ``isapprox`` precedent).</span>
 <a id="__codelineno-0-472" name="__codelineno-0-472"></a><span class="sd">    trange</span>
-<a id="__codelineno-0-473" name="__codelineno-0-473"></a><span class="sd">        Optional :class:`~tsecon.mitrange.MITRange` restricting the</span>
+<a id="__codelineno-0-473" name="__codelineno-0-473"></a><span class="sd">        Optional [`MITRange`][tsecon.mitrange.MITRange] restricting the</span>
 <a id="__codelineno-0-474" name="__codelineno-0-474"></a><span class="sd">        compared window for TSeries-vs-TSeries leaves only.</span>
 <a id="__codelineno-0-475" name="__codelineno-0-475"></a>
 <a id="__codelineno-0-476" name="__codelineno-0-476"></a><span class="sd">    Returns</span>
@@ -2651,19 +2676,29 @@ space, every output position is the input position plus
                 <code>x</code>
             </td>
             <td>
-                  <code><span title="typing.Any">Any</span></code>
+                  <code><a class="autorefs autorefs-external" title="typing.Any" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a></code>
             </td>
             <td>
               <div class="doc-md-description">
                 <p>The value to reindex. Supported types:</p>
 <ul>
-<li>:class:<code>~tsecon.mit.MIT</code> — single instant.</li>
-<li>:class:<code>~tsecon.mitrange.MITRange</code> — both endpoints shifted;
+<li><a class="autorefs autorefs-internal" title="MIT
+
+
+  
+      dataclass
+  " href="../mit/#tsecon.mit.MIT"><code>MIT</code></a> — single instant.</li>
+<li><a class="autorefs autorefs-internal" title="MITRange
+
+
+  
+      dataclass
+  " href="../mit/#tsecon.mitrange.MITRange"><code>MITRange</code></a> — both endpoints shifted;
   <code>step</code> is preserved.</li>
-<li>:class:<code>~tsecon.tseries.TSeries</code> — anchor shifted; values
+<li><a class="autorefs autorefs-internal" title="TSeries" href="../tseries/#tsecon.tseries.TSeries"><code>TSeries</code></a> — anchor shifted; values
   unchanged.</li>
-<li>:class:<code>~tsecon.mvtseries.MVTSeries</code> — same, on the matrix.</li>
-<li>:class:<code>~tsecon.workspace.Workspace</code> — members whose
+<li><a class="autorefs autorefs-internal" title="MVTSeries" href="../mvtseries/#tsecon.mvtseries.MVTSeries"><code>MVTSeries</code></a> — same, on the matrix.</li>
+<li><a class="autorefs autorefs-internal" title="Workspace" href="../workspace/#tsecon.workspace.Workspace"><code>Workspace</code></a> — members whose
   frequency matches <code>old_mit.frequency</code> are reindexed
   (recursively for nested Workspaces); other members are
   carried through.</li>
@@ -2679,7 +2714,7 @@ space, every output position is the input position plus
                 <code>old_to_new</code>
             </td>
             <td>
-                  <code><span title="tuple">tuple</span>[<a class="autorefs autorefs-internal" title="MIT
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#tuple">tuple</a>[<a class="autorefs autorefs-internal" title="MIT
 
 
   
@@ -2707,15 +2742,15 @@ the desired output frequency).</p>
                 <code>copy</code>
             </td>
             <td>
-                  <code><span title="bool">bool</span></code>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></code>
             </td>
             <td>
               <div class="doc-md-description">
                 <p>When True, force an independent values buffer for the returned
-:class:<code>~tsecon.tseries.TSeries</code> / :class:<code>~tsecon.mvtseries.MVTSeries</code>
-and apply :func:<code>copy.copy</code> to non-reindexable Workspace members.
+<a class="autorefs autorefs-internal" title="TSeries" href="../tseries/#tsecon.tseries.TSeries"><code>TSeries</code></a> / <a class="autorefs autorefs-internal" title="MVTSeries" href="../mvtseries/#tsecon.mvtseries.MVTSeries"><code>MVTSeries</code></a>
+and apply <a class="autorefs autorefs-external" href="https://docs.python.org/3/library/copy.html#copy.copy"><code>copy.copy</code></a> to non-reindexable Workspace members.
 Default False matches the wrap-by-default contract of
-:mod:<code>tsecon</code> constructors (see the project's design notes on
+<code>tsecon</code> constructors (see the project's design notes on
 constructor copy semantics).</p>
               </div>
             </td>
@@ -2761,7 +2796,7 @@ constructor copy semantics).</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="TypeError">TypeError</span></code>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/exceptions.html#TypeError">TypeError</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -2880,13 +2915,13 @@ type, or a frequency mismatch between <code>x</code> and <code>old_mit</code>.</
 <a id="__codelineno-0-718" name="__codelineno-0-718"></a><span class="sd">    x</span>
 <a id="__codelineno-0-719" name="__codelineno-0-719"></a><span class="sd">        The value to reindex. Supported types:</span>
 <a id="__codelineno-0-720" name="__codelineno-0-720"></a>
-<a id="__codelineno-0-721" name="__codelineno-0-721"></a><span class="sd">        * :class:`~tsecon.mit.MIT` — single instant.</span>
-<a id="__codelineno-0-722" name="__codelineno-0-722"></a><span class="sd">        * :class:`~tsecon.mitrange.MITRange` — both endpoints shifted;</span>
+<a id="__codelineno-0-721" name="__codelineno-0-721"></a><span class="sd">        * [`MIT`][tsecon.mit.MIT] — single instant.</span>
+<a id="__codelineno-0-722" name="__codelineno-0-722"></a><span class="sd">        * [`MITRange`][tsecon.mitrange.MITRange] — both endpoints shifted;</span>
 <a id="__codelineno-0-723" name="__codelineno-0-723"></a><span class="sd">          ``step`` is preserved.</span>
-<a id="__codelineno-0-724" name="__codelineno-0-724"></a><span class="sd">        * :class:`~tsecon.tseries.TSeries` — anchor shifted; values</span>
+<a id="__codelineno-0-724" name="__codelineno-0-724"></a><span class="sd">        * [`TSeries`][tsecon.tseries.TSeries] — anchor shifted; values</span>
 <a id="__codelineno-0-725" name="__codelineno-0-725"></a><span class="sd">          unchanged.</span>
-<a id="__codelineno-0-726" name="__codelineno-0-726"></a><span class="sd">        * :class:`~tsecon.mvtseries.MVTSeries` — same, on the matrix.</span>
-<a id="__codelineno-0-727" name="__codelineno-0-727"></a><span class="sd">        * :class:`~tsecon.workspace.Workspace` — members whose</span>
+<a id="__codelineno-0-726" name="__codelineno-0-726"></a><span class="sd">        * [`MVTSeries`][tsecon.mvtseries.MVTSeries] — same, on the matrix.</span>
+<a id="__codelineno-0-727" name="__codelineno-0-727"></a><span class="sd">        * [`Workspace`][tsecon.workspace.Workspace] — members whose</span>
 <a id="__codelineno-0-728" name="__codelineno-0-728"></a><span class="sd">          frequency matches ``old_mit.frequency`` are reindexed</span>
 <a id="__codelineno-0-729" name="__codelineno-0-729"></a><span class="sd">          (recursively for nested Workspaces); other members are</span>
 <a id="__codelineno-0-730" name="__codelineno-0-730"></a><span class="sd">          carried through.</span>
@@ -2897,10 +2932,10 @@ type, or a frequency mismatch between <code>x</code> and <code>old_mit</code>.</
 <a id="__codelineno-0-735" name="__codelineno-0-735"></a><span class="sd">        the desired output frequency).</span>
 <a id="__codelineno-0-736" name="__codelineno-0-736"></a><span class="sd">    copy</span>
 <a id="__codelineno-0-737" name="__codelineno-0-737"></a><span class="sd">        When True, force an independent values buffer for the returned</span>
-<a id="__codelineno-0-738" name="__codelineno-0-738"></a><span class="sd">        :class:`~tsecon.tseries.TSeries` / :class:`~tsecon.mvtseries.MVTSeries`</span>
-<a id="__codelineno-0-739" name="__codelineno-0-739"></a><span class="sd">        and apply :func:`copy.copy` to non-reindexable Workspace members.</span>
+<a id="__codelineno-0-738" name="__codelineno-0-738"></a><span class="sd">        [`TSeries`][tsecon.tseries.TSeries] / [`MVTSeries`][tsecon.mvtseries.MVTSeries]</span>
+<a id="__codelineno-0-739" name="__codelineno-0-739"></a><span class="sd">        and apply [`copy.copy`][copy.copy] to non-reindexable Workspace members.</span>
 <a id="__codelineno-0-740" name="__codelineno-0-740"></a><span class="sd">        Default False matches the wrap-by-default contract of</span>
-<a id="__codelineno-0-741" name="__codelineno-0-741"></a><span class="sd">        :mod:`tsecon` constructors (see the project&#39;s design notes on</span>
+<a id="__codelineno-0-741" name="__codelineno-0-741"></a><span class="sd">        `tsecon` constructors (see the project&#39;s design notes on</span>
 <a id="__codelineno-0-742" name="__codelineno-0-742"></a><span class="sd">        constructor copy semantics).</span>
 <a id="__codelineno-0-743" name="__codelineno-0-743"></a>
 <a id="__codelineno-0-744" name="__codelineno-0-744"></a><span class="sd">    Returns</span>

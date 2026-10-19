@@ -1490,7 +1490,7 @@ of the shape <code>op(_vals(A), _vals(B))</code> — i.e. the operation strips
 frequency / range / column-name labels and returns the underlying
 <code>Vector</code> or <code>Matrix</code> (the upstream test
 <code>x * x3 == _vals(x) * _vals(x3)</code> confirms). The Python port keeps
-that semantics: <code>@</code> returns a plain :class:<code>numpy.ndarray</code>; users
+that semantics: <code>@</code> returns a plain <a class="autorefs autorefs-external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray"><code>numpy.ndarray</code></a>; users
 who want the result back as a labelled object wrap it explicitly.</p>
 <p>Spelling — <code>@</code> (PEP 465) over Julia's <code>*</code>. Element-wise <code>*</code> is
 how NumPy / pandas / xarray spell broadcasting, and the existing

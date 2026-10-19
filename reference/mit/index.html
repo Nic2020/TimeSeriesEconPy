@@ -2049,8 +2049,18 @@ shorthand) yields a new <code>MIT</code>. <code>MITRange</code> is the inclusive
     <div class="doc doc-contents first">
 
         <p>MIT (moment-in-time) and Duration types.</p>
-<p>Mirrors <code>TimeSeriesEcon.jl</code>'s <code>momentintime.jl</code>. An :class:<code>MIT</code> carries a
-frequency and an integer value; :class:<code>Duration</code> is the same shape but
+<p>Mirrors <code>TimeSeriesEcon.jl</code>'s <code>momentintime.jl</code>. An <a class="autorefs autorefs-internal" title="MIT
+
+
+  
+      dataclass
+  " href="#tsecon.mit.MIT"><code>MIT</code></a> carries a
+frequency and an integer value; <a class="autorefs autorefs-internal" title="Duration
+
+
+  
+      dataclass
+  " href="#tsecon.mit.Duration"><code>Duration</code></a> is the same shape but
 represents a <em>distance</em> between two MITs of the same frequency.</p>
 <ul>
 <li><code>MIT - MIT</code> → <code>Duration</code> (same frequency required).</li>
@@ -2060,9 +2070,9 @@ represents a <em>distance</em> between two MITs of the same frequency.</p>
 <li>Adding/subtracting a plain <code>int</code> is allowed and interpreted as a duration
   in the MIT's own frequency.</li>
 </ul>
-<p>Constructor functions :func:<code>qq</code>, :func:<code>mm</code>, :func:<code>yy</code>, :func:<code>daily</code>,
-:func:<code>bdaily</code>, :func:<code>weekly</code> are the Pythonic equivalent of the Julia
-literal-suffix syntax <code>2020Q1</code>, <code>2020M3</code>, <code>2020Y</code>, etc.</p>
+<p>Constructor functions <a class="autorefs autorefs-internal" title="qq" href="#tsecon.mit.qq"><code>qq</code></a>, <a class="autorefs autorefs-internal" title="mm" href="#tsecon.mit.mm"><code>mm</code></a>, <a class="autorefs autorefs-internal" title="yy" href="#tsecon.mit.yy"><code>yy</code></a>,
+<a class="autorefs autorefs-internal" title="daily" href="#tsecon.mit.daily"><code>daily</code></a>, <a class="autorefs autorefs-internal" title="bdaily" href="#tsecon.mit.bdaily"><code>bdaily</code></a>, <a class="autorefs autorefs-internal" title="weekly" href="#tsecon.mit.weekly"><code>weekly</code></a> are the
+Pythonic equivalent of the Julia literal-suffix syntax <code>2020Q1</code>, <code>2020M3</code>, <code>2020Y</code>, etc.</p>
 <p>Equality with plain integers is <strong>not</strong> supported (unlike Julia, where
 <code>MIT(Quarterly, 5) == 5</code> is true). The Julia idiom violates Python's
 <code>__hash__</code>/<code>__eq__</code> invariant; use <code>int(mit)</code> or <code>mit.value</code> to
@@ -2104,7 +2114,7 @@ extract the underlying integer instead.</p>
     <div class="doc doc-contents ">
 
         <p>One of <code>"strict"</code>, <code>"previous"</code>, <code>"next"</code>, <code>"nearest"</code>.</p>
-<p>Determines how :func:<code>bdaily</code> resolves a date that falls on a weekend.
+<p>Determines how <a class="autorefs autorefs-internal" title="bdaily" href="#tsecon.mit.bdaily"><code>bdaily</code></a> resolves a date that falls on a weekend.
 <code>"strict"</code> (the default, matching Julia) raises rather than guessing.</p>
 
     </div>
@@ -2133,10 +2143,15 @@ extract the underlying integer instead.</p>
 
 
         <p>A frequency-tagged moment in time.</p>
-<p>Construct via :meth:<code>from_yp</code> for year/period frequencies, or via the
-convenience constructors :func:<code>qq</code>, :func:<code>mm</code>, :func:<code>yy</code>, :func:<code>daily</code>,
-:func:<code>bdaily</code>, :func:<code>weekly</code>. Direct <code>MIT(frequency, value)</code>
-construction takes a raw integer offset.</p>
+<p>Construct via <a class="autorefs autorefs-internal" title="from_yp
+
+
+  
+      classmethod
+  " href="#tsecon.mit.MIT.from_yp"><code>from_yp</code></a> for year/period frequencies, or via the
+convenience constructors <a class="autorefs autorefs-internal" title="qq" href="#tsecon.mit.qq"><code>qq</code></a>, <a class="autorefs autorefs-internal" title="mm" href="#tsecon.mit.mm"><code>mm</code></a>, <a class="autorefs autorefs-internal" title="yy" href="#tsecon.mit.yy"><code>yy</code></a>,
+<a class="autorefs autorefs-internal" title="daily" href="#tsecon.mit.daily"><code>daily</code></a>, <a class="autorefs autorefs-internal" title="bdaily" href="#tsecon.mit.bdaily"><code>bdaily</code></a>, <a class="autorefs autorefs-internal" title="weekly" href="#tsecon.mit.weekly"><code>weekly</code></a>.
+Direct <code>MIT(frequency, value)</code> construction takes a raw integer offset.</p>
 
 
 
@@ -2322,10 +2337,10 @@ construction takes a raw integer offset.</p>
 <a id="__codelineno-0-96" name="__codelineno-0-96"></a><span class="k">class</span><span class="w"> </span><span class="nc">MIT</span><span class="p">:</span>
 <a id="__codelineno-0-97" name="__codelineno-0-97"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;A frequency-tagged moment in time.</span>
 <a id="__codelineno-0-98" name="__codelineno-0-98"></a>
-<a id="__codelineno-0-99" name="__codelineno-0-99"></a><span class="sd">    Construct via :meth:`from_yp` for year/period frequencies, or via the</span>
-<a id="__codelineno-0-100" name="__codelineno-0-100"></a><span class="sd">    convenience constructors :func:`qq`, :func:`mm`, :func:`yy`, :func:`daily`,</span>
-<a id="__codelineno-0-101" name="__codelineno-0-101"></a><span class="sd">    :func:`bdaily`, :func:`weekly`. Direct ``MIT(frequency, value)``</span>
-<a id="__codelineno-0-102" name="__codelineno-0-102"></a><span class="sd">    construction takes a raw integer offset.</span>
+<a id="__codelineno-0-99" name="__codelineno-0-99"></a><span class="sd">    Construct via [`from_yp`][tsecon.mit.MIT.from_yp] for year/period frequencies, or via the</span>
+<a id="__codelineno-0-100" name="__codelineno-0-100"></a><span class="sd">    convenience constructors [`qq`][tsecon.mit.qq], [`mm`][tsecon.mit.mm], [`yy`][tsecon.mit.yy],</span>
+<a id="__codelineno-0-101" name="__codelineno-0-101"></a><span class="sd">    [`daily`][tsecon.mit.daily], [`bdaily`][tsecon.mit.bdaily], [`weekly`][tsecon.mit.weekly].</span>
+<a id="__codelineno-0-102" name="__codelineno-0-102"></a><span class="sd">    Direct ``MIT(frequency, value)`` construction takes a raw integer offset.</span>
 <a id="__codelineno-0-103" name="__codelineno-0-103"></a><span class="sd">    &quot;&quot;&quot;</span>
 <a id="__codelineno-0-104" name="__codelineno-0-104"></a>
 <a id="__codelineno-0-105" name="__codelineno-0-105"></a>    <span class="n">frequency</span><span class="p">:</span> <span class="n">Frequency</span>
@@ -2476,7 +2491,7 @@ construction takes a raw integer offset.</p>
 <a id="__codelineno-0-250" name="__codelineno-0-250"></a>
 <a id="__codelineno-0-251" name="__codelineno-0-251"></a><span class="sd">        Mirrors Julia&#39;s ``start:stop`` syntax for MITs. Python&#39;s slice/colon</span>
 <a id="__codelineno-0-252" name="__codelineno-0-252"></a><span class="sd">        cannot be overloaded outside of indexing, so this method is the</span>
-<a id="__codelineno-0-253" name="__codelineno-0-253"></a><span class="sd">        idiomatic spelling. The free function :func:`tsecon.mitrange.mitrange`</span>
+<a id="__codelineno-0-253" name="__codelineno-0-253"></a><span class="sd">        idiomatic spelling. The free function [`tsecon.mitrange.mitrange`][tsecon.mitrange.mitrange]</span>
 <a id="__codelineno-0-254" name="__codelineno-0-254"></a><span class="sd">        also works.</span>
 <a id="__codelineno-0-255" name="__codelineno-0-255"></a><span class="sd">        &quot;&quot;&quot;</span>
 <a id="__codelineno-0-256" name="__codelineno-0-256"></a>        <span class="kn">from</span><span class="w"> </span><span class="nn">tsecon.mitrange</span><span class="w"> </span><span class="kn">import</span> <span class="n">MITRange</span>  <span class="c1"># noqa: PLC0415  (avoid circular import)</span>
@@ -2573,7 +2588,7 @@ construction takes a raw integer offset.</p>
         <p>Return the <code>MITRange</code> from <code>self</code> through <code>stop</code> (inclusive).</p>
 <p>Mirrors Julia's <code>start:stop</code> syntax for MITs. Python's slice/colon
 cannot be overloaded outside of indexing, so this method is the
-idiomatic spelling. The free function :func:<code>tsecon.mitrange.mitrange</code>
+idiomatic spelling. The free function <a class="autorefs autorefs-internal" title="mitrange" href="#tsecon.mitrange.mitrange"><code>tsecon.mitrange.mitrange</code></a>
 also works.</p>
 
 
@@ -2594,7 +2609,7 @@ also works.</p>
 <a id="__codelineno-0-250" name="__codelineno-0-250"></a>
 <a id="__codelineno-0-251" name="__codelineno-0-251"></a><span class="sd">    Mirrors Julia&#39;s ``start:stop`` syntax for MITs. Python&#39;s slice/colon</span>
 <a id="__codelineno-0-252" name="__codelineno-0-252"></a><span class="sd">    cannot be overloaded outside of indexing, so this method is the</span>
-<a id="__codelineno-0-253" name="__codelineno-0-253"></a><span class="sd">    idiomatic spelling. The free function :func:`tsecon.mitrange.mitrange`</span>
+<a id="__codelineno-0-253" name="__codelineno-0-253"></a><span class="sd">    idiomatic spelling. The free function [`tsecon.mitrange.mitrange`][tsecon.mitrange.mitrange]</span>
 <a id="__codelineno-0-254" name="__codelineno-0-254"></a><span class="sd">    also works.</span>
 <a id="__codelineno-0-255" name="__codelineno-0-255"></a><span class="sd">    &quot;&quot;&quot;</span>
 <a id="__codelineno-0-256" name="__codelineno-0-256"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tsecon.mitrange</span><span class="w"> </span><span class="kn">import</span> <span class="n">MITRange</span>  <span class="c1"># noqa: PLC0415  (avoid circular import)</span>
@@ -3067,8 +3082,18 @@ also works.</p>
 
         <p>Recover <code>(year, period)</code> from a YP- or Daily-/BDaily-frequency MIT.</p>
 <p>For <code>YPFrequency</code> subclasses this is the canonical decomposition
-<code>int(mit) == N * year + (period - 1)</code>. For :class:<code>Daily</code> and
-:class:<code>BDaily</code> it returns the year and the 1-based index of the day
+<code>int(mit) == N * year + (period - 1)</code>. For <a class="autorefs autorefs-internal" title="Daily
+
+
+  
+      dataclass
+  " href="../frequencies/#tsecon.frequencies.Daily"><code>Daily</code></a> and
+<a class="autorefs autorefs-internal" title="BDaily
+
+
+  
+      dataclass
+  " href="../frequencies/#tsecon.frequencies.BDaily"><code>BDaily</code></a> it returns the year and the 1-based index of the day
 within that year.</p>
 
 
@@ -3104,8 +3129,8 @@ within that year.</p>
 <a id="__codelineno-0-474" name="__codelineno-0-474"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Recover ``(year, period)`` from a YP- or Daily-/BDaily-frequency MIT.</span>
 <a id="__codelineno-0-475" name="__codelineno-0-475"></a>
 <a id="__codelineno-0-476" name="__codelineno-0-476"></a><span class="sd">    For ``YPFrequency`` subclasses this is the canonical decomposition</span>
-<a id="__codelineno-0-477" name="__codelineno-0-477"></a><span class="sd">    ``int(mit) == N * year + (period - 1)``. For :class:`Daily` and</span>
-<a id="__codelineno-0-478" name="__codelineno-0-478"></a><span class="sd">    :class:`BDaily` it returns the year and the 1-based index of the day</span>
+<a id="__codelineno-0-477" name="__codelineno-0-477"></a><span class="sd">    ``int(mit) == N * year + (period - 1)``. For [`Daily`][tsecon.frequencies.Daily] and</span>
+<a id="__codelineno-0-478" name="__codelineno-0-478"></a><span class="sd">    [`BDaily`][tsecon.frequencies.BDaily] it returns the year and the 1-based index of the day</span>
 <a id="__codelineno-0-479" name="__codelineno-0-479"></a><span class="sd">    within that year.</span>
 <a id="__codelineno-0-480" name="__codelineno-0-480"></a><span class="sd">    &quot;&quot;&quot;</span>
 <a id="__codelineno-0-481" name="__codelineno-0-481"></a>    <span class="n">f</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">frequency</span>
@@ -3354,7 +3379,7 @@ don't carry a frequency.</p>
 
     <div class="doc doc-contents ">
 
-        <p>Construct an <code>MIT{Daily}</code> from a :class:<code>datetime.date</code> or ISO string.</p>
+        <p>Construct an <code>MIT{Daily}</code> from a <a class="autorefs autorefs-external" href="https://docs.python.org/3/library/datetime.html#datetime.date"><code>datetime.date</code></a> or ISO string.</p>
 
 
             <details class="mkdocstrings-source">
@@ -3363,7 +3388,7 @@ don't carry a frequency.</p>
 <span class="normal"><a href="#__codelineno-0-578">578</a></span>
 <span class="normal"><a href="#__codelineno-0-579">579</a></span>
 <span class="normal"><a href="#__codelineno-0-580">580</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-577" name="__codelineno-0-577"></a><span class="k">def</span><span class="w"> </span><span class="nf">daily</span><span class="p">(</span><span class="n">d</span><span class="p">:</span> <span class="n">_dt</span><span class="o">.</span><span class="n">date</span> <span class="o">|</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MIT</span><span class="p">:</span>
-<a id="__codelineno-0-578" name="__codelineno-0-578"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Construct an ``MIT{Daily}`` from a :class:`datetime.date` or ISO string.&quot;&quot;&quot;</span>
+<a id="__codelineno-0-578" name="__codelineno-0-578"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Construct an ``MIT{Daily}`` from a [`datetime.date`][datetime.date] or ISO string.&quot;&quot;&quot;</span>
 <a id="__codelineno-0-579" name="__codelineno-0-579"></a>    <span class="n">date</span> <span class="o">=</span> <span class="n">_parse_date</span><span class="p">(</span><span class="n">d</span><span class="p">)</span>
 <a id="__codelineno-0-580" name="__codelineno-0-580"></a>    <span class="k">return</span> <span class="n">MIT</span><span class="p">(</span><span class="n">Daily</span><span class="p">(),</span> <span class="n">date</span><span class="o">.</span><span class="n">toordinal</span><span class="p">())</span>
 </code></pre></div></td></tr></table></div>
@@ -3603,7 +3628,7 @@ that contains the provided date.</p>
 
     <div class="doc doc-contents ">
 
-        <p>Convert an MIT to a :class:<code>datetime.date</code>.</p>
+        <p>Convert an MIT to a <a class="autorefs autorefs-external" href="https://docs.python.org/3/library/datetime.html#datetime.date"><code>datetime.date</code></a>.</p>
 <p>For multi-day frequencies (Yearly, HalfYearly, Quarterly, Monthly,
 Weekly) <code>ref</code> controls whether the <em>end</em> of the period (default) or
 its <em>beginning</em> (<code>ref="begin"</code>) is returned.</p>
@@ -3655,7 +3680,7 @@ its <em>beginning</em> (<code>ref="begin"</code>) is returned.</p>
 <span class="normal"><a href="#__codelineno-0-731">731</a></span>
 <span class="normal"><a href="#__codelineno-0-732">732</a></span>
 <span class="normal"><a href="#__codelineno-0-733">733</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-690" name="__codelineno-0-690"></a><span class="k">def</span><span class="w"> </span><span class="nf">mit_to_date</span><span class="p">(</span><span class="n">m</span><span class="p">:</span> <span class="n">MIT</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">ref</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;end&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_dt</span><span class="o">.</span><span class="n">date</span><span class="p">:</span>
-<a id="__codelineno-0-691" name="__codelineno-0-691"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Convert an MIT to a :class:`datetime.date`.</span>
+<a id="__codelineno-0-691" name="__codelineno-0-691"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Convert an MIT to a [`datetime.date`][datetime.date].</span>
 <a id="__codelineno-0-692" name="__codelineno-0-692"></a>
 <a id="__codelineno-0-693" name="__codelineno-0-693"></a><span class="sd">    For multi-day frequencies (Yearly, HalfYearly, Quarterly, Monthly,</span>
 <a id="__codelineno-0-694" name="__codelineno-0-694"></a><span class="sd">    Weekly) ``ref`` controls whether the *end* of the period (default) or</span>
@@ -3728,8 +3753,18 @@ its <em>beginning</em> (<code>ref="begin"</code>) is returned.</p>
         <p>MITRange — an inclusive integer range of frequency-tagged moments in time.</p>
 <p>Mirrors Julia's <code>UnitRange{MIT{F}}</code> and <code>StepRange{MIT{F}}</code>. A range is
 defined by <code>(start, stop, step)</code> where <code>start</code> and <code>stop</code> are
-:class:<code>~tsecon.mit.MIT</code> values of the same frequency and <code>step</code> is a
-nonzero integer number of periods (or a :class:<code>~tsecon.mit.Duration</code> of the
+<a class="autorefs autorefs-internal" title="MIT
+
+
+  
+      dataclass
+  " href="#tsecon.mit.MIT"><code>MIT</code></a> values of the same frequency and <code>step</code> is a
+nonzero integer number of periods (or a <a class="autorefs autorefs-internal" title="Duration
+
+
+  
+      dataclass
+  " href="#tsecon.mit.Duration"><code>Duration</code></a> of the
 same frequency). <code>step</code> may be negative — <code>MITRange(10U, 1U, -1)</code> walks
 backward, mirroring Julia's <code>10U:-1:1U</code>. Ranges whose endpoints do not
 match the sign of <code>step</code> (e.g. <code>MITRange(1U, 10U, -1)</code>) are empty.</p>
@@ -3778,7 +3813,12 @@ or <code>MIT</code>), slicing, and membership testing.</p>
 <p>Construct with <code>MITRange(start, stop)</code> for unit steps, or
 <code>MITRange(start, stop, step)</code> for a step range. <code>step</code> may be a
 nonzero <code>int</code> (interpreted in the range's frequency) or a
-:class:<code>Duration</code> of the same frequency. Negative <code>step</code> walks
+<a class="autorefs autorefs-internal" title="Duration
+
+
+  
+      dataclass
+  " href="#tsecon.mit.Duration"><code>Duration</code></a> of the same frequency. Negative <code>step</code> walks
 backward (<code>MITRange(10U, 1U, -1)</code> mirrors Julia's <code>10U:-1:1U</code>);
 ranges whose endpoints have the opposite sense to <code>step</code> are empty.</p>
 
@@ -3948,7 +3988,7 @@ ranges whose endpoints have the opposite sense to <code>step</code> are empty.</
 <a id="__codelineno-0-37" name="__codelineno-0-37"></a><span class="sd">    Construct with ``MITRange(start, stop)`` for unit steps, or</span>
 <a id="__codelineno-0-38" name="__codelineno-0-38"></a><span class="sd">    ``MITRange(start, stop, step)`` for a step range. ``step`` may be a</span>
 <a id="__codelineno-0-39" name="__codelineno-0-39"></a><span class="sd">    nonzero ``int`` (interpreted in the range&#39;s frequency) or a</span>
-<a id="__codelineno-0-40" name="__codelineno-0-40"></a><span class="sd">    :class:`Duration` of the same frequency. Negative ``step`` walks</span>
+<a id="__codelineno-0-40" name="__codelineno-0-40"></a><span class="sd">    [`Duration`][tsecon.mit.Duration] of the same frequency. Negative ``step`` walks</span>
 <a id="__codelineno-0-41" name="__codelineno-0-41"></a><span class="sd">    backward (``MITRange(10U, 1U, -1)`` mirrors Julia&#39;s ``10U:-1:1U``);</span>
 <a id="__codelineno-0-42" name="__codelineno-0-42"></a><span class="sd">    ranges whose endpoints have the opposite sense to ``step`` are empty.</span>
 <a id="__codelineno-0-43" name="__codelineno-0-43"></a><span class="sd">    &quot;&quot;&quot;</span>
@@ -4266,9 +4306,19 @@ MIT not past <code>stop</code>. In both cases, <code>last() == start + (len-1) *
 
     <div class="doc doc-contents ">
 
-        <p>Functional constructor for :class:<code>MITRange</code>.</p>
+        <p>Functional constructor for <a class="autorefs autorefs-internal" title="MITRange
+
+
+  
+      dataclass
+  " href="#tsecon.mitrange.MITRange"><code>MITRange</code></a>.</p>
 <p>Mirrors Julia's <code>start:stop</code> and <code>start:step:stop</code> colon syntax.
-<code>step</code> may be an <code>int</code> or a :class:<code>Duration</code> of the same frequency.</p>
+<code>step</code> may be an <code>int</code> or a <a class="autorefs autorefs-internal" title="Duration
+
+
+  
+      dataclass
+  " href="#tsecon.mit.Duration"><code>Duration</code></a> of the same frequency.</p>
 
 
             <details class="mkdocstrings-source">
@@ -4289,10 +4339,10 @@ MIT not past <code>stop</code>. In both cases, <code>last() == start + (len-1) *
 <span class="normal"><a href="#__codelineno-0-199">199</a></span>
 <span class="normal"><a href="#__codelineno-0-200">200</a></span>
 <span class="normal"><a href="#__codelineno-0-201">201</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-186" name="__codelineno-0-186"></a><span class="k">def</span><span class="w"> </span><span class="nf">mitrange</span><span class="p">(</span><span class="n">start</span><span class="p">:</span> <span class="n">MIT</span><span class="p">,</span> <span class="n">stop</span><span class="p">:</span> <span class="n">MIT</span><span class="p">,</span> <span class="n">step</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="n">Duration</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MITRange</span><span class="p">:</span>
-<a id="__codelineno-0-187" name="__codelineno-0-187"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Functional constructor for :class:`MITRange`.</span>
+<a id="__codelineno-0-187" name="__codelineno-0-187"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Functional constructor for [`MITRange`][tsecon.mitrange.MITRange].</span>
 <a id="__codelineno-0-188" name="__codelineno-0-188"></a>
 <a id="__codelineno-0-189" name="__codelineno-0-189"></a><span class="sd">    Mirrors Julia&#39;s ``start:stop`` and ``start:step:stop`` colon syntax.</span>
-<a id="__codelineno-0-190" name="__codelineno-0-190"></a><span class="sd">    ``step`` may be an ``int`` or a :class:`Duration` of the same frequency.</span>
+<a id="__codelineno-0-190" name="__codelineno-0-190"></a><span class="sd">    ``step`` may be an ``int`` or a [`Duration`][tsecon.mit.Duration] of the same frequency.</span>
 <a id="__codelineno-0-191" name="__codelineno-0-191"></a><span class="sd">    &quot;&quot;&quot;</span>
 <a id="__codelineno-0-192" name="__codelineno-0-192"></a>    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">step</span><span class="p">,</span> <span class="n">Duration</span><span class="p">):</span>
 <a id="__codelineno-0-193" name="__codelineno-0-193"></a>        <span class="k">if</span> <span class="n">step</span><span class="o">.</span><span class="n">frequency</span> <span class="o">!=</span> <span class="n">start</span><span class="o">.</span><span class="n">frequency</span><span class="p">:</span>
@@ -4331,11 +4381,23 @@ MIT not past <code>stop</code>. In both cases, <code>last() == start + (len-1) *
         <p>Return the range of <code>obj</code>, optionally dropping leading/trailing periods.</p>
 <p>Mirrors Julia's <code>rangeof(t; drop=n)</code> and <code>rangeof(w; method=intersect)</code>
 (see <a href="https://github.com/bankofcanada/TimeSeriesEcon.jl"><code>TimeSeriesEcon.jl/src/workspaces.jl</code></a>
-and <code>src/tseries.jl</code>). The Python equivalents — :attr:<code>TSeries.range</code> /
-:attr:<code>MVTSeries.range</code> properties, :meth:<code>Workspace.rangeof</code>,
-:func:<code>rangeof_span</code> — remain available; this function unifies them under
-a single kwarg-bearing call site that mirrors the Julia surface 1-to-1 and
-is the recommended target for line-by-line tutorial / model code ports.</p>
+and <code>src/tseries.jl</code>). The Python equivalents —
+<a class="autorefs autorefs-internal" title="range
+
+
+  
+      property
+  " href="../tseries/#tsecon.tseries.TSeries.range"><code>TSeries.range</code></a> /
+<a class="autorefs autorefs-internal" title="range
+
+
+  
+      property
+  " href="../mvtseries/#tsecon.mvtseries.MVTSeries.range"><code>MVTSeries.range</code></a> properties,
+<a class="autorefs autorefs-internal" title="rangeof" href="../workspace/#tsecon.workspace.Workspace.rangeof"><code>Workspace.rangeof</code></a>,
+<a class="autorefs autorefs-internal" title="rangeof_span" href="#tsecon.mitrange.rangeof_span"><code>rangeof_span</code></a> — remain available; this function unifies them
+under a single kwarg-bearing call site that mirrors the Julia surface 1-to-1 and is the
+recommended target for line-by-line tutorial / model code ports.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -4354,14 +4416,24 @@ is the recommended target for line-by-line tutorial / model code ports.</p>
                 <code>obj</code>
             </td>
             <td>
-                  <code><span title="object">object</span></code>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#object">object</a></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>A :class:<code>MITRange</code>, :class:<code>~tsecon.mit.MIT</code>,
-:class:<code>~tsecon.tseries.TSeries</code>, :class:<code>~tsecon.mvtseries.MVTSeries</code>,
-or :class:<code>~tsecon.workspace.Workspace</code>. Anything else raises
-:class:<code>TypeError</code> naming the offending type.</p>
+                <p>A <a class="autorefs autorefs-internal" title="MITRange
+
+
+  
+      dataclass
+  " href="#tsecon.mitrange.MITRange"><code>MITRange</code></a>, <a class="autorefs autorefs-internal" title="MIT
+
+
+  
+      dataclass
+  " href="#tsecon.mit.MIT"><code>MIT</code></a>,
+<a class="autorefs autorefs-internal" title="TSeries" href="../tseries/#tsecon.tseries.TSeries"><code>TSeries</code></a>, <a class="autorefs autorefs-internal" title="MVTSeries" href="../mvtseries/#tsecon.mvtseries.MVTSeries"><code>MVTSeries</code></a>,
+or <a class="autorefs autorefs-internal" title="Workspace" href="../workspace/#tsecon.workspace.Workspace"><code>Workspace</code></a>. Anything else raises
+<a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/exceptions.html#TypeError"><code>TypeError</code></a> naming the offending type.</p>
               </div>
             </td>
             <td>
@@ -4373,7 +4445,7 @@ or :class:<code>~tsecon.workspace.Workspace</code>. Anything else raises
                 <code>drop</code>
             </td>
             <td>
-                  <code><span title="int">int</span></code>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#int">int</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -4392,14 +4464,14 @@ exactly.</p>
                 <code>method</code>
             </td>
             <td>
-                  <code><span title="typing.Literal">Literal</span>[&#39;intersect&#39;, &#39;union&#39;]</code>
+                  <code><a class="autorefs autorefs-external" title="typing.Literal" href="https://docs.python.org/3/library/typing.html#typing.Literal">Literal</a>[&#39;intersect&#39;, &#39;union&#39;]</code>
             </td>
             <td>
               <div class="doc-md-description">
                 <p><code>"intersect"</code> (default) → intersection of all member ranges;
 <code>"union"</code> → <code>rangeof_span</code> semantics. Only meaningful for
-:class:<code>~tsecon.workspace.Workspace</code>; passing <code>method="union"</code> for
-any other type raises :class:<code>TypeError</code> to catch the likely
+<a class="autorefs autorefs-internal" title="Workspace" href="../workspace/#tsecon.workspace.Workspace"><code>Workspace</code></a>; passing <code>method="union"</code> for
+any other type raises <a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/exceptions.html#TypeError"><code>TypeError</code></a> to catch the likely
 wrong-object-type mistake.</p>
               </div>
             </td>
@@ -4432,8 +4504,14 @@ wrong-object-type mistake.</p>
             <td>
               <div class="doc-md-description">
                 <p>The (possibly shrunk) range. <code>step</code> is preserved for
-:class:<code>MITRange</code> inputs; :class:<code>TSeries</code> / :class:<code>MVTSeries</code> /
-:class:<code>~tsecon.workspace.Workspace</code> inputs always yield <code>step=1</code>.</p>
+<a class="autorefs autorefs-internal" title="MITRange
+
+
+  
+      dataclass
+  " href="#tsecon.mitrange.MITRange"><code>MITRange</code></a> inputs; <a class="autorefs autorefs-internal" title="TSeries" href="../tseries/#tsecon.tseries.TSeries"><code>TSeries</code></a> /
+<a class="autorefs autorefs-internal" title="MVTSeries" href="../mvtseries/#tsecon.mvtseries.MVTSeries"><code>MVTSeries</code></a> / <a class="autorefs autorefs-internal" title="Workspace" href="../workspace/#tsecon.workspace.Workspace"><code>Workspace</code></a> inputs
+always yield <code>step=1</code>.</p>
               </div>
             </td>
           </tr>
@@ -4452,7 +4530,7 @@ wrong-object-type mistake.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="TypeError">TypeError</span></code>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/exceptions.html#TypeError">TypeError</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -4463,7 +4541,7 @@ non-Workspace input.</p>
           </tr>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="ValueError">ValueError</span></code>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/exceptions.html#ValueError">ValueError</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -4604,7 +4682,10 @@ ts.rec(ts.rangeof(a, drop=1), a, lambda t: (1 - rho) * a_ss + rho * a[t - 1])
 <span class="normal"><a href="#__codelineno-0-352">352</a></span>
 <span class="normal"><a href="#__codelineno-0-353">353</a></span>
 <span class="normal"><a href="#__codelineno-0-354">354</a></span>
-<span class="normal"><a href="#__codelineno-0-355">355</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-251" name="__codelineno-0-251"></a><span class="k">def</span><span class="w"> </span><span class="nf">rangeof</span><span class="p">(</span>
+<span class="normal"><a href="#__codelineno-0-355">355</a></span>
+<span class="normal"><a href="#__codelineno-0-356">356</a></span>
+<span class="normal"><a href="#__codelineno-0-357">357</a></span>
+<span class="normal"><a href="#__codelineno-0-358">358</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-251" name="__codelineno-0-251"></a><span class="k">def</span><span class="w"> </span><span class="nf">rangeof</span><span class="p">(</span>
 <a id="__codelineno-0-252" name="__codelineno-0-252"></a>    <span class="n">obj</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span>
 <a id="__codelineno-0-253" name="__codelineno-0-253"></a>    <span class="o">*</span><span class="p">,</span>
 <a id="__codelineno-0-254" name="__codelineno-0-254"></a>    <span class="n">drop</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
@@ -4614,101 +4695,104 @@ ts.rec(ts.rangeof(a, drop=1), a, lambda t: (1 - rho) * a_ss + rho * a[t - 1])
 <a id="__codelineno-0-258" name="__codelineno-0-258"></a>
 <a id="__codelineno-0-259" name="__codelineno-0-259"></a><span class="sd">    Mirrors Julia&#39;s ``rangeof(t; drop=n)`` and ``rangeof(w; method=intersect)``</span>
 <a id="__codelineno-0-260" name="__codelineno-0-260"></a><span class="sd">    (see [`TimeSeriesEcon.jl/src/workspaces.jl`](https://github.com/bankofcanada/TimeSeriesEcon.jl)</span>
-<a id="__codelineno-0-261" name="__codelineno-0-261"></a><span class="sd">    and ``src/tseries.jl``). The Python equivalents — :attr:`TSeries.range` /</span>
-<a id="__codelineno-0-262" name="__codelineno-0-262"></a><span class="sd">    :attr:`MVTSeries.range` properties, :meth:`Workspace.rangeof`,</span>
-<a id="__codelineno-0-263" name="__codelineno-0-263"></a><span class="sd">    :func:`rangeof_span` — remain available; this function unifies them under</span>
-<a id="__codelineno-0-264" name="__codelineno-0-264"></a><span class="sd">    a single kwarg-bearing call site that mirrors the Julia surface 1-to-1 and</span>
-<a id="__codelineno-0-265" name="__codelineno-0-265"></a><span class="sd">    is the recommended target for line-by-line tutorial / model code ports.</span>
-<a id="__codelineno-0-266" name="__codelineno-0-266"></a>
-<a id="__codelineno-0-267" name="__codelineno-0-267"></a><span class="sd">    Parameters</span>
-<a id="__codelineno-0-268" name="__codelineno-0-268"></a><span class="sd">    ----------</span>
-<a id="__codelineno-0-269" name="__codelineno-0-269"></a><span class="sd">    obj</span>
-<a id="__codelineno-0-270" name="__codelineno-0-270"></a><span class="sd">        A :class:`MITRange`, :class:`~tsecon.mit.MIT`,</span>
-<a id="__codelineno-0-271" name="__codelineno-0-271"></a><span class="sd">        :class:`~tsecon.tseries.TSeries`, :class:`~tsecon.mvtseries.MVTSeries`,</span>
-<a id="__codelineno-0-272" name="__codelineno-0-272"></a><span class="sd">        or :class:`~tsecon.workspace.Workspace`. Anything else raises</span>
-<a id="__codelineno-0-273" name="__codelineno-0-273"></a><span class="sd">        :class:`TypeError` naming the offending type.</span>
-<a id="__codelineno-0-274" name="__codelineno-0-274"></a><span class="sd">    drop</span>
-<a id="__codelineno-0-275" name="__codelineno-0-275"></a><span class="sd">        Skip ``drop`` elements at the start (``drop &gt; 0``) or at the end</span>
-<a id="__codelineno-0-276" name="__codelineno-0-276"></a><span class="sd">        (``drop &lt; 0``). ``drop == 0`` returns the full range. ``|drop| &gt;=</span>
-<a id="__codelineno-0-277" name="__codelineno-0-277"></a><span class="sd">        len(range)`` returns an empty range. Mirrors Julia&#39;s ``drop=`` kwarg</span>
-<a id="__codelineno-0-278" name="__codelineno-0-278"></a><span class="sd">        exactly.</span>
-<a id="__codelineno-0-279" name="__codelineno-0-279"></a><span class="sd">    method</span>
-<a id="__codelineno-0-280" name="__codelineno-0-280"></a><span class="sd">        ``&quot;intersect&quot;`` (default) → intersection of all member ranges;</span>
-<a id="__codelineno-0-281" name="__codelineno-0-281"></a><span class="sd">        ``&quot;union&quot;`` → ``rangeof_span`` semantics. Only meaningful for</span>
-<a id="__codelineno-0-282" name="__codelineno-0-282"></a><span class="sd">        :class:`~tsecon.workspace.Workspace`; passing ``method=&quot;union&quot;`` for</span>
-<a id="__codelineno-0-283" name="__codelineno-0-283"></a><span class="sd">        any other type raises :class:`TypeError` to catch the likely</span>
-<a id="__codelineno-0-284" name="__codelineno-0-284"></a><span class="sd">        wrong-object-type mistake.</span>
-<a id="__codelineno-0-285" name="__codelineno-0-285"></a>
-<a id="__codelineno-0-286" name="__codelineno-0-286"></a><span class="sd">    Returns</span>
-<a id="__codelineno-0-287" name="__codelineno-0-287"></a><span class="sd">    -------</span>
-<a id="__codelineno-0-288" name="__codelineno-0-288"></a><span class="sd">    MITRange</span>
-<a id="__codelineno-0-289" name="__codelineno-0-289"></a><span class="sd">        The (possibly shrunk) range. ``step`` is preserved for</span>
-<a id="__codelineno-0-290" name="__codelineno-0-290"></a><span class="sd">        :class:`MITRange` inputs; :class:`TSeries` / :class:`MVTSeries` /</span>
-<a id="__codelineno-0-291" name="__codelineno-0-291"></a><span class="sd">        :class:`~tsecon.workspace.Workspace` inputs always yield ``step=1``.</span>
-<a id="__codelineno-0-292" name="__codelineno-0-292"></a>
-<a id="__codelineno-0-293" name="__codelineno-0-293"></a><span class="sd">    Raises</span>
-<a id="__codelineno-0-294" name="__codelineno-0-294"></a><span class="sd">    ------</span>
-<a id="__codelineno-0-295" name="__codelineno-0-295"></a><span class="sd">    TypeError</span>
-<a id="__codelineno-0-296" name="__codelineno-0-296"></a><span class="sd">        Unsupported ``obj`` type, or ``method=&quot;union&quot;`` passed for a</span>
-<a id="__codelineno-0-297" name="__codelineno-0-297"></a><span class="sd">        non-Workspace input.</span>
-<a id="__codelineno-0-298" name="__codelineno-0-298"></a><span class="sd">    ValueError</span>
-<a id="__codelineno-0-299" name="__codelineno-0-299"></a><span class="sd">        ``method`` is not one of ``&quot;intersect&quot;`` / ``&quot;union&quot;``.</span>
-<a id="__codelineno-0-300" name="__codelineno-0-300"></a>
-<a id="__codelineno-0-301" name="__codelineno-0-301"></a><span class="sd">    Examples</span>
-<a id="__codelineno-0-302" name="__codelineno-0-302"></a><span class="sd">    --------</span>
-<a id="__codelineno-0-303" name="__codelineno-0-303"></a><span class="sd">    &gt;&gt;&gt; import tsecon as ts</span>
-<a id="__codelineno-0-304" name="__codelineno-0-304"></a><span class="sd">    &gt;&gt;&gt; a = ts.TSeries(ts.qq(2020, 1), [1.0, 2.0, 3.0, 4.0])</span>
-<a id="__codelineno-0-305" name="__codelineno-0-305"></a><span class="sd">    &gt;&gt;&gt; ts.rangeof(a)</span>
-<a id="__codelineno-0-306" name="__codelineno-0-306"></a><span class="sd">    2020Q1:2020Q4</span>
-<a id="__codelineno-0-307" name="__codelineno-0-307"></a><span class="sd">    &gt;&gt;&gt; ts.rangeof(a, drop=1)</span>
-<a id="__codelineno-0-308" name="__codelineno-0-308"></a><span class="sd">    2020Q2:2020Q4</span>
-<a id="__codelineno-0-309" name="__codelineno-0-309"></a><span class="sd">    &gt;&gt;&gt; ts.rangeof(a, drop=-1)</span>
-<a id="__codelineno-0-310" name="__codelineno-0-310"></a><span class="sd">    2020Q1:2020Q3</span>
-<a id="__codelineno-0-311" name="__codelineno-0-311"></a>
-<a id="__codelineno-0-312" name="__codelineno-0-312"></a><span class="sd">    The tutorial-1 ``@rec`` idiom ports line-by-line::</span>
-<a id="__codelineno-0-313" name="__codelineno-0-313"></a>
-<a id="__codelineno-0-314" name="__codelineno-0-314"></a><span class="sd">        # Julia:  @rec rangeof(a, drop=1) a[t] = (1-ρ)*a_ss + ρ*a[t-1]</span>
-<a id="__codelineno-0-315" name="__codelineno-0-315"></a><span class="sd">        ts.rec(ts.rangeof(a, drop=1), a, lambda t: (1 - rho) * a_ss + rho * a[t - 1])</span>
+<a id="__codelineno-0-261" name="__codelineno-0-261"></a><span class="sd">    and ``src/tseries.jl``). The Python equivalents —</span>
+<a id="__codelineno-0-262" name="__codelineno-0-262"></a><span class="sd">    [`TSeries.range`][tsecon.tseries.TSeries.range] /</span>
+<a id="__codelineno-0-263" name="__codelineno-0-263"></a><span class="sd">    [`MVTSeries.range`][tsecon.mvtseries.MVTSeries.range] properties,</span>
+<a id="__codelineno-0-264" name="__codelineno-0-264"></a><span class="sd">    [`Workspace.rangeof`][tsecon.workspace.Workspace.rangeof],</span>
+<a id="__codelineno-0-265" name="__codelineno-0-265"></a><span class="sd">    [`rangeof_span`][tsecon.mitrange.rangeof_span] — remain available; this function unifies them</span>
+<a id="__codelineno-0-266" name="__codelineno-0-266"></a><span class="sd">    under a single kwarg-bearing call site that mirrors the Julia surface 1-to-1 and is the</span>
+<a id="__codelineno-0-267" name="__codelineno-0-267"></a><span class="sd">    recommended target for line-by-line tutorial / model code ports.</span>
+<a id="__codelineno-0-268" name="__codelineno-0-268"></a>
+<a id="__codelineno-0-269" name="__codelineno-0-269"></a><span class="sd">    Parameters</span>
+<a id="__codelineno-0-270" name="__codelineno-0-270"></a><span class="sd">    ----------</span>
+<a id="__codelineno-0-271" name="__codelineno-0-271"></a><span class="sd">    obj</span>
+<a id="__codelineno-0-272" name="__codelineno-0-272"></a><span class="sd">        A [`MITRange`][tsecon.mitrange.MITRange], [`MIT`][tsecon.mit.MIT],</span>
+<a id="__codelineno-0-273" name="__codelineno-0-273"></a><span class="sd">        [`TSeries`][tsecon.tseries.TSeries], [`MVTSeries`][tsecon.mvtseries.MVTSeries],</span>
+<a id="__codelineno-0-274" name="__codelineno-0-274"></a><span class="sd">        or [`Workspace`][tsecon.workspace.Workspace]. Anything else raises</span>
+<a id="__codelineno-0-275" name="__codelineno-0-275"></a><span class="sd">        [`TypeError`][TypeError] naming the offending type.</span>
+<a id="__codelineno-0-276" name="__codelineno-0-276"></a><span class="sd">    drop</span>
+<a id="__codelineno-0-277" name="__codelineno-0-277"></a><span class="sd">        Skip ``drop`` elements at the start (``drop &gt; 0``) or at the end</span>
+<a id="__codelineno-0-278" name="__codelineno-0-278"></a><span class="sd">        (``drop &lt; 0``). ``drop == 0`` returns the full range. ``|drop| &gt;=</span>
+<a id="__codelineno-0-279" name="__codelineno-0-279"></a><span class="sd">        len(range)`` returns an empty range. Mirrors Julia&#39;s ``drop=`` kwarg</span>
+<a id="__codelineno-0-280" name="__codelineno-0-280"></a><span class="sd">        exactly.</span>
+<a id="__codelineno-0-281" name="__codelineno-0-281"></a><span class="sd">    method</span>
+<a id="__codelineno-0-282" name="__codelineno-0-282"></a><span class="sd">        ``&quot;intersect&quot;`` (default) → intersection of all member ranges;</span>
+<a id="__codelineno-0-283" name="__codelineno-0-283"></a><span class="sd">        ``&quot;union&quot;`` → ``rangeof_span`` semantics. Only meaningful for</span>
+<a id="__codelineno-0-284" name="__codelineno-0-284"></a><span class="sd">        [`Workspace`][tsecon.workspace.Workspace]; passing ``method=&quot;union&quot;`` for</span>
+<a id="__codelineno-0-285" name="__codelineno-0-285"></a><span class="sd">        any other type raises [`TypeError`][TypeError] to catch the likely</span>
+<a id="__codelineno-0-286" name="__codelineno-0-286"></a><span class="sd">        wrong-object-type mistake.</span>
+<a id="__codelineno-0-287" name="__codelineno-0-287"></a>
+<a id="__codelineno-0-288" name="__codelineno-0-288"></a><span class="sd">    Returns</span>
+<a id="__codelineno-0-289" name="__codelineno-0-289"></a><span class="sd">    -------</span>
+<a id="__codelineno-0-290" name="__codelineno-0-290"></a><span class="sd">    MITRange</span>
+<a id="__codelineno-0-291" name="__codelineno-0-291"></a><span class="sd">        The (possibly shrunk) range. ``step`` is preserved for</span>
+<a id="__codelineno-0-292" name="__codelineno-0-292"></a><span class="sd">        [`MITRange`][tsecon.mitrange.MITRange] inputs; [`TSeries`][tsecon.tseries.TSeries] /</span>
+<a id="__codelineno-0-293" name="__codelineno-0-293"></a><span class="sd">        [`MVTSeries`][tsecon.mvtseries.MVTSeries] / [`Workspace`][tsecon.workspace.Workspace] inputs</span>
+<a id="__codelineno-0-294" name="__codelineno-0-294"></a><span class="sd">        always yield ``step=1``.</span>
+<a id="__codelineno-0-295" name="__codelineno-0-295"></a>
+<a id="__codelineno-0-296" name="__codelineno-0-296"></a><span class="sd">    Raises</span>
+<a id="__codelineno-0-297" name="__codelineno-0-297"></a><span class="sd">    ------</span>
+<a id="__codelineno-0-298" name="__codelineno-0-298"></a><span class="sd">    TypeError</span>
+<a id="__codelineno-0-299" name="__codelineno-0-299"></a><span class="sd">        Unsupported ``obj`` type, or ``method=&quot;union&quot;`` passed for a</span>
+<a id="__codelineno-0-300" name="__codelineno-0-300"></a><span class="sd">        non-Workspace input.</span>
+<a id="__codelineno-0-301" name="__codelineno-0-301"></a><span class="sd">    ValueError</span>
+<a id="__codelineno-0-302" name="__codelineno-0-302"></a><span class="sd">        ``method`` is not one of ``&quot;intersect&quot;`` / ``&quot;union&quot;``.</span>
+<a id="__codelineno-0-303" name="__codelineno-0-303"></a>
+<a id="__codelineno-0-304" name="__codelineno-0-304"></a><span class="sd">    Examples</span>
+<a id="__codelineno-0-305" name="__codelineno-0-305"></a><span class="sd">    --------</span>
+<a id="__codelineno-0-306" name="__codelineno-0-306"></a><span class="sd">    &gt;&gt;&gt; import tsecon as ts</span>
+<a id="__codelineno-0-307" name="__codelineno-0-307"></a><span class="sd">    &gt;&gt;&gt; a = ts.TSeries(ts.qq(2020, 1), [1.0, 2.0, 3.0, 4.0])</span>
+<a id="__codelineno-0-308" name="__codelineno-0-308"></a><span class="sd">    &gt;&gt;&gt; ts.rangeof(a)</span>
+<a id="__codelineno-0-309" name="__codelineno-0-309"></a><span class="sd">    2020Q1:2020Q4</span>
+<a id="__codelineno-0-310" name="__codelineno-0-310"></a><span class="sd">    &gt;&gt;&gt; ts.rangeof(a, drop=1)</span>
+<a id="__codelineno-0-311" name="__codelineno-0-311"></a><span class="sd">    2020Q2:2020Q4</span>
+<a id="__codelineno-0-312" name="__codelineno-0-312"></a><span class="sd">    &gt;&gt;&gt; ts.rangeof(a, drop=-1)</span>
+<a id="__codelineno-0-313" name="__codelineno-0-313"></a><span class="sd">    2020Q1:2020Q3</span>
+<a id="__codelineno-0-314" name="__codelineno-0-314"></a>
+<a id="__codelineno-0-315" name="__codelineno-0-315"></a><span class="sd">    The tutorial-1 ``@rec`` idiom ports line-by-line::</span>
 <a id="__codelineno-0-316" name="__codelineno-0-316"></a>
-<a id="__codelineno-0-317" name="__codelineno-0-317"></a><span class="sd">    Workspace intersection vs union:</span>
-<a id="__codelineno-0-318" name="__codelineno-0-318"></a>
-<a id="__codelineno-0-319" name="__codelineno-0-319"></a><span class="sd">    &gt;&gt;&gt; w = ts.Workspace(a=a, b=ts.TSeries(ts.qq(2020, 3), [10.0, 20.0]))</span>
-<a id="__codelineno-0-320" name="__codelineno-0-320"></a><span class="sd">    &gt;&gt;&gt; ts.rangeof(w)</span>
-<a id="__codelineno-0-321" name="__codelineno-0-321"></a><span class="sd">    2020Q3:2020Q4</span>
-<a id="__codelineno-0-322" name="__codelineno-0-322"></a><span class="sd">    &gt;&gt;&gt; ts.rangeof(w, method=&quot;union&quot;)</span>
-<a id="__codelineno-0-323" name="__codelineno-0-323"></a><span class="sd">    2020Q1:2020Q4</span>
-<a id="__codelineno-0-324" name="__codelineno-0-324"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-325" name="__codelineno-0-325"></a>    <span class="k">if</span> <span class="n">method</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;intersect&quot;</span><span class="p">,</span> <span class="s2">&quot;union&quot;</span><span class="p">):</span>
-<a id="__codelineno-0-326" name="__codelineno-0-326"></a>        <span class="n">msg</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;method must be &#39;intersect&#39; or &#39;union&#39;, got </span><span class="si">{</span><span class="n">method</span><span class="si">!r}</span><span class="s2">.&quot;</span>
-<a id="__codelineno-0-327" name="__codelineno-0-327"></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
-<a id="__codelineno-0-328" name="__codelineno-0-328"></a>
-<a id="__codelineno-0-329" name="__codelineno-0-329"></a>    <span class="c1"># Deferred imports break the import cycle: mitrange is a foundational</span>
-<a id="__codelineno-0-330" name="__codelineno-0-330"></a>    <span class="c1"># module imported by tseries / mvtseries / workspace, so we cannot</span>
-<a id="__codelineno-0-331" name="__codelineno-0-331"></a>    <span class="c1"># import those at module load time.</span>
-<a id="__codelineno-0-332" name="__codelineno-0-332"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tsecon.mvtseries</span><span class="w"> </span><span class="kn">import</span> <span class="n">MVTSeries</span>  <span class="c1"># noqa: PLC0415 — circular-import-break</span>
-<a id="__codelineno-0-333" name="__codelineno-0-333"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tsecon.tseries</span><span class="w"> </span><span class="kn">import</span> <span class="n">TSeries</span>  <span class="c1"># noqa: PLC0415 — circular-import-break</span>
-<a id="__codelineno-0-334" name="__codelineno-0-334"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tsecon.workspace</span><span class="w"> </span><span class="kn">import</span> <span class="n">Workspace</span>  <span class="c1"># noqa: PLC0415 — circular-import-break</span>
-<a id="__codelineno-0-335" name="__codelineno-0-335"></a>
-<a id="__codelineno-0-336" name="__codelineno-0-336"></a>    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">Workspace</span><span class="p">):</span>
-<a id="__codelineno-0-337" name="__codelineno-0-337"></a>        <span class="n">base</span> <span class="o">=</span> <span class="n">obj</span><span class="o">.</span><span class="n">rangeof</span><span class="p">(</span><span class="n">method</span><span class="o">=</span><span class="n">method</span><span class="p">)</span>
-<a id="__codelineno-0-338" name="__codelineno-0-338"></a>    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="p">(</span><span class="n">MITRange</span><span class="p">,</span> <span class="n">MIT</span><span class="p">,</span> <span class="n">TSeries</span><span class="p">,</span> <span class="n">MVTSeries</span><span class="p">)):</span>
-<a id="__codelineno-0-339" name="__codelineno-0-339"></a>        <span class="k">if</span> <span class="n">method</span> <span class="o">!=</span> <span class="s2">&quot;intersect&quot;</span><span class="p">:</span>
-<a id="__codelineno-0-340" name="__codelineno-0-340"></a>            <span class="n">msg</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;method=</span><span class="si">{</span><span class="n">method</span><span class="si">!r}</span><span class="s2"> is only meaningful for Workspace; got </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">.&quot;</span>
-<a id="__codelineno-0-341" name="__codelineno-0-341"></a>            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
-<a id="__codelineno-0-342" name="__codelineno-0-342"></a>        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">MITRange</span><span class="p">):</span>
-<a id="__codelineno-0-343" name="__codelineno-0-343"></a>            <span class="n">base</span> <span class="o">=</span> <span class="n">obj</span>
-<a id="__codelineno-0-344" name="__codelineno-0-344"></a>        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">MIT</span><span class="p">):</span>
-<a id="__codelineno-0-345" name="__codelineno-0-345"></a>            <span class="n">base</span> <span class="o">=</span> <span class="n">MITRange</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">obj</span><span class="p">)</span>
-<a id="__codelineno-0-346" name="__codelineno-0-346"></a>        <span class="k">else</span><span class="p">:</span>
-<a id="__codelineno-0-347" name="__codelineno-0-347"></a>            <span class="n">base</span> <span class="o">=</span> <span class="n">obj</span><span class="o">.</span><span class="n">range</span>
-<a id="__codelineno-0-348" name="__codelineno-0-348"></a>    <span class="k">else</span><span class="p">:</span>
-<a id="__codelineno-0-349" name="__codelineno-0-349"></a>        <span class="n">msg</span> <span class="o">=</span> <span class="p">(</span>
-<a id="__codelineno-0-350" name="__codelineno-0-350"></a>            <span class="sa">f</span><span class="s2">&quot;rangeof() does not support </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">; expected &quot;</span>
-<a id="__codelineno-0-351" name="__codelineno-0-351"></a>            <span class="sa">f</span><span class="s2">&quot;MITRange, MIT, TSeries, MVTSeries, or Workspace.&quot;</span>
-<a id="__codelineno-0-352" name="__codelineno-0-352"></a>        <span class="p">)</span>
-<a id="__codelineno-0-353" name="__codelineno-0-353"></a>        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
-<a id="__codelineno-0-354" name="__codelineno-0-354"></a>
-<a id="__codelineno-0-355" name="__codelineno-0-355"></a>    <span class="k">return</span> <span class="n">_apply_drop</span><span class="p">(</span><span class="n">base</span><span class="p">,</span> <span class="n">drop</span><span class="p">)</span>
+<a id="__codelineno-0-317" name="__codelineno-0-317"></a><span class="sd">        # Julia:  @rec rangeof(a, drop=1) a[t] = (1-ρ)*a_ss + ρ*a[t-1]</span>
+<a id="__codelineno-0-318" name="__codelineno-0-318"></a><span class="sd">        ts.rec(ts.rangeof(a, drop=1), a, lambda t: (1 - rho) * a_ss + rho * a[t - 1])</span>
+<a id="__codelineno-0-319" name="__codelineno-0-319"></a>
+<a id="__codelineno-0-320" name="__codelineno-0-320"></a><span class="sd">    Workspace intersection vs union:</span>
+<a id="__codelineno-0-321" name="__codelineno-0-321"></a>
+<a id="__codelineno-0-322" name="__codelineno-0-322"></a><span class="sd">    &gt;&gt;&gt; w = ts.Workspace(a=a, b=ts.TSeries(ts.qq(2020, 3), [10.0, 20.0]))</span>
+<a id="__codelineno-0-323" name="__codelineno-0-323"></a><span class="sd">    &gt;&gt;&gt; ts.rangeof(w)</span>
+<a id="__codelineno-0-324" name="__codelineno-0-324"></a><span class="sd">    2020Q3:2020Q4</span>
+<a id="__codelineno-0-325" name="__codelineno-0-325"></a><span class="sd">    &gt;&gt;&gt; ts.rangeof(w, method=&quot;union&quot;)</span>
+<a id="__codelineno-0-326" name="__codelineno-0-326"></a><span class="sd">    2020Q1:2020Q4</span>
+<a id="__codelineno-0-327" name="__codelineno-0-327"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-328" name="__codelineno-0-328"></a>    <span class="k">if</span> <span class="n">method</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;intersect&quot;</span><span class="p">,</span> <span class="s2">&quot;union&quot;</span><span class="p">):</span>
+<a id="__codelineno-0-329" name="__codelineno-0-329"></a>        <span class="n">msg</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;method must be &#39;intersect&#39; or &#39;union&#39;, got </span><span class="si">{</span><span class="n">method</span><span class="si">!r}</span><span class="s2">.&quot;</span>
+<a id="__codelineno-0-330" name="__codelineno-0-330"></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+<a id="__codelineno-0-331" name="__codelineno-0-331"></a>
+<a id="__codelineno-0-332" name="__codelineno-0-332"></a>    <span class="c1"># Deferred imports break the import cycle: mitrange is a foundational</span>
+<a id="__codelineno-0-333" name="__codelineno-0-333"></a>    <span class="c1"># module imported by tseries / mvtseries / workspace, so we cannot</span>
+<a id="__codelineno-0-334" name="__codelineno-0-334"></a>    <span class="c1"># import those at module load time.</span>
+<a id="__codelineno-0-335" name="__codelineno-0-335"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tsecon.mvtseries</span><span class="w"> </span><span class="kn">import</span> <span class="n">MVTSeries</span>  <span class="c1"># noqa: PLC0415 — circular-import-break</span>
+<a id="__codelineno-0-336" name="__codelineno-0-336"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tsecon.tseries</span><span class="w"> </span><span class="kn">import</span> <span class="n">TSeries</span>  <span class="c1"># noqa: PLC0415 — circular-import-break</span>
+<a id="__codelineno-0-337" name="__codelineno-0-337"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tsecon.workspace</span><span class="w"> </span><span class="kn">import</span> <span class="n">Workspace</span>  <span class="c1"># noqa: PLC0415 — circular-import-break</span>
+<a id="__codelineno-0-338" name="__codelineno-0-338"></a>
+<a id="__codelineno-0-339" name="__codelineno-0-339"></a>    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">Workspace</span><span class="p">):</span>
+<a id="__codelineno-0-340" name="__codelineno-0-340"></a>        <span class="n">base</span> <span class="o">=</span> <span class="n">obj</span><span class="o">.</span><span class="n">rangeof</span><span class="p">(</span><span class="n">method</span><span class="o">=</span><span class="n">method</span><span class="p">)</span>
+<a id="__codelineno-0-341" name="__codelineno-0-341"></a>    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="p">(</span><span class="n">MITRange</span><span class="p">,</span> <span class="n">MIT</span><span class="p">,</span> <span class="n">TSeries</span><span class="p">,</span> <span class="n">MVTSeries</span><span class="p">)):</span>
+<a id="__codelineno-0-342" name="__codelineno-0-342"></a>        <span class="k">if</span> <span class="n">method</span> <span class="o">!=</span> <span class="s2">&quot;intersect&quot;</span><span class="p">:</span>
+<a id="__codelineno-0-343" name="__codelineno-0-343"></a>            <span class="n">msg</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;method=</span><span class="si">{</span><span class="n">method</span><span class="si">!r}</span><span class="s2"> is only meaningful for Workspace; got </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">.&quot;</span>
+<a id="__codelineno-0-344" name="__codelineno-0-344"></a>            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+<a id="__codelineno-0-345" name="__codelineno-0-345"></a>        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">MITRange</span><span class="p">):</span>
+<a id="__codelineno-0-346" name="__codelineno-0-346"></a>            <span class="n">base</span> <span class="o">=</span> <span class="n">obj</span>
+<a id="__codelineno-0-347" name="__codelineno-0-347"></a>        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">MIT</span><span class="p">):</span>
+<a id="__codelineno-0-348" name="__codelineno-0-348"></a>            <span class="n">base</span> <span class="o">=</span> <span class="n">MITRange</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">obj</span><span class="p">)</span>
+<a id="__codelineno-0-349" name="__codelineno-0-349"></a>        <span class="k">else</span><span class="p">:</span>
+<a id="__codelineno-0-350" name="__codelineno-0-350"></a>            <span class="n">base</span> <span class="o">=</span> <span class="n">obj</span><span class="o">.</span><span class="n">range</span>
+<a id="__codelineno-0-351" name="__codelineno-0-351"></a>    <span class="k">else</span><span class="p">:</span>
+<a id="__codelineno-0-352" name="__codelineno-0-352"></a>        <span class="n">msg</span> <span class="o">=</span> <span class="p">(</span>
+<a id="__codelineno-0-353" name="__codelineno-0-353"></a>            <span class="sa">f</span><span class="s2">&quot;rangeof() does not support </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">; expected &quot;</span>
+<a id="__codelineno-0-354" name="__codelineno-0-354"></a>            <span class="sa">f</span><span class="s2">&quot;MITRange, MIT, TSeries, MVTSeries, or Workspace.&quot;</span>
+<a id="__codelineno-0-355" name="__codelineno-0-355"></a>        <span class="p">)</span>
+<a id="__codelineno-0-356" name="__codelineno-0-356"></a>        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+<a id="__codelineno-0-357" name="__codelineno-0-357"></a>
+<a id="__codelineno-0-358" name="__codelineno-0-358"></a>    <span class="k">return</span> <span class="n">_apply_drop</span><span class="p">(</span><span class="n">base</span><span class="p">,</span> <span class="n">drop</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -4736,10 +4820,7 @@ frequencies are mixed. The returned span is always forward-stepped
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>src/tsecon/mitrange.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-358">358</a></span>
-<span class="normal"><a href="#__codelineno-0-359">359</a></span>
-<span class="normal"><a href="#__codelineno-0-360">360</a></span>
-<span class="normal"><a href="#__codelineno-0-361">361</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-361">361</a></span>
 <span class="normal"><a href="#__codelineno-0-362">362</a></span>
 <span class="normal"><a href="#__codelineno-0-363">363</a></span>
 <span class="normal"><a href="#__codelineno-0-364">364</a></span>
@@ -4763,34 +4844,37 @@ frequencies are mixed. The returned span is always forward-stepped
 <span class="normal"><a href="#__codelineno-0-382">382</a></span>
 <span class="normal"><a href="#__codelineno-0-383">383</a></span>
 <span class="normal"><a href="#__codelineno-0-384">384</a></span>
-<span class="normal"><a href="#__codelineno-0-385">385</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-358" name="__codelineno-0-358"></a><span class="k">def</span><span class="w"> </span><span class="nf">rangeof_span</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="nb">object</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MITRange</span><span class="p">:</span>
-<a id="__codelineno-0-359" name="__codelineno-0-359"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the smallest forward ``MITRange`` covering all argument ranges.</span>
-<a id="__codelineno-0-360" name="__codelineno-0-360"></a>
-<a id="__codelineno-0-361" name="__codelineno-0-361"></a><span class="sd">    All arguments must share a single frequency. Raises ``TypeError`` if</span>
-<a id="__codelineno-0-362" name="__codelineno-0-362"></a><span class="sd">    frequencies are mixed. The returned span is always forward-stepped</span>
-<a id="__codelineno-0-363" name="__codelineno-0-363"></a><span class="sd">    (``step=1``) regardless of the direction of the inputs.</span>
-<a id="__codelineno-0-364" name="__codelineno-0-364"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-365" name="__codelineno-0-365"></a>    <span class="n">chosen_lo</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
-<a id="__codelineno-0-366" name="__codelineno-0-366"></a>    <span class="n">chosen_hi</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
-<a id="__codelineno-0-367" name="__codelineno-0-367"></a>    <span class="n">chosen_freq</span><span class="p">:</span> <span class="n">Frequency</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
-<a id="__codelineno-0-368" name="__codelineno-0-368"></a>    <span class="k">for</span> <span class="n">arg</span> <span class="ow">in</span> <span class="n">args</span><span class="p">:</span>
-<a id="__codelineno-0-369" name="__codelineno-0-369"></a>        <span class="n">sub</span> <span class="o">=</span> <span class="n">_to_unitrange</span><span class="p">(</span><span class="n">arg</span><span class="p">)</span>
-<a id="__codelineno-0-370" name="__codelineno-0-370"></a>        <span class="k">if</span> <span class="n">sub</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">sub</span><span class="o">.</span><span class="n">is_empty</span><span class="p">():</span>
-<a id="__codelineno-0-371" name="__codelineno-0-371"></a>            <span class="k">continue</span>
-<a id="__codelineno-0-372" name="__codelineno-0-372"></a>        <span class="k">if</span> <span class="n">chosen_freq</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-373" name="__codelineno-0-373"></a>            <span class="n">chosen_freq</span> <span class="o">=</span> <span class="n">sub</span><span class="o">.</span><span class="n">frequency</span>
-<a id="__codelineno-0-374" name="__codelineno-0-374"></a>        <span class="k">elif</span> <span class="n">sub</span><span class="o">.</span><span class="n">frequency</span> <span class="o">!=</span> <span class="n">chosen_freq</span><span class="p">:</span>
-<a id="__codelineno-0-375" name="__codelineno-0-375"></a>            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
-<a id="__codelineno-0-376" name="__codelineno-0-376"></a>                <span class="sa">f</span><span class="s2">&quot;Mixing frequencies not allowed: </span><span class="si">{</span><span class="n">prettyprint_frequency</span><span class="p">(</span><span class="n">chosen_freq</span><span class="p">)</span><span class="si">}</span><span class="s2"> &quot;</span>
-<a id="__codelineno-0-377" name="__codelineno-0-377"></a>                <span class="sa">f</span><span class="s2">&quot;and </span><span class="si">{</span><span class="n">prettyprint_frequency</span><span class="p">(</span><span class="n">sub</span><span class="o">.</span><span class="n">frequency</span><span class="p">)</span><span class="si">}</span><span class="s2">.&quot;</span>
-<a id="__codelineno-0-378" name="__codelineno-0-378"></a>            <span class="p">)</span>
-<a id="__codelineno-0-379" name="__codelineno-0-379"></a>        <span class="n">sub_lo</span><span class="p">,</span> <span class="n">sub_hi</span> <span class="o">=</span> <span class="n">_range_bounds</span><span class="p">(</span><span class="n">sub</span><span class="p">)</span>
-<a id="__codelineno-0-380" name="__codelineno-0-380"></a>        <span class="n">chosen_lo</span> <span class="o">=</span> <span class="n">sub_lo</span> <span class="k">if</span> <span class="n">chosen_lo</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="nb">min</span><span class="p">(</span><span class="n">chosen_lo</span><span class="p">,</span> <span class="n">sub_lo</span><span class="p">)</span>
-<a id="__codelineno-0-381" name="__codelineno-0-381"></a>        <span class="n">chosen_hi</span> <span class="o">=</span> <span class="n">sub_hi</span> <span class="k">if</span> <span class="n">chosen_hi</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="nb">max</span><span class="p">(</span><span class="n">chosen_hi</span><span class="p">,</span> <span class="n">sub_hi</span><span class="p">)</span>
-<a id="__codelineno-0-382" name="__codelineno-0-382"></a>    <span class="k">if</span> <span class="n">chosen_freq</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">chosen_lo</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">chosen_hi</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-383" name="__codelineno-0-383"></a>        <span class="c1"># Match Julia&#39;s behavior of returning an empty `1U:0U` for no args.</span>
-<a id="__codelineno-0-384" name="__codelineno-0-384"></a>        <span class="k">return</span> <span class="n">MITRange</span><span class="p">(</span><span class="n">MIT</span><span class="p">(</span><span class="n">Unit</span><span class="p">(),</span> <span class="mi">1</span><span class="p">),</span> <span class="n">MIT</span><span class="p">(</span><span class="n">Unit</span><span class="p">(),</span> <span class="mi">0</span><span class="p">))</span>
-<a id="__codelineno-0-385" name="__codelineno-0-385"></a>    <span class="k">return</span> <span class="n">MITRange</span><span class="p">(</span><span class="n">MIT</span><span class="p">(</span><span class="n">chosen_freq</span><span class="p">,</span> <span class="n">chosen_lo</span><span class="p">),</span> <span class="n">MIT</span><span class="p">(</span><span class="n">chosen_freq</span><span class="p">,</span> <span class="n">chosen_hi</span><span class="p">))</span>
+<span class="normal"><a href="#__codelineno-0-385">385</a></span>
+<span class="normal"><a href="#__codelineno-0-386">386</a></span>
+<span class="normal"><a href="#__codelineno-0-387">387</a></span>
+<span class="normal"><a href="#__codelineno-0-388">388</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-361" name="__codelineno-0-361"></a><span class="k">def</span><span class="w"> </span><span class="nf">rangeof_span</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="nb">object</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MITRange</span><span class="p">:</span>
+<a id="__codelineno-0-362" name="__codelineno-0-362"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the smallest forward ``MITRange`` covering all argument ranges.</span>
+<a id="__codelineno-0-363" name="__codelineno-0-363"></a>
+<a id="__codelineno-0-364" name="__codelineno-0-364"></a><span class="sd">    All arguments must share a single frequency. Raises ``TypeError`` if</span>
+<a id="__codelineno-0-365" name="__codelineno-0-365"></a><span class="sd">    frequencies are mixed. The returned span is always forward-stepped</span>
+<a id="__codelineno-0-366" name="__codelineno-0-366"></a><span class="sd">    (``step=1``) regardless of the direction of the inputs.</span>
+<a id="__codelineno-0-367" name="__codelineno-0-367"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-368" name="__codelineno-0-368"></a>    <span class="n">chosen_lo</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+<a id="__codelineno-0-369" name="__codelineno-0-369"></a>    <span class="n">chosen_hi</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+<a id="__codelineno-0-370" name="__codelineno-0-370"></a>    <span class="n">chosen_freq</span><span class="p">:</span> <span class="n">Frequency</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+<a id="__codelineno-0-371" name="__codelineno-0-371"></a>    <span class="k">for</span> <span class="n">arg</span> <span class="ow">in</span> <span class="n">args</span><span class="p">:</span>
+<a id="__codelineno-0-372" name="__codelineno-0-372"></a>        <span class="n">sub</span> <span class="o">=</span> <span class="n">_to_unitrange</span><span class="p">(</span><span class="n">arg</span><span class="p">)</span>
+<a id="__codelineno-0-373" name="__codelineno-0-373"></a>        <span class="k">if</span> <span class="n">sub</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">sub</span><span class="o">.</span><span class="n">is_empty</span><span class="p">():</span>
+<a id="__codelineno-0-374" name="__codelineno-0-374"></a>            <span class="k">continue</span>
+<a id="__codelineno-0-375" name="__codelineno-0-375"></a>        <span class="k">if</span> <span class="n">chosen_freq</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-376" name="__codelineno-0-376"></a>            <span class="n">chosen_freq</span> <span class="o">=</span> <span class="n">sub</span><span class="o">.</span><span class="n">frequency</span>
+<a id="__codelineno-0-377" name="__codelineno-0-377"></a>        <span class="k">elif</span> <span class="n">sub</span><span class="o">.</span><span class="n">frequency</span> <span class="o">!=</span> <span class="n">chosen_freq</span><span class="p">:</span>
+<a id="__codelineno-0-378" name="__codelineno-0-378"></a>            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+<a id="__codelineno-0-379" name="__codelineno-0-379"></a>                <span class="sa">f</span><span class="s2">&quot;Mixing frequencies not allowed: </span><span class="si">{</span><span class="n">prettyprint_frequency</span><span class="p">(</span><span class="n">chosen_freq</span><span class="p">)</span><span class="si">}</span><span class="s2"> &quot;</span>
+<a id="__codelineno-0-380" name="__codelineno-0-380"></a>                <span class="sa">f</span><span class="s2">&quot;and </span><span class="si">{</span><span class="n">prettyprint_frequency</span><span class="p">(</span><span class="n">sub</span><span class="o">.</span><span class="n">frequency</span><span class="p">)</span><span class="si">}</span><span class="s2">.&quot;</span>
+<a id="__codelineno-0-381" name="__codelineno-0-381"></a>            <span class="p">)</span>
+<a id="__codelineno-0-382" name="__codelineno-0-382"></a>        <span class="n">sub_lo</span><span class="p">,</span> <span class="n">sub_hi</span> <span class="o">=</span> <span class="n">_range_bounds</span><span class="p">(</span><span class="n">sub</span><span class="p">)</span>
+<a id="__codelineno-0-383" name="__codelineno-0-383"></a>        <span class="n">chosen_lo</span> <span class="o">=</span> <span class="n">sub_lo</span> <span class="k">if</span> <span class="n">chosen_lo</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="nb">min</span><span class="p">(</span><span class="n">chosen_lo</span><span class="p">,</span> <span class="n">sub_lo</span><span class="p">)</span>
+<a id="__codelineno-0-384" name="__codelineno-0-384"></a>        <span class="n">chosen_hi</span> <span class="o">=</span> <span class="n">sub_hi</span> <span class="k">if</span> <span class="n">chosen_hi</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="nb">max</span><span class="p">(</span><span class="n">chosen_hi</span><span class="p">,</span> <span class="n">sub_hi</span><span class="p">)</span>
+<a id="__codelineno-0-385" name="__codelineno-0-385"></a>    <span class="k">if</span> <span class="n">chosen_freq</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">chosen_lo</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">chosen_hi</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-386" name="__codelineno-0-386"></a>        <span class="c1"># Match Julia&#39;s behavior of returning an empty `1U:0U` for no args.</span>
+<a id="__codelineno-0-387" name="__codelineno-0-387"></a>        <span class="k">return</span> <span class="n">MITRange</span><span class="p">(</span><span class="n">MIT</span><span class="p">(</span><span class="n">Unit</span><span class="p">(),</span> <span class="mi">1</span><span class="p">),</span> <span class="n">MIT</span><span class="p">(</span><span class="n">Unit</span><span class="p">(),</span> <span class="mi">0</span><span class="p">))</span>
+<a id="__codelineno-0-388" name="__codelineno-0-388"></a>    <span class="k">return</span> <span class="n">MITRange</span><span class="p">(</span><span class="n">MIT</span><span class="p">(</span><span class="n">chosen_freq</span><span class="p">,</span> <span class="n">chosen_lo</span><span class="p">),</span> <span class="n">MIT</span><span class="p">(</span><span class="n">chosen_freq</span><span class="p">,</span> <span class="n">chosen_hi</span><span class="p">))</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>

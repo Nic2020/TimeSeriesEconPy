@@ -1730,7 +1730,7 @@ when <code>allow_nan=True</code>. Strictly-valid-JSON consumers can pass
 
     <div class="doc doc-contents ">
 
-        <p>Inverse of :func:<code>to_jsonable</code>: rebuild tsecon objects from a JSON tree.</p>
+        <p>Inverse of <code>to_jsonable</code>: rebuild tsecon objects from a JSON tree.</p>
 
 
             <details class="mkdocstrings-source">
@@ -1745,7 +1745,7 @@ when <code>allow_nan=True</code>. Strictly-valid-JSON consumers can pass
 <span class="normal"><a href="#__codelineno-0-181">181</a></span>
 <span class="normal"><a href="#__codelineno-0-182">182</a></span>
 <span class="normal"><a href="#__codelineno-0-183">183</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-174" name="__codelineno-0-174"></a><span class="k">def</span><span class="w"> </span><span class="nf">from_jsonable</span><span class="p">(</span><span class="n">obj</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
-<a id="__codelineno-0-175" name="__codelineno-0-175"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Inverse of :func:`to_jsonable`: rebuild tsecon objects from a JSON tree.&quot;&quot;&quot;</span>
+<a id="__codelineno-0-175" name="__codelineno-0-175"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Inverse of `to_jsonable`: rebuild tsecon objects from a JSON tree.&quot;&quot;&quot;</span>
 <a id="__codelineno-0-176" name="__codelineno-0-176"></a>    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
 <a id="__codelineno-0-177" name="__codelineno-0-177"></a>        <span class="n">tag</span> <span class="o">=</span> <span class="n">obj</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;_type&quot;</span><span class="p">)</span>
 <a id="__codelineno-0-178" name="__codelineno-0-178"></a>        <span class="k">if</span> <span class="n">tag</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>

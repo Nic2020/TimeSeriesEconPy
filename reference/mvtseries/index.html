@@ -3248,8 +3248,8 @@ contract on the constructor.</p>
 <a id="__codelineno-0-170" name="__codelineno-0-170"></a><span class="sd">        Parameters</span>
 <a id="__codelineno-0-171" name="__codelineno-0-171"></a><span class="sd">        ----------</span>
 <a id="__codelineno-0-172" name="__codelineno-0-172"></a><span class="sd">        firstdate_or_range</span>
-<a id="__codelineno-0-173" name="__codelineno-0-173"></a><span class="sd">            An :class:`~tsecon.mit.MIT` (giving the first row date) or a</span>
-<a id="__codelineno-0-174" name="__codelineno-0-174"></a><span class="sd">            :class:`~tsecon.mitrange.MITRange` (giving both first date and</span>
+<a id="__codelineno-0-173" name="__codelineno-0-173"></a><span class="sd">            An [`MIT`][tsecon.mit.MIT] (giving the first row date) or a</span>
+<a id="__codelineno-0-174" name="__codelineno-0-174"></a><span class="sd">            [`MITRange`][tsecon.mitrange.MITRange] (giving both first date and</span>
 <a id="__codelineno-0-175" name="__codelineno-0-175"></a><span class="sd">            number of rows). If omitted and column kwargs are provided, the</span>
 <a id="__codelineno-0-176" name="__codelineno-0-176"></a><span class="sd">            range is taken to be ``rangeof_span(*columns.values())``.</span>
 <a id="__codelineno-0-177" name="__codelineno-0-177"></a><span class="sd">        names</span>
@@ -3261,8 +3261,8 @@ contract on the constructor.</p>
 <a id="__codelineno-0-183" name="__codelineno-0-183"></a><span class="sd">            * a 2-D ``ndarray`` (or 1-D for a single-column MVTSeries),</span>
 <a id="__codelineno-0-184" name="__codelineno-0-184"></a><span class="sd">            * a scalar (fill),</span>
 <a id="__codelineno-0-185" name="__codelineno-0-185"></a><span class="sd">            * a callable initializer ``init(nrows, ncols) -&gt; ndarray``</span>
-<a id="__codelineno-0-186" name="__codelineno-0-186"></a><span class="sd">              such as :func:`numpy.zeros` / :func:`numpy.ones`,</span>
-<a id="__codelineno-0-187" name="__codelineno-0-187"></a><span class="sd">            * a :class:`~tsecon.tseries.TSeries` (init each column from it),</span>
+<a id="__codelineno-0-186" name="__codelineno-0-186"></a><span class="sd">              such as [`numpy.zeros`][numpy.zeros] / [`numpy.ones`][numpy.ones],</span>
+<a id="__codelineno-0-187" name="__codelineno-0-187"></a><span class="sd">            * a [`TSeries`][tsecon.tseries.TSeries] (init each column from it),</span>
 <a id="__codelineno-0-188" name="__codelineno-0-188"></a><span class="sd">            * ``None`` (uninitialized → NaN-filled / typenan-filled).</span>
 <a id="__codelineno-0-189" name="__codelineno-0-189"></a><span class="sd">        dtype</span>
 <a id="__codelineno-0-190" name="__codelineno-0-190"></a><span class="sd">            Optional dtype override. Defaults to ``float64`` for empty /</span>
@@ -3274,7 +3274,7 @@ contract on the constructor.</p>
 <a id="__codelineno-0-196" name="__codelineno-0-196"></a><span class="sd">        **columns</span>
 <a id="__codelineno-0-197" name="__codelineno-0-197"></a><span class="sd">            Alternative spelling: ``MVTSeries(rng, a=..., b=...)`` builds</span>
 <a id="__codelineno-0-198" name="__codelineno-0-198"></a><span class="sd">            an MVTSeries with one column per kwarg. The value can be a</span>
-<a id="__codelineno-0-199" name="__codelineno-0-199"></a><span class="sd">            :class:`~tsecon.tseries.TSeries`, a 1-D array, or a scalar</span>
+<a id="__codelineno-0-199" name="__codelineno-0-199"></a><span class="sd">            [`TSeries`][tsecon.tseries.TSeries], a 1-D array, or a scalar</span>
 <a id="__codelineno-0-200" name="__codelineno-0-200"></a><span class="sd">            (filled). If ``firstdate_or_range`` is omitted, the range is</span>
 <a id="__codelineno-0-201" name="__codelineno-0-201"></a><span class="sd">            ``rangeof_span`` of all kwarg values that have a range.</span>
 <a id="__codelineno-0-202" name="__codelineno-0-202"></a>
@@ -3620,8 +3620,8 @@ contract on the constructor.</p>
 <a id="__codelineno-0-542" name="__codelineno-0-542"></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Return an independent copy with its own matrix buffer.</span>
 <a id="__codelineno-0-543" name="__codelineno-0-543"></a>
 <a id="__codelineno-0-544" name="__codelineno-0-544"></a><span class="sd">        ``deep`` is accepted for API uniformity with</span>
-<a id="__codelineno-0-545" name="__codelineno-0-545"></a><span class="sd">        :meth:`~tsecon.tseries.TSeries.copy` and</span>
-<a id="__codelineno-0-546" name="__codelineno-0-546"></a><span class="sd">        :meth:`~tsecon.workspace.Workspace.copy`; for MVTSeries it is a</span>
+<a id="__codelineno-0-545" name="__codelineno-0-545"></a><span class="sd">        [`copy`][tsecon.tseries.TSeries.copy] and</span>
+<a id="__codelineno-0-546" name="__codelineno-0-546"></a><span class="sd">        [`copy`][tsecon.workspace.Workspace.copy]; for MVTSeries it is a</span>
 <a id="__codelineno-0-547" name="__codelineno-0-547"></a><span class="sd">        semantic no-op because the only mutable referents below the</span>
 <a id="__codelineno-0-548" name="__codelineno-0-548"></a><span class="sd">        wrapper are the matrix buffer (always copied) and the per-column</span>
 <a id="__codelineno-0-549" name="__codelineno-0-549"></a><span class="sd">        TSeries views (which are rebuilt to point at the fresh buffer).</span>
@@ -4656,8 +4656,18 @@ contract on the constructor.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>An :class:<code>~tsecon.mit.MIT</code> (giving the first row date) or a
-:class:<code>~tsecon.mitrange.MITRange</code> (giving both first date and
+                <p>An <a class="autorefs autorefs-internal" title="MIT
+
+
+  
+      dataclass
+  " href="../mit/#tsecon.mit.MIT"><code>MIT</code></a> (giving the first row date) or a
+<a class="autorefs autorefs-internal" title="MITRange
+
+
+  
+      dataclass
+  " href="../mit/#tsecon.mitrange.MITRange"><code>MITRange</code></a> (giving both first date and
 number of rows). If omitted and column kwargs are provided, the
 range is taken to be <code>rangeof_span(*columns.values())</code>.</p>
               </div>
@@ -4688,7 +4698,7 @@ use the kwargs <code>**columns</code> to supply both names and values.</p>
                 <code>values</code>
             </td>
             <td>
-                  <code><span title="tsecon.mvtseries._ArrayLike">_ArrayLike</span> | <a class="autorefs autorefs-internal" title="TSeries (tsecon.tseries.TSeries)" href="../tseries/#tsecon.tseries.TSeries">TSeries</a> | <span title="collections.abc.Callable">Callable</span>[..., <span title="typing.Any">Any</span>] | <span title="float">float</span> | <span title="int">int</span> | <span title="bool">bool</span> | None</code>
+                  <code><span title="tsecon.mvtseries._ArrayLike">_ArrayLike</span> | <a class="autorefs autorefs-internal" title="TSeries (tsecon.tseries.TSeries)" href="../tseries/#tsecon.tseries.TSeries">TSeries</a> | <a class="autorefs autorefs-external" title="collections.abc.Callable" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Callable">Callable</a>[..., <a class="autorefs autorefs-external" title="typing.Any" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a>] | <a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#float">float</a> | <a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#int">int</a> | <a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a> | None</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -4697,8 +4707,8 @@ use the kwargs <code>**columns</code> to supply both names and values.</p>
 <li>a 2-D <code>ndarray</code> (or 1-D for a single-column MVTSeries),</li>
 <li>a scalar (fill),</li>
 <li>a callable initializer <code>init(nrows, ncols) -&gt; ndarray</code>
-  such as :func:<code>numpy.zeros</code> / :func:<code>numpy.ones</code>,</li>
-<li>a :class:<code>~tsecon.tseries.TSeries</code> (init each column from it),</li>
+  such as <a class="autorefs autorefs-external" href="https://numpy.org/doc/stable/reference/generated/numpy.zeros.html#numpy.zeros"><code>numpy.zeros</code></a> / <a class="autorefs autorefs-external" href="https://numpy.org/doc/stable/reference/generated/numpy.ones.html#numpy.ones"><code>numpy.ones</code></a>,</li>
+<li>a <a class="autorefs autorefs-internal" title="TSeries" href="../tseries/#tsecon.tseries.TSeries"><code>TSeries</code></a> (init each column from it),</li>
 <li><code>None</code> (uninitialized → NaN-filled / typenan-filled).</li>
 </ul>
               </div>
@@ -4730,7 +4740,7 @@ of that array.</p>
                 <code>copy</code>
             </td>
             <td>
-                  <code><span title="bool">bool</span></code>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -4747,13 +4757,13 @@ ndarray. Default <code>False</code> (wrap-by-default per decision 16).</p>
                 <code>**columns</code>
             </td>
             <td>
-                  <code><span title="typing.Any">Any</span></code>
+                  <code><a class="autorefs autorefs-external" title="typing.Any" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a></code>
             </td>
             <td>
               <div class="doc-md-description">
                 <p>Alternative spelling: <code>MVTSeries(rng, a=..., b=...)</code> builds
 an MVTSeries with one column per kwarg. The value can be a
-:class:<code>~tsecon.tseries.TSeries</code>, a 1-D array, or a scalar
+<a class="autorefs autorefs-internal" title="TSeries" href="../tseries/#tsecon.tseries.TSeries"><code>TSeries</code></a>, a 1-D array, or a scalar
 (filled). If <code>firstdate_or_range</code> is omitted, the range is
 <code>rangeof_span</code> of all kwarg values that have a range.</p>
               </div>
@@ -4935,8 +4945,8 @@ Use <code>copy=True</code> for an independent allocation.</p>
 <a id="__codelineno-0-170" name="__codelineno-0-170"></a><span class="sd">    Parameters</span>
 <a id="__codelineno-0-171" name="__codelineno-0-171"></a><span class="sd">    ----------</span>
 <a id="__codelineno-0-172" name="__codelineno-0-172"></a><span class="sd">    firstdate_or_range</span>
-<a id="__codelineno-0-173" name="__codelineno-0-173"></a><span class="sd">        An :class:`~tsecon.mit.MIT` (giving the first row date) or a</span>
-<a id="__codelineno-0-174" name="__codelineno-0-174"></a><span class="sd">        :class:`~tsecon.mitrange.MITRange` (giving both first date and</span>
+<a id="__codelineno-0-173" name="__codelineno-0-173"></a><span class="sd">        An [`MIT`][tsecon.mit.MIT] (giving the first row date) or a</span>
+<a id="__codelineno-0-174" name="__codelineno-0-174"></a><span class="sd">        [`MITRange`][tsecon.mitrange.MITRange] (giving both first date and</span>
 <a id="__codelineno-0-175" name="__codelineno-0-175"></a><span class="sd">        number of rows). If omitted and column kwargs are provided, the</span>
 <a id="__codelineno-0-176" name="__codelineno-0-176"></a><span class="sd">        range is taken to be ``rangeof_span(*columns.values())``.</span>
 <a id="__codelineno-0-177" name="__codelineno-0-177"></a><span class="sd">    names</span>
@@ -4948,8 +4958,8 @@ Use <code>copy=True</code> for an independent allocation.</p>
 <a id="__codelineno-0-183" name="__codelineno-0-183"></a><span class="sd">        * a 2-D ``ndarray`` (or 1-D for a single-column MVTSeries),</span>
 <a id="__codelineno-0-184" name="__codelineno-0-184"></a><span class="sd">        * a scalar (fill),</span>
 <a id="__codelineno-0-185" name="__codelineno-0-185"></a><span class="sd">        * a callable initializer ``init(nrows, ncols) -&gt; ndarray``</span>
-<a id="__codelineno-0-186" name="__codelineno-0-186"></a><span class="sd">          such as :func:`numpy.zeros` / :func:`numpy.ones`,</span>
-<a id="__codelineno-0-187" name="__codelineno-0-187"></a><span class="sd">        * a :class:`~tsecon.tseries.TSeries` (init each column from it),</span>
+<a id="__codelineno-0-186" name="__codelineno-0-186"></a><span class="sd">          such as [`numpy.zeros`][numpy.zeros] / [`numpy.ones`][numpy.ones],</span>
+<a id="__codelineno-0-187" name="__codelineno-0-187"></a><span class="sd">        * a [`TSeries`][tsecon.tseries.TSeries] (init each column from it),</span>
 <a id="__codelineno-0-188" name="__codelineno-0-188"></a><span class="sd">        * ``None`` (uninitialized → NaN-filled / typenan-filled).</span>
 <a id="__codelineno-0-189" name="__codelineno-0-189"></a><span class="sd">    dtype</span>
 <a id="__codelineno-0-190" name="__codelineno-0-190"></a><span class="sd">        Optional dtype override. Defaults to ``float64`` for empty /</span>
@@ -4961,7 +4971,7 @@ Use <code>copy=True</code> for an independent allocation.</p>
 <a id="__codelineno-0-196" name="__codelineno-0-196"></a><span class="sd">    **columns</span>
 <a id="__codelineno-0-197" name="__codelineno-0-197"></a><span class="sd">        Alternative spelling: ``MVTSeries(rng, a=..., b=...)`` builds</span>
 <a id="__codelineno-0-198" name="__codelineno-0-198"></a><span class="sd">        an MVTSeries with one column per kwarg. The value can be a</span>
-<a id="__codelineno-0-199" name="__codelineno-0-199"></a><span class="sd">        :class:`~tsecon.tseries.TSeries`, a 1-D array, or a scalar</span>
+<a id="__codelineno-0-199" name="__codelineno-0-199"></a><span class="sd">        [`TSeries`][tsecon.tseries.TSeries], a 1-D array, or a scalar</span>
 <a id="__codelineno-0-200" name="__codelineno-0-200"></a><span class="sd">        (filled). If ``firstdate_or_range`` is omitted, the range is</span>
 <a id="__codelineno-0-201" name="__codelineno-0-201"></a><span class="sd">        ``rangeof_span`` of all kwarg values that have a range.</span>
 <a id="__codelineno-0-202" name="__codelineno-0-202"></a>
@@ -5430,8 +5440,8 @@ Use <code>copy=True</code> for an independent allocation.</p>
 
         <p>Return an independent copy with its own matrix buffer.</p>
 <p><code>deep</code> is accepted for API uniformity with
-:meth:<code>~tsecon.tseries.TSeries.copy</code> and
-:meth:<code>~tsecon.workspace.Workspace.copy</code>; for MVTSeries it is a
+<a class="autorefs autorefs-internal" title="copy" href="../tseries/#tsecon.tseries.TSeries.copy"><code>copy</code></a> and
+<a class="autorefs autorefs-internal" title="copy" href="../workspace/#tsecon.workspace.Workspace.copy"><code>copy</code></a>; for MVTSeries it is a
 semantic no-op because the only mutable referents below the
 wrapper are the matrix buffer (always copied) and the per-column
 TSeries views (which are rebuilt to point at the fresh buffer).</p>
@@ -5458,8 +5468,8 @@ TSeries views (which are rebuilt to point at the fresh buffer).</p>
 <a id="__codelineno-0-542" name="__codelineno-0-542"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Return an independent copy with its own matrix buffer.</span>
 <a id="__codelineno-0-543" name="__codelineno-0-543"></a>
 <a id="__codelineno-0-544" name="__codelineno-0-544"></a><span class="sd">    ``deep`` is accepted for API uniformity with</span>
-<a id="__codelineno-0-545" name="__codelineno-0-545"></a><span class="sd">    :meth:`~tsecon.tseries.TSeries.copy` and</span>
-<a id="__codelineno-0-546" name="__codelineno-0-546"></a><span class="sd">    :meth:`~tsecon.workspace.Workspace.copy`; for MVTSeries it is a</span>
+<a id="__codelineno-0-545" name="__codelineno-0-545"></a><span class="sd">    [`copy`][tsecon.tseries.TSeries.copy] and</span>
+<a id="__codelineno-0-546" name="__codelineno-0-546"></a><span class="sd">    [`copy`][tsecon.workspace.Workspace.copy]; for MVTSeries it is a</span>
 <a id="__codelineno-0-547" name="__codelineno-0-547"></a><span class="sd">    semantic no-op because the only mutable referents below the</span>
 <a id="__codelineno-0-548" name="__codelineno-0-548"></a><span class="sd">    wrapper are the matrix buffer (always copied) and the per-column</span>
 <a id="__codelineno-0-549" name="__codelineno-0-549"></a><span class="sd">    TSeries views (which are rebuilt to point at the fresh buffer).</span>
@@ -5746,7 +5756,7 @@ TSeries views (which are rebuilt to point at the fresh buffer).</p>
                 <code>new_names_or_map_or_func</code>
             </td>
             <td>
-                  <code><span title="list">list</span>[<span title="str">str</span>] | <span title="tuple">tuple</span>[<span title="str">str</span>, ...] | <span title="collections.abc.Mapping">Mapping</span>[<span title="str">str</span>, <span title="str">str</span>] | <span title="collections.abc.Callable">Callable</span>[[<span title="str">str</span>], <span title="str">str</span>] | None</code>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#list">list</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a>] | <a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#tuple">tuple</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a>, ...] | <a class="autorefs autorefs-external" title="collections.abc.Mapping" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Mapping">Mapping</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a>, <a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a>] | <a class="autorefs autorefs-external" title="collections.abc.Callable" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Callable">Callable</a>[[<a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a>], <a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a>] | None</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -5768,7 +5778,7 @@ TSeries views (which are rebuilt to point at the fresh buffer).</p>
                 <code>replace</code>
             </td>
             <td>
-                  <code><span title="tuple">tuple</span>[<span title="str">str</span>, <span title="str">str</span>] | <span title="list">list</span>[<span title="tuple">tuple</span>[<span title="str">str</span>, <span title="str">str</span>]] | None</code>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#tuple">tuple</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a>, <a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a>] | <a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#list">list</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#tuple">tuple</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a>, <a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a>]] | None</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -5786,7 +5796,7 @@ with the positional <code>new_names</code> or mapping forms.</p>
                 <code>prefix</code>
             </td>
             <td>
-                  <code><span title="str">str</span> | None</code>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a> | None</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -5802,7 +5812,7 @@ with the positional <code>new_names</code> or mapping forms.</p>
                 <code>suffix</code>
             </td>
             <td>
-                  <code><span title="str">str</span> | None</code>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a> | None</code>
             </td>
             <td>
               <div class="doc-md-description">

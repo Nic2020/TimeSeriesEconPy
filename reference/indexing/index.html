@@ -1606,17 +1606,17 @@ code; the 935x gap is an <strong>API-shape gap</strong>, not a Python-speed gap.
 
 <details class="dispatch" open>
   <summary>Dispatch</summary>
-  <p>:func:<code>lookup</code> validates the keys (frequency-checks MITs, bounds-checks
+  <p><a class="autorefs autorefs-internal" title="lookup" href="#tsecon.indexing.lookup"><code>lookup</code></a> validates the keys (frequency-checks MITs, bounds-checks
 integer offsets), translates everything to int64 offsets into the
 TSeries' underlying <code>float64</code> buffer, then dispatches to the
-:mod:<code>~tsecon._indexing_kernels_cy</code> Cython kernel when importable or
-:mod:<code>~tsecon._indexing_kernels</code>'s NumPy reference otherwise. Both
+<code>_indexing_kernels_cy</code> Cython kernel when importable or
+<code>_indexing_kernels</code>'s NumPy reference otherwise. Both
 kernels share the contract <code>gather(values, indices) -&gt; out</code> and
 return identical bit-for-bit output (see the kernels' module
 docstrings).</p>
 <p>The two kernels' relative speed differs from the <code>rec_linear</code> story:
 the gather is <em>vectorisable</em>, so the NumPy reference is already a tight
-C loop via :func:<code>numpy.take</code>, and the Cython kernel only buys a
+C loop via <a class="autorefs autorefs-external" href="https://numpy.org/doc/stable/reference/generated/numpy.take.html#numpy.take"><code>numpy.take</code></a>, and the Cython kernel only buys a
 marginal further win (~1.5-3x, mostly from removing NumPy's per-call
 dispatch overhead). The big win here is exposing the vectorised API at
 all — that's where the 935x → ~1x recovery happens.</p>
@@ -1656,7 +1656,7 @@ all — that's where the 935x → ~1x recovery happens.</p>
 
         <p>Return True iff the Cython-compiled gather kernel was importable.</p>
 <p>Useful for tests, benchmarks, and diagnostic prints — the public
-:func:<code>lookup</code> itself is implementation-agnostic. When this returns
+<a class="autorefs autorefs-internal" title="lookup" href="#tsecon.indexing.lookup"><code>lookup</code></a> itself is implementation-agnostic. When this returns
 <code>False</code> the same calls go through the pure-NumPy kernel in
 <code>_indexing_kernels.py</code>; behaviour is identical, only speed
 differs.</p>
@@ -1677,7 +1677,7 @@ differs.</p>
 <a id="__codelineno-0-79" name="__codelineno-0-79"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Return True iff the Cython-compiled gather kernel was importable.</span>
 <a id="__codelineno-0-80" name="__codelineno-0-80"></a>
 <a id="__codelineno-0-81" name="__codelineno-0-81"></a><span class="sd">    Useful for tests, benchmarks, and diagnostic prints — the public</span>
-<a id="__codelineno-0-82" name="__codelineno-0-82"></a><span class="sd">    :func:`lookup` itself is implementation-agnostic. When this returns</span>
+<a id="__codelineno-0-82" name="__codelineno-0-82"></a><span class="sd">    [`lookup`][tsecon.indexing.lookup] itself is implementation-agnostic. When this returns</span>
 <a id="__codelineno-0-83" name="__codelineno-0-83"></a><span class="sd">    ``False`` the same calls go through the pure-NumPy kernel in</span>
 <a id="__codelineno-0-84" name="__codelineno-0-84"></a><span class="sd">    ``_indexing_kernels.py``; behaviour is identical, only speed</span>
 <a id="__codelineno-0-85" name="__codelineno-0-85"></a><span class="sd">    differs.</span>
@@ -1707,7 +1707,7 @@ differs.</p>
 
         <p>Return <code>t</code>'s values at every position in <code>keys</code>, vectorised.</p>
 <p>The array-of-keys companion to <code>t[k]</code>: while <code>t[k]</code> reads a
-single MIT- or int-keyed position, :func:<code>lookup</code> reads many at
+single MIT- or int-keyed position, <a class="autorefs autorefs-internal" title="lookup" href="#tsecon.indexing.lookup"><code>lookup</code></a> reads many at
 once with a single NumPy/Cython gather, avoiding the per-element
 <code>__getitem__</code> dispatch tax that makes the Python loop pattern
 <strong>935x slower than the Julia equivalent</strong> on the M1.5 benchmark.</p>
@@ -1801,7 +1801,7 @@ buffer — mutations to the result do not affect <code>t</code>.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="TypeError">TypeError</span></code>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/exceptions.html#TypeError">TypeError</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -1812,7 +1812,7 @@ keys are mixed MIT/int, or if a key is neither MIT nor int.</p>
           </tr>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="IndexError">IndexError</span></code>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/exceptions.html#IndexError">IndexError</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -1843,7 +1843,7 @@ array([ 0.,  5., 10., 99.])
   <summary>Notes</summary>
   <p>For a single key, prefer the direct indexer <code>t[k]</code> — it returns
 a scalar without an array allocation and dispatches through the
-same code path. :func:<code>lookup</code> is for the <em>bulk</em> case (e.g. 10+
+same code path. <a class="autorefs autorefs-internal" title="lookup" href="#tsecon.indexing.lookup"><code>lookup</code></a> is for the <em>bulk</em> case (e.g. 10+
 keys) where vectorisation amortises the per-call setup cost.</p>
 </details>
 
@@ -2010,7 +2010,7 @@ keys) where vectorisation amortises the per-call setup cost.</p>
 <a id="__codelineno-0-94" name="__codelineno-0-94"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Return ``t``&#39;s values at every position in ``keys``, vectorised.</span>
 <a id="__codelineno-0-95" name="__codelineno-0-95"></a>
 <a id="__codelineno-0-96" name="__codelineno-0-96"></a><span class="sd">    The array-of-keys companion to ``t[k]``: while ``t[k]`` reads a</span>
-<a id="__codelineno-0-97" name="__codelineno-0-97"></a><span class="sd">    single MIT- or int-keyed position, :func:`lookup` reads many at</span>
+<a id="__codelineno-0-97" name="__codelineno-0-97"></a><span class="sd">    single MIT- or int-keyed position, [`lookup`][tsecon.indexing.lookup] reads many at</span>
 <a id="__codelineno-0-98" name="__codelineno-0-98"></a><span class="sd">    once with a single NumPy/Cython gather, avoiding the per-element</span>
 <a id="__codelineno-0-99" name="__codelineno-0-99"></a><span class="sd">    ``__getitem__`` dispatch tax that makes the Python loop pattern</span>
 <a id="__codelineno-0-100" name="__codelineno-0-100"></a><span class="sd">    **935x slower than the Julia equivalent** on the M1.5 benchmark.</span>
@@ -2062,7 +2062,7 @@ keys) where vectorisation amortises the per-call setup cost.</p>
 <a id="__codelineno-0-146" name="__codelineno-0-146"></a><span class="sd">    -----</span>
 <a id="__codelineno-0-147" name="__codelineno-0-147"></a><span class="sd">    For a single key, prefer the direct indexer ``t[k]`` — it returns</span>
 <a id="__codelineno-0-148" name="__codelineno-0-148"></a><span class="sd">    a scalar without an array allocation and dispatches through the</span>
-<a id="__codelineno-0-149" name="__codelineno-0-149"></a><span class="sd">    same code path. :func:`lookup` is for the *bulk* case (e.g. 10+</span>
+<a id="__codelineno-0-149" name="__codelineno-0-149"></a><span class="sd">    same code path. [`lookup`][tsecon.indexing.lookup] is for the *bulk* case (e.g. 10+</span>
 <a id="__codelineno-0-150" name="__codelineno-0-150"></a><span class="sd">    keys) where vectorisation amortises the per-call setup cost.</span>
 <a id="__codelineno-0-151" name="__codelineno-0-151"></a>
 <a id="__codelineno-0-152" name="__codelineno-0-152"></a><span class="sd">    See Also</span>

@@ -1484,8 +1484,13 @@ there is more than one target.</p>
 <details class="performance-notes" open>
   <summary>Performance notes</summary>
   <p>Per-iteration cost is dominated by the lambda call and the
-:class:<code>~tsecon.tseries.TSeries</code> <code>__getitem__</code> / <code>__setitem__</code>
-dispatch (each indexing step allocates a fresh :class:<code>~tsecon.mit.MIT</code>
+<a class="autorefs autorefs-internal" title="TSeries" href="../tseries/#tsecon.tseries.TSeries"><code>TSeries</code></a> <code>__getitem__</code> / <code>__setitem__</code>
+dispatch (each indexing step allocates a fresh <a class="autorefs autorefs-internal" title="MIT
+
+
+  
+      dataclass
+  " href="../mit/#tsecon.mit.MIT"><code>MIT</code></a>
 for <code>t - k</code> and walks <code>_ts_values_inds</code>). For a single 80-120 period
 recurrence (≈ 20-30 years of quarterly data) this is a few hundred
 microseconds — fine. For a data pipeline that runs <code>rec</code> thousands of
@@ -1595,7 +1600,7 @@ rule, matching the Julia <code>@rec</code> behaviour.</p>
                 <code>fn</code>
             </td>
             <td>
-                  <code><span title="collections.abc.Callable">Callable</span>[[<a class="autorefs autorefs-internal" title="MIT
+                  <code><a class="autorefs autorefs-external" title="collections.abc.Callable" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Callable">Callable</a>[[<a class="autorefs autorefs-internal" title="MIT
 
 
   
@@ -1628,7 +1633,7 @@ references).</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="TypeError">TypeError</span></code>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/exceptions.html#TypeError">TypeError</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -1832,7 +1837,7 @@ references).</p>
 
         <p>Return True iff the Cython-compiled rec_linear kernel was importable.</p>
 <p>Useful for tests, benchmarks, and diagnostic prints — the public
-:func:<code>rec_linear</code> itself is implementation-agnostic. When this
+<a class="autorefs autorefs-internal" title="rec_linear" href="#tsecon.recursive.rec_linear"><code>rec_linear</code></a> itself is implementation-agnostic. When this
 returns <code>False</code> the same calls go through the pure-NumPy kernel
 in <code>_rec_kernels.py</code>; behaviour is identical, only speed differs.</p>
 
@@ -1851,7 +1856,7 @@ in <code>_rec_kernels.py</code>; behaviour is identical, only speed differs.</p>
 <a id="__codelineno-0-144" name="__codelineno-0-144"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Return True iff the Cython-compiled rec_linear kernel was importable.</span>
 <a id="__codelineno-0-145" name="__codelineno-0-145"></a>
 <a id="__codelineno-0-146" name="__codelineno-0-146"></a><span class="sd">    Useful for tests, benchmarks, and diagnostic prints — the public</span>
-<a id="__codelineno-0-147" name="__codelineno-0-147"></a><span class="sd">    :func:`rec_linear` itself is implementation-agnostic. When this</span>
+<a id="__codelineno-0-147" name="__codelineno-0-147"></a><span class="sd">    [`rec_linear`][tsecon.recursive.rec_linear] itself is implementation-agnostic. When this</span>
 <a id="__codelineno-0-148" name="__codelineno-0-148"></a><span class="sd">    returns ``False`` the same calls go through the pure-NumPy kernel</span>
 <a id="__codelineno-0-149" name="__codelineno-0-149"></a><span class="sd">    in ``_rec_kernels.py``; behaviour is identical, only speed differs.</span>
 <a id="__codelineno-0-150" name="__codelineno-0-150"></a><span class="sd">    &quot;&quot;&quot;</span>
@@ -1881,7 +1886,7 @@ in <code>_rec_kernels.py</code>; behaviour is identical, only speed differs.</p>
     <div class="doc doc-contents ">
 
         <p>Compute a linear-combination recurrence over <code>rng</code> in place.</p>
-<p>Specialised closed-form sibling of :func:<code>rec</code> for the common case
+<p>Specialised closed-form sibling of <a class="autorefs autorefs-internal" title="rec" href="#tsecon.recursive.rec"><code>rec</code></a> for the common case
 where each step's value is a fixed linear combination of <em>earlier-
 written</em> values of the <em>same</em> series. Covers Fibonacci, AR(p),
 arbitrary lag polynomials — the recurrences that account for ~80%
@@ -1915,10 +1920,10 @@ which is where the initial conditions live).</p>
   <summary>Dispatch</summary>
   <p>When the Cython extension <code>tsecon._rec_kernels_cy</code> is importable
 (the typical wheel install), this function delegates to the
-compiled :func:<code>rec_linear_cython</code> kernel — same contract,
+compiled <code>rec_linear_cython</code> kernel — same contract,
 much faster. Without the extension, the call goes through
-:func:<code>rec_linear_numpy</code>, the pure-Python reference. Use
-:func:<code>rec_linear_is_cython</code> to check which path is active.</p>
+<code>rec_linear_numpy</code>, the pure-Python reference. Use
+<a class="autorefs autorefs-internal" title="rec_linear_is_cython" href="#tsecon.recursive.rec_linear_is_cython"><code>rec_linear_is_cython</code></a> to check which path is active.</p>
 </details>
 
 <details class="note" open>
@@ -1931,10 +1936,10 @@ The two common near-misses:</p>
 <ul>
 <li><code>target[t] = target[t-1] + c</code> (random walk / cumulative sum
   with constant drift) is <em>not</em> <code>rec_linear</code> territory; use
-  :func:<code>tsecon.undiff</code> instead.</li>
+  <a class="autorefs autorefs-internal" title="undiff" href="../math/#tsecon._math.undiff"><code>tsecon.undiff</code></a> instead.</li>
 <li><code>target[t] = β * target[t-1] + γ * y[t]</code> (AR with exogenous
   reads from another series) is <em>not</em> <code>rec_linear</code> territory
-  either; use the general :func:<code>rec</code> with a lambda closing over
+  either; use the general <a class="autorefs autorefs-internal" title="rec" href="#tsecon.recursive.rec"><code>rec</code></a> with a lambda closing over
   both <code>target</code> and <code>y</code>.</li>
 </ul>
 <p>Both near-misses raise an informative <code>ValueError</code> at the call
@@ -1942,7 +1947,7 @@ site rather than producing silent garbage — the first via the
 <code>min(lags) &gt;= 1</code> contract (<code>lags=[0]</code> for the constant-drift
 misread), the second by virtue of the closed-form signature
 accepting only <code>coeffs</code> × <code>lags</code> (no second series). The
-general :func:<code>rec</code> retains the readable nonlinear / multi-series
+general <a class="autorefs autorefs-internal" title="rec" href="#tsecon.recursive.rec"><code>rec</code></a> retains the readable nonlinear / multi-series
 escape hatch; pick it whenever the recurrence body does not fit
 the linear-AR(p) shape.</p>
 </details>
@@ -2047,7 +2052,7 @@ must be <code>+1</code> (forward) or <code>-1</code> (backward).</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="TypeError">TypeError</span></code>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/exceptions.html#TypeError">TypeError</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -2059,7 +2064,7 @@ offending type / dtype.</p>
           </tr>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="ValueError">ValueError</span></code>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/exceptions.html#ValueError">ValueError</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -2070,8 +2075,8 @@ is empty; if any <code>lags[k]</code> has the wrong sign for <code>rng.step</cod
 <code>target</code> does not contain the initial-condition positions
 <code>rng.first - lags[k]</code> for every <code>k</code>. Each message names the
 offending value (shape, lag, MIT). The forward <code>lags[k] &lt; 1</code>
-branch additionally points at :func:<code>tsecon.undiff</code> and
-:func:<code>rec</code> for the two common near-misses (constant drift and
+branch additionally points at <a class="autorefs autorefs-internal" title="undiff" href="../math/#tsecon._math.undiff"><code>tsecon.undiff</code></a> and
+<a class="autorefs autorefs-internal" title="rec" href="#tsecon.recursive.rec"><code>rec</code></a> for the two common near-misses (constant drift and
 exogenous reads); see the <em>Notes</em> section above.</p>
               </div>
             </td>
@@ -2107,7 +2112,7 @@ drift becomes <code>s[t] = s[t+1]</code>)::</p>
   <p>rec : General higher-order form <code>target[t] = fn(t)</code>. Use it when
     the recurrence is nonlinear or reads from series other than
     <code>target</code>.
-tsecon.undiff : Inverse of :func:<code>tsecon.diff</code>. Use it for
+tsecon.undiff : Inverse of <a class="autorefs autorefs-internal" title="diff" href="../math/#tsecon._math.diff"><code>tsecon.diff</code></a>. Use it for
     <code>target[t] = target[t-1] + c</code> (random walk with constant
     drift) — the most common near-miss for <code>rec_linear</code>.</p>
 </details>
@@ -2372,7 +2377,7 @@ tsecon.undiff : Inverse of :func:<code>tsecon.diff</code>. Use it for
 <a id="__codelineno-0-159" name="__codelineno-0-159"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <a id="__codelineno-0-160" name="__codelineno-0-160"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute a linear-combination recurrence over ``rng`` in place.</span>
 <a id="__codelineno-0-161" name="__codelineno-0-161"></a>
-<a id="__codelineno-0-162" name="__codelineno-0-162"></a><span class="sd">    Specialised closed-form sibling of :func:`rec` for the common case</span>
+<a id="__codelineno-0-162" name="__codelineno-0-162"></a><span class="sd">    Specialised closed-form sibling of [`rec`][tsecon.recursive.rec] for the common case</span>
 <a id="__codelineno-0-163" name="__codelineno-0-163"></a><span class="sd">    where each step&#39;s value is a fixed linear combination of *earlier-</span>
 <a id="__codelineno-0-164" name="__codelineno-0-164"></a><span class="sd">    written* values of the *same* series. Covers Fibonacci, AR(p),</span>
 <a id="__codelineno-0-165" name="__codelineno-0-165"></a><span class="sd">    arbitrary lag polynomials — the recurrences that account for ~80%</span>
@@ -2407,10 +2412,10 @@ tsecon.undiff : Inverse of :func:<code>tsecon.diff</code>. Use it for
 <a id="__codelineno-0-194" name="__codelineno-0-194"></a><span class="sd">    --------</span>
 <a id="__codelineno-0-195" name="__codelineno-0-195"></a><span class="sd">    When the Cython extension ``tsecon._rec_kernels_cy`` is importable</span>
 <a id="__codelineno-0-196" name="__codelineno-0-196"></a><span class="sd">    (the typical wheel install), this function delegates to the</span>
-<a id="__codelineno-0-197" name="__codelineno-0-197"></a><span class="sd">    compiled :func:`rec_linear_cython` kernel — same contract,</span>
+<a id="__codelineno-0-197" name="__codelineno-0-197"></a><span class="sd">    compiled `rec_linear_cython` kernel — same contract,</span>
 <a id="__codelineno-0-198" name="__codelineno-0-198"></a><span class="sd">    much faster. Without the extension, the call goes through</span>
-<a id="__codelineno-0-199" name="__codelineno-0-199"></a><span class="sd">    :func:`rec_linear_numpy`, the pure-Python reference. Use</span>
-<a id="__codelineno-0-200" name="__codelineno-0-200"></a><span class="sd">    :func:`rec_linear_is_cython` to check which path is active.</span>
+<a id="__codelineno-0-199" name="__codelineno-0-199"></a><span class="sd">    `rec_linear_numpy`, the pure-Python reference. Use</span>
+<a id="__codelineno-0-200" name="__codelineno-0-200"></a><span class="sd">    [`rec_linear_is_cython`][tsecon.recursive.rec_linear_is_cython] to check which path is active.</span>
 <a id="__codelineno-0-201" name="__codelineno-0-201"></a>
 <a id="__codelineno-0-202" name="__codelineno-0-202"></a><span class="sd">    Notes</span>
 <a id="__codelineno-0-203" name="__codelineno-0-203"></a><span class="sd">    -----</span>
@@ -2422,10 +2427,10 @@ tsecon.undiff : Inverse of :func:<code>tsecon.diff</code>. Use it for
 <a id="__codelineno-0-209" name="__codelineno-0-209"></a>
 <a id="__codelineno-0-210" name="__codelineno-0-210"></a><span class="sd">    * ``target[t] = target[t-1] + c`` (random walk / cumulative sum</span>
 <a id="__codelineno-0-211" name="__codelineno-0-211"></a><span class="sd">      with constant drift) is *not* ``rec_linear`` territory; use</span>
-<a id="__codelineno-0-212" name="__codelineno-0-212"></a><span class="sd">      :func:`tsecon.undiff` instead.</span>
+<a id="__codelineno-0-212" name="__codelineno-0-212"></a><span class="sd">      [`tsecon.undiff`][tsecon._math.undiff] instead.</span>
 <a id="__codelineno-0-213" name="__codelineno-0-213"></a><span class="sd">    * ``target[t] = β * target[t-1] + γ * y[t]`` (AR with exogenous</span>
 <a id="__codelineno-0-214" name="__codelineno-0-214"></a><span class="sd">      reads from another series) is *not* ``rec_linear`` territory</span>
-<a id="__codelineno-0-215" name="__codelineno-0-215"></a><span class="sd">      either; use the general :func:`rec` with a lambda closing over</span>
+<a id="__codelineno-0-215" name="__codelineno-0-215"></a><span class="sd">      either; use the general [`rec`][tsecon.recursive.rec] with a lambda closing over</span>
 <a id="__codelineno-0-216" name="__codelineno-0-216"></a><span class="sd">      both ``target`` and ``y``.</span>
 <a id="__codelineno-0-217" name="__codelineno-0-217"></a>
 <a id="__codelineno-0-218" name="__codelineno-0-218"></a><span class="sd">    Both near-misses raise an informative ``ValueError`` at the call</span>
@@ -2433,7 +2438,7 @@ tsecon.undiff : Inverse of :func:<code>tsecon.diff</code>. Use it for
 <a id="__codelineno-0-220" name="__codelineno-0-220"></a><span class="sd">    ``min(lags) &gt;= 1`` contract (``lags=[0]`` for the constant-drift</span>
 <a id="__codelineno-0-221" name="__codelineno-0-221"></a><span class="sd">    misread), the second by virtue of the closed-form signature</span>
 <a id="__codelineno-0-222" name="__codelineno-0-222"></a><span class="sd">    accepting only ``coeffs`` × ``lags`` (no second series). The</span>
-<a id="__codelineno-0-223" name="__codelineno-0-223"></a><span class="sd">    general :func:`rec` retains the readable nonlinear / multi-series</span>
+<a id="__codelineno-0-223" name="__codelineno-0-223"></a><span class="sd">    general [`rec`][tsecon.recursive.rec] retains the readable nonlinear / multi-series</span>
 <a id="__codelineno-0-224" name="__codelineno-0-224"></a><span class="sd">    escape hatch; pick it whenever the recurrence body does not fit</span>
 <a id="__codelineno-0-225" name="__codelineno-0-225"></a><span class="sd">    the linear-AR(p) shape.</span>
 <a id="__codelineno-0-226" name="__codelineno-0-226"></a>
@@ -2467,8 +2472,8 @@ tsecon.undiff : Inverse of :func:<code>tsecon.diff</code>. Use it for
 <a id="__codelineno-0-254" name="__codelineno-0-254"></a><span class="sd">        ``target`` does not contain the initial-condition positions</span>
 <a id="__codelineno-0-255" name="__codelineno-0-255"></a><span class="sd">        ``rng.first - lags[k]`` for every ``k``. Each message names the</span>
 <a id="__codelineno-0-256" name="__codelineno-0-256"></a><span class="sd">        offending value (shape, lag, MIT). The forward ``lags[k] &lt; 1``</span>
-<a id="__codelineno-0-257" name="__codelineno-0-257"></a><span class="sd">        branch additionally points at :func:`tsecon.undiff` and</span>
-<a id="__codelineno-0-258" name="__codelineno-0-258"></a><span class="sd">        :func:`rec` for the two common near-misses (constant drift and</span>
+<a id="__codelineno-0-257" name="__codelineno-0-257"></a><span class="sd">        branch additionally points at [`tsecon.undiff`][tsecon._math.undiff] and</span>
+<a id="__codelineno-0-258" name="__codelineno-0-258"></a><span class="sd">        [`rec`][tsecon.recursive.rec] for the two common near-misses (constant drift and</span>
 <a id="__codelineno-0-259" name="__codelineno-0-259"></a><span class="sd">        exogenous reads); see the *Notes* section above.</span>
 <a id="__codelineno-0-260" name="__codelineno-0-260"></a>
 <a id="__codelineno-0-261" name="__codelineno-0-261"></a><span class="sd">    Examples</span>
@@ -2500,7 +2505,7 @@ tsecon.undiff : Inverse of :func:<code>tsecon.diff</code>. Use it for
 <a id="__codelineno-0-287" name="__codelineno-0-287"></a><span class="sd">    rec : General higher-order form ``target[t] = fn(t)``. Use it when</span>
 <a id="__codelineno-0-288" name="__codelineno-0-288"></a><span class="sd">        the recurrence is nonlinear or reads from series other than</span>
 <a id="__codelineno-0-289" name="__codelineno-0-289"></a><span class="sd">        ``target``.</span>
-<a id="__codelineno-0-290" name="__codelineno-0-290"></a><span class="sd">    tsecon.undiff : Inverse of :func:`tsecon.diff`. Use it for</span>
+<a id="__codelineno-0-290" name="__codelineno-0-290"></a><span class="sd">    tsecon.undiff : Inverse of [`tsecon.diff`][tsecon._math.diff]. Use it for</span>
 <a id="__codelineno-0-291" name="__codelineno-0-291"></a><span class="sd">        ``target[t] = target[t-1] + c`` (random walk with constant</span>
 <a id="__codelineno-0-292" name="__codelineno-0-292"></a><span class="sd">        drift) — the most common near-miss for ``rec_linear``.</span>
 <a id="__codelineno-0-293" name="__codelineno-0-293"></a><span class="sd">    &quot;&quot;&quot;</span>

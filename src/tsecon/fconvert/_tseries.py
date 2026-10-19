@@ -1,20 +1,20 @@
 # SPDX-License-Identifier: MIT
-"""Frequency conversion for :class:`TSeries`.
+"""Frequency conversion for [`TSeries`][tsecon.tseries.TSeries].
 
 Mirrors ``TimeSeriesEcon.jl/src/fconvert/fconvert_tseries.jl``:
 
-* :func:`fconvert_tseries` — the public entry. Accepts an optional first
-  positional callable that replaces the built-in aggregator / spreader.
+* [`fconvert_tseries`][tsecon.fconvert.fconvert_tseries] — the public entry. Accepts an optional
+  first positional callable that replaces the built-in aggregator / spreader.
 * Higher-frequency conversion (e.g. Yearly → Monthly / Weekly / Daily / BDaily)
   supports ``method="const" / "even" / "linear"``.
 * Lower-frequency conversion (e.g. Monthly → Quarterly, Daily → Monthly)
   supports ``method="mean" / "sum" / "min" / "max" / "point" / "begin" / "end"``.
-* :func:`extend_series` / :func:`trim_series` — helpers from
-  ``fconvert_helpers.jl`` that operate against a target frequency.
+* [`extend_series`][tsecon.fconvert.extend_series] / [`trim_series`][tsecon.fconvert.trim_series] —
+  helpers from ``fconvert_helpers.jl`` that operate against a target frequency.
 
 The BDaily-specific kwarg variants (``skip_holidays`` / ``skip_all_nans`` /
 ``holidays_map``) for lower-frequency conversion and BDaily-source
-``extend_series`` are wired through :mod:`tsecon._bdaily`'s
+``extend_series`` are wired through `tsecon._bdaily`'s
 ``cleanedvalues`` family.
 """
 
@@ -94,7 +94,7 @@ def fconvert_is_cython() -> bool:
     """Return True iff the Cython-compiled fconvert kernel was importable.
 
     Useful for tests, benchmarks, and diagnostic prints — the public
-    :func:`fconvert_tseries` is implementation-agnostic. When this
+    [`fconvert_tseries`][tsecon.fconvert.fconvert_tseries] is implementation-agnostic. When this
     returns ``False`` the same calls go through the pure-NumPy kernel
     in ``_fconvert_kernels.py``; behaviour is identical, only speed
     differs.
@@ -131,7 +131,7 @@ def _aggregator_method_code(aggregator: Callable[[np.ndarray], Any]) -> int | No
     """Resolve a built-in aggregator to the kernel's method code.
 
     Returns ``None`` for custom callables (e.g. user-supplied via
-    :func:`fconvert_tseries(f, target, t, ...)`), in which case the
+    `fconvert_tseries(f, target, t, ...)`), in which case the
     caller falls back to the Python-loop aggregation path. Identity
     comparison is sound because all six built-in aggregators are
     module-level objects with stable ``id()``.
@@ -161,8 +161,8 @@ def _aggregate_groups_dispatch(
 ) -> np.ndarray:
     """Dispatch to the Cython aggregate-groups kernel when eligible, else the NumPy reference.
 
-    Routes through the shared :func:`_dispatch_kernel` /
-    :func:`_is_kernel_eligible` helpers from :mod:`tsecon._kernel_dispatch`
+    Routes through the shared `_dispatch_kernel` /
+    `_is_kernel_eligible` helpers from `tsecon._kernel_dispatch`
     so the four M1.5 ports share one fast-path contract (``float64`` AND
     ``C_CONTIGUOUS`` AND ``_CYTHON_AVAILABLE``).
 
@@ -183,7 +183,7 @@ def _aggregate_groups_dispatch(
         Forwarded verbatim to the chosen kernel.
     is_yp_target : bool
         ``True`` iff the caller has confirmed both source and target
-        frequencies are :class:`~tsecon.frequencies.YPFrequency`. The
+        frequencies are [`YPFrequency`][tsecon.frequencies.YPFrequency]. The
         guard asserts this — non-YP callers must NOT route through this
         dispatcher.
     """
@@ -273,7 +273,7 @@ def fconvert_tseries(
         For BDaily source on lower-frequency conversion, also accepts
         ``skip_all_nans`` / ``skip_holidays`` / ``holidays_map`` —
         these filter the underlying business days before aggregation
-        via :func:`tsecon._bdaily.cleanedvalues`.
+        via [`tsecon._bdaily.cleanedvalues`][tsecon.cleanedvalues].
 
     Returns
     -------

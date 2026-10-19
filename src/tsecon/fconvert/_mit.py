@@ -1,11 +1,13 @@
 # SPDX-License-Identifier: MIT
-"""Frequency conversion for :class:`MIT` and :class:`MITRange`.
+"""Frequency conversion for [`MIT`][tsecon.mit.MIT] and [`MITRange`][tsecon.mitrange.MITRange].
 
 Mirrors ``TimeSeriesEcon.jl/src/fconvert/fconvert_mit.jl``:
 
-* :func:`fconvert_mit` — convert an :class:`MIT` to a target frequency.
-* :func:`fconvert_range` — convert an :class:`MITRange` to a target frequency.
-* :func:`fconvert_parts` — internal helper exposing the
+* [`fconvert_mit`][tsecon.fconvert.fconvert_mit] — convert an [`MIT`][tsecon.mit.MIT] to a target
+  frequency.
+* [`fconvert_range`][tsecon.fconvert.fconvert_range] — convert an
+  [`MITRange`][tsecon.mitrange.MITRange] to a target frequency.
+* [`fconvert_parts`][tsecon.fconvert.fconvert_parts] — internal helper exposing the
   ``(period, source_month, target_month)`` triple used by the YP→YP TSeries
   conversion path.
 
@@ -72,7 +74,7 @@ def fconvert_mit(
     align to the end of the source period (``"end"``, the default) or the start
     (``"begin"``). Mirrors Julia's ``fconvert(F_to, MIT_from; ref=:end)``.
 
-    When the target is :class:`BDaily`, ``round_to`` controls how a date that
+    When the target is [`BDaily`][tsecon.frequencies.BDaily], ``round_to`` controls how a date that
     lands on a weekend is resolved: ``"current"`` (default) raises on
     weekends, ``"previous"`` snaps to the preceding business day, ``"next"``
     snaps forward.

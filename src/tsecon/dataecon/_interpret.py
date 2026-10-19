@@ -250,14 +250,14 @@ def object_interpretation(token: str, axis: Frequency, base: Target, length: int
     ``Symbol`` is ``"display"``: Julia's ``Symbol(::TSeries)`` is the series'
     display text, whose row selection and column widths depend on the
     loading session's ``LINES``/``COLUMNS``, so no fixed value reconstructs
-    it (see :func:`display_text_error`). The identity spellings
-    (:data:`TSERIES_IDENTITY_TOKENS`, ``TSeries{F}`` and
+    it (see `display_text_error`). The identity spellings
+    (`TSERIES_IDENTITY_TOKENS`, ``TSeries{F}`` and
     the exact ``TSeries{F, T}`` / ``TSeries{F,T}`` / ``TSeries{F, T,
     Vector{T}}`` forms naming this object's axis and base element) are
     identity conversions in Julia; any other spelling or a mismatched
     parameter fails there and is refused here (no element conversion is
     attempted in its place). The plain vector spellings
-    (:data:`VECTOR_TOKENS`) build a typed empty vector from an empty numeric
+    (`VECTOR_TOKENS`) build a typed empty vector from an empty numeric
     or wide payload only.
     """
     if token in TSERIES_IDENTITY_TOKENS:
@@ -316,8 +316,8 @@ def mvtseries_object_interpretation(token: str, axis: Frequency, base: Target) -
     """Classify a supported ``jtype`` token on an MVTSeries as ``"identity"`` or ``"display"``.
 
     ``Symbol`` is ``"display"`` (the display text; see
-    :func:`display_text_error`). Identities are the container spellings in
-    :data:`MVTSERIES_IDENTITY_TOKENS`,
+    `display_text_error`). Identities are the container spellings in
+    `MVTSERIES_IDENTITY_TOKENS`,
     ``MVTSeries{F}``, the exact ``MVTSeries{F, T}`` (either spacing) and
     ``MVTSeries{F, T, Matrix{T}}`` forms naming this axis and element, and
     ``MVTSeries{F, A}`` for a verified alias ``A`` of the element
@@ -575,7 +575,7 @@ def check_bool(values: np.ndarray[Any, Any], source: Target) -> None:
 
 
 def bool_flags(values: np.ndarray[Any, Any], source: Target) -> np.ndarray[Any, Any]:
-    """Return the Boolean reading of a carrier that passed :func:`check_bool`."""
+    """Return the Boolean reading of a carrier that passed `check_bool`."""
     if source.kind in ("int128", "uint128"):
         return np.asarray(values["lo"] == 1, dtype=bool)
     real, _ = _components(values, source)
@@ -815,7 +815,7 @@ def _imag_to_float(
 def _to_integer(
     values: np.ndarray[Any, Any], source: Target, target: Target
 ) -> np.ndarray[Any, Any]:
-    """Integer output for a checked route: exact after :func:`check_integer`."""
+    """Integer output for a checked route: exact after `check_integer`."""
     dtype = target.dtype
     if source.kind in ("int128", "uint128"):
         if target.kind in ("int128", "uint128"):

@@ -8,7 +8,7 @@ of the shape ``op(_vals(A), _vals(B))`` — i.e. the operation strips
 frequency / range / column-name labels and returns the underlying
 ``Vector`` or ``Matrix`` (the upstream test
 ``x * x3 == _vals(x) * _vals(x3)`` confirms). The Python port keeps
-that semantics: ``@`` returns a plain :class:`numpy.ndarray`; users
+that semantics: ``@`` returns a plain [`numpy.ndarray`][numpy.ndarray]; users
 who want the result back as a labelled object wrap it explicitly.
 
 Spelling — ``@`` (PEP 465) over Julia's ``*``. Element-wise ``*`` is
@@ -45,13 +45,13 @@ def _matmul_strip(left: Any, right: Any) -> Any:
     """Matrix multiply with all TSeries / MVTSeries labels stripped.
 
     Implements ``Base.:(*)(A, B) = *(_vals(A), _vals(B))`` from Julia's
-    ``linalg.jl``. :func:`numpy.asarray` invokes the
-    :meth:`~tsecon.tseries.TSeries.__array__` /
-    :meth:`~tsecon.mvtseries.MVTSeries.__array__` overrides so the
+    ``linalg.jl``. [`numpy.asarray`][numpy.asarray] invokes the
+    [`__array__`][tsecon.tseries.TSeries.__array__] /
+    [`__array__`][tsecon.mvtseries.MVTSeries.__array__] overrides so the
     frequency / range / column-name labels are dropped uniformly.
 
-    NumPy raises :class:`ValueError` on shape mismatch and
-    :class:`TypeError` on unsupported operand types; we let those
+    NumPy raises [`ValueError`][ValueError] on shape mismatch and
+    [`TypeError`][TypeError] on unsupported operand types; we let those
     propagate.
     """
     return np.matmul(np.asarray(left), np.asarray(right))

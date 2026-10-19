@@ -3,8 +3,8 @@
 
 Mirrors Julia's ``UnitRange{MIT{F}}`` and ``StepRange{MIT{F}}``. A range is
 defined by ``(start, stop, step)`` where ``start`` and ``stop`` are
-:class:`~tsecon.mit.MIT` values of the same frequency and ``step`` is a
-nonzero integer number of periods (or a :class:`~tsecon.mit.Duration` of the
+[`MIT`][tsecon.mit.MIT] values of the same frequency and ``step`` is a
+nonzero integer number of periods (or a [`Duration`][tsecon.mit.Duration] of the
 same frequency). ``step`` may be negative — ``MITRange(10U, 1U, -1)`` walks
 backward, mirroring Julia's ``10U:-1:1U``. Ranges whose endpoints do not
 match the sign of ``step`` (e.g. ``MITRange(1U, 10U, -1)``) are empty.
@@ -37,7 +37,7 @@ class MITRange:
     Construct with ``MITRange(start, stop)`` for unit steps, or
     ``MITRange(start, stop, step)`` for a step range. ``step`` may be a
     nonzero ``int`` (interpreted in the range's frequency) or a
-    :class:`Duration` of the same frequency. Negative ``step`` walks
+    [`Duration`][tsecon.mit.Duration] of the same frequency. Negative ``step`` walks
     backward (``MITRange(10U, 1U, -1)`` mirrors Julia's ``10U:-1:1U``);
     ranges whose endpoints have the opposite sense to ``step`` are empty.
     """
@@ -184,10 +184,10 @@ class MITRange:
 
 
 def mitrange(start: MIT, stop: MIT, step: int | Duration = 1) -> MITRange:
-    """Functional constructor for :class:`MITRange`.
+    """Functional constructor for [`MITRange`][tsecon.mitrange.MITRange].
 
     Mirrors Julia's ``start:stop`` and ``start:step:stop`` colon syntax.
-    ``step`` may be an ``int`` or a :class:`Duration` of the same frequency.
+    ``step`` may be an ``int`` or a [`Duration`][tsecon.mit.Duration] of the same frequency.
     """
     if isinstance(step, Duration):
         if step.frequency != start.frequency:
@@ -258,19 +258,21 @@ def rangeof(
 
     Mirrors Julia's ``rangeof(t; drop=n)`` and ``rangeof(w; method=intersect)``
     (see [`TimeSeriesEcon.jl/src/workspaces.jl`](https://github.com/bankofcanada/TimeSeriesEcon.jl)
-    and ``src/tseries.jl``). The Python equivalents — :attr:`TSeries.range` /
-    :attr:`MVTSeries.range` properties, :meth:`Workspace.rangeof`,
-    :func:`rangeof_span` — remain available; this function unifies them under
-    a single kwarg-bearing call site that mirrors the Julia surface 1-to-1 and
-    is the recommended target for line-by-line tutorial / model code ports.
+    and ``src/tseries.jl``). The Python equivalents —
+    [`TSeries.range`][tsecon.tseries.TSeries.range] /
+    [`MVTSeries.range`][tsecon.mvtseries.MVTSeries.range] properties,
+    [`Workspace.rangeof`][tsecon.workspace.Workspace.rangeof],
+    [`rangeof_span`][tsecon.mitrange.rangeof_span] — remain available; this function unifies them
+    under a single kwarg-bearing call site that mirrors the Julia surface 1-to-1 and is the
+    recommended target for line-by-line tutorial / model code ports.
 
     Parameters
     ----------
     obj
-        A :class:`MITRange`, :class:`~tsecon.mit.MIT`,
-        :class:`~tsecon.tseries.TSeries`, :class:`~tsecon.mvtseries.MVTSeries`,
-        or :class:`~tsecon.workspace.Workspace`. Anything else raises
-        :class:`TypeError` naming the offending type.
+        A [`MITRange`][tsecon.mitrange.MITRange], [`MIT`][tsecon.mit.MIT],
+        [`TSeries`][tsecon.tseries.TSeries], [`MVTSeries`][tsecon.mvtseries.MVTSeries],
+        or [`Workspace`][tsecon.workspace.Workspace]. Anything else raises
+        [`TypeError`][TypeError] naming the offending type.
     drop
         Skip ``drop`` elements at the start (``drop > 0``) or at the end
         (``drop < 0``). ``drop == 0`` returns the full range. ``|drop| >=
@@ -279,16 +281,17 @@ def rangeof(
     method
         ``"intersect"`` (default) → intersection of all member ranges;
         ``"union"`` → ``rangeof_span`` semantics. Only meaningful for
-        :class:`~tsecon.workspace.Workspace`; passing ``method="union"`` for
-        any other type raises :class:`TypeError` to catch the likely
+        [`Workspace`][tsecon.workspace.Workspace]; passing ``method="union"`` for
+        any other type raises [`TypeError`][TypeError] to catch the likely
         wrong-object-type mistake.
 
     Returns
     -------
     MITRange
         The (possibly shrunk) range. ``step`` is preserved for
-        :class:`MITRange` inputs; :class:`TSeries` / :class:`MVTSeries` /
-        :class:`~tsecon.workspace.Workspace` inputs always yield ``step=1``.
+        [`MITRange`][tsecon.mitrange.MITRange] inputs; [`TSeries`][tsecon.tseries.TSeries] /
+        [`MVTSeries`][tsecon.mvtseries.MVTSeries] / [`Workspace`][tsecon.workspace.Workspace] inputs
+        always yield ``step=1``.
 
     Raises
     ------

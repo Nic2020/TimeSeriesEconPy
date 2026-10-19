@@ -32,7 +32,7 @@ Cython actually helps a Python time-series library:
   a just-written predecessor. Cython buys ~65x over NumPy here because
   the entire inner loop is interpreter overhead.
 * **Gather** (``_indexing_kernels``) — vectorisable. The NumPy reference
-  is :func:`numpy.take`, already a tight C loop. Cython buys only ~1.1x
+  is [`numpy.take`][numpy.take], already a tight C loop. Cython buys only ~1.1x
   over NumPy because there is nothing left to remove except per-call
   dispatch overhead.
 * **Scalar reduction** (this module) — vectorisable, but the NumPy call
@@ -80,7 +80,7 @@ input, and a float64 scaled by a power of two through ``ldexp`` is exact
 as long as the result stays a normal number. Both ``cor`` kernels
 therefore scale every value of each input by ``2**-e``, where ``e`` is
 the binary exponent of that input's largest magnitude
-(:func:`_scale_exponent`), *before* anything is summed: the scaled values
+(`_scale_exponent`), *before* anything is summed: the scaled values
 lie in ``(-1, 1)`` with the largest in ``[0.5, 1)``, so the sums, the mean,
 the centred values and their squares all stay in the normal range for
 any finite input, from the smallest subnormal to ``1.8e308``. The
@@ -149,7 +149,7 @@ def mean_numpy(values: npt.NDArray[np.float64]) -> float:
     """Return ``float(np.mean(values))``.
 
     Pure-NumPy reference. The matching Cython kernel
-    :func:`tsecon._stats_kernels_cy.mean_cython` carries the same
+    `tsecon._stats_kernels_cy.mean_cython` carries the same
     signature and behaviour but returns the result without going through
     NumPy's per-call dispatch + 0-D scalar allocation.
     """
@@ -180,7 +180,7 @@ def cor_numpy(x: npt.NDArray[np.float64], y: npt.NDArray[np.float64]) -> float:
     that; this wrapper extracts the off-diagonal scalar so the return
     shape matches the Cython kernel and the public ``cor(x, y)`` form.
     Each input is first scaled by ``2**-e`` per value, ``e`` from
-    :func:`_scale_exponent` (see "Correlation scaling" in the module
+    `_scale_exponent` (see "Correlation scaling" in the module
     docstring): exact for normal results, unchanged where the unscaled
     arithmetic stayed in range, and it keeps sums and centred squares in
     the normal range for any finite input.
@@ -193,7 +193,7 @@ def cor_numpy(x: npt.NDArray[np.float64], y: npt.NDArray[np.float64]) -> float:
     are *FP-exactly* zero; on FP-noisy constants (e.g. ``np.full(100, 1e-60)``
     where pairwise summation produces a slightly-off mean) it silently
     returns ``1.0``. The explicit guard collapses both regimes to ``nan``
-    so this kernel agrees with :func:`tsecon._stats_kernels_cy.cor_cython`
+    so this kernel agrees with `tsecon._stats_kernels_cy.cor_cython`
     on any constant input, not just the FP-exact subset. ``min == max`` is
     used as the detector because ``np.var`` would itself drift below
     machine precision on FP-noisy constants and fail to fire.

@@ -1,13 +1,13 @@
 # SPDX-License-Identifier: MIT
-"""Matplotlib backend for :func:`tsecon.plot`.
+"""Matplotlib backend for [`tsecon.plot`][tsecon.plotting.plot].
 
 Renders TSeries (single or many) and MVTSeries (panel grid) onto a
 ``matplotlib.figure.Figure``. YP frequencies use a numeric x-axis with a
-:class:`matplotlib.ticker.FuncFormatter`; calendar frequencies
+`matplotlib.ticker.FuncFormatter`; calendar frequencies
 (Daily / BDaily / Weekly) use a datetime axis; Unit frequencies use an
 integer axis.
 
-Each public function returns the constructed :class:`matplotlib.figure.Figure`
+Each public function returns the constructed `matplotlib.figure.Figure`
 so the caller can save / display / further customise it. Passing ``ax=`` (for
 the single/many-TSeries entry point) or ``fig=`` (for the panel entry point)
 reuses an existing axes / figure.
@@ -51,15 +51,15 @@ __all__ = [
 def _apply_yp_axis(ax: Axes, rng: MITRange, mit_loc: MitLoc) -> None:
     """Configure a matplotlib Axes for a YP numeric axis.
 
-    Pairs :class:`matplotlib.ticker.FuncFormatter` (relabels float ticks
-    as MIT strings) with a :class:`matplotlib.ticker.MultipleLocator`
+    Pairs `matplotlib.ticker.FuncFormatter` (relabels float ticks
+    as MIT strings) with a `matplotlib.ticker.MultipleLocator`
     whose step equals the YP grid step ``stride / N`` and whose offset
-    equals :func:`mit_offset`. This makes matplotlib's auto-locator pick
+    equals `mit_offset`. This makes matplotlib's auto-locator pick
     ticks that *land on* the YP grid, so the off-grid ``"+"`` suffix
     only fires for ticks the *user* explicitly sets — not for the
     default tick choice.
 
-    The stride comes from :func:`pick_yp_stride`, so both matplotlib and
+    The stride comes from `pick_yp_stride`, so both matplotlib and
     plotly emit identical tick positions for the same range.
     """
     freq = rng.frequency
@@ -93,13 +93,13 @@ def plot_tseries_many(
     ax: Any = None,  # matplotlib.axes.Axes
     **kwargs: Any,
 ) -> Any:
-    """Plot one or more :class:`TSeries` onto a single Axes.
+    """Plot one or more [`TSeries`][tsecon.tseries.TSeries] onto a single Axes.
 
     All series must share a frequency. The function returns the parent
-    :class:`matplotlib.figure.Figure`. When ``ax`` is passed, that Axes is
+    `matplotlib.figure.Figure`. When ``ax`` is passed, that Axes is
     reused (and its parent Figure is returned).
 
-    ``kwargs`` are forwarded as-is to :meth:`matplotlib.axes.Axes.plot`.
+    ``kwargs`` are forwarded as-is to `matplotlib.axes.Axes.plot`.
     """
     if not series:
         msg = "plot_tseries_many requires at least one TSeries"
@@ -161,14 +161,14 @@ def plot_mvtseries_panel(
     fig: Any = None,  # matplotlib.figure.Figure
     **kwargs: Any,
 ) -> Any:
-    """Plot one or more :class:`MVTSeries` as a panel of subplots, one per variable.
+    """Plot one or more `MVTSeries` as a panel of subplots, one per variable.
 
     All datasets must share a frequency. The variable list is the union of
     column names across datasets in first-seen order (or the user-supplied
     ``vars`` list). Variables missing from a dataset are skipped for that
     dataset's trace; the subplot is still drawn so other datasets show.
 
-    Returns the :class:`matplotlib.figure.Figure`. Passing ``fig=`` reuses
+    Returns the `matplotlib.figure.Figure`. Passing ``fig=`` reuses
     an existing figure (its axes are cleared first to avoid duplicate
     overlays).
     """

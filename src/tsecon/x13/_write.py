@@ -1,26 +1,26 @@
 # SPDX-License-Identifier: MIT
-r"""X-13ARIMA-SEATS spec serializer: :class:`X13spec` -> ``.spc`` text.
+r"""X-13ARIMA-SEATS spec serializer: [`X13spec`][tsecon.x13._spec.X13spec] -> ``.spc`` text.
 
 Mirrors ``TimeSeriesEcon.jl/src/x13/x13write.jl`` (294 LOC). Lands in
-**M2.4** alongside :func:`tsecon.x13._spec.validateX13spec`.
+**M2.4** alongside [`tsecon.x13._spec.validateX13spec`][tsecon.x13._spec.validateX13spec].
 
 Surface:
 
-* :func:`x13write` (``x13write.jl:50``) — top-level emitter that walks
-  the :class:`~tsecon.x13._spec.X13spec` and emits each populated
+* [`x13write`][tsecon.x13._write.x13write] (``x13write.jl:50``) — top-level emitter that walks
+  the [`X13spec`][tsecon.x13._spec.X13spec] and emits each populated
   sub-spec's text block.
-* :func:`impose_line_length` (``x13write.jl:8``) — line-wrap helper
-  that splits long argument lines so the X-13as binary does not reject
+* [`impose_line_length`][tsecon.x13._write.impose_line_length] (``x13write.jl:8``) — line-wrap
+  helper that splits long argument lines so the X-13as binary does not reject
   the spec on its 132-column line limit. Mutates the input list in
   place (mirrors Julia's ``impose_line_length!`` ``!``-suffixed name).
-* :func:`emit_block` (private) — render one ``<name> { ... }`` block
+* `emit_block` (private) — render one ``<name> { ... }`` block
   from a populated sub-spec dataclass; the writer's main per-block
   worker.
 
 The Julia version writes a ``spec.spc`` text file directly to disk; the
-Python port returns the text as a :class:`str` so that callers that do
+Python port returns the text as a [`str`][str] so that callers that do
 not need the file (testing, dry-run validation) skip the I/O. The
-``X13.run`` entry (M2.5) calls :func:`x13write` then writes the
+``X13.run`` entry (M2.5) calls [`x13write`][tsecon.x13._write.x13write] then writes the
 returned text to ``<tempdir>/spec.spc`` itself, mirroring Julia's
 ``open(...) do f; println(f, spec.string); end`` block.
 
@@ -34,7 +34,7 @@ Line-wrap quirks (mirrors Julia ``x13write.jl:8-47``):
   long-argument shape (the Julia upstream's
   ``x13write_plus(::Vector{Symbol})`` produces them).
 * When the leading whitespace-only fragment of a continuation line
-  cannot fit a single un-splittable token, raise :exc:`ValueError`
+  cannot fit a single un-splittable token, raise [`ValueError`][ValueError]
   rather than recurse infinitely (Julia ``ArgumentError``).
 """
 
@@ -131,7 +131,7 @@ def impose_line_length(
     embedded newlines, e.g. inside ``metadata`` blocks, get wrapped on
     their own terms before being rejoined).
 
-    Raises :exc:`ValueError` when a continuation line cannot be split
+    Raises [`ValueError`][ValueError] when a continuation line cannot be split
     further (single un-splittable token over budget) — surfaces the
     Julia ``ArgumentError`` from ``x13write.jl:38-41``.
     """
@@ -267,7 +267,7 @@ def _emit_value(val: Any, *, field: str | None = None) -> str:  # noqa: PLR0911,
 
 
 def _emit_pickmdl_list(models: list[ArimaModel]) -> str:
-    """Render a list of :class:`ArimaModel` for the pickmdl ``models`` field.
+    """Render a list of `ArimaModel` for the pickmdl ``models`` field.
 
     Mirrors Julia ``x13write(::Vector{ArimaModel})`` (``x13write.jl:245-253``).
     Every model except the last gets a trailing ``" *"`` (default flag)
@@ -282,7 +282,7 @@ def _emit_pickmdl_list(models: list[ArimaModel]) -> str:
 
 
 def _emit_arima_spec(val: ArimaSpec) -> str:
-    """Render an :class:`ArimaSpec` as ``(p d q)`` or ``(p d q)period``.
+    """Render an [`ArimaSpec`][tsecon.x13._spec.ArimaSpec] as ``(p d q)`` or ``(p d q)period``.
 
     Mirrors Julia ``x13write(::ArimaSpec)`` (``x13write.jl:243``).
     Tuple-shaped p/d/q components serialize as space-separated lists
@@ -317,9 +317,9 @@ def _emit_mit(val: MIT) -> str:
 
 
 def _emit_span(val: Span) -> str:
-    """Render a :class:`Span` as ``(b, e)``.
+    """Render a [`Span`][tsecon.x13._spec.Span] as ``(b, e)``.
 
-    Mirrors ``x13write.jl:282``. :data:`None` endpoints render as the
+    Mirrors ``x13write.jl:282``. [`None`][None] endpoints render as the
     empty string (Julia ``missing``) — this is the on-disk shape the
     binary expects for ``"open"`` endpoints.
     """
@@ -375,7 +375,7 @@ def _emit_list(val: list[Any], *, field: str | None = None) -> str:
 
     The Python port dispatches by inspecting element type at runtime
     PLUS the field name — ``list[str]`` belonging to a field in
-    :data:`_QUOTED_STRING_LIST_FIELDS` renders in the quoted form;
+    `_QUOTED_STRING_LIST_FIELDS` renders in the quoted form;
     everything else stays bare (the Julia ``Vector{Symbol}`` default).
     Empty lists render as ``()``.
     """
@@ -630,25 +630,25 @@ def x13write(
     test: bool = False,
     outfolder: str | None = None,
 ) -> str:
-    r"""Serialize an :class:`X13spec` to ``.spc`` text.
+    r"""Serialize an [`X13spec`][tsecon.x13._spec.X13spec] to ``.spc`` text.
 
     Mirrors Julia ``x13write(::X13spec)`` (``x13write.jl:50-80``). Runs
-    :func:`validateX13spec` first; on success, walks ``series`` followed
-    by each populated sub-spec field in declaration order, emits each
+    [`validateX13spec`][tsecon.x13._spec.validateX13spec] first; on success, walks ``series``
+    followed by each populated sub-spec field in declaration order, emits each
     block, and joins them with newlines.
 
     ``test=True`` skips the ``print`` / ``save`` / ``savelog`` fields
     on each block — useful for round-trip and validation tests that
     don't want to lock the per-binary output defaults.
 
-    The rendered text is stored on :attr:`X13spec.string` as a
+    The rendered text is stored on `X13spec.string` as a
     side-effect (mirrors Julia ``spec.string = join(s, "\n")``); the
     function additionally returns the text so callers can pipe it to
     a file or to the binary directly.
 
     ``outfolder`` is the directory the M2.5 binary runner created;
     used by the ``pickmdl`` block to emit a side-file (``pickmdl.mdl``)
-    rather than inline the model list. If :data:`None`, the model list
+    rather than inline the model list. If [`None`][None], the model list
     is inlined.
     """
     validateX13spec(spec)

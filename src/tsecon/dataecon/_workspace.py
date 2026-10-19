@@ -8,10 +8,10 @@ through the typed loader its stored class selects. A member that cannot be
 written or read is logged and skipped; nothing is rolled back.
 
 The Python form keeps that behavior as the default while making it visible:
-every skipped member is a :class:`SkippedMember` in a :class:`WorkspaceReport`
-naming its full path and reason, and ``strict=True`` raises instead. The
-traversal is iterative (an explicit stack, never Python recursion), so a
-catalog tree deeper than the interpreter's recursion limit is fine; a nested
+every skipped member is a [`SkippedMember`][tsecon.dataecon.SkippedMember] in a
+[`WorkspaceReport`][tsecon.dataecon.WorkspaceReport] naming its full path and reason, and
+``strict=True`` raises instead. The traversal is iterative (an explicit stack, never Python
+recursion), so a catalog tree deeper than the interpreter's recursion limit is fine; a nested
 ``Workspace`` that is its own ancestor is reported as a cycle before any
 catalog is created, while the same object under two names is stored twice.
 Dispatch is by Python type only; each member is encoded once by the typed

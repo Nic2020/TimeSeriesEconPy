@@ -72,7 +72,7 @@ Kernel contract
   ``n_groups``.
 
 The kernel performs no input validation — the public ``fconvert``
-wrappers in :mod:`tsecon.fconvert._tseries` handle method translation,
+wrappers in `tsecon.fconvert._tseries` handle method translation,
 range arithmetic, and dtype checks before invoking the kernel. The
 kernel assumes:
 

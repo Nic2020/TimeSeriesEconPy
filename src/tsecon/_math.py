@@ -23,9 +23,9 @@ BDaily ``skip_all_nans`` / ``skip_holidays`` / ``holidays_map`` keyword
 variants (``tsmath.jl`` lines 111+, ``tseries.jl`` line 525+) live on
 ``shift`` / ``shift_inplace`` / ``lag`` / ``lag_inplace`` / ``lead`` /
 ``lead_inplace`` / ``diff`` / ``pct``. They require a BDaily series and call
-:func:`tsecon._bdaily.replace_nans_if_warranted` after the firstdate shift to
+`tsecon._bdaily.replace_nans_if_warranted` after the firstdate shift to
 infill NaN entries. Passing any of these kwargs on a non-BDaily series
-raises :class:`TypeError` to mirror Julia's type-dispatch separation.
+raises [`TypeError`][TypeError] to mirror Julia's type-dispatch separation.
 """
 
 from __future__ import annotations
@@ -83,8 +83,8 @@ def undiff_is_cython() -> bool:
     """Return True iff the Cython-compiled cumsum-anchored kernel was importable.
 
     Useful for tests, benchmarks, and diagnostic prints — the public
-    :func:`undiff` and :func:`undiff_inplace` are implementation-
-    agnostic. When this returns ``False`` the same calls go through
+    [`undiff`][tsecon._math.undiff] and [`undiff_inplace`][tsecon._math.undiff_inplace] are
+    implementation- agnostic. When this returns ``False`` the same calls go through
     the pure-NumPy kernel in ``_math_kernels.py``; behaviour is
     identical, only speed differs.
 
@@ -131,12 +131,12 @@ def shift(
     read at ``t``); negative ``k`` produces the *lag*. The returned series has
     the same values but ``firstdate`` moved by ``-k`` periods.
 
-    Accepts a :class:`~tsecon.tseries.TSeries` or
-    :class:`~tsecon.mvtseries.MVTSeries`.
+    Accepts a [`TSeries`][tsecon.tseries.TSeries] or
+    [`MVTSeries`][tsecon.mvtseries.MVTSeries].
 
     BDaily kwargs (``skip_all_nans`` / ``skip_holidays`` / ``holidays_map``)
-    are accepted only when ``t.frequency`` is :class:`BDaily`; on the shifted
-    result they run :func:`tsecon._bdaily.replace_nans_if_warranted` to
+    are accepted only when ``t.frequency`` is [`BDaily`][tsecon.frequencies.BDaily]; on the shifted
+    result they run `tsecon._bdaily.replace_nans_if_warranted` to
     infill NaN entries. For an MVTSeries{BDaily} the infill is applied
     per-column (this extends Julia's TSeries-only overload — Julia's
     MVTSeries shift has no kwarg path, so a Python user passing kwargs would
@@ -176,7 +176,7 @@ def shift_inplace(
     skip_holidays: bool = False,
     holidays_map: TSeries | None = None,
 ) -> TSeries | MVTSeries:
-    """In-place version of :func:`shift`. Mutates the firstdate(s) and returns the same object."""
+    """In-place version of `shift`. Mutates the firstdate(s) and returns the same object."""
     _check_bdaily_kwargs(t, skip_all_nans, skip_holidays, holidays_map)
     if isinstance(t, MVTSeries):
         new_start = MIT(t.frequency, t.firstdate.value - int(k))
@@ -238,7 +238,7 @@ def lag_inplace(
     skip_holidays: bool = False,
     holidays_map: TSeries | None = None,
 ) -> TSeries | MVTSeries:
-    """In-place version of :func:`lag`."""
+    """In-place version of [`lag`][tsecon._math.lag]."""
     return shift_inplace(
         t,
         -int(k),
@@ -274,7 +274,7 @@ def lead_inplace(
     skip_holidays: bool = False,
     holidays_map: TSeries | None = None,
 ) -> TSeries | MVTSeries:
-    """In-place version of :func:`lead`."""
+    """In-place version of [`lead`][tsecon._math.lead]."""
     return shift_inplace(
         t,
         int(k),
@@ -297,7 +297,7 @@ def diff(
     Defined as ``t - shift(t, k)``. With the default ``k=-1`` (subtract the
     lag), this matches the standard first-difference operator.
 
-    For an :class:`~tsecon.mvtseries.MVTSeries` the operation is performed
+    For an [`MVTSeries`][tsecon.mvtseries.MVTSeries] the operation is performed
     column-wise; the result is a new MVTSeries one row shorter (for
     ``|k|=1``). BDaily kwargs are forwarded to the inner ``lag`` call so
     NaN/holiday infill is applied to the lag side of the subtraction
@@ -361,7 +361,7 @@ def pct(
 
     For BDaily series, accepts ``skip_all_nans`` / ``skip_holidays`` /
     ``holidays_map`` kwargs. The kwargs are forwarded to the inner
-    :func:`shift` call (the value that ends up in the denominator), so NaN
+    [`shift`][tsecon._math.shift] call (the value that ends up in the denominator), so NaN
     / holiday infill on the shift result propagates into the resulting
     percent series.
     """
@@ -396,7 +396,7 @@ def pct(
 def apct(t: TSeries, islog: bool = False) -> TSeries:
     """Annualised percent rate of change.
 
-    Requires a :class:`~tsecon.frequencies.YPFrequency` (Yearly / HalfYearly /
+    Requires a [`YPFrequency`][tsecon.frequencies.YPFrequency] (Yearly / HalfYearly /
     Quarterly / Monthly). The annualisation exponent is ``ppy(t.frequency)``.
     """
     if not isinstance(t.frequency, YPFrequency):
@@ -416,7 +416,7 @@ def apct(t: TSeries, islog: bool = False) -> TSeries:
 def ytypct(t: TSeries) -> TSeries:
     """Year-to-year percent change.
 
-    Requires a :class:`~tsecon.frequencies.YPFrequency`. Implemented as
+    Requires a [`YPFrequency`][tsecon.frequencies.YPFrequency]. Implemented as
     ``100 * (t / shift(t, -ppy(t.frequency)) - 1)``.
     """
     if not isinstance(t.frequency, YPFrequency):
@@ -458,15 +458,15 @@ def moving(t: TSeries | MVTSeries, n: int) -> TSeries | MVTSeries:
     ``firstdate`` is ``t.firstdate + n - 1``; for ``n < 0`` it is
     ``t.firstdate``.
 
-    Identical to :func:`moving_average`; the bare name matches the Julia
-    convention. Accepts a :class:`~tsecon.tseries.TSeries` or
-    :class:`~tsecon.mvtseries.MVTSeries`.
+    Identical to [`moving_average`][tsecon._math.moving_average]; the bare name matches the Julia
+    convention. Accepts a [`TSeries`][tsecon.tseries.TSeries] or
+    [`MVTSeries`][tsecon.mvtseries.MVTSeries].
     """
     return moving_average(t, n)
 
 
 def moving_average(t: TSeries | MVTSeries, n: int) -> TSeries | MVTSeries:
-    """Compute the moving average of ``t`` over a window of ``n`` periods. See :func:`moving`."""
+    """Compute the moving average of ``t`` over a window of ``n`` periods. See `moving`."""
     if isinstance(t, MVTSeries):
         return _moving_sum_mvts(t, int(n), avg=True)
     return _moving_sum(t, int(n), avg=True)
@@ -475,7 +475,7 @@ def moving_average(t: TSeries | MVTSeries, n: int) -> TSeries | MVTSeries:
 def moving_sum(t: TSeries | MVTSeries, n: int) -> TSeries | MVTSeries:
     """Compute the rolling sum of ``t`` over a window of ``n`` periods.
 
-    Identical to :func:`moving_average` but without dividing by ``|n|``.
+    Identical to [`moving_average`][tsecon._math.moving_average] but without dividing by ``|n|``.
     """
     if isinstance(t, MVTSeries):
         return _moving_sum_mvts(t, int(n), avg=False)
@@ -535,7 +535,7 @@ def undiff(
     dvar: TSeries | MVTSeries,
     anchor: _Anchor | _MVAnchor = 0,
 ) -> TSeries | MVTSeries:
-    """Inverse of :func:`diff` (cumulative sum, anchored at a known value).
+    """Inverse of [`diff`][tsecon._math.diff] (cumulative sum, anchored at a known value).
 
     ``dvar`` is the differenced series. ``anchor`` says what the *integrated*
     series equals at some anchor date; the result is the cumulative sum of
@@ -574,7 +574,7 @@ def undiff(
     moves by the same constant. See ``undiff_inplace`` for the alternative
     semantics where ``dvar`` values at and before ``fromdate`` are ignored.
 
-    On an :class:`~tsecon.mvtseries.MVTSeries`, ``anchor`` may additionally
+    On an [`MVTSeries`][tsecon.mvtseries.MVTSeries], ``anchor`` may additionally
     be a vector / matrix (one entry per column) or another MVTSeries; the
     cumulative sum is performed column-wise.
 
@@ -582,10 +582,10 @@ def undiff(
     --------
     The TSeries path's hot loop (cumsum over the integrated chunk +
     constant-shift correction) routes through the
-    :func:`tsecon._math_kernels.cumsum_anchored_numpy` /
-    :func:`tsecon._math_kernels_cy.cumsum_anchored_cython` kernel pair
+    `tsecon._math_kernels.cumsum_anchored_numpy` /
+    `tsecon._math_kernels_cy.cumsum_anchored_cython` kernel pair
     when the integrated buffer is ``float64`` + C-contiguous; use
-    :func:`undiff_is_cython` to check which path is active. Integer
+    [`undiff_is_cython`][tsecon._math.undiff_is_cython] to check which path is active. Integer
     ``dvar`` + integer anchor combinations (which would broaden the
     result dtype away from ``float64``) stay on the pure-NumPy path
     so the integer return type is preserved. The MVTSeries path stays
@@ -653,21 +653,21 @@ def undiff_inplace(
 
     .. note::
 
-       The semantics here differ from :func:`undiff` when ``fromdate`` falls
-       in the middle of ``rangeof(dvar)``. There, :func:`undiff` shifts the
+       The semantics here differ from [`undiff`][tsecon._math.undiff] when ``fromdate`` falls
+       in the middle of ``rangeof(dvar)``. There, [`undiff`][tsecon._math.undiff] shifts the
        *whole* cumulative result so ``result[fromdate] == value``;
-       :func:`undiff_inplace` zeros out the earlier ``dvar`` entries instead,
-       so the integrated tail starts cleanly from the existing anchor.
+       [`undiff_inplace`][tsecon._math.undiff_inplace] zeros out the earlier ``dvar`` entries
+       instead, so the integrated tail starts cleanly from the existing anchor.
 
     Dispatch
     --------
-    Shares the cumsum + anchor-shift kernel with :func:`undiff` — the
+    Shares the cumsum + anchor-shift kernel with [`undiff`][tsecon._math.undiff] — the
     inplace variant calls into the same
-    :func:`tsecon._math_kernels.cumsum_anchored_numpy` /
-    :func:`tsecon._math_kernels_cy.cumsum_anchored_cython` pair with
+    `tsecon._math_kernels.cumsum_anchored_numpy` /
+    `tsecon._math_kernels_cy.cumsum_anchored_cython` pair with
     ``anchor_relative_idx = -1`` (the anchor sits one position before
     the integrated chunk, so the correction collapses to a single
-    fused add per element). Use :func:`undiff_is_cython` to check
+    fused add per element). Use [`undiff_is_cython`][tsecon._math.undiff_is_cython] to check
     which path is active. The kernel only engages when ``var.values``
     is ``float64`` + C-contiguous; other dtypes fall back to the
     pre-existing ``np.cumsum`` path.
@@ -815,7 +815,7 @@ def _is_number(x: object) -> bool:
 
 
 def _resolve_undiff_anchor(dvar: TSeries, anchor: object) -> tuple[MIT, Any]:
-    """Normalize ``anchor`` into a ``(MIT, scalar)`` pair for :func:`undiff`."""
+    """Normalize ``anchor`` into a ``(MIT, scalar)`` pair for [`undiff`][tsecon._math.undiff]."""
     default_date = MIT(dvar.frequency, dvar.firstdate.value - 1)
     if isinstance(anchor, MIT):
         msg = (
@@ -935,7 +935,7 @@ def _bdaily_infill_mvts_inplace(
     skip_holidays: bool,
     holidays_map: TSeries | None,
 ) -> None:
-    """Apply :func:`replace_nans_if_warranted` to each column of an MVTSeries{BDaily}."""
+    """Apply `replace_nans_if_warranted` to each column of an MVTSeries{BDaily}."""
     if not np.issubdtype(t.values.dtype, np.floating):
         # MVTSeries inplace currently shares the underlying float array between
         # the matrix and column views; the column shift path already preserves

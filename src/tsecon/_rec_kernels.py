@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-"""NumPy reference kernel for the linear-recurrence form of :func:`rec`.
+"""NumPy reference kernel for the linear-recurrence form of [`rec`][tsecon.recursive.rec].
 
 The pure-Python / NumPy sibling of ``_rec_kernels_cy.pyx``. Both
 modules expose kernels with the same signature; the Cython version
@@ -49,7 +49,7 @@ dispatch or MIT arithmetic from the timed window::
   position; backward step + negative lag reads a later-written one).
 
 The kernels perform no input validation — the public
-:func:`tsecon.recursive.rec_linear` wrapper handles shape and bounds
+[`tsecon.recursive.rec_linear`][tsecon.recursive.rec_linear] wrapper handles shape and bounds
 checks before invoking the kernel. The kernel assumes:
 
 * ``coeffs.shape == lags.shape``

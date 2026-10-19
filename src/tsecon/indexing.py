@@ -26,18 +26,18 @@ code; the 935x gap is an **API-shape gap**, not a Python-speed gap.
 
 Dispatch
 --------
-:func:`lookup` validates the keys (frequency-checks MITs, bounds-checks
+[`lookup`][tsecon.indexing.lookup] validates the keys (frequency-checks MITs, bounds-checks
 integer offsets), translates everything to int64 offsets into the
 TSeries' underlying ``float64`` buffer, then dispatches to the
-:mod:`~tsecon._indexing_kernels_cy` Cython kernel when importable or
-:mod:`~tsecon._indexing_kernels`'s NumPy reference otherwise. Both
+`_indexing_kernels_cy` Cython kernel when importable or
+`_indexing_kernels`'s NumPy reference otherwise. Both
 kernels share the contract ``gather(values, indices) -> out`` and
 return identical bit-for-bit output (see the kernels' module
 docstrings).
 
 The two kernels' relative speed differs from the ``rec_linear`` story:
 the gather is *vectorisable*, so the NumPy reference is already a tight
-C loop via :func:`numpy.take`, and the Cython kernel only buys a
+C loop via [`numpy.take`][numpy.take], and the Cython kernel only buys a
 marginal further win (~1.5-3x, mostly from removing NumPy's per-call
 dispatch overhead). The big win here is exposing the vectorised API at
 all — that's where the 935x → ~1x recovery happens.
@@ -79,7 +79,7 @@ def lookup_is_cython() -> bool:
     """Return True iff the Cython-compiled gather kernel was importable.
 
     Useful for tests, benchmarks, and diagnostic prints — the public
-    :func:`lookup` itself is implementation-agnostic. When this returns
+    [`lookup`][tsecon.indexing.lookup] itself is implementation-agnostic. When this returns
     ``False`` the same calls go through the pure-NumPy kernel in
     ``_indexing_kernels.py``; behaviour is identical, only speed
     differs.
@@ -94,7 +94,7 @@ def lookup(
     """Return ``t``'s values at every position in ``keys``, vectorised.
 
     The array-of-keys companion to ``t[k]``: while ``t[k]`` reads a
-    single MIT- or int-keyed position, :func:`lookup` reads many at
+    single MIT- or int-keyed position, [`lookup`][tsecon.indexing.lookup] reads many at
     once with a single NumPy/Cython gather, avoiding the per-element
     ``__getitem__`` dispatch tax that makes the Python loop pattern
     **935x slower than the Julia equivalent** on the M1.5 benchmark.
@@ -146,7 +146,7 @@ def lookup(
     -----
     For a single key, prefer the direct indexer ``t[k]`` — it returns
     a scalar without an array allocation and dispatches through the
-    same code path. :func:`lookup` is for the *bulk* case (e.g. 10+
+    same code path. [`lookup`][tsecon.indexing.lookup] is for the *bulk* case (e.g. 10+
     keys) where vectorisation amortises the per-call setup cost.
 
     See Also

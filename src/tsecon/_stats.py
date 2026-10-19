@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-"""Statistics reductions for :class:`TSeries` and :class:`MVTSeries`.
+"""Statistics reductions for `TSeries` and `MVTSeries`.
 
 Mirrors the ``Statistics.*`` overloads in ``TimeSeriesEcon.jl/src/tsmath.jl``
 (lines 238-298). Six TSeries reductions (``mean`` / ``std`` / ``var`` /
@@ -9,11 +9,11 @@ single-argument reductions; ``cor(MVTSeries)`` / ``cov(MVTSeries)`` return
 column-correlation / column-covariance matrices.
 
 For non-BDaily series, the functions are thin wrappers around the
-corresponding ``numpy`` calls. For :class:`~tsecon.frequencies.BDaily` series
+corresponding ``numpy`` calls. For [`BDaily`][tsecon.frequencies.BDaily] series
 they additionally accept ``skip_all_nans`` / ``skip_holidays`` /
 ``holidays_map`` kwargs that filter the underlying values through
-:func:`tsecon._bdaily.cleanedvalues` before the reduction. Passing those
-kwargs on a non-BDaily series raises :class:`TypeError`.
+[`tsecon._bdaily.cleanedvalues`][tsecon.cleanedvalues] before the reduction. Passing those
+kwargs on a non-BDaily series raises [`TypeError`][TypeError].
 
 The Julia overloads return scalar values for the single-series form and
 matrices for the MVTSeries ``cor`` / ``cov``. We follow the same shape; the
@@ -81,9 +81,9 @@ def stats_is_cython() -> bool:
     """Return True iff the Cython-compiled stats kernels were importable.
 
     Useful for tests, benchmarks, and diagnostic prints — the public
-    :func:`mean` / :func:`var` / :func:`std` / :func:`cor` are
-    implementation-agnostic. When this returns ``False`` the same calls
-    go through the pure-NumPy kernels in ``_stats_kernels.py``;
+    [`mean`][tsecon._stats.mean] / [`var`][tsecon._stats.var] / [`std`][tsecon._stats.std] /
+    [`cor`][tsecon._stats.cor] are implementation-agnostic. When this returns ``False`` the same
+    calls go through the pure-NumPy kernels in ``_stats_kernels.py``;
     behaviour is identical, only speed differs.
     """
     return _CYTHON_AVAILABLE
@@ -236,8 +236,8 @@ def mean(
 ) -> Any:
     """Arithmetic mean.
 
-    For a :class:`~tsecon.tseries.TSeries` returns a scalar; for an
-    :class:`~tsecon.mvtseries.MVTSeries` the default (``axis=None``) returns
+    For a [`TSeries`][tsecon.tseries.TSeries] returns a scalar; for an
+    [`MVTSeries`][tsecon.mvtseries.MVTSeries] the default (``axis=None``) returns
     the overall mean (matching Julia's ``mean(::MVTSeries)`` which iterates
     the matrix flat). ``axis=0`` reduces along rows to a single-row
     MVTSeries (per-column means); ``axis=1`` reduces along columns to a 1-D
@@ -351,7 +351,7 @@ def std(
     t : TSeries or MVTSeries
         Input series. Any non-Unit frequency.
     axis : int or None, default None
-        Reduction axis (NumPy convention; see :func:`mean` for the return-
+        Reduction axis (NumPy convention; see [`mean`][tsecon._stats.mean] for the return-
         shape contract). ``None`` → scalar. ``0`` → per-column → single-row
         MVTSeries. ``1`` → per-row → 1-D TSeries (MVTSeries only).
     skip_all_nans : bool, default False
@@ -427,7 +427,7 @@ def var(
     t : TSeries or MVTSeries
         Input series. Any non-Unit frequency.
     axis : int or None, default None
-        Reduction axis (NumPy convention; see :func:`mean` for the return-
+        Reduction axis (NumPy convention; see [`mean`][tsecon._stats.mean] for the return-
         shape contract). ``None`` → scalar. ``0`` → per-column → single-row
         MVTSeries. ``1`` → per-row → 1-D TSeries (MVTSeries only).
     skip_all_nans : bool, default False
@@ -505,7 +505,7 @@ def median(
     t : TSeries or MVTSeries
         Input series. Any non-Unit frequency.
     axis : int or None, default None
-        Reduction axis (NumPy convention; see :func:`mean` for the return-
+        Reduction axis (NumPy convention; see [`mean`][tsecon._stats.mean] for the return-
         shape contract). ``None`` → scalar. ``0`` → per-column → single-row
         MVTSeries. ``1`` → per-row → 1-D TSeries (MVTSeries only).
     skip_all_nans : bool, default False
@@ -584,7 +584,7 @@ def quantile(
         2-D return shape that does not fit the single-row-MVTSeries /
         1-D-TSeries contract; raises ``TypeError`` in that combination.
     axis : int or None, default None
-        Reduction axis (NumPy convention; see :func:`mean` for the return-
+        Reduction axis (NumPy convention; see [`mean`][tsecon._stats.mean] for the return-
         shape contract). ``None`` → scalar (or ndarray when ``p`` is
         array-like). ``0`` → per-column → single-row MVTSeries. ``1`` →
         per-row → 1-D TSeries (MVTSeries only).
@@ -716,7 +716,7 @@ def varm(
     """Sample variance with the mean ``m`` supplied externally.
 
     Mirrors Julia's ``Statistics.varm``. The variance counterpart of
-    :func:`stdm`.
+    [`stdm`][tsecon._stats.stdm].
 
     Parameters
     ----------
@@ -767,9 +767,9 @@ def cor(
     Mirrors Julia's ``Statistics.cor`` overloads in ``tsmath.jl``
     (lines 249-272 and 297). Two call shapes:
 
-    * ``cor(t)`` — for a :class:`~tsecon.tseries.TSeries` this returns
+    * ``cor(t)`` — for a [`TSeries`][tsecon.tseries.TSeries] this returns
       ``1.0`` (the trivial self-correlation). For an
-      :class:`~tsecon.mvtseries.MVTSeries` it returns the column-
+      [`MVTSeries`][tsecon.mvtseries.MVTSeries] it returns the column-
       correlation matrix (variables on rows = columns of the input).
     * ``cor(x, y)`` — two TSeries of the same frequency, firstdate and
       length; returns the scalar Pearson correlation between them.
@@ -876,9 +876,9 @@ def cov(
 ) -> Any:
     """Sample covariance (``ddof=1`` to match Julia's ``Statistics.cov``).
 
-    Same call shapes as :func:`cor`:
+    Same call shapes as [`cor`][tsecon._stats.cor]:
 
-    * ``cov(t)`` for a TSeries collapses to :func:`var`.
+    * ``cov(t)`` for a TSeries collapses to [`var`][tsecon._stats.var].
     * ``cov(mvts)`` returns the column-covariance matrix.
     * ``cov(x, y)`` returns the scalar covariance between two TSeries
       of the same frequency, firstdate, and length.

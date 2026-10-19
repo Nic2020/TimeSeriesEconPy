@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-"""NumPy reference kernel for the anchored-cumsum step of :func:`undiff`.
+"""NumPy reference kernel for the anchored-cumsum step of [`undiff`][tsecon._math.undiff].
 
 The pure-Python / NumPy sibling of ``_math_kernels_cy.pyx``. Both
 modules expose a ``cumsum_anchored_*`` kernel with the same signature
@@ -76,14 +76,14 @@ Kernel contract
     ``offset``. The cumsum reference is treated as ``0`` (no
     integration has accumulated at the anchor position), so
     ``correction = anchor_value``. This is the regime
-    :func:`tsecon._math.undiff_inplace` exercises: the anchor is
+    [`tsecon._math.undiff_inplace`][tsecon._math.undiff_inplace] exercises: the anchor is
     ``var[fromdate]`` and the integrated chunk starts at
     ``fromdate + 1``.
 
 The kernel performs no input validation — the public
-:func:`tsecon._math.undiff` / :func:`tsecon._math.undiff_inplace`
-wrappers handle anchor resolution, dvar extension for out-of-range
-anchors, dtype promotion, and frequency checks before invoking the
+[`tsecon._math.undiff`][tsecon._math.undiff] /
+[`tsecon._math.undiff_inplace`][tsecon._math.undiff_inplace] wrappers handle anchor resolution, dvar
+extension for out-of-range anchors, dtype promotion, and frequency checks before invoking the
 kernel. The kernel assumes:
 
 * ``values.ndim == 1`` and ``values.dtype == float64``
@@ -116,7 +116,7 @@ def cumsum_anchored_numpy(
     compiled) carries the same signature and behaviour but fuses the
     cumsum + constant-shift into a single C pass.
 
-    The implementation runs :func:`numpy.cumsum` over the slice
+    The implementation runs [`numpy.cumsum`][numpy.cumsum] over the slice
     in-place, reads the reference value at the anchor position
     (or ``0.0`` when ``anchor_relative_idx < 0``), then adds the
     correction back into the slice with an in-place ``+=``. The

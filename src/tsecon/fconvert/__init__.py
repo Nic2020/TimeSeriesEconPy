@@ -2,41 +2,44 @@
 """Frequency-conversion subsystem.
 
 Mirrors ``TimeSeriesEcon.jl/src/fconvert/``. The single user-facing entry is
-:func:`fconvert`, which dispatches on the second positional argument:
+[`fconvert`][tsecon.fconvert.fconvert], which dispatches on the second positional argument:
 
 * ``fconvert(target, mit, *, ref=..., round_to=...)`` — convert an
-  :class:`~tsecon.mit.MIT`. ``round_to`` is only meaningful for BDaily targets.
+  [`MIT`][tsecon.mit.MIT]. ``round_to`` is only meaningful for BDaily targets.
 * ``fconvert(target, mitrange, *, trim=...)`` — convert an
-  :class:`~tsecon.mitrange.MITRange`.
+  [`MITRange`][tsecon.mitrange.MITRange].
 * ``fconvert(target, tseries, *, method=..., ref=...)`` — convert a
-  :class:`~tsecon.tseries.TSeries` using a built-in aggregator / spreader.
+  [`TSeries`][tsecon.tseries.TSeries] using a built-in aggregator / spreader.
 * ``fconvert(f, target, tseries, *, ref=..., **kwargs)`` — convert a TSeries
   using the custom callable ``f``.
 
 Lower-level entries (also exported) for callers that already know the input
 type:
 
-* :func:`fconvert_mit` / :func:`fconvert_range` / :func:`fconvert_tseries` —
-  the per-input-type entry points (no Julia-style multiple-dispatch
-  overhead).
-* :func:`fconvert_parts` — internal triple used by the YP→YP TSeries
+* [`fconvert_mit`][tsecon.fconvert.fconvert_mit] /
+  [`fconvert_range`][tsecon.fconvert.fconvert_range] /
+  [`fconvert_tseries`][tsecon.fconvert.fconvert_tseries] — the per-input-type entry points (no
+  Julia-style multiple-dispatch overhead).
+* [`fconvert_parts`][tsecon.fconvert.fconvert_parts] — internal triple used by the YP→YP TSeries
   conversion path (``(period, source_month, target_month)``); exposed for
   advanced use.
 
 Helpers and series-shape operations:
 
-* :func:`extend_series` — pad to align with target-period boundaries.
-* :func:`trim_series` — restrict to the inner aligned range.
-* :func:`strip_tseries` / :func:`strip_tseries_inplace` — drop leading and
-  trailing typenan entries.
-* :func:`repeat_uneven` / :func:`divide_uneven` / :func:`linear_uneven` —
-  vector helpers used by the higher-frequency conversion methods (and
-  available as the canonical custom-function aliases that mirror
+* [`extend_series`][tsecon.fconvert.extend_series] — pad to align with target-period boundaries.
+* [`trim_series`][tsecon.fconvert.trim_series] — restrict to the inner aligned range.
+* [`strip_tseries`][tsecon.fconvert.strip_tseries] /
+  [`strip_tseries_inplace`][tsecon.fconvert.strip_tseries_inplace] — drop leading and trailing
+  typenan entries.
+* [`repeat_uneven`][tsecon.fconvert.repeat_uneven] /
+  [`divide_uneven`][tsecon.fconvert.divide_uneven] /
+  [`linear_uneven`][tsecon.fconvert.linear_uneven] — vector helpers used by the higher-frequency
+  conversion methods (and available as the canonical custom-function aliases that mirror
   ``method="const" / "even" / "linear"`` exactly).
 
 Currently still ⬜: the BDaily kwarg variants (``skip_holidays`` /
 ``skip_all_nans`` / ``holidays_map``) block on the ``options.jl`` port; and
-BDaily-source :func:`extend_series` needs the ``cleanedvalues`` plumbing.
+BDaily-source [`extend_series`][tsecon.fconvert.extend_series] needs the ``cleanedvalues`` plumbing.
 """
 
 from __future__ import annotations
@@ -114,7 +117,7 @@ def fconvert(
 
 
 def fconvert(*args: Any, **kwargs: Any) -> Any:
-    """Convert an :class:`MIT`, :class:`MITRange`, or :class:`TSeries` to a target frequency.
+    """Convert an `MIT`, `MITRange`, or `TSeries` to a target frequency.
 
     See the module-level docstring for the four call shapes. Dispatches on
     the second positional argument (or, when a callable is the first

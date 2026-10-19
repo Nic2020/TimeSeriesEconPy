@@ -5,15 +5,15 @@ Ports the ``mit_offset`` / ``mit_formatter`` logic from
 ``TimeSeriesEcon.jl/src/plotrecipes.jl`` and the input-normalisation surface
 shared by every backend (``matplotlib``, ``plotly``):
 
-* :func:`mit_offset` — within-period x-coordinate offset for a frequency.
-* :func:`mit_formatter` — formatter callable that turns YP floats back into
+* `mit_offset` — within-period x-coordinate offset for a frequency.
+* `mit_formatter` — formatter callable that turns YP floats back into
   MIT strings, appending ``"+"`` when a tick is off-grid (matches Julia's
   ``mit_formatter`` recipe).
-* :func:`build_xy` — turn a (TSeries, trange, mit_loc) triple into a
+* `build_xy` — turn a (TSeries, trange, mit_loc) triple into a
   (x, y) pair suitable for either backend.
-* :func:`normalize_label`, :func:`normalize_vars`, :func:`panel_grid` —
+* `normalize_label`, `normalize_vars`, `panel_grid` —
   shared normalisations across MVTSeries panel plotting.
-* :func:`classify_inputs` — split positional series into the ``all-TSeries``
+* `classify_inputs` — split positional series into the ``all-TSeries``
   vs ``all-MVTSeries`` arms (no mixing — matches Julia's recipe arity).
 """
 
@@ -66,7 +66,7 @@ AxisKind = Literal["yp", "date", "numeric"]
 """How the x-axis should be rendered.
 
 * ``"yp"`` — float-numeric coordinates with a YP-aware tick formatter.
-* ``"date"`` — :class:`datetime.date` coordinates (Daily / BDaily / Weekly).
+* ``"date"`` — [`datetime.date`][datetime.date] coordinates (Daily / BDaily / Weekly).
 * ``"numeric"`` — plain integer coordinates (Unit frequency).
 """
 
@@ -155,8 +155,8 @@ def pick_yp_stride(rng_length: int, n: int, *, target_n: int = 8) -> int:
     resulting tick count is ``<= target_n`` wins; fallback is one period
     per tick (stride 1).
 
-    Shared by :func:`yp_tick_positions` (plotly) and the matplotlib
-    backend's :class:`matplotlib.ticker.MultipleLocator` configuration so
+    Shared by `yp_tick_positions` (plotly) and the matplotlib
+    backend's `matplotlib.ticker.MultipleLocator` configuration so
     both backends pick identical tick positions.
     """
     if rng_length <= 0:
@@ -178,7 +178,7 @@ def yp_tick_positions(
 
     Used by the plotly backend, which (unlike matplotlib's
     ``FuncFormatter``) cannot apply a Python callable to a numeric axis.
-    The stride is chosen by :func:`pick_yp_stride` so the total tick
+    The stride is chosen by `pick_yp_stride` so the total tick
     count lands near ``target_n``.
     """
     if not isinstance(rng.frequency, YPFrequency):
@@ -280,7 +280,7 @@ def build_xy(
     * For YP frequencies, ``x`` is ``float(mit) + mit_offset`` for each MIT
       in the trimmed range.
     * For Daily / BDaily / Weekly, ``x`` is a ``numpy.ndarray`` of
-      :class:`datetime.date` (with ``ref="end"`` to match the Julia
+      [`datetime.date`][datetime.date] (with ``ref="end"`` to match the Julia
       ``Date(MIT)`` constructor). ``mit_loc`` is ignored for these — the
       Julia recipe replaces ``x`` with the date vector unconditionally.
     * For Unit, ``x`` is the integer MIT values plus ``mit_offset``.

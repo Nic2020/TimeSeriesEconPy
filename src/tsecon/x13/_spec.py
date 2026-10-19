@@ -4,16 +4,16 @@
 Mirrors ``TimeSeriesEcon.jl/src/x13/x13spec.jl`` (4,137 LOC — the bulk of
 M2). Lands across **M2.1 / M2.2 / M2.3 / M2.4**.
 
-M2.1 — :class:`X13var` dataclasses + ARIMA-spec types (this session)
+M2.1 — `X13var` dataclasses + ARIMA-spec types (this session)
 ====================================================================
 
 This module ships:
 
-* :class:`X13default` sentinel + module-private :data:`_X13DEFAULT` singleton.
-* :class:`RegimeChange` :class:`~enum.StrEnum` for the trading-day / seasonal
-  regime-change qualifier (``both`` / ``zerobefore`` / ``zeroafter`` /
+* [`X13default`][tsecon.x13._spec.X13default] sentinel + module-private `_X13DEFAULT` singleton.
+* [`RegimeChange`][tsecon.x13._spec.RegimeChange] [`StrEnum`][enum.StrEnum] for the trading-day /
+  seasonal regime-change qualifier (``both`` / ``zerobefore`` / ``zeroafter`` /
   ``neither``).
-* :class:`X13var` abstract base + 26 concrete leaves the spec builders
+* [`X13var`][tsecon.x13._spec.X13var] abstract base + 26 concrete leaves the spec builders
   accept as outlier / regressor arguments. Each ``__str__`` produces the
   X13as ``.spc``-grammar token; pickling and equality come from
   ``@dataclass(frozen=True, slots=True)``.
@@ -21,7 +21,7 @@ This module ships:
   * Point outliers (``mit: MIT``): ``ao`` (``x13spec.jl:9-11``), ``ls``
     (``20-22``), ``tc`` (``31-33``), ``so`` (``35-37``).
   * Range outliers (``mit1, mit2: MIT``; classmethod
-    :meth:`~aos.from_range`): ``aos`` (``12-18``), ``lss`` (``23-29``),
+    [`from_range`][tsecon.x13._spec.aos.from_range]): ``aos`` (``12-18``), ``lss`` (``23-29``),
     ``rp`` (``39-45``), ``qd`` (``47-53``), ``qi`` (``54-60``), ``tl``
     (``62-68``).
   * Trading-day regressors with optional regime change
@@ -38,7 +38,7 @@ This module ships:
     ``lpyear`` (``129-135``), ``lom`` (``137-143``), ``loq`` (``146-152``).
   * Seasonal regressor (``mit, regimechange``): ``seasonal`` (``154-161``).
 
-  The Julia upstream's :func:`ao` etc. are types whose lowercase names are
+  The Julia upstream's [`ao`][tsecon.x13._spec.ao] etc. are types whose lowercase names are
   the X13as keywords. The Python port preserves the lowercase names (with
   a per-file ``N801`` lint ignore in ``pyproject.toml``) because the
   ``__str__`` output uses ``type(self).__name__`` — capitalising the
@@ -46,57 +46,60 @@ This module ships:
 
   The Julia source has **26** ``X13var`` types.
 
-* :class:`ArimaSpec` and :class:`ArimaModel` — the generic
-  ``(p, d, q)(P, D, Q)[period]`` ARIMA builders the :func:`arima` /
-  :func:`pickmdl` spec builders (M2.2 / M2.3) consume.
+* [`ArimaSpec`][tsecon.x13._spec.ArimaSpec] and [`ArimaModel`][tsecon.x13._spec.ArimaModel] — the
+  generic ``(p, d, q)(P, D, Q)[period]`` ARIMA builders the [`arima`][tsecon.x13._spec.arima] /
+  [`pickmdl`][tsecon.x13._spec.pickmdl] spec builders (M2.2 / M2.3) consume.
 
 M2.2 — High-traffic spec builders (later session)
 ==================================================
 
-8 builders that every realistic spec uses: :func:`series`
-(``x13spec.jl:732``); :func:`x11` (``3180``), :func:`seats` (``2478``);
-:func:`arima` (``873``), :func:`automdl` (``1034``); :func:`transform`
-(``2928``), :func:`regression` (``2219``); :func:`forecast` (``1409``).
+8 builders that every realistic spec uses: [`series`][tsecon.x13._spec.series]
+(``x13spec.jl:732``); [`x11`][tsecon.x13._spec.x11] (``3180``), [`seats`][tsecon.x13._spec.seats]
+(``2478``); [`arima`][tsecon.x13._spec.arima] (``873``), [`automdl`][tsecon.x13._spec.automdl]
+(``1034``); [`transform`][tsecon.x13._spec.transform] (``2928``),
+[`regression`][tsecon.x13._spec.regression] (``2219``); [`forecast`][tsecon.x13._spec.forecast]
+(``1409``).
 
 M2.3 — Rare spec builders (later session)
 ==========================================
 
-11 builders that round out parity: :func:`outlier` (``1833``),
-:func:`history` (``1602``), :func:`identify` (``1686``), :func:`check`
-(``1149``), :func:`estimate` (``1228``), :func:`metadata` (``1721``),
-:func:`pickmdl` (``1972``), :func:`force` (``1343``), :func:`slidingspans`
-(``2666``), :func:`spectrum` (``2785``), :func:`x11regression`
-(``3420``).
+11 builders that round out parity: [`outlier`][tsecon.x13._spec.outlier] (``1833``),
+[`history`][tsecon.x13._spec.history] (``1602``), [`identify`][tsecon.x13._spec.identify]
+(``1686``), [`check`][tsecon.x13._spec.check] (``1149``), [`estimate`][tsecon.x13._spec.estimate]
+(``1228``), [`metadata`][tsecon.x13._spec.metadata] (``1721``),
+[`pickmdl`][tsecon.x13._spec.pickmdl] (``1972``), [`force`][tsecon.x13._spec.force] (``1343``),
+[`slidingspans`][tsecon.x13._spec.slidingspans] (``2666``), [`spectrum`][tsecon.x13._spec.spectrum]
+(``2785``), [`x11regression`][tsecon.x13._spec.x11regression] (``3420``).
 
-M2.4 — :class:`X13spec` container + validation (later session)
+M2.4 — `X13spec` container + validation (later session)
 ================================================================
 
-:class:`X13spec` (``x13spec.jl:4138``) is the per-frequency typed
-container the builders accumulate into. :func:`newspec` (``578``) /
-:func:`newspec_from_frequency` (``603``) are the constructors;
-:func:`validateX13spec` (``3563``) is the cross-builder invariant check
-that runs before :func:`run` ships the spec to the binary.
+[`X13spec`][tsecon.x13._spec.X13spec] (``x13spec.jl:4138``) is the per-frequency typed
+container the builders accumulate into. [`newspec`][tsecon.x13._spec.newspec] (``578``) /
+`newspec_from_frequency` (``603``) are the constructors;
+[`validateX13spec`][tsecon.x13._spec.validateX13spec] (``3563``) is the cross-builder invariant
+check that runs before [`run`][tsecon.x13._result.run] ships the spec to the binary.
 
 Notes on Python idiom (M2.1)
 ============================
 
 The Julia upstream's dual-constructor for range outliers
 (``aos(::UnitRange{<:MIT})`` vs ``aos(mit1::MIT, mit2::MIT)``) ports as
-the canonical two-argument constructor plus an :meth:`~aos.from_range`
-:func:`classmethod` accepting an :class:`~tsecon.mitrange.MITRange`. This
+the canonical two-argument constructor plus an [`from_range`][tsecon.x13._spec.aos.from_range]
+[`classmethod`][classmethod] accepting an [`MITRange`][tsecon.mitrange.MITRange]. This
 keeps the frozen-slots dataclass shape uniform and matches how
-:class:`MIT` itself surfaces alternate constructors (``MIT.from_yp``).
+[`MIT`][tsecon.mit.MIT] itself surfaces alternate constructors (``MIT.from_yp``).
 
-The Julia ``regimechange::Symbol`` field ports as a :class:`RegimeChange`
-:class:`~enum.StrEnum`; users may pass either the enum member
+The Julia ``regimechange::Symbol`` field ports as a [`RegimeChange`][tsecon.x13._spec.RegimeChange]
+[`StrEnum`][enum.StrEnum]; users may pass either the enum member
 (``RegimeChange.BOTH``) or the bare string (``"both"``), the
-:meth:`__post_init__` normalises to the enum. Members are equal to their
-``.value`` (``RegimeChange.BOTH == "both"`` is :data:`True`) so equality
+`__post_init__` normalises to the enum. Members are equal to their
+``.value`` (``RegimeChange.BOTH == "both"`` is [`True`][True]) so equality
 checks remain transparent.
 
 The Julia ``td()`` / ``td(mit::MIT)`` / ``td(mit, rc)`` constructor trio
 maps to a single Python dataclass with sentinel defaults
-(``mit=None, regimechange=None``); :meth:`__post_init__` resolves
+(``mit=None, regimechange=None``); `__post_init__` resolves
 ``(None, None)`` to ``regimechange=NEITHER`` (no-arg form) and
 ``(mit, None)`` to ``regimechange=BOTH`` (mit-only form, matching
 Julia's default). The same pattern applies to the seven other
@@ -206,11 +209,11 @@ class X13default:
     """Sentinel for spec-builder fields that should be left at the X-13 default.
 
     Mirrors Julia's ``X13default`` struct (``x13spec.jl:4``). Spec builders
-    (M2.2 / M2.3) accept :class:`X13default` instances as default arguments;
+    (M2.2 / M2.3) accept [`X13default`][tsecon.x13._spec.X13default] instances as default arguments;
     the ``.spc`` writer (M2.4) skips fields whose value ``is _X13DEFAULT``,
     leaving the binary to apply its built-in default.
 
-    The class is a singleton — :data:`_X13DEFAULT` is the canonical instance,
+    The class is a singleton — `_X13DEFAULT` is the canonical instance,
     and identity comparisons (``arg is _X13DEFAULT``) replace Julia's
     ``isa X13default`` dispatch.
     """
@@ -240,18 +243,18 @@ class RegimeChange(StrEnum):
 
     Maps to X-13ARIMA-SEATS ``.spc`` tokens:
 
-    * :attr:`NEITHER` — no regime change; the MIT is unused in serialization.
-    * :attr:`BOTH` — break at ``mit``, both halves estimated.
+    * `NEITHER` — no regime change; the MIT is unused in serialization.
+    * `BOTH` — break at ``mit``, both halves estimated.
       Token: ``td/2020.jul/``.
-    * :attr:`ZEROBEFORE` — break with zero coefficient before ``mit``.
+    * `ZEROBEFORE` — break with zero coefficient before ``mit``.
       Token: ``td//2020.jul/``.
-    * :attr:`ZEROAFTER` — break with zero coefficient after ``mit``.
+    * `ZEROAFTER` — break with zero coefficient after ``mit``.
       Token: ``td/2020.jul//``.
 
-    :class:`RegimeChange` is a :class:`~enum.StrEnum`; members compare equal
-    to their underlying string (``RegimeChange.BOTH == "both"``). Spec
+    [`RegimeChange`][tsecon.x13._spec.RegimeChange] is a [`StrEnum`][enum.StrEnum]; members compare
+    equal to their underlying string (``RegimeChange.BOTH == "both"``). Spec
     constructors normalise plain strings to enum members via
-    :meth:`__post_init__`.
+    `__post_init__`.
     """
 
     BOTH = "both"
@@ -281,7 +284,7 @@ def _mit_to_spc(mit: MIT) -> str:
     """Serialise an MIT to its X-13 ``.spc`` form.
 
     Mirrors ``TimeSeriesEcon.jl/src/x13/x13write.jl:286-293``. Returns
-    ``"<year>.<month-abbr>"`` for :class:`~tsecon.frequencies.Monthly` MITs
+    ``"<year>.<month-abbr>"`` for [`Monthly`][tsecon.frequencies.Monthly] MITs
     (e.g. ``"2020.jul"``) and ``"<year>.<period>"`` for every other
     year/period frequency (e.g. ``"2020.3"`` for Quarterly).
     """
@@ -300,7 +303,7 @@ class X13var:
     """Abstract base class for X-13 outlier / regressor / calendar variables.
 
     Each concrete subclass is a frozen-slotted dataclass that overrides
-    :meth:`__str__` to produce the ``.spc``-grammar token. Subclasses use
+    `__str__` to produce the ``.spc``-grammar token. Subclasses use
     lowercase Julia-mirror names (``ao``, ``ls``, …); the class name is
     consumed by serialization via ``type(self).__name__`` — capitalising
     it would either break ``.spc`` output or require a parallel name map.
@@ -374,7 +377,8 @@ class aos(X13var):
 
     Mirrors ``x13spec.jl:12-18``. Serializes as
     ``aos<year1>.<period1>-<year2>.<period2>``. Construct with
-    :meth:`from_range` to bridge an :class:`~tsecon.mitrange.MITRange`.
+    [`from_range`][tsecon.x13._spec.aos.from_range] to bridge an
+    [`MITRange`][tsecon.mitrange.MITRange].
     """
 
     mit1: MIT
@@ -382,13 +386,13 @@ class aos(X13var):
 
     @classmethod
     def from_range(cls, mr: MITRange) -> aos:
-        """Construct from an :class:`~tsecon.mitrange.MITRange`.
+        """Construct from an [`MITRange`][tsecon.mitrange.MITRange].
 
         Mirrors the Julia inner constructor
         ``aos(x::UnitRange{<:MIT}) = new(first(x), last(x))``. The Python
-        :class:`~tsecon.mitrange.MITRange` is inclusive, so its
-        :meth:`~tsecon.mitrange.MITRange.first` and
-        :meth:`~tsecon.mitrange.MITRange.last` match the Julia range
+        [`MITRange`][tsecon.mitrange.MITRange] is inclusive, so its
+        [`first`][tsecon.mitrange.MITRange.first] and
+        [`last`][tsecon.mitrange.MITRange.last] match the Julia range
         endpoints.
         """
         return cls(mr.first(), mr.last())
@@ -409,7 +413,7 @@ class lss(X13var):
 
     @classmethod
     def from_range(cls, mr: MITRange) -> lss:
-        """Construct from an :class:`~tsecon.mitrange.MITRange`."""
+        """Construct from an [`MITRange`][tsecon.mitrange.MITRange]."""
         return cls(mr.first(), mr.last())
 
     def __str__(self) -> str:
@@ -428,7 +432,7 @@ class rp(X13var):
 
     @classmethod
     def from_range(cls, mr: MITRange) -> rp:
-        """Construct from an :class:`~tsecon.mitrange.MITRange`."""
+        """Construct from an [`MITRange`][tsecon.mitrange.MITRange]."""
         return cls(mr.first(), mr.last())
 
     def __str__(self) -> str:
@@ -447,7 +451,7 @@ class qd(X13var):
 
     @classmethod
     def from_range(cls, mr: MITRange) -> qd:
-        """Construct from an :class:`~tsecon.mitrange.MITRange`."""
+        """Construct from an [`MITRange`][tsecon.mitrange.MITRange]."""
         return cls(mr.first(), mr.last())
 
     def __str__(self) -> str:
@@ -466,7 +470,7 @@ class qi(X13var):
 
     @classmethod
     def from_range(cls, mr: MITRange) -> qi:
-        """Construct from an :class:`~tsecon.mitrange.MITRange`."""
+        """Construct from an [`MITRange`][tsecon.mitrange.MITRange]."""
         return cls(mr.first(), mr.last())
 
     def __str__(self) -> str:
@@ -485,7 +489,7 @@ class tl(X13var):
 
     @classmethod
     def from_range(cls, mr: MITRange) -> tl:
-        """Construct from an :class:`~tsecon.mitrange.MITRange`."""
+        """Construct from an [`MITRange`][tsecon.mitrange.MITRange]."""
         return cls(mr.first(), mr.last())
 
     def __str__(self) -> str:
@@ -639,11 +643,11 @@ def _resolve_regime(
     ``tdnolpyear`` / ``td1coef`` / ``td1nolpyear`` / ``lpyear`` / ``lom`` /
     ``loq`` / ``seasonal`` in one helper.
 
-    * ``(None, None)`` → :attr:`RegimeChange.NEITHER` (Julia ``td()``).
-    * ``(mit, None)`` → :attr:`RegimeChange.BOTH` (Julia ``td(mit)``).
+    * ``(None, None)`` → `RegimeChange.NEITHER` (Julia ``td()``).
+    * ``(mit, None)`` → `RegimeChange.BOTH` (Julia ``td(mit)``).
     * ``(_, rc)`` with explicit rc → enum-normalized rc.
 
-    Raises :exc:`ValueError` if the resolved regime change requires an
+    Raises [`ValueError`][ValueError] if the resolved regime change requires an
     ``mit`` but none was provided.
     """
     if regimechange is None:
@@ -880,8 +884,8 @@ def _coerce_order(value: _OrderArg) -> _OrderValue:
     Julia accepts ``Int64`` or ``Vector{Int64}`` (the latter spells operators
     with missing lags, e.g. ``ArimaSpec([2,3],0,0)`` for
     ``(1 - Φ_2*B^2 - Φ_3*B^3)*z_t = a_t``). The Python port stores the
-    list form as a :class:`tuple` so the dataclass stays frozen-hashable;
-    bare ``int`` and :class:`X13default` pass through.
+    list form as a [`tuple`][tuple] so the dataclass stays frozen-hashable;
+    bare ``int`` and [`X13default`][tsecon.x13._spec.X13default] pass through.
     """
     if isinstance(value, X13default):
         return value
@@ -910,10 +914,10 @@ class ArimaSpec:
     r"""A single ARIMA(p, d, q) operator with optional period.
 
     Mirrors ``x13spec.jl:216-228``. ``p``, ``d``, ``q`` may be a non-negative
-    :class:`int` (e.g. ``ArimaSpec(1, 1, 1)`` for ARIMA(1,1,1)) or a
-    :class:`tuple` of ints to spell an operator with missing lags
+    [`int`][int] (e.g. ``ArimaSpec(1, 1, 1)`` for ARIMA(1,1,1)) or a
+    [`tuple`][tuple] of ints to spell an operator with missing lags
     (``ArimaSpec((2, 3), 0, 0)`` →
-    :math:`(1 - \Phi_2 B^2 - \Phi_3 B^3) z_t = a_t`). ``period=0`` (the
+    `(1 - \Phi_2 B^2 - \Phi_3 B^3) z_t = a_t`). ``period=0`` (the
     default) means "infer the period from spec ordering" — the ARIMA
     builder (M2.2) uses position in the spec list to assign seasonal
     periods when ``period=0``.
@@ -954,7 +958,7 @@ class ArimaSpec:
     ) -> tuple[ArimaSpec, ArimaSpec]:
         """Build the ``(p,d,q)(P,D,Q)`` pair, mirroring Julia's 6-arg form.
 
-        Returns a 2-tuple of :class:`ArimaSpec` — the nonseasonal then the
+        Returns a 2-tuple of [`ArimaSpec`][tsecon.x13._spec.ArimaSpec] — the nonseasonal then the
         seasonal — both with ``period=0`` (the ARIMA builder assigns the
         actual seasonal period from spec ordering).
 
@@ -966,18 +970,18 @@ class ArimaSpec:
 
 @dataclass(slots=True)
 class ArimaModel:
-    """A collection of :class:`ArimaSpec` operators with a ``default`` flag.
+    """A collection of [`ArimaSpec`][tsecon.x13._spec.ArimaSpec] operators with a ``default`` flag.
 
     Mirrors ``x13spec.jl:232-242``. The ``default`` flag marks the model as
     the airline-default (``(0,1,1)(0,1,1)``) for ``automdl`` purposes; the
-    :func:`automdl` builder (M2.2) consults it to decide whether to
+    [`automdl`][tsecon.x13._spec.automdl] builder (M2.2) consults it to decide whether to
     explicitly serialize the model in the ``.spc`` file or rely on the
     binary's built-in default.
 
-    Use the :class:`classmethod`-style helpers below (mirroring Julia's
+    Use the [`classmethod`][classmethod]-style helpers below (mirroring Julia's
     six positional-only constructors) for the common ARIMA(p,d,q)[period]
     and ARIMA(p,d,q)(P,D,Q) call shapes; pass an explicit list of
-    :class:`ArimaSpec` for fully custom multi-operator models.
+    [`ArimaSpec`][tsecon.x13._spec.ArimaSpec] for fully custom multi-operator models.
     """
 
     specs: list[ArimaSpec]
@@ -1025,7 +1029,7 @@ class ArimaModel:
         *specs: ArimaSpec,
         default: bool = False,
     ) -> ArimaModel:
-        """Build from one or more pre-built :class:`ArimaSpec` instances.
+        """Build from one or more pre-built [`ArimaSpec`][tsecon.x13._spec.ArimaSpec] instances.
 
         Mirrors Julia's ``ArimaModel(specs::ArimaSpec...; default=...)``.
         """
@@ -1044,18 +1048,18 @@ class ArimaModel:
 class Span:
     """A start/end MIT pair with optional open endpoints.
 
-    Mirrors ``x13spec.jl:163-171``. Either endpoint may be :data:`None`
+    Mirrors ``x13spec.jl:163-171``. Either endpoint may be [`None`][None]
     (Julia ``missing``), meaning "use the underlying series' first or last
     observation". Both endpoints together define an inclusive range.
 
     The Julia upstream also accepts fuzzy ``end`` values such as ``M11`` or
     ``Q2`` (resolved to the most recent occurrence in the series); the
-    Python port restricts ``b`` and ``e`` to :class:`MIT` or :data:`None`
+    Python port restricts ``b`` and ``e`` to [`MIT`][tsecon.mit.MIT] or [`None`][None]
     in M2.2. Fuzzy endings land in a later session if a builder (e.g.
     ``x11regression``) requires them.
 
-    Construct from an :class:`~tsecon.mitrange.MITRange` via
-    :meth:`from_range` (mirrors Julia's
+    Construct from an [`MITRange`][tsecon.mitrange.MITRange] via
+    [`from_range`][tsecon.x13._spec.Span.from_range] (mirrors Julia's
     ``Span(x::UnitRange{<:MIT}) = new(first(x), last(x))``).
     """
 
@@ -1064,7 +1068,7 @@ class Span:
 
     @classmethod
     def from_range(cls, mr: MITRange) -> Span:
-        """Construct from an inclusive :class:`~tsecon.mitrange.MITRange`."""
+        """Construct from an inclusive [`MITRange`][tsecon.mitrange.MITRange]."""
         return cls(mr.first(), mr.last())
 
 
@@ -1078,11 +1082,11 @@ class X13series:
     """The ``series`` spec block — the time series + its load-time options.
 
     Mirrors ``x13spec.jl:175-199`` (``X13series{F<:Frequency}``). The Julia
-    type-parameter ``F`` is dropped — the underlying :class:`~tsecon.tseries.TSeries`
-    already carries its own :class:`~tsecon.frequencies.Frequency` instance.
+    type-parameter ``F`` is dropped — the underlying [`TSeries`][tsecon.tseries.TSeries]
+    already carries its own [`Frequency`][tsecon.frequencies.Frequency] instance.
 
-    Constructed by :func:`series`; never construct directly outside the
-    spec-builder path (validation happens in :func:`series`, not in
+    Constructed by [`series`][tsecon.x13._spec.series]; never construct directly outside the
+    spec-builder path (validation happens in [`series`][tsecon.x13._spec.series], not in
     ``__init__``).
     """
 
@@ -1157,7 +1161,7 @@ def _check_span_against(
 
     Mirrors the ``span isa UnitRange`` / ``span isa Span`` containment
     checks at ``x13spec.jl:777-788``. ``X13default`` and absent endpoints
-    short-circuit. Raises :exc:`ValueError` (Python idiom for
+    short-circuit. Raises [`ValueError`][ValueError] (Python idiom for
     Julia's ``ArgumentError``).
     """
     if isinstance(span, X13default):
@@ -1217,22 +1221,22 @@ def series(
     """Build the ``series`` spec — required for every X-13 run.
 
     Mirrors ``x13spec.jl:732-822``. The ``t`` argument is the input
-    :class:`~tsecon.tseries.TSeries`; all other arguments are keyword-only
+    [`TSeries`][tsecon.tseries.TSeries]; all other arguments are keyword-only
     and mirror the Julia spec's named parameters one-for-one. Defaults are
-    the :data:`_X13DEFAULT` sentinel — fields holding the sentinel are
+    the `_X13DEFAULT` sentinel — fields holding the sentinel are
     omitted by the M2.4 ``.spc`` writer, letting X-13 apply its built-in
     default.
 
     Validation performed:
 
-    * ``name`` and ``title`` truncated (with a :class:`UserWarning`) to 64
+    * ``name`` and ``title`` truncated (with a [`UserWarning`][UserWarning]) to 64
       and 79 characters respectively, mirroring Julia.
     * ``period`` is auto-set to ``ppy(t)`` for non-Monthly / non-Yearly
       frequencies (Quarterly defaults to 4, etc.).
-    * ``span`` (whether :class:`~tsecon.mitrange.MITRange` or
-      :class:`Span`) must be contained within ``t.range``.
-    * :class:`Span` ``span`` endpoints must be :class:`MIT` or
-      :data:`None` — fuzzy endings (Julia's ``M11`` / ``Q2``) are
+    * ``span`` (whether [`MITRange`][tsecon.mitrange.MITRange] or
+      [`Span`][tsecon.x13._spec.Span]) must be contained within ``t.range``.
+    * [`Span`][tsecon.x13._spec.Span] ``span`` endpoints must be [`MIT`][tsecon.mit.MIT] or
+      [`None`][None] — fuzzy endings (Julia's ``M11`` / ``Q2``) are
       rejected here per upstream.
     * ``divpower`` must be in ``[-9, 9]``.
     * If ``t.values`` contains ``NaN``, ``missingcode`` must be set; the
@@ -1241,7 +1245,7 @@ def series(
     * ``print="all"`` / ``save="all"`` expand to the upstream-defined
       "everything" lists.
 
-    Returns an :class:`X13series` carrying the (possibly cropped /
+    Returns an [`X13series`][tsecon.x13._spec.X13series] carrying the (possibly cropped /
     NaN-replaced) data and the validated field values.
     """
     if not isinstance(t, TSeries):
@@ -1348,11 +1352,11 @@ class X13arima:
     """The ``arima`` spec block — the ARIMA(p, d, q)(P, D, Q) component.
 
     Mirrors ``x13spec.jl:245-252``. The ``model`` field is an
-    :class:`ArimaModel` (one or more :class:`ArimaSpec` operators); the
-    AR / MA initial-value vectors (``ar`` / ``ma``) and their fixed-flag
-    counterparts (``fixar`` / ``fixma``) align position-by-position with
-    the model's coefficient sequence. Missing initial values default to
-    ``0.1`` in the binary, encoded as :data:`None` here.
+    [`ArimaModel`][tsecon.x13._spec.ArimaModel] (one or more
+    [`ArimaSpec`][tsecon.x13._spec.ArimaSpec] operators); the AR / MA initial-value vectors (``ar``
+    / ``ma``) and their fixed-flag counterparts (``fixar`` / ``fixma``) align position-by-position
+    with the model's coefficient sequence. Missing initial values default to
+    ``0.1`` in the binary, encoded as [`None`][None] here.
     """
 
     model: ArimaModel
@@ -1376,19 +1380,22 @@ def arima(
 
     Mirrors ``x13spec.jl:873-911``. Accepts any of:
 
-    * an :class:`ArimaModel` (the primary Julia overload),
-    * a single :class:`ArimaSpec` (wrapped via :meth:`ArimaModel.from_specs`),
-    * a tuple of :class:`ArimaSpec` (wrapped via :meth:`ArimaModel.from_specs`).
+    * an [`ArimaModel`][tsecon.x13._spec.ArimaModel] (the primary Julia overload),
+    * a single [`ArimaSpec`][tsecon.x13._spec.ArimaSpec] (wrapped via
+      [`ArimaModel.from_specs`][tsecon.x13._spec.ArimaModel.from_specs]),
+    * a tuple of [`ArimaSpec`][tsecon.x13._spec.ArimaSpec] (wrapped via
+      [`ArimaModel.from_specs`][tsecon.x13._spec.ArimaModel.from_specs]).
 
-    The two-positional-tuple form mirrors :meth:`ArimaSpec.two_seasonal`'s
-    return shape, so ``arima(ArimaSpec.two_seasonal(1,1,1,0,1,1))`` ports
-    Julia's ``arima(ArimaSpec(1,1,1,0,1,1)...)`` idiom.
+    The two-positional-tuple form mirrors
+    [`ArimaSpec.two_seasonal`][tsecon.x13._spec.ArimaSpec.two_seasonal]'s return shape, so
+    ``arima(ArimaSpec.two_seasonal(1,1,1,0,1,1))`` ports Julia's
+    ``arima(ArimaSpec(1,1,1,0,1,1)...)`` idiom.
 
     Validation:
 
     * ``fixar`` length must match ``ar`` length (if both set).
     * ``fixma`` length must match ``ma`` length (if both set).
-    * ``title`` truncated to 79 chars with a :class:`UserWarning`.
+    * ``title`` truncated to 79 chars with a [`UserWarning`][UserWarning].
     """
     if isinstance(model, ArimaSpec):
         wrapped: ArimaModel = ArimaModel.from_specs(model)
@@ -1511,8 +1518,8 @@ def automdl(  # noqa: PLR0912
 
     Mirrors ``x13spec.jl:1034-1141``. The ``print`` and ``savelog``
     arguments default (in upstream Julia) to specific multi-element lists,
-    not :data:`_X13DEFAULT`. In Python the ``None`` sentinel triggers the
-    same defaults (a non-:data:`X13default` default would otherwise be
+    not `_X13DEFAULT`. In Python the ``None`` sentinel triggers the
+    same defaults (a non-[`X13default`][tsecon.x13._spec.X13default] default would otherwise be
     serialized as the *user's* choice, masking that the binary's default
     differs).
 
@@ -1521,11 +1528,11 @@ def automdl(  # noqa: PLR0912
     * ``diff`` must be length 2; values ``∈ {0, 1, 2}`` (regular) and
       ``{0, 1}`` (seasonal).
     * ``maxdiff`` must be length 2; values ``∈ {1, 2}`` (regular) and
-      ``{1}`` (seasonal). :data:`None` slots accepted.
+      ``{1}`` (seasonal). [`None`][None] slots accepted.
     * ``maxorder`` must be length 2; values ``∈ {1, 2, 3, 4}`` (regular)
-      and ``{1, 2}`` (seasonal). :data:`None` slots accepted.
+      and ``{1, 2}`` (seasonal). [`None`][None] slots accepted.
     * ``diff`` is ignored if both ``diff`` and ``maxdiff`` are set; a
-      :class:`UserWarning` flags the redundancy (upstream Julia parity).
+      [`UserWarning`][UserWarning] flags the redundancy (upstream Julia parity).
     """
     if print is None:
         print = list(_AUTOMDL_DEFAULT_PRINT)
@@ -1704,7 +1711,7 @@ def transform(  # noqa: PLR0912
       (``power=0.0`` or ``func="log"``).
     * ``mode`` is at most two values; ``"diff"`` is incompatible with
       ``"ratio"`` / ``"percent"`` in the same list.
-    * ``title`` truncated to 79 chars with a :class:`UserWarning`.
+    * ``title`` truncated to 79 chars with a [`UserWarning`][UserWarning].
     * ``type`` requires ``data`` set; ``type`` list length must match
       the number of provided series.
     """
@@ -1969,7 +1976,7 @@ def _check_calendar_variable_bounds(v: X13var) -> None:
 def _check_outlier_overlaps(
     variables: list[_VariableArg],
 ) -> None:
-    """Warn (via :class:`UserWarning`) on overlapping ``aos`` / ``lss`` ranges.
+    """Warn (via [`UserWarning`][UserWarning]) on overlapping ``aos`` / ``lss`` ranges.
 
     Mirrors ``x13spec.jl:2319-2332``. Range outliers (``aos`` / ``lss``)
     in the same regression cause coefficient identification issues; the
@@ -2030,7 +2037,7 @@ def regression(  # noqa: PLR0912
       effects.
     * Per-variable ``n`` bounds checked for ``tdstock`` / ``easter`` /
       ``labor`` / ``thank`` / ``sceaster`` / ``easterstock``.
-    * Overlapping ``aos`` / ``lss`` ranges emit a :class:`UserWarning`.
+    * Overlapping ``aos`` / ``lss`` ranges emit a [`UserWarning`][UserWarning].
     """
     if savelog is None:
         savelog = ["aictest", "chi2test"]
@@ -2300,7 +2307,7 @@ def seats(
     Mirrors ``x13spec.jl:2478-2527``. The upstream's ``savelog`` default
     is the empty list to keep the binary happy on writethrough (see the
     ``savelog = _X13default`` line at ``x13spec.jl:2513``); we honour
-    that and surface ``savelog`` as :data:`_X13DEFAULT` internally rather
+    that and surface ``savelog`` as `_X13DEFAULT` internally rather
     than as a user-tunable kwarg.
 
     Validation:
@@ -2309,7 +2316,7 @@ def seats(
     * Setting ``hplan`` while ``hpcycle=False`` emits a warning (HP
       filters are applied regardless because ``hplan`` is set).
     * ``print="all"`` is rejected (upstream Julia warns + drops); we
-      raise :exc:`ValueError` to surface the misuse explicitly under
+      raise [`ValueError`][ValueError] to surface the misuse explicitly under
       the project's ``error::UserWarning`` filter.
     * ``save="all"`` expands to the SEATS-specific everything list AND
       forces ``out=0`` (mirrors upstream ``out=0`` reset).
@@ -2575,15 +2582,15 @@ def x11(
     """Build the ``x11`` spec — X-11 enhanced seasonal-adjustment options.
 
     Mirrors ``x13spec.jl:3180-3228``. The upstream's ``savelog`` default
-    is ``"alldiagnostics"``; the Python port uses :data:`None` as the
+    is ``"alldiagnostics"``; the Python port uses [`None`][None] as the
     sentinel that triggers that default (per the established pattern in
-    :func:`automdl` / :func:`regression` etc.).
+    [`automdl`][tsecon.x13._spec.automdl] / [`regression`][tsecon.x13._spec.regression] etc.).
 
     Validation:
 
     * ``trendma`` must be an odd integer in ``[3, 101]``.
     * ``sigmavec`` requires ``calendarsigma="select"`` (other values
-      raise :exc:`ValueError`).
+      raise [`ValueError`][ValueError]).
     """
     if savelog is None:
         savelog = "alldiagnostics"
@@ -2691,7 +2698,7 @@ def check(
 
     Mirrors ``x13spec.jl:1149-1169``. Expands ``print="all"`` /
     ``save="all"`` to the upstream-defined "everything" lists; otherwise
-    pass-through. No numeric range validation in the upstream — :exc:`ValueError`
+    pass-through. No numeric range validation in the upstream — [`ValueError`][ValueError]
     surfaces from the writer if X-13 rejects the values.
     """
     if savelog is None:
@@ -3126,7 +3133,7 @@ class X13metadata:
 
     The Julia upstream's ``Pair{String,String}`` / ``Vector{Pair{...}}``
     ports as a ``tuple[tuple[str, str], ...]`` (frozen, order-preserving,
-    pickleable) — see :func:`metadata` for the user-facing input shapes.
+    pickleable) — see [`metadata`][tsecon.x13._spec.metadata] for the user-facing input shapes.
     """
 
     entries: tuple[tuple[str, str], ...]
@@ -3262,9 +3269,9 @@ def outlier(
     * ``lsrun`` must be in ``[0, 5]``.
     * ``almost`` must be > 0.
     * ``tcrate`` must be in ``(0.0, 1.0)``.
-    * :class:`Span` ``span`` rejects fuzzy ``e`` (``M11`` / ``Q2``) —
+    * [`Span`][tsecon.x13._spec.Span] ``span`` rejects fuzzy ``e`` (``M11`` / ``Q2``) —
       mirrored as "endpoints must be MIT or None"; the builder accepts
-      only :class:`MIT` or :data:`None` already, so the upstream check
+      only [`MIT`][tsecon.mit.MIT] or [`None`][None] already, so the upstream check
       collapses to a no-op here.
     """
     if savelog is None:
@@ -3318,7 +3325,7 @@ class X13pickmdl:
     """The ``pickmdl`` spec block — X-11-ARIMA model selection from candidates.
 
     Mirrors ``x13spec.jl:367-380``. Picks the ARIMA part from either a
-    list of candidate :class:`ArimaModel` instances or a file containing
+    list of candidate [`ArimaModel`][tsecon.x13._spec.ArimaModel] instances or a file containing
     such a list.
     """
 
@@ -3368,7 +3375,7 @@ def pickmdl(
     Python signature with a positional ``*models`` varargs — pass either
     ``pickmdl(m1, m2)`` or ``pickmdl(*[m1, m2])``.
 
-    The ``identify`` kwarg shadows the :func:`identify` spec builder at
+    The ``identify`` kwarg shadows the [`identify`][tsecon.x13._spec.identify] spec builder at
     module level; this is the X-13 grammar's name (``identify=:first`` /
     ``:all``) and the per-kwarg ``A002`` ignore preserves the surface.
 
@@ -3540,7 +3547,7 @@ def slidingspans(
     """Build the ``slidingspans`` spec — stability analysis options.
 
     Mirrors ``x13spec.jl:2666-2701``. The Julia ``length`` field collides
-    with Python's :func:`len` built-in but is not a Python reserved word,
+    with Python's [`len`][len] built-in but is not a Python reserved word,
     so the kwarg keeps its X-13 name with a per-line ``A002`` ignore.
 
     Validation:
@@ -3660,7 +3667,7 @@ def spectrum(
     Mirrors ``x13spec.jl:2785-2816``. No numeric validation upstream;
     range checks happen in the X-13 binary.
 
-    The ``series`` kwarg shadows the :func:`series` spec builder at
+    The ``series`` kwarg shadows the [`series`][tsecon.x13._spec.series] spec builder at
     module level; this is the X-13 grammar's name (``series=:original``
     selects which series feeds the spectrum) and the per-kwarg ``A002``
     ignore preserves the surface.
@@ -3704,7 +3711,7 @@ class X13x11regression:
     """The ``x11regression`` spec block — calendar / outlier regression on irregulars.
 
     Mirrors ``x13spec.jl:512-547``. The X-11 sibling of the regARIMA
-    :class:`X13regression` block — applies calendar / trading-day
+    [`X13regression`][tsecon.x13._spec.X13regression] block — applies calendar / trading-day
     regressions to the X-11 irregular component.
     """
 
@@ -3847,8 +3854,8 @@ def x11regression(  # noqa: PLR0912, PLR0915
     * ``tdprior`` must have length 7 and all entries ≥ 0.
     * ``usertype`` (when set) restricted to ``{td, holiday, user}``.
       Vector form's length must match the number of user series.
-    * :class:`Span` ``outlierspan`` rejects fuzzy ``e`` (the builder
-      accepts only :class:`MIT` or :data:`None` already; the upstream
+    * [`Span`][tsecon.x13._spec.Span] ``outlierspan`` rejects fuzzy ``e`` (the builder
+      accepts only [`MIT`][tsecon.mit.MIT] or [`None`][None] already; the upstream
       check collapses to a no-op).
     """
     if savelog is None:
@@ -4037,14 +4044,14 @@ class X13spec:
 
     Mirrors ``x13spec.jl:552-575`` (``mutable struct X13spec{F<:Frequency}``).
     The Julia type-parameter ``F`` is dropped — the contained
-    :class:`X13series` already carries its :class:`~tsecon.frequencies.Frequency`
-    via its ``data`` field.
+    [`X13series`][tsecon.x13._spec.X13series] already carries its
+    [`Frequency`][tsecon.frequencies.Frequency] via its ``data`` field.
 
-    Construct via :func:`newspec` (passing either a :class:`~tsecon.tseries.TSeries`
-    or an already-built :class:`X13series`); the bang-suffixed Julia
-    setters (``arima!`` / ``outlier!`` / …) port as plain attribute
-    assignment because this dataclass is intentionally **mutable** and
-    **slotted** — the surface mirrors Julia's ``spec.outlier = outlier(...)``
+    Construct via [`newspec`][tsecon.x13._spec.newspec] (passing either a
+    [`TSeries`][tsecon.tseries.TSeries] or an already-built
+    [`X13series`][tsecon.x13._spec.X13series]); the bang-suffixed Julia setters (``arima!`` /
+    ``outlier!`` / …) port as plain attribute assignment because this dataclass is intentionally
+    **mutable** and **slotted** — the surface mirrors Julia's ``spec.outlier = outlier(...)``
     ergonomics. Re-assignment is the only mutation the M2 surface
     supports; the contained sub-spec dataclasses themselves remain
     frozen.
@@ -4101,20 +4108,20 @@ def newspec(
     spectrum: X13spectrum | X13default = _X13DEFAULT,
     folder: str | X13default = _X13DEFAULT,
 ) -> X13spec:
-    """Build a new :class:`X13spec` aggregator.
+    """Build a new [`X13spec`][tsecon.x13._spec.X13spec] aggregator.
 
     Mirrors ``x13spec.jl:578-629``. The Julia overloads
     ``newspec(::X13series)``, ``newspec(::Type{<:Frequency})``, and
     ``newspec(::TSeries)`` collapse to a single Python signature: pass
-    either an :class:`X13series` (the usual shape) or a
-    :class:`~tsecon.tseries.TSeries` (the convenience shape — internally
-    wrapped via :func:`series`). The Julia ``newspec(::Type{<:Frequency})``
+    either an [`X13series`][tsecon.x13._spec.X13series] (the usual shape) or a
+    [`TSeries`][tsecon.tseries.TSeries] (the convenience shape — internally
+    wrapped via [`series`][tsecon.x13._spec.series]). The Julia ``newspec(::Type{<:Frequency})``
     overload, which builds a spec without ``series`` for the rare
     ``composite``-only flow, is **intentionally not ported** — the
     ``composite`` spec is not supported (see ``x13spec.jl:563``).
 
-    The ``string`` field is always initialised to :data:`_X13DEFAULT` —
-    it is populated only by :func:`tsecon.x13._write.x13write` as a
+    The ``string`` field is always initialised to `_X13DEFAULT` —
+    it is populated only by [`tsecon.x13._write.x13write`][tsecon.x13._write.x13write] as a
     side-effect of serialization (mirrors the Julia upstream's
     ``spec.string = ...`` mutation at ``x13write.jl:72``).
     """
@@ -4200,9 +4207,9 @@ def _effective_span(s: X13series) -> MITRange:
 
     Mirrors ``x13spec.jl:4097-4131`` (``effective_span``). The Julia
     upstream also resolves fuzzy ``modelspan.e`` values (``M11`` / ``Q2``);
-    the Python builder restricts :class:`Span` endpoints to :class:`MIT` |
-    :data:`None` (the fuzzy-endpoint surface is deferred), so this helper
-    only needs to handle the :class:`MIT`-or-:data:`None` cases.
+    the Python builder restricts [`Span`][tsecon.x13._spec.Span] endpoints to
+    [`MIT`][tsecon.mit.MIT] | [`None`][None] (the fuzzy-endpoint surface is deferred), so this
+    helper only needs to handle the [`MIT`][tsecon.mit.MIT]-or-[`None`][None] cases.
     """
     base = s.data.range
     if isinstance(s.span, MITRange):
@@ -4240,9 +4247,9 @@ def validateX13spec(spec: X13spec) -> None:  # noqa: N802, PLR0912, PLR0915
     """Cross-spec invariant check — runs before the binary sees the spec.
 
     Mirrors ``x13spec.jl:3563-4055`` (``validateX13spec``). Branches that
-    Julia handles with ``ArgumentError`` raise :exc:`ValueError`; branches
-    that Julia logs via ``@warn`` emit :class:`UserWarning` through
-    :func:`warnings.warn` (the project's ``error::UserWarning`` filter at
+    Julia handles with ``ArgumentError`` raise [`ValueError`][ValueError]; branches
+    that Julia logs via ``@warn`` emit [`UserWarning`][UserWarning] through
+    [`warnings.warn`][warnings.warn] (the project's ``error::UserWarning`` filter at
     `pyproject.toml` turns silent misuse into a test-failure, mirroring
     the Julia upstream's `@test_warn` discipline).
 

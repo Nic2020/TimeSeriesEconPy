@@ -6,17 +6,19 @@ text vectors as a list of Python strings and ordinary text matrices and tensors
 as NumPy ``str_`` arrays. Two small adapter containers carry what those
 familiar types cannot hold losslessly:
 
-* :class:`StoredArray` pairs a contiguous carrier with a
-  :class:`~tsecon.dataecon._represented.StoredElement`, so ``MIT``/``Duration``
+* [`StoredArray`][tsecon.dataecon.StoredArray] pairs a contiguous carrier with a
+  [`StoredElement`][tsecon.dataecon.StoredElement], so ``MIT``/``Duration``
   codes, 128-bit integers, ComplexF16 pairs and preserved reconstruction
   markers keep their stored kind, width and bytes. It holds values of one to
-  five dimensions (DataEcon's axis limit); :meth:`StoredArray.to_interpreted`
-  is the explicit conversion to the value Julia's loader would build, and
-  :meth:`StoredArray.diagonal`, :meth:`StoredArray.symmetric` and
-  :meth:`StoredArray.hermitian` build the dense, marker-bearing form Julia's
-  own writer stores for its LinearAlgebra wrappers.
-* :class:`StoredText` keeps each element's exact stored bytes together with the
-  preserved ``jeltype`` text and the stored shape, which is how a ``Symbol``
+  five dimensions (DataEcon's axis limit);
+  [`StoredArray.to_interpreted`][tsecon.dataecon.StoredArray.to_interpreted] is the explicit
+  conversion to the value Julia's loader would build, and
+  [`StoredArray.diagonal`][tsecon.dataecon.StoredArray.diagonal],
+  [`StoredArray.symmetric`][tsecon.dataecon.StoredArray.symmetric] and
+  [`StoredArray.hermitian`][tsecon.dataecon.StoredArray.hermitian] build the dense, marker-bearing
+  form Julia's own writer stores for its LinearAlgebra wrappers.
+* [`StoredText`][tsecon.dataecon.StoredText] keeps each element's exact stored bytes together with
+  the preserved ``jeltype`` text and the stored shape, which is how a ``Symbol``
   array and text that is not valid UTF-8 survive a read-modify-write at any
   rank from one to five.
 
@@ -173,7 +175,7 @@ def _structure_input(values: Any, token: str) -> tuple[np.ndarray[Any, Any], Sto
     element marker, which is exactly what Julia's writer stores for a Boolean
     wrapper (its loader then rebuilds an Int8 wrapper, because ``jtype``
     wins); the array itself is returned as given and converted only once the
-    shape and capacity checks have passed. A :class:`StoredArray` supplies
+    shape and capacity checks have passed. A [`StoredArray`][tsecon.dataecon.StoredArray] supplies
     the represented families; it must not already carry a whole-object
     marker.
     """
@@ -304,7 +306,7 @@ class StoredArray:
 
         ``values`` is the diagonal itself (one-dimensional) or a square matrix
         whose diagonal is taken, as Julia's ``Diagonal(A)`` does: an ordinary
-        numeric or Boolean NumPy array, or a :class:`StoredArray` of a
+        numeric or Boolean NumPy array, or a [`StoredArray`][tsecon.dataecon.StoredArray] of a
         represented element. The result holds the full dense matrix with
         zeros off the diagonal (the diagonal's bits, signed zeros and NaN
         payloads included, are copied) and the ``"Diagonal"`` marker.
@@ -412,7 +414,8 @@ class StoredArray:
         Dates and durations become core ``MIT``/``Duration`` objects with the
         element frequency, 128-bit values become Python ``int`` and ComplexF16
         values become Python ``complex``. A preserved marker does not change
-        this; use :meth:`to_interpreted` for Julia's converted values.
+        this; use [`to_interpreted`][tsecon.dataecon.StoredArray.to_interpreted] for Julia's
+        converted values.
         """
         _check_array_carrier(self._values, self._element)
         return self._nested_list(self._values)
@@ -443,9 +446,9 @@ class StoredArray:
         type, ``datetime64[D]``/``[ms]`` for ``Date``/``DateTime`` on a numeric
         payload, ``str_`` of one character for ``Char``); date, duration, wide
         and exact rational/complex targets give an unmarked
-        :class:`StoredArray`; a ``Symbol`` element marker on a numeric payload
-        gives the :class:`StoredText` of Julia's printed elements, and a
-        ``Symbol`` whole-object marker the ``str`` Julia prints for the whole
+        [`StoredArray`][tsecon.dataecon.StoredArray]; a ``Symbol`` element marker on a numeric
+        payload gives the [`StoredText`][tsecon.dataecon.StoredText] of Julia's printed elements,
+        and a ``Symbol`` whole-object marker the ``str`` Julia prints for the whole
         array (``[1, 2]``, ``Int8[1 3; 2 4]``, ``Matrix{Float64}(undef, 0,
         2)``; the bytes of a UInt8 vector name the symbol directly). A
         ``Diagonal``, ``Symmetric`` or ``Hermitian`` marker gives the dense
@@ -747,7 +750,8 @@ def unicode_array(decoded: list[str], shape: tuple[int, ...]) -> np.ndarray[Any,
     """Allocate the owning, C-contiguous ``str_`` array of column-major ``decoded``.
 
     This is the only place a fixed-width Unicode array is allocated for text,
-    after the caller has checked :func:`unicode_nbytes` against the cap.
+    after the caller has checked [`unicode_nbytes`][tsecon.dataecon.StoredText.unicode_nbytes]
+    against the cap.
     """
     width = max((len(item) for item in decoded), default=1)
     out = np.empty(shape, dtype=f"<U{max(width, 1)}")
@@ -769,20 +773,22 @@ class StoredText:
     exactly as before. Ordinary text that is valid UTF-8 and carries no foreign
     marker is returned as an ordinary ``list[str]`` (vectors) or NumPy ``str_``
     array (matrices and tensors) instead, unless that array would exceed
-    :data:`MAX_UNICODE_BYTES`; this container exists for the values that would
+    `MAX_UNICODE_BYTES`; this container exists for the values that would
     otherwise lose their marker, their exact bytes or their shape, or cost a
     padded allocation far beyond the packed payload.
 
     ``object_marker`` is a preserved whole-object ``jtype`` text. When present
     it wins over the element marker in Julia (a ``Vector{String}`` whole-object
     marker over a ``Symbol`` element marker loads plain strings); both are kept
-    verbatim and written back. :meth:`to_interpreted` applies Julia's
-    reconstruction; :meth:`tolist` and :meth:`to_numpy` stay the strict decodes
-    of the stored text regardless of any marker.
+    verbatim and written back. [`to_interpreted`][tsecon.dataecon.StoredText.to_interpreted] applies
+    Julia's reconstruction; [`tolist`][tsecon.dataecon.StoredText.tolist] and
+    [`to_numpy`][tsecon.dataecon.StoredText.to_numpy] stay the strict decodes of the stored text
+    regardless of any marker.
 
-    The container is immutable. :meth:`tolist` and :meth:`to_numpy` are the
-    explicit strict decodes in logical (row-major) indexing; :meth:`from_list`
-    and :meth:`from_numpy` build a container from Python strings.
+    The container is immutable. [`tolist`][tsecon.dataecon.StoredText.tolist] and
+    [`to_numpy`][tsecon.dataecon.StoredText.to_numpy] are the explicit strict decodes in logical
+    (row-major) indexing; [`from_list`][tsecon.dataecon.StoredText.from_list] and
+    [`from_numpy`][tsecon.dataecon.StoredText.from_numpy] build a container from Python strings.
     """
 
     values: tuple[bytes, ...]
@@ -881,7 +887,7 @@ class StoredText:
 
     @property
     def unicode_nbytes(self) -> int:
-        """The bytes :meth:`to_numpy` would allocate: count times the longest element times four."""
+        """The bytes `to_numpy` would allocate: count times the longest element times four."""
         return unicode_nbytes(self._decoded())
 
     def tolist(self) -> list[Any]:
@@ -968,7 +974,7 @@ class StoredText:
         """Decode into an owning, C-contiguous NumPy ``str_`` array of the stored shape.
 
         Refuses before allocating when the fixed-width array would exceed
-        :data:`MAX_UNICODE_BYTES`; :meth:`tolist` and the container itself
+        `MAX_UNICODE_BYTES`; [`tolist`][tsecon.dataecon.StoredText.tolist] and the container itself
         remain available for such values.
         """
         assert self.shape is not None

@@ -2,23 +2,23 @@
 """Misc helpers from ``TimeSeriesEcon.jl``'s ``various.jl``.
 
 Three sibling functions sharing the ``LikeWorkspace`` dispatch (Workspace /
-MVTSeries / :class:`collections.abc.Mapping`):
+MVTSeries / [`collections.abc.Mapping`][collections.abc.Mapping]):
 
-* :func:`overlay` — first-valid-wins composition over TSeries / Workspace /
+* [`overlay`][tsecon._various.overlay] — first-valid-wins composition over TSeries / Workspace /
   MVTSeries values. NaN (and the dtype-appropriate ``typenan``) marks
   "missing"; the leftmost non-missing value wins position-by-position.
-* :func:`compare` — recursive structural / numeric comparison. Returns a
-  :class:`CompareResult` (truthy on equality; ``.differences`` carries the
+* [`compare`][tsecon._various.compare] — recursive structural / numeric comparison. Returns a
+  [`CompareResult`][tsecon._various.CompareResult] (truthy on equality; ``.differences`` carries the
   per-leaf diff). Tolerance kwargs (``atol`` / ``rtol`` / ``nans``) and
   walk kwargs (``ignoremissing`` / ``showequal`` / ``quiet`` / ``trange``)
   match the Julia surface name-for-name.
-* :func:`reindex` — shift every MIT-keyed position inside a container so
+* [`reindex`][tsecon._various.reindex] — shift every MIT-keyed position inside a container so
   that ``from`` maps to ``to``; the underlying values are preserved.
   Dispatches over MIT / MITRange / TSeries / MVTSeries / Workspace.
 
 Julia's ``@compare`` macro collapses to a plain function alias here: the
 macro existed only to capture the variable names for printing, and
-:class:`CompareResult.differences` already exposes that information without
+`CompareResult.differences` already exposes that information without
 needing AST rewriting. Code that wrote ``@compare(v1, v2, atol=1e-5)``
 ports to ``compare(v1, v2, atol=1e-5)`` — the Python idiom of returning a
 structured diff matches the Julia behaviour for both interactive (``print(result)``)
@@ -35,7 +35,7 @@ Remaining pieces of ``various.jl`` are deferred:
 * ``TOML.print`` overloads — left to v1.0 if the JSON round-trip
   (``io/json.py``) doesn't cover the use case.
 * ``is_yearly`` / ``is_quarterly`` / etc. — already ported in
-  :mod:`tsecon.frequencies` with PEP-8 underscore naming.
+  [`tsecon.frequencies`][tsecon.frequencies] with PEP-8 underscore naming.
 """
 
 from __future__ import annotations
@@ -192,16 +192,16 @@ def overlay(*args: Any, rng: MITRange | None = None) -> Any:
     The dispatch is on the argument types — all arguments must agree on a
     container family for the recursive form to apply:
 
-    * **All :class:`~tsecon.tseries.TSeries`** — build a new TSeries over
+    * **All [`TSeries`][tsecon.tseries.TSeries]** — build a new TSeries over
       either ``rng=`` (when given) or the union of all input ranges
       (``rangeof_span(*args)``). For each position, the leftmost input
       that has a non-typenan value at that position wins. The output
       dtype is the NumPy promotion of all input dtypes.
-    * **All :class:`~tsecon.mvtseries.MVTSeries`** — return an MVTSeries
+    * **All [`MVTSeries`][tsecon.mvtseries.MVTSeries]** — return an MVTSeries
       over the union range and the ordered union of column names; each
       column is the overlay of the corresponding TSeries columns.
     * **All Workspace / MVTSeries / Mapping** — return a
-      :class:`~tsecon.workspace.Workspace`. For each key present in any
+      [`Workspace`][tsecon.workspace.Workspace]. For each key present in any
       input, collect the values across inputs that have it and recurse;
       the recursive call may dispatch back into the TSeries / Workspace
       / MVTSeries / scalar paths.
@@ -213,9 +213,9 @@ def overlay(*args: Any, rng: MITRange | None = None) -> Any:
     *args
         One or more values to overlay. At least one is required.
     rng
-        Optional :class:`~tsecon.mitrange.MITRange` to force the output
+        Optional [`MITRange`][tsecon.mitrange.MITRange] to force the output
         range. Only valid when all arguments are TSeries; raises
-        :class:`TypeError` otherwise.
+        [`TypeError`][TypeError] otherwise.
 
     Returns
     -------
@@ -350,7 +350,7 @@ def _overlay_mvtseries(*mvtss: MVTSeries) -> MVTSeries:
 
 @dataclass(frozen=True)
 class CompareDifference:
-    """One line of the recursive diff produced by :func:`compare`.
+    """One line of the recursive diff produced by [`compare`][tsecon._various.compare].
 
     Attributes
     ----------
@@ -370,12 +370,12 @@ class CompareDifference:
 
 @dataclass
 class CompareResult:
-    """The structured return value of :func:`compare`.
+    """The structured return value of [`compare`][tsecon._various.compare].
 
     Truthy iff the two inputs compared as equal — use
     ``if compare(a, b): ...`` for the Julia-style one-line check.
     ``str(result)`` reproduces the printed diff (one line per
-    :class:`CompareDifference`). ``.differences`` exposes the diff
+    [`CompareDifference`][tsecon._various.CompareDifference]). ``.differences`` exposes the diff
     programmatically.
     """
 
@@ -426,22 +426,22 @@ def compare(
     nans: bool = False,
     trange: MITRange | None = None,
 ) -> CompareResult:
-    r"""Recursively compare ``x`` and ``y``, returning a :class:`CompareResult`.
+    r"""Recursively compare ``x`` and ``y``, returning a `CompareResult`.
 
     The walk dispatches over:
 
-    * :class:`~tsecon.workspace.Workspace`, :class:`~tsecon.mvtseries.MVTSeries`,
-      and :class:`collections.abc.Mapping` — treated as name-keyed
+    * [`Workspace`][tsecon.workspace.Workspace], [`MVTSeries`][tsecon.mvtseries.MVTSeries],
+      and [`collections.abc.Mapping`][collections.abc.Mapping] — treated as name-keyed
       containers and recursed key-by-key. Missing keys produce
       ``"missing in <left|right>"`` lines (unless ``ignoremissing=True``).
-    * :class:`~tsecon.tseries.TSeries` — compared range-by-range using
-      :func:`numpy.allclose` with the given ``atol`` / ``rtol`` / ``nans``.
+    * [`TSeries`][tsecon.tseries.TSeries] — compared range-by-range using
+      [`numpy.allclose`][numpy.allclose] with the given ``atol`` / ``rtol`` / ``nans``.
       Mismatched ranges count as different (unless ``ignoremissing=True``,
       in which case the intersection is compared).
     * NumPy arrays of numbers — compared by shape + element-wise
-      :func:`numpy.allclose`.
+      [`numpy.allclose`][numpy.allclose].
     * NumPy arrays of other dtypes — walked element-by-element.
-    * Scalars — compared via :func:`numpy.isclose`.
+    * Scalars — compared via [`numpy.isclose`][numpy.isclose].
     * Everything else — compared with ``==``.
 
     Parameters
@@ -459,18 +459,18 @@ def compare(
         When True, ignore keys present in one side but not the other
         (they don't print and don't affect ``equal``). Default False.
     quiet
-        When True, suppress printing to stdout. The :class:`CompareResult`
+        When True, suppress printing to stdout. The [`CompareResult`][tsecon._various.CompareResult]
         is still populated either way.
     left, right
         Names used in ``"missing in <name>"`` messages. Default
         ``"left"`` / ``"right"``.
     atol, rtol, nans
-        Tolerances forwarded to :func:`numpy.isclose` /
-        :func:`numpy.allclose`. ``rtol=None`` (the default) resolves to
-        :math:`\\sqrt{\\varepsilon}` when ``atol == 0`` and to ``0`` when
+        Tolerances forwarded to [`numpy.isclose`][numpy.isclose] /
+        [`numpy.allclose`][numpy.allclose]. ``rtol=None`` (the default) resolves to
+        `\\sqrt{\\varepsilon}` when ``atol == 0`` and to ``0`` when
         ``atol > 0`` (matching Julia's ``isapprox`` precedent).
     trange
-        Optional :class:`~tsecon.mitrange.MITRange` restricting the
+        Optional [`MITRange`][tsecon.mitrange.MITRange] restricting the
         compared window for TSeries-vs-TSeries leaves only.
 
     Returns
@@ -515,7 +515,7 @@ def _compare_recurse(
     """Apply the Julia top-level ``compare()`` logic for one (x, y) pair.
 
     Returns True iff the pair is equal. Side-effects: appends 1+
-    :class:`CompareDifference` to ``result.differences``; may set
+    [`CompareDifference`][tsecon._various.CompareDifference] to ``result.differences``; may set
     ``result.equal = False``; may print to stdout when ``quiet=False``.
     """
     is_top = len(path) == 1
@@ -718,13 +718,13 @@ def reindex(
     x
         The value to reindex. Supported types:
 
-        * :class:`~tsecon.mit.MIT` — single instant.
-        * :class:`~tsecon.mitrange.MITRange` — both endpoints shifted;
+        * [`MIT`][tsecon.mit.MIT] — single instant.
+        * [`MITRange`][tsecon.mitrange.MITRange] — both endpoints shifted;
           ``step`` is preserved.
-        * :class:`~tsecon.tseries.TSeries` — anchor shifted; values
+        * [`TSeries`][tsecon.tseries.TSeries] — anchor shifted; values
           unchanged.
-        * :class:`~tsecon.mvtseries.MVTSeries` — same, on the matrix.
-        * :class:`~tsecon.workspace.Workspace` — members whose
+        * [`MVTSeries`][tsecon.mvtseries.MVTSeries] — same, on the matrix.
+        * [`Workspace`][tsecon.workspace.Workspace] — members whose
           frequency matches ``old_mit.frequency`` are reindexed
           (recursively for nested Workspaces); other members are
           carried through.
@@ -735,10 +735,10 @@ def reindex(
         the desired output frequency).
     copy
         When True, force an independent values buffer for the returned
-        :class:`~tsecon.tseries.TSeries` / :class:`~tsecon.mvtseries.MVTSeries`
-        and apply :func:`copy.copy` to non-reindexable Workspace members.
+        [`TSeries`][tsecon.tseries.TSeries] / [`MVTSeries`][tsecon.mvtseries.MVTSeries]
+        and apply [`copy.copy`][copy.copy] to non-reindexable Workspace members.
         Default False matches the wrap-by-default contract of
-        :mod:`tsecon` constructors (see the project's design notes on
+        `tsecon` constructors (see the project's design notes on
         constructor copy semantics).
 
     Returns

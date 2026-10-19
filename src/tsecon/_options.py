@@ -4,19 +4,21 @@
 Mirrors ``TimeSeriesEcon.jl/src/options.jl``. A small dictionary of
 process-global settings consulted by other modules at call time. Public API:
 
-* :func:`getoption` / :func:`setoption` — generic accessors.
-* :func:`set_holidays_map` — install a BDaily Boolean :class:`TSeries`
-  (``True`` = business day, ``False`` = holiday) under
+* [`getoption`][tsecon._options.getoption] / [`setoption`][tsecon._options.setoption] — generic
+  accessors.
+* [`set_holidays_map`][tsecon._options.set_holidays_map] — install a BDaily Boolean
+  [`TSeries`][tsecon.tseries.TSeries] (``True`` = business day, ``False`` = holiday) under
   ``"bdaily_holidays_map"``. Accepts either a pre-built TSeries
   (``set_holidays_map(t)``) or a country / subdivision code
   (``set_holidays_map("CA", "ON")``); the country form requires the
   optional ``holidays`` extra (``pip install 'TimeSeriesEconPy[holidays]'``)
   and delegates to the upstream ``python-holidays`` package for the
   calendar data — single source of truth, no vendored CSVs.
-* :func:`get_holidays_options` — list supported country codes (no arg) or
-  subdivisions of a country (with a country code arg). Mirrors Julia's
+* [`get_holidays_options`][tsecon._options.get_holidays_options] — list supported country codes (no
+  arg) or subdivisions of a country (with a country code arg). Mirrors Julia's
   ``get_holidays_options``.
-* :func:`clear_holidays_map` — set ``bdaily_holidays_map`` back to ``None``.
+* [`clear_holidays_map`][tsecon._options.clear_holidays_map] — set ``bdaily_holidays_map`` back to
+  ``None``.
 
 Recognised option names and their types:
 
@@ -30,13 +32,13 @@ Name                        Type                         Default
 ``x13path``                 ``str``                      ``""``
 ==========================  ===========================  =================================
 
-Setting an unknown option raises :class:`KeyError`; passing an invalid value
-for a known option raises :class:`ValueError` (for the enum-like bias) or
-:class:`TypeError` (for the wrong Python type).
+Setting an unknown option raises [`KeyError`][KeyError]; passing an invalid value
+for a known option raises [`ValueError`][ValueError] (for the enum-like bias) or
+[`TypeError`][TypeError] (for the wrong Python type).
 
 The options dictionary is process-global. Tests that mutate it must restore
 the previous value in a teardown — there is a context-manager helper
-:func:`option_scope` for that pattern.
+[`option_scope`][tsecon._options.option_scope] for that pattern.
 """
 
 from __future__ import annotations
@@ -86,7 +88,7 @@ _options: dict[str, Any] = dict(_DEFAULTS)
 def getoption(name: OptionName | str) -> Any:
     """Return the current value of a recognised option.
 
-    Raises :class:`KeyError` for unknown names.
+    Raises [`KeyError`][KeyError] for unknown names.
     """
     if name not in _DEFAULTS:
         msg = f"unknown option: {name!r}. Recognised names: {sorted(_DEFAULTS)}."
@@ -100,7 +102,7 @@ def setoption(name: OptionName | str, value: Any) -> None:
     * ``bdaily_creation_bias`` — must be one of ``"strict"``, ``"previous"``,
       ``"next"``, ``"nearest"``.
     * ``bdaily_holidays_map`` — must be ``None`` or a Boolean BDaily
-      :class:`~tsecon.tseries.TSeries`.
+      [`TSeries`][tsecon.tseries.TSeries].
     * ``x13path`` — must be a string.
     """
     if name == "bdaily_creation_bias":
@@ -133,7 +135,7 @@ def set_holidays_map(arg: Any, subdivision: str | None = None) -> None:
     Two call forms:
 
     * ``set_holidays_map(t)`` — install a pre-built BDaily Boolean
-      :class:`~tsecon.tseries.TSeries` (``True`` = business day,
+      [`TSeries`][tsecon.tseries.TSeries] (``True`` = business day,
       ``False`` = holiday).
     * ``set_holidays_map("CA", "ON")`` — fetch the calendar for the given
       country / subdivision from the ``holidays`` PyPI package, build a
@@ -144,15 +146,15 @@ def set_holidays_map(arg: Any, subdivision: str | None = None) -> None:
     Parameters
     ----------
     arg
-        Either a pre-built BDaily Boolean :class:`~tsecon.tseries.TSeries`
+        Either a pre-built BDaily Boolean [`TSeries`][tsecon.tseries.TSeries]
         or a country code string accepted by
-        :func:`holidays.country_holidays` (ISO 3166 alpha-2 like ``"CA"``,
+        `holidays.country_holidays` (ISO 3166 alpha-2 like ``"CA"``,
         ``"US"``, ``"DK"``; alpha-3 codes like ``"CAN"`` are also accepted
         — whatever the upstream package supports).
     subdivision
         Optional subdivision code (ISO 3166-2 short form, e.g. ``"ON"``,
         ``"QC"``, ``"CA"``). Only meaningful when ``arg`` is a country
-        code; passing it with a TSeries raises :class:`TypeError`.
+        code; passing it with a TSeries raises [`TypeError`][TypeError].
 
     Raises
     ------
@@ -162,7 +164,7 @@ def set_holidays_map(arg: Any, subdivision: str | None = None) -> None:
     ValueError
         ``arg`` is an unsupported country code, or ``subdivision`` is not
         a recognised subdivision of ``arg``. The Julia upstream raises
-        :class:`ArgumentError` here.
+        `ArgumentError` here.
     TypeError
         ``subdivision`` is passed alongside a TSeries, or ``arg`` is
         neither a string nor a TSeries.
@@ -174,7 +176,8 @@ def set_holidays_map(arg: Any, subdivision: str | None = None) -> None:
     the Julia upstream's CSV-derived names (e.g. the Julia CSVs spell
     a few subdivisions with spaces that the package replaces with
     underscores or drops). The package is the single source of truth;
-    discover the supported codes with :func:`get_holidays_options`.
+    discover the supported codes with
+    [`get_holidays_options`][tsecon._options.get_holidays_options].
 
     Examples
     --------
@@ -208,7 +211,7 @@ def get_holidays_options(country: str | None = None) -> tuple[str, ...]:
     ----------
     country
         Optional country code accepted by
-        :func:`holidays.country_holidays`. When ``None``, return all
+        `holidays.country_holidays`. When ``None``, return all
         supported country codes.
 
     Returns
@@ -223,7 +226,7 @@ def get_holidays_options(country: str | None = None) -> tuple[str, ...]:
         The ``holidays`` package is not installed.
     ValueError
         ``country`` is not a supported country code. The Julia upstream
-        raises :class:`ArgumentError`.
+        raises `ArgumentError`.
     """
     holidays_mod = _require_holidays()
     countries = holidays_mod.list_supported_countries()
@@ -253,7 +256,7 @@ def option_scope(**overrides: Any) -> Iterator[None]:
     """Context manager that temporarily overrides one or more options.
 
     On exit, every overridden option is restored to its prior value.
-    Convenient for tests; the wrapper goes through :func:`setoption` so the
+    Convenient for tests; the wrapper goes through [`setoption`][tsecon._options.setoption] so the
     same validation applies.
     """
     saved: dict[str, Any] = {name: _options[name] for name in overrides}
@@ -269,7 +272,7 @@ def option_scope(**overrides: Any) -> Iterator[None]:
 def _require_holidays() -> Any:
     """Lazy-import the ``holidays`` package with a helpful error if missing.
 
-    Mirrors the :mod:`tsecon.interop.pandas` precedent so the install hint
+    Mirrors the [`tsecon.interop.pandas`][tsecon.interop.pandas] precedent so the install hint
     stays consistent across the codebase.
     """
     if find_spec("holidays") is None:
@@ -342,8 +345,8 @@ def _set_holidays_map_from_country(country: str, subdivision: str | None) -> Non
 def _validate_holidays_map(value: Any) -> None:
     """Reject non-Boolean / non-BDaily holidays maps.
 
-    Imported lazily to avoid a circular dependency: :mod:`tsecon.mit` imports
-    :mod:`tsecon._options` at the top to back ``bdaily_creation_bias``, so a
+    Imported lazily to avoid a circular dependency: [`tsecon.mit`][tsecon.mit] imports
+    [`tsecon._options`][tsecon._options] at the top to back ``bdaily_creation_bias``, so a
     top-level ``from tsecon.tseries import TSeries`` here would loop back
     through ``tsecon.tseries`` → ``tsecon.mit`` → ``tsecon._options``.
     """

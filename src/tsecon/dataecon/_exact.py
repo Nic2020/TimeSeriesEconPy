@@ -10,7 +10,7 @@ reader can state exactly what the pinned Julia would load, or that it would
 raise, without evaluating any marker text: every parameter comes from the
 finite tables below and every value is a plain Python integer, float or tuple.
 Which Python objects such values become in the public API is a separate choice;
-this module makes none and touches no native code; :mod:`._scalars` builds the
+this module makes none and touches no native code; `_scalars` builds the
 public ``StoredScalar`` on top of it.
 
 Julia's own rules, transcribed from ``base/rational.jl``, ``base/float.jl``
@@ -158,7 +158,7 @@ def _convergents(value: float, low: int, high: int, width: int = 8) -> tuple[int
     builds a *nearby* rational that its final ``x == T(r)`` check still
     accepts: ``Rational{Int64}(3 * 2.0^-62)`` is ``3//4611686018427387649``,
     not ``3//2^62``. That is the value Julia rebuilds, so it is the value
-    reproduced here; the exact dyadic decomposition (:func:`float_as_ratio`)
+    reproduced here; the exact dyadic decomposition (`float_as_ratio`)
     is a different number.
     """
     cls = FLOAT_TYPES[width]
@@ -290,7 +290,7 @@ def integer_complex_from_floats(real: float, imag: float, parameter: str) -> tup
     """Julia's ``convert(Complex{T}, z)`` for a Float64 or ComplexF64 payload.
 
     A Float64 payload is the pair ``(value, 0.0)``. Each component follows
-    ``T(x::Float64)`` (:func:`integer_from_float`); ``Complex(-0.0, -0.0)``
+    ``T(x::Float64)`` (`integer_from_float`); ``Complex(-0.0, -0.0)``
     is ``0 + 0im``.
     """
     return integer_from_float(real, parameter), integer_from_float(imag, parameter)
@@ -572,7 +572,7 @@ def exact_decimal(value: Any) -> Decimal:
 
     ``BigFloat(x)`` of a Float64/Float32/Float16 or of any bit integer up to
     128 bits is exact at Julia's default 256-bit precision, so the loaded
-    number is exactly the payload's value; :class:`decimal.Decimal` holds it
+    number is exactly the payload's value; [`decimal.Decimal`][decimal.Decimal] holds it
     exactly (``Decimal(0.1)`` prints Julia's ``0.1000000000000000055511151231257827...``).
     NaN and the infinities map to Decimal's own ``NaN``/``Infinity``.
     """

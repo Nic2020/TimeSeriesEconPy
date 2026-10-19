@@ -338,7 +338,7 @@ def series_dtype(
     ``StoredSeries`` result, whose ``marker`` is the preserved ``jeltype``
     text. A present whole-object marker makes the element marker inactive and
     always yields a preserved container; its own token is validated against
-    the axis by :func:`validate_series_payload`. Redundant tokens that name the
+    the axis by `validate_series_payload`. Redundant tokens that name the
     stored family resolve to the unmarked family.
     """
     _interpret.check_marker_text(marker, "element")
@@ -543,7 +543,7 @@ def encode_marked_scalar(value: ScalarValue) -> tuple[int, int, bytes, str | Non
     Float64 plus ``Complex{Int64}``), each accepted only when the pinned Julia
     loader rebuilds the requested value; the ``StoredScalar`` constructors
     expose the other parameters and the explicit lossy option. Every other
-    input follows :func:`encode_scalar` unmarked.
+    input follows `encode_scalar` unmarked.
     """
     if type(value) is StoredScalar:
         return value.kind, value.frequency, value.payload, value.marker
@@ -798,7 +798,7 @@ def _array_dtype(
     marker: str | None,
     object_marker: str | None,
 ) -> np.dtype[Any] | StoredElement:
-    """Resolve a plain array's element the way :func:`series_dtype` resolves a series."""
+    """Resolve a plain array's element the way `series_dtype` resolves a series."""
     resolved = series_dtype(element, element_frequency, length, nbytes, marker, object_marker)
     canonical_bool = (
         element == KIND_INTEGER and not element_frequency and (not length or nbytes // length == 1)

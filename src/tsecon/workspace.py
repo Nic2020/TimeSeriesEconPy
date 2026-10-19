@@ -13,21 +13,21 @@ Both attribute access (``w.a``) and bracket access (``w["a"]``) are supported,
 matching the Julia idiom of dual access via ``getproperty`` and ``getindex``.
 Subset access (``w["a", "b"]`` or ``w[["a", "b"]]``) returns a new Workspace.
 
-The :func:`copyto` free function mirrors Julia's
+The [`copyto`][tsecon.workspace.copyto] free function mirrors Julia's
 ``Base.copyto!(::MVTSeries, ::Workspace; verbose=, trange=)``: an in-place
 materialiser that writes Workspace members into the matching columns of a
 pre-allocated MVTSeries without re-allocating the matrix buffer.
 
-The :meth:`Workspace.as_namespace` context manager exposes members as
-attributes on a snapshot ``SimpleNamespace``, the Pythonic alternative to
+The [`Workspace.as_namespace`][tsecon.workspace.Workspace.as_namespace] context manager exposes
+members as attributes on a snapshot ``SimpleNamespace``, the Pythonic alternative to
 Julia's ``@weval`` macro.
 
 Intentional non-ports (do not re-litigate):
 
 * ``@weval`` — Julia AST-rewriting macro. Python has no analogue; the
   idiomatic shapes are direct attribute access (``w.x + w.alpha``) or
-  the snapshot context manager :meth:`Workspace.as_namespace`. An
-  ``eval``-based form is not provided because runtime ``eval`` of
+  the snapshot context manager [`Workspace.as_namespace`][tsecon.workspace.Workspace.as_namespace].
+  An ``eval``-based form is not provided because runtime ``eval`` of
   arbitrary expression strings breaks static tooling (mypy, IDE refactors,
   "find references") and is a security footgun on untrusted workspaces.
 * ``clean_old_frequencies`` — Julia compatibility shim for legacy
@@ -36,8 +36,8 @@ Intentional non-ports (do not re-litigate):
   the migration helper has no input to operate on.
 
 The standalone ``strip!(t::TSeries)`` helper now lives in the ported fconvert
-subpackage as :func:`tsecon.fconvert.strip_tseries_inplace`; the workspace
-delegates to it.
+subpackage as [`tsecon.fconvert.strip_tseries_inplace`][tsecon.fconvert.strip_tseries_inplace]; the
+workspace delegates to it.
 """
 
 from __future__ import annotations
@@ -290,9 +290,9 @@ class Workspace:
 
         With ``deep=False`` (the default) the storage dict is fresh but
         values are shared by reference — Python-dict semantics. With
-        ``deep=True``, every value is recursively :func:`copy.deepcopy`-ed,
+        ``deep=True``, every value is recursively [`copy.deepcopy`][copy.deepcopy]-ed,
         equivalent to ``copy.deepcopy(self)``. The kwarg matches the
-        :meth:`TSeries.copy` signature for API uniformity.
+        [`TSeries.copy`][tsecon.tseries.TSeries.copy] signature for API uniformity.
         """
         if deep:
             return deepcopy(self)
@@ -342,8 +342,8 @@ class Workspace:
         nested Workspaces. Mirrors Julia's ``strip!(w; recursive)``.
 
         Delegates the per-TSeries trim to
-        :func:`tsecon.fconvert.strip_tseries_inplace`. Bool-dtype TSeries are
-        left alone (their typenan is ``False``, which would erase the array).
+        [`tsecon.fconvert.strip_tseries_inplace`][tsecon.fconvert.strip_tseries_inplace]. Bool-dtype
+        TSeries are left alone (their typenan is ``False``, which would erase the array).
         """
         for value in self._c.values():
             if isinstance(value, TSeries):
@@ -393,8 +393,8 @@ class Workspace:
         method
             ``"intersect"`` (default) returns the intersection of all member
             ranges. ``"union"`` returns the spanning union, equivalent to
-            :meth:`rangeof_span`. Mirrors Julia's ``rangeof(w; method=intersect)``
-            policy switch.
+            [`rangeof_span`][tsecon.workspace.Workspace.rangeof_span]. Mirrors Julia's
+            ``rangeof(w; method=intersect)`` policy switch.
         """
         if method == "union":
             return self.rangeof_span()
@@ -521,7 +521,7 @@ def _format_value(v: object) -> str:
 def _repr_html_workspace(w: Workspace) -> str:
     """HTML rendering of a Workspace for Jupyter / VS Code / notebook hosts.
 
-    Mirrors :func:`_format_workspace`'s ``key ⇒ value`` layout as a
+    Mirrors `_format_workspace`'s ``key ⇒ value`` layout as a
     two-column ``<table>``. No row truncation — Workspaces are typically
     small (member counts in the dozens, not thousands). Plain ``<table>``
     element, no CSS classes — host environments (MS Fabric, Databricks,
@@ -562,7 +562,7 @@ def copyto(
 
     Mirrors Julia's ``Base.copyto!(x::MVTSeries, w::AbstractWorkspace;
     verbose=false, trange=rangeof(x))``. For each column name in
-    ``dst.column_names``, the matching ``src[name]`` :class:`TSeries` is
+    ``dst.column_names``, the matching ``src[name]`` [`TSeries`][tsecon.tseries.TSeries] is
     written into the destination column over the overlap of ``trange`` and
     the source TSeries's range; ``dst._values`` is mutated, never replaced.
 
@@ -575,15 +575,15 @@ def copyto(
         Source Workspace. Only members whose names appear in
         ``dst.column_names`` are visited; extra Workspace entries are ignored.
     verbose
-        When True, a single :class:`UserWarning` is emitted at the end of
+        When True, a single [`UserWarning`][UserWarning] is emitted at the end of
         the loop listing every column that was not written because its name
         is absent from ``src``. Matches Julia's end-of-loop ``@warn`` shape.
     trange
-        Optional :class:`MITRange` restricting the rows to write. Defaults
+        Optional [`MITRange`][tsecon.mitrange.MITRange] restricting the rows to write. Defaults
         to ``dst.range``. Must share ``dst``'s frequency, have ``step == 1``,
         and be contained in ``dst.range``. The actual rows written for any
         given column are the intersection of ``trange`` with that column's
-        source :class:`TSeries` range (so a source that doesn't cover all
+        source [`TSeries`][tsecon.tseries.TSeries] range (so a source that doesn't cover all
         of ``trange`` writes only the overlap, never raises).
 
     Returns
@@ -597,7 +597,7 @@ def copyto(
     TypeError
         If ``trange`` (or, by default, ``dst``'s frequency) does not match a
         matching source member's frequency, or if a Workspace member at a
-        matching key is not a :class:`TSeries`.
+        matching key is not a [`TSeries`][tsecon.tseries.TSeries].
     ValueError
         If ``trange`` has a non-unit step.
     IndexError

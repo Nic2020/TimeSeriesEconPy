@@ -4,10 +4,10 @@
 Julia's dated ``TSeries`` and ``MVTSeries`` may hold ``MIT{F}`` dates and
 ``Duration{F}`` spans (raw Int64 codes with their own element frequency,
 independent of the axis), ``Int128``/``UInt128`` integers and ``ComplexF16``
-values. NumPy has no scalar type for any of them, so :class:`StoredSeries`
+values. NumPy has no scalar type for any of them, so [`StoredSeries`][tsecon.dataecon.StoredSeries]
 keeps such a series in its stored form: a dated anchor, a contiguous carrier
-array with the exact stored bytes, and a :class:`StoredElement` describing the
-element family. :class:`StoredMVTSeries` is the same representation for a
+array with the exact stored bytes, and a [`StoredElement`][tsecon.dataecon.StoredElement] describing
+the element family. `StoredMVTSeries` is the same representation for a
 dated matrix: a dated row anchor, the column names and a two-dimensional
 carrier, sharing the descriptor, the packers and the marker rules.
 
@@ -16,11 +16,11 @@ element type the values are converted to on load, and ``jtype`` names a
 whole-object type that takes precedence. Where such a marker asks for
 something other than the stored family, the container preserves the stored
 kind, element frequency, bytes and the exact marker text (``element.marker``
-and :attr:`StoredSeries.object_marker`); :meth:`StoredSeries.to_interpreted`
-returns Julia's converted value as an independently owning object without
-changing what is stored. Explicit conversions (``tolist``, ``from_list``,
-``to_complex64``, ``to_bool``, ``to_interpreted``) are the only paths to
-ordinary Python or NumPy values. No marker text is ever evaluated.
+and [`StoredSeries.object_marker`][tsecon.dataecon.StoredSeries.object_marker]);
+[`StoredSeries.to_interpreted`][tsecon.dataecon.StoredSeries.to_interpreted] returns Julia's
+converted value as an independently owning object without changing what is stored. Explicit
+conversions (``tolist``, ``from_list``, ``to_complex64``, ``to_bool``, ``to_interpreted``) are the
+only paths to ordinary Python or NumPy values. No marker text is ever evaluated.
 
 This module holds no native resource. File codecs preserve these carrier
 bytes and their validated metadata without implicit value conversion.
@@ -143,7 +143,7 @@ class IntegerComplex:
     """An exact ``Complex{T}`` value for integer ``T``: two Python integers.
 
     Julia keeps such components exact at any width, so a Python ``complex``
-    (two Float64) cannot hold them in general; :meth:`to_complex` converts
+    (two Float64) cannot hold them in general; `to_complex` converts
     only when both components are exactly representable in Float64.
     """
 
@@ -179,9 +179,9 @@ class RationalComplex:
     """An exact ``Complex{Rational{T}}`` value: two ``fractions.Fraction`` components.
 
     Julia rebuilds each component with its ``Rational{T}`` reconstruction of
-    the stored Float64 (see :meth:`StoredScalar.to_fraction`); a component
+    the stored Float64 (see `StoredScalar.to_fraction`); a component
     Julia loads as ``±1//0`` has no Fraction, so such a value raises before
-    this pair is built. :meth:`to_complex` returns Julia's ``float(z)``, the
+    this pair is built. `to_complex` returns Julia's ``float(z)``, the
     two components as Float64 (a rounding conversion, explicitly requested).
     """
 
@@ -247,7 +247,7 @@ class StoredElement:
     ``Complex{Int8}``, ``Complex{Rational{Int128}}``), which Julia's loader
     builds from a marked Float64/ComplexF64/integer payload and its writer
     cannot store. Whether a marker can be interpreted is decided against the
-    values by :class:`StoredSeries`; the descriptor itself only records it.
+    values by [`StoredSeries`][tsecon.dataecon.StoredSeries]; the descriptor itself only records it.
     """
 
     kind: ElementKind
@@ -538,8 +538,9 @@ class StoredSeries:
     dtype is shared with the caller (edits are visible through both names);
     any other compatible input, including read-only or strided arrays, is
     copied into a fresh owning writable array. Input of another dtype is
-    refused rather than converted; build the carrier with :meth:`from_list`
-    or an explicit ``np.array(..., dtype=element.dtype)``.
+    refused rather than converted; build the carrier with
+    [`from_list`][tsecon.dataecon.StoredSeries.from_list] or an explicit
+    ``np.array(..., dtype=element.dtype)``.
 
     ``object_marker`` is a preserved whole-object ``jtype`` text. When present
     it takes precedence: the element marker is kept as inactive data and is
@@ -547,7 +548,7 @@ class StoredSeries:
     descriptor and object marker are read-only. The carrier's contents may be
     edited in place; its shape, dtype and layout are revalidated before every
     operation, and an active marker is validated against the current contents
-    by :meth:`validate` and every conversion.
+    by [`validate`][tsecon.dataecon.StoredSeries.validate] and every conversion.
     """
 
     __slots__ = ("_element", "_firstdate", "_object_marker", "_values")
@@ -673,7 +674,7 @@ class StoredSeries:
     # ---- validation ------------------------------------------------------
 
     def _interpretation(self) -> tuple[str, Target]:
-        """Resolve precedence for the live carrier; see :func:`resolve_interpretation`."""
+        """Resolve precedence for the live carrier; see `resolve_interpretation`."""
         return resolve_interpretation(
             self._values, self._element, self._object_marker, self._firstdate.frequency
         )
@@ -705,7 +706,8 @@ class StoredSeries:
         values become Python ``complex`` (a NaN component loses its payload);
         ordinary numeric carriers give NumPy's ``tolist`` values. A preserved
         marker does not change this: the stored values are returned; use
-        :meth:`to_interpreted` for Julia's converted values.
+        [`to_interpreted`][tsecon.dataecon.StoredSeries.to_interpreted] for Julia's converted
+        values.
         """
         _check_carrier(self._values, self._element)
         return element_tolist(self._values, self._element)
@@ -856,8 +858,8 @@ def _exact_object(components: tuple[int, ...], kind: str) -> Any:
 def pack_elements(element: StoredElement, items: Iterable[object]) -> np.ndarray[Any, Any]:
     """Pack Python values into a fresh one-dimensional carrier of ``element.dtype``.
 
-    The strict rules of :meth:`StoredSeries.from_list` apply: core
-    ``MIT``/``Duration`` objects of exactly the element frequency, Python
+    The strict rules of [`StoredSeries.from_list`][tsecon.dataecon.StoredSeries.from_list] apply:
+    core ``MIT``/``Duration`` objects of exactly the element frequency, Python
     ``int`` values in the 128-bit range, and Python ``complex`` values or
     ``(np.float16, np.float16)`` pairs for ComplexF16. Ordinary numeric
     families are refused; they are built from an explicit NumPy array.
@@ -1228,10 +1230,11 @@ def rational_storage(
     ``Float64(num) / Float64(den)`` and, by default, accepted only when the
     pinned loader rebuilds exactly that fraction; ``exact=False`` stores the
     float when Julia can load *some* rational from it and leaves the loss
-    explicit. The result pairs with :class:`StoredSeries`, :class:`StoredArray`
-    or :class:`StoredMVTSeries`; :meth:`~StoredSeries.to_interpreted` returns
-    the exact carrier back. An input whose Float64 storage would exceed the
-    payload limit is refused before anything is copied or allocated.
+    explicit. The result pairs with [`StoredSeries`][tsecon.dataecon.StoredSeries],
+    [`StoredArray`][tsecon.dataecon.StoredArray] or `StoredMVTSeries`;
+    [`to_interpreted`][tsecon.dataecon.StoredSeries.to_interpreted] returns the exact carrier back.
+    An input whose Float64 storage would exceed the payload limit is refused before anything is
+    copied or allocated.
     """
     if parameter not in _exact.RATIONAL_PARAMETERS:
         raise TypeError(f"Unknown Rational parameter {parameter!r}.")
@@ -1266,7 +1269,7 @@ def integer_complex_storage(
 ) -> tuple[np.ndarray[Any, Any], StoredElement]:
     """Build the ComplexF64 carrier and marked descriptor Julia reloads as ``Complex{parameter}``.
 
-    ``items`` are :class:`IntegerComplex` values (an iterable, an object array
+    ``items`` are `IntegerComplex` values (an iterable, an object array
     or an exact ``intcomplex`` carrier). Each component must lie within
     ``parameter`` and be exactly representable in Float64, which is what
     Julia's own writer stores and reloads (no ``2**53`` cutoff). An input
@@ -1296,8 +1299,8 @@ def rational_complex_storage(
 ) -> tuple[np.ndarray[Any, Any], StoredElement]:
     """Build the ComplexF64 storage Julia reloads as ``Complex{Rational{parameter}}``.
 
-    ``items`` are :class:`RationalComplex` values; each component follows the
-    rule of :func:`rational_storage` (exact by default, ``exact=False`` for a
+    ``items`` are `RationalComplex` values; each component follows the
+    rule of `rational_storage` (exact by default, ``exact=False`` for a
     documented loss) and the same capacity rule.
     """
     if parameter not in _exact.RATIONAL_PARAMETERS:
@@ -1395,7 +1398,7 @@ def resolve_mvtseries_interpretation(
     Returns ``("identity"|"element"|"stored", target)``. A present
     whole-object marker wins and leaves the element marker inactive, as in
     Julia; the only supported whole-object tokens are identities (see
-    :func:`_interpret.mvtseries_object_interpretation`). Element markers use
+    `_interpret.mvtseries_object_interpretation`). Element markers use
     the same finite table, routes and value rules as dated series and plain
     arrays, applied to the column-major flat values.
     """
@@ -1429,7 +1432,7 @@ class StoredMVTSeries:
     constructor copies by default; with ``copy=False`` a writable, C-contiguous
     array of the exact dtype is shared with the caller and anything else is
     copied. Input of another dtype is refused rather than converted; build the
-    carrier with :meth:`from_list` or an explicit ``np.array(..., dtype=...)``.
+    carrier with `from_list` or an explicit ``np.array(..., dtype=...)``.
 
     ``object_marker`` is a preserved whole-object ``jtype`` text; when present
     it takes precedence and the element marker is inactive, as in Julia. The
@@ -1486,7 +1489,7 @@ class StoredMVTSeries:
 
         Every row must hold exactly one value per column name; an empty outer
         sequence gives a zero-row matrix. Values follow the strict rules of
-        :func:`pack_elements` (core ``MIT``/``Duration`` of the element
+        `pack_elements` (core ``MIT``/``Duration`` of the element
         frequency, in-range ``int`` for 128-bit carriers, ``complex`` or
         ``(np.float16, np.float16)`` pairs for ComplexF16); ordinary numeric
         families are built from an explicit NumPy array instead.
@@ -1610,7 +1613,7 @@ class StoredMVTSeries:
         element frequency, 128-bit values Python ``int``, ComplexF16 values
         Python ``complex`` and ordinary numeric carriers NumPy's ``tolist``
         values. A preserved marker does not change this; use
-        :meth:`to_interpreted` for Julia's converted values.
+        `to_interpreted` for Julia's converted values.
         """
         _check_matrix_carrier(self._values, self._element, len(self._columns))
         rows, columns = self.shape

@@ -8,13 +8,13 @@ surface once the sub-milestones land:
 ==========================  ===========================  ==================
 Julia file                  Python sibling                Lands in
 ==========================  ===========================  ==================
-``X13.jl``                  :mod:`tsecon.x13._x13`        M2.5 (`cleanup`,
+``X13.jl``                  [`tsecon.x13._x13`][tsecon.x13._x13]        M2.5 (`cleanup`,
                                                          `deseasonalize`,
                                                          `WorkspaceTable`,
                                                          `X13ResultWorkspace`)
-``x13consts.jl``            :mod:`tsecon.x13._consts`     M2.1 (output-
+``x13consts.jl``            `tsecon.x13._consts`     M2.1 (output-
                                                          description tables)
-``x13spec.jl``              :mod:`tsecon.x13._spec`       M2.1 (`X13var`
+``x13spec.jl``              [`tsecon.x13._spec`][tsecon.x13._spec]       M2.1 (`X13var`
                                                          types,
                                                          `ArimaSpec`,
                                                          `ArimaModel`,
@@ -24,30 +24,40 @@ Julia file                  Python sibling                Lands in
                                                          (rare builders),
                                                          M2.4
                                                          (`validateX13spec`)
-``x13write.jl``              :mod:`tsecon.x13._write`     M2.4 (.spc serializer)
-``x13result.jl``             :mod:`tsecon.x13._result`    M2.5 (`X13lazy`,
+``x13write.jl``              [`tsecon.x13._write`][tsecon.x13._write]     M2.4 (.spc serializer)
+``x13result.jl``             `tsecon.x13._result`    M2.5 (`X13lazy`,
                                                          `X13result`,
-                                                         :func:`run`,
+                                                         [`run`][tsecon.x13._result.run],
                                                          readers)
 ==========================  ===========================  ==================
 
 The public surface this subpackage will eventually export:
 
-* :func:`run` — execute X-13ARIMA-SEATS on a spec; returns an
-  :class:`X13result`.
-* :func:`deseasonalize` / :func:`deseasonalize_inplace` — convenience over
-  ``run`` for the common ``d11`` extraction.
-* :func:`cleanup` — remove stale ``x13_*`` temp folders the process leaked.
-* :class:`WorkspaceTable`, :class:`X13ResultWorkspace`, :class:`X13result`,
-  :class:`X13lazy` — result-side containers.
-* :class:`X13spec`, :class:`ArimaSpec`, :class:`ArimaModel`,
-  :func:`validateX13spec`, :func:`newspec` — spec-side surface.
-* 19 spec builders: :func:`series`, :func:`x11`, :func:`seats`, :func:`arima`,
-  :func:`automdl`, :func:`transform`, :func:`regression`, :func:`forecast`,
-  :func:`outlier`, :func:`history`, :func:`identify`, :func:`check`,
-  :func:`estimate`, :func:`metadata`, :func:`pickmdl`, :func:`force`,
-  :func:`slidingspans`, :func:`spectrum`, :func:`x11regression`.
-* 25 :class:`X13var` types: ``ao`` / ``ls`` / ``tc`` / ``so`` (point
+* [`run`][tsecon.x13._result.run] — execute X-13ARIMA-SEATS on a spec; returns an
+  [`X13result`][tsecon.x13._result.X13result].
+* [`deseasonalize`][tsecon.x13._x13.deseasonalize] /
+  [`deseasonalize_inplace`][tsecon.x13._x13.deseasonalize_inplace] — convenience over ``run`` for
+  the common ``d11`` extraction.
+* [`cleanup`][tsecon.x13._x13.cleanup] — remove stale ``x13_*`` temp folders the process leaked.
+* [`WorkspaceTable`][tsecon.x13._result.WorkspaceTable],
+  [`X13ResultWorkspace`][tsecon.x13._result.X13ResultWorkspace],
+  [`X13result`][tsecon.x13._result.X13result], [`X13lazy`][tsecon.x13._result.X13lazy] — result-side
+  containers.
+* [`X13spec`][tsecon.x13._spec.X13spec], [`ArimaSpec`][tsecon.x13._spec.ArimaSpec],
+  [`ArimaModel`][tsecon.x13._spec.ArimaModel],
+  [`validateX13spec`][tsecon.x13._spec.validateX13spec], [`newspec`][tsecon.x13._spec.newspec] —
+  spec-side surface.
+* 19 spec builders: [`series`][tsecon.x13._spec.series], [`x11`][tsecon.x13._spec.x11],
+  [`seats`][tsecon.x13._spec.seats], [`arima`][tsecon.x13._spec.arima],
+  [`automdl`][tsecon.x13._spec.automdl], [`transform`][tsecon.x13._spec.transform],
+  [`regression`][tsecon.x13._spec.regression], [`forecast`][tsecon.x13._spec.forecast],
+  [`outlier`][tsecon.x13._spec.outlier], [`history`][tsecon.x13._spec.history],
+  [`identify`][tsecon.x13._spec.identify], [`check`][tsecon.x13._spec.check],
+  [`estimate`][tsecon.x13._spec.estimate], [`metadata`][tsecon.x13._spec.metadata],
+  [`pickmdl`][tsecon.x13._spec.pickmdl], [`force`][tsecon.x13._spec.force],
+  [`slidingspans`][tsecon.x13._spec.slidingspans], [`spectrum`][tsecon.x13._spec.spectrum],
+  [`x11regression`][tsecon.x13._spec.x11regression].
+* 25 [`X13var`][tsecon.x13._spec.X13var] types: ``ao`` / ``ls`` / ``tc`` / ``so`` (point
   outliers), ``aos`` / ``lss`` / ``rp`` / ``qd`` / ``qi`` / ``tl`` (range
   outliers), ``td`` / ``tdnolpyear`` / ``td1coef`` / ``td1nolpyear`` /
   ``tdstock`` / ``tdstock1coef`` (trading-day regressors), ``easter`` /
@@ -78,65 +88,80 @@ Sub-decisions locked in M2.0 follow-up (this session):
   cp313}`` matrix from `wheels.yml` carries over; the new step set
   installs gfortran, downloads the Census source tarball, runs ``make
   -f makefile.gf``, and places ``x13as`` under
-  :mod:`tsecon.x13._binary` for :func:`importlib.resources.files` lookup
+  `tsecon.x13._binary` for [`importlib.resources.files`][importlib.resources.files] lookup
   at runtime. arm64 wheels stay deferred until user demand surfaces
   (existing matrix already covers macOS arm64 via ``macos-latest``).
 
-M2.1 landed the spec-type surface (session 49): 26 :class:`X13var` leaves,
-:class:`RegimeChange`, :class:`X13default`, :class:`ArimaSpec`, and
-:class:`ArimaModel` are re-exported below.
+M2.1 landed the spec-type surface (session 49): 26 [`X13var`][tsecon.x13._spec.X13var] leaves,
+[`RegimeChange`][tsecon.x13._spec.RegimeChange], [`X13default`][tsecon.x13._spec.X13default],
+[`ArimaSpec`][tsecon.x13._spec.ArimaSpec], and [`ArimaModel`][tsecon.x13._spec.ArimaModel] are
+re-exported below.
 
-M2.2 landed the high-traffic spec builders (session 50): :class:`Span`,
-the eight container dataclasses (:class:`X13series`, :class:`X13arima`,
-:class:`X13automdl`, :class:`X13transform`, :class:`X13regression`,
-:class:`X13forecast`, :class:`X13seats`, :class:`X13x11`), and their
-eight builder functions (:func:`series`, :func:`arima`, :func:`automdl`,
-:func:`transform`, :func:`regression`, :func:`forecast`, :func:`seats`,
-:func:`x11`). Each builder validates its kwargs and returns a frozen
-dataclass; the ``.spc`` text emission is deferred to M2.4
-(:mod:`tsecon.x13._write`).
+M2.2 landed the high-traffic spec builders (session 50): [`Span`][tsecon.x13._spec.Span],
+the eight container dataclasses ([`X13series`][tsecon.x13._spec.X13series],
+[`X13arima`][tsecon.x13._spec.X13arima], [`X13automdl`][tsecon.x13._spec.X13automdl],
+[`X13transform`][tsecon.x13._spec.X13transform], [`X13regression`][tsecon.x13._spec.X13regression],
+[`X13forecast`][tsecon.x13._spec.X13forecast], [`X13seats`][tsecon.x13._spec.X13seats],
+[`X13x11`][tsecon.x13._spec.X13x11]), and their eight builder functions
+([`series`][tsecon.x13._spec.series], [`arima`][tsecon.x13._spec.arima],
+[`automdl`][tsecon.x13._spec.automdl], [`transform`][tsecon.x13._spec.transform],
+[`regression`][tsecon.x13._spec.regression], [`forecast`][tsecon.x13._spec.forecast],
+[`seats`][tsecon.x13._spec.seats], [`x11`][tsecon.x13._spec.x11]). Each builder validates its kwargs
+and returns a frozen dataclass; the ``.spc`` text emission is deferred to M2.4
+([`tsecon.x13._write`][tsecon.x13._write]).
 
 M2.3 lands the eleven rare spec builders (this session): the eleven
-container dataclasses (:class:`X13check`, :class:`X13estimate`,
-:class:`X13force`, :class:`X13history`, :class:`X13identify`,
-:class:`X13metadata`, :class:`X13outlier`, :class:`X13pickmdl`,
-:class:`X13slidingspans`, :class:`X13spectrum`, :class:`X13x11regression`)
-and their eleven builder functions (:func:`check`, :func:`estimate`,
-:func:`force`, :func:`history`, :func:`identify`, :func:`metadata`,
-:func:`outlier`, :func:`pickmdl`, :func:`slidingspans`, :func:`spectrum`,
-:func:`x11regression`). Same shape pattern as M2.2 — frozen-slotted
-containers + builders with per-builder validation. Closes the full
-19-builder X-13 surface; the remaining M2 work is the writer (M2.4),
-result-side workspace (M2.5), and wheels distribution (M2.6).
+container dataclasses ([`X13check`][tsecon.x13._spec.X13check],
+[`X13estimate`][tsecon.x13._spec.X13estimate], [`X13force`][tsecon.x13._spec.X13force],
+[`X13history`][tsecon.x13._spec.X13history], [`X13identify`][tsecon.x13._spec.X13identify],
+[`X13metadata`][tsecon.x13._spec.X13metadata], [`X13outlier`][tsecon.x13._spec.X13outlier],
+[`X13pickmdl`][tsecon.x13._spec.X13pickmdl], [`X13slidingspans`][tsecon.x13._spec.X13slidingspans],
+[`X13spectrum`][tsecon.x13._spec.X13spectrum],
+[`X13x11regression`][tsecon.x13._spec.X13x11regression]) and their eleven builder functions
+([`check`][tsecon.x13._spec.check], [`estimate`][tsecon.x13._spec.estimate],
+[`force`][tsecon.x13._spec.force], [`history`][tsecon.x13._spec.history],
+[`identify`][tsecon.x13._spec.identify], [`metadata`][tsecon.x13._spec.metadata],
+[`outlier`][tsecon.x13._spec.outlier], [`pickmdl`][tsecon.x13._spec.pickmdl],
+[`slidingspans`][tsecon.x13._spec.slidingspans], [`spectrum`][tsecon.x13._spec.spectrum],
+[`x11regression`][tsecon.x13._spec.x11regression]). Same shape pattern as M2.2 — frozen-slotted
+containers + builders with per-builder validation. Closes the full 19-builder X-13 surface; the
+remaining M2 work is the writer (M2.4), result-side workspace (M2.5), and wheels distribution
+(M2.6).
 
-M2.4 lands the :class:`X13spec` aggregator (mutable + slots, mirroring
-Julia's ``mutable struct``), :func:`newspec` factory, the
-:func:`validateX13spec` cross-spec invariant check (~50 branches:
+M2.4 lands the [`X13spec`][tsecon.x13._spec.X13spec] aggregator (mutable + slots, mirroring
+Julia's ``mutable struct``), [`newspec`][tsecon.x13._spec.newspec] factory, the
+[`validateX13spec`][tsecon.x13._spec.validateX13spec] cross-spec invariant check (~50 branches:
 ARIMA-source mutual exclusion, regression-variable type compatibility,
 data-range containment, slidingspans bounds, soft warnings for HP
 filter sample-size / modelspan-vs-span / spectrum.qcheck /
 forcecal / etc.), and the ``.spc`` serializer in
-:mod:`tsecon.x13._write` (top-level :func:`x13write` +
-:func:`impose_line_length` line-wrap helper). The serializer mirrors
-the Julia upstream's column-budget logic (132 minus the 8-space block
+[`tsecon.x13._write`][tsecon.x13._write] (top-level [`x13write`][tsecon.x13._write.x13write] +
+[`impose_line_length`][tsecon.x13._write.impose_line_length] line-wrap helper). The serializer
+mirrors the Julia upstream's column-budget logic (132 minus the 8-space block
 indent), preferring ``" + "`` splits on ``print=`` lists when present.
 
 M2.5 lands the result-side surface (this session): the
-:class:`WorkspaceTable` and :class:`X13ResultWorkspace` workspace
-subclasses (lazy materialisation of :class:`X13lazy` proxies on first
-attribute / key access), :class:`X13result`, the :func:`run` entry
-that invokes the binary on a populated spec (or raw spec string), the
-:func:`loadresult` dispatcher, the eight per-format readers
-(:func:`x13read_series`, :func:`x13read_workspace_table`,
-:func:`x13read_key_values`, :func:`x13read_udg`,
-:func:`x13read_estimates`, :func:`x13read_model`,
-:func:`x13read_identify`, :func:`x13read_seatsseries`,
-:func:`x13read_err`), and the :func:`deseasonalize` /
-:func:`deseasonalize_inplace` convenience wrappers + :func:`cleanup`
-sweep. The end-to-end binary-fidelity test (Julia ``d11`` vs Python
-``d11`` to 1e-10) is deferred to M2.6 alongside the wheels-side
-gfortran binary; until then :func:`run` raises a clear error message
-when no binary is reachable via ``setoption("x13path", ...)``.
+[`WorkspaceTable`][tsecon.x13._result.WorkspaceTable] and
+[`X13ResultWorkspace`][tsecon.x13._result.X13ResultWorkspace] workspace subclasses (lazy
+materialisation of [`X13lazy`][tsecon.x13._result.X13lazy] proxies on first attribute / key access),
+[`X13result`][tsecon.x13._result.X13result], the [`run`][tsecon.x13._result.run] entry that invokes
+the binary on a populated spec (or raw spec string), the
+[`loadresult`][tsecon.x13._result.loadresult] dispatcher, the eight per-format readers
+([`x13read_series`][tsecon.x13._result.x13read_series],
+[`x13read_workspace_table`][tsecon.x13._result.x13read_workspace_table],
+[`x13read_key_values`][tsecon.x13._result.x13read_key_values],
+[`x13read_udg`][tsecon.x13._result.x13read_udg],
+[`x13read_estimates`][tsecon.x13._result.x13read_estimates],
+[`x13read_model`][tsecon.x13._result.x13read_model],
+[`x13read_identify`][tsecon.x13._result.x13read_identify],
+[`x13read_seatsseries`][tsecon.x13._result.x13read_seatsseries],
+[`x13read_err`][tsecon.x13._result.x13read_err]), and the
+[`deseasonalize`][tsecon.x13._x13.deseasonalize] /
+[`deseasonalize_inplace`][tsecon.x13._x13.deseasonalize_inplace] convenience wrappers +
+[`cleanup`][tsecon.x13._x13.cleanup] sweep. The end-to-end binary-fidelity test (Julia ``d11`` vs
+Python ``d11`` to 1e-10) is deferred to M2.6 alongside the wheels-side gfortran binary; until then
+[`run`][tsecon.x13._result.run] raises a clear error message when no binary is reachable via
+``setoption("x13path", ...)``.
 
 ``tsecon.x13`` is re-exported from the top-level
 ``tsecon/__init__.py`` (``import tsecon; tsecon.x13.ao(2020 // 1)``

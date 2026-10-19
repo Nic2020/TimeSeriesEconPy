@@ -1,32 +1,33 @@
 # SPDX-License-Identifier: MIT
-"""Module-level conveniences for :mod:`tsecon.x13`.
+"""Module-level conveniences for `tsecon.x13`.
 
 Mirrors the convenience block of ``TimeSeriesEcon.jl/src/x13/X13.jl``
-(``X13.jl:42-98``). The result-side types — :class:`WorkspaceTable`,
-:class:`X13ResultWorkspace`, :class:`X13lazy`, :class:`X13result`,
-:func:`run`, parsers — live in :mod:`tsecon.x13._result`. This sibling
-hosts the three top-level convenience functions:
+(``X13.jl:42-98``). The result-side types — [`WorkspaceTable`][tsecon.x13._result.WorkspaceTable],
+[`X13ResultWorkspace`][tsecon.x13._result.X13ResultWorkspace],
+[`X13lazy`][tsecon.x13._result.X13lazy], [`X13result`][tsecon.x13._result.X13result],
+[`run`][tsecon.x13._result.run], parsers — live in `tsecon.x13._result`. This sibling hosts the
+three top-level convenience functions:
 
-* :func:`cleanup` — sweep stale ``x13_*`` temp folders that the
-  per-result :func:`weakref.finalize` callback missed (process hard
+* [`cleanup`][tsecon.x13._x13.cleanup] — sweep stale ``x13_*`` temp folders that the
+  per-result [`weakref.finalize`][weakref.finalize] callback missed (process hard
   kill, finalizer race at interpreter shutdown). Mirrors Julia
   ``cleanup`` at ``X13.jl:62-90``.
-* :func:`deseasonalize` — run a default ``x11`` spec on a TSeries and
+* [`deseasonalize`][tsecon.x13._x13.deseasonalize] — run a default ``x11`` spec on a TSeries and
   return a new TSeries with the ``d11`` (final seasonally adjusted
   series) values. Mirrors Julia ``deseasonalize`` at ``X13.jl:58``.
-* :func:`deseasonalize_inplace` — in-place flavour; replaces the values
-  of the input TSeries in place. Mirrors Julia ``deseasonalize!`` at
+* [`deseasonalize_inplace`][tsecon.x13._x13.deseasonalize_inplace] — in-place flavour; replaces the
+  values of the input TSeries in place. Mirrors Julia ``deseasonalize!`` at
   ``X13.jl:52-57``. The ``_inplace`` rename follows the existing
   TimeSeriesEconPy convention (Julia ``foo!`` → Python
-  ``foo_inplace``) — see :func:`tsecon.recursive.rec` and
-  :func:`tsecon.workspace.merge_inplace` for the parallel pattern.
+  ``foo_inplace``) — see [`tsecon.recursive.rec`][tsecon.recursive.rec] and
+  `tsecon.workspace.merge_inplace` for the parallel pattern.
 
 The Julia upstream's module-level ``__init__`` (``X13.jl:92-98``) prints
 an `@info` warning at import time when 5+ stale ``x13_*`` folders are
-found. Importing :mod:`tsecon.x13` on every Python script start is
+found. Importing `tsecon.x13` on every Python script start is
 already slower than Julia's `using` (no in-process module cache); we
-defer the leftover-folder count to the first :func:`run` call instead,
-where it's emitted as a :class:`UserWarning` rather than as a print
+defer the leftover-folder count to the first [`run`][tsecon.x13._result.run] call instead,
+where it's emitted as a [`UserWarning`][UserWarning] rather than as a print
 statement.
 """
 
@@ -55,7 +56,7 @@ def get_cleanup_folders() -> list[str]:
 
     Mirrors Julia ``get_cleanup_folders`` at ``X13.jl:76-90``. The Julia
     version filters by current-user UID; on POSIX we keep that check
-    via :func:`os.stat`; on Windows we drop it (the system tempdir is
+    via [`os.stat`][os.stat]; on Windows we drop it (the system tempdir is
     per-user by default).
     """
     parent = tempfile.gettempdir()
@@ -91,8 +92,8 @@ def cleanup() -> None:
 
     Mirrors Julia ``cleanup`` at ``X13.jl:62-74``. Use this when a
     previous Python process was hard-killed before the per-result
-    :func:`weakref.finalize` callbacks could fire, leaving X-13 temp
-    folders behind. Emits a :class:`UserWarning` summarising the count
+    [`weakref.finalize`][weakref.finalize] callbacks could fire, leaving X-13 temp
+    folders behind. Emits a [`UserWarning`][UserWarning] summarising the count
     removed (Julia prints to stdout; we use the warnings channel so
     the message routes through the project's ``filterwarnings`` config).
     """
@@ -111,7 +112,7 @@ def deseasonalize_inplace(ts: TSeries, **kwargs: Any) -> TSeries:
     seasonal-adjustment decomposition is multiplicative (``mode="mult"``);
     the seasonal filter defaults to the X-13 binary's automatic choice
     unless ``seasonalma=`` is passed. ``kwargs`` are forwarded to
-    :func:`tsecon.x13.x11` (the spec builder).
+    [`tsecon.x13.x11`][tsecon.x13._spec.x11] (the spec builder).
 
     Returns ``ts`` for chaining (mirrors Julia's ``ts`` return).
 
@@ -140,6 +141,6 @@ def deseasonalize(ts: TSeries, **kwargs: Any) -> TSeries:
     """Return a new TSeries with the X-11 seasonally adjusted values.
 
     Mirrors Julia ``deseasonalize`` at ``X13.jl:58``. Equivalent to
-    :func:`deseasonalize_inplace` on a copy of the input.
+    [`deseasonalize_inplace`][tsecon.x13._x13.deseasonalize_inplace] on a copy of the input.
     """
     return deseasonalize_inplace(ts.copy(), **kwargs)

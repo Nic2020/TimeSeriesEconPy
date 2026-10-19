@@ -22,8 +22,8 @@ there is more than one target.
 Performance notes
 -----------------
 Per-iteration cost is dominated by the lambda call and the
-:class:`~tsecon.tseries.TSeries` ``__getitem__`` / ``__setitem__``
-dispatch (each indexing step allocates a fresh :class:`~tsecon.mit.MIT`
+[`TSeries`][tsecon.tseries.TSeries] ``__getitem__`` / ``__setitem__``
+dispatch (each indexing step allocates a fresh [`MIT`][tsecon.mit.MIT]
 for ``t - k`` and walks ``_ts_values_inds``). For a single 80-120 period
 recurrence (≈ 20-30 years of quarterly data) this is a few hundred
 microseconds — fine. For a data pipeline that runs ``rec`` thousands of
@@ -144,7 +144,7 @@ def rec_linear_is_cython() -> bool:
     """Return True iff the Cython-compiled rec_linear kernel was importable.
 
     Useful for tests, benchmarks, and diagnostic prints — the public
-    :func:`rec_linear` itself is implementation-agnostic. When this
+    [`rec_linear`][tsecon.recursive.rec_linear] itself is implementation-agnostic. When this
     returns ``False`` the same calls go through the pure-NumPy kernel
     in ``_rec_kernels.py``; behaviour is identical, only speed differs.
     """
@@ -159,7 +159,7 @@ def rec_linear(
 ) -> None:
     """Compute a linear-combination recurrence over ``rng`` in place.
 
-    Specialised closed-form sibling of :func:`rec` for the common case
+    Specialised closed-form sibling of [`rec`][tsecon.recursive.rec] for the common case
     where each step's value is a fixed linear combination of *earlier-
     written* values of the *same* series. Covers Fibonacci, AR(p),
     arbitrary lag polynomials — the recurrences that account for ~80%
@@ -194,10 +194,10 @@ def rec_linear(
     --------
     When the Cython extension ``tsecon._rec_kernels_cy`` is importable
     (the typical wheel install), this function delegates to the
-    compiled :func:`rec_linear_cython` kernel — same contract,
+    compiled `rec_linear_cython` kernel — same contract,
     much faster. Without the extension, the call goes through
-    :func:`rec_linear_numpy`, the pure-Python reference. Use
-    :func:`rec_linear_is_cython` to check which path is active.
+    `rec_linear_numpy`, the pure-Python reference. Use
+    [`rec_linear_is_cython`][tsecon.recursive.rec_linear_is_cython] to check which path is active.
 
     Notes
     -----
@@ -209,10 +209,10 @@ def rec_linear(
 
     * ``target[t] = target[t-1] + c`` (random walk / cumulative sum
       with constant drift) is *not* ``rec_linear`` territory; use
-      :func:`tsecon.undiff` instead.
+      [`tsecon.undiff`][tsecon._math.undiff] instead.
     * ``target[t] = β * target[t-1] + γ * y[t]`` (AR with exogenous
       reads from another series) is *not* ``rec_linear`` territory
-      either; use the general :func:`rec` with a lambda closing over
+      either; use the general [`rec`][tsecon.recursive.rec] with a lambda closing over
       both ``target`` and ``y``.
 
     Both near-misses raise an informative ``ValueError`` at the call
@@ -220,7 +220,7 @@ def rec_linear(
     ``min(lags) >= 1`` contract (``lags=[0]`` for the constant-drift
     misread), the second by virtue of the closed-form signature
     accepting only ``coeffs`` × ``lags`` (no second series). The
-    general :func:`rec` retains the readable nonlinear / multi-series
+    general [`rec`][tsecon.recursive.rec] retains the readable nonlinear / multi-series
     escape hatch; pick it whenever the recurrence body does not fit
     the linear-AR(p) shape.
 
@@ -254,8 +254,8 @@ def rec_linear(
         ``target`` does not contain the initial-condition positions
         ``rng.first - lags[k]`` for every ``k``. Each message names the
         offending value (shape, lag, MIT). The forward ``lags[k] < 1``
-        branch additionally points at :func:`tsecon.undiff` and
-        :func:`rec` for the two common near-misses (constant drift and
+        branch additionally points at [`tsecon.undiff`][tsecon._math.undiff] and
+        [`rec`][tsecon.recursive.rec] for the two common near-misses (constant drift and
         exogenous reads); see the *Notes* section above.
 
     Examples
@@ -287,7 +287,7 @@ def rec_linear(
     rec : General higher-order form ``target[t] = fn(t)``. Use it when
         the recurrence is nonlinear or reads from series other than
         ``target``.
-    tsecon.undiff : Inverse of :func:`tsecon.diff`. Use it for
+    tsecon.undiff : Inverse of [`tsecon.diff`][tsecon._math.diff]. Use it for
         ``target[t] = target[t-1] + c`` (random walk with constant
         drift) — the most common near-miss for ``rec_linear``.
     """

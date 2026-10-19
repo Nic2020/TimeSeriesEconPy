@@ -8,36 +8,40 @@ result-side surface from ``X13.jl`` (``WorkspaceTable``,
 Surface
 -------
 
-* :class:`WorkspaceTable` — :class:`~tsecon.workspace.Workspace` subclass
-  that prints as a column-aligned table (every entry is an equal-length
+* [`WorkspaceTable`][tsecon.x13._result.WorkspaceTable] — [`Workspace`][tsecon.workspace.Workspace]
+  subclass that prints as a column-aligned table (every entry is an equal-length
   list / array). Mirrors Julia ``WorkspaceTable`` at ``X13.jl:12-22``.
-* :class:`X13ResultWorkspace` — :class:`~tsecon.workspace.Workspace`
-  subclass with lazy attribute / key access: an entry stored as an
-  :class:`X13lazy` is materialised into the parsed object on first
-  access and written back into ``_c`` so subsequent accesses are
+* [`X13ResultWorkspace`][tsecon.x13._result.X13ResultWorkspace] —
+  [`Workspace`][tsecon.workspace.Workspace] subclass with lazy attribute / key access: an entry
+  stored as an [`X13lazy`][tsecon.x13._result.X13lazy] is materialised into the parsed object on
+  first access and written back into ``_c`` so subsequent accesses are
   cheap. Mirrors Julia ``X13ResultWorkspace`` at ``X13.jl:24-35`` +
   ``x13result.jl:49-56``.
-* :class:`X13lazy` — frozen 3-tuple ``(file, ext, frequency)`` placeholder
+* [`X13lazy`][tsecon.x13._result.X13lazy] — frozen 3-tuple ``(file, ext, frequency)`` placeholder
   for an output that has not been parsed yet. Mirrors
   ``x13result.jl:43-47``.
-* :class:`X13result` — top-level result container with ``spec`` /
+* [`X13result`][tsecon.x13._result.X13result] — top-level result container with ``spec`` /
   ``outfolder`` / ``series`` / ``tables`` / ``text`` / ``other`` /
   ``stdout`` / ``errors`` / ``warnings`` / ``notes`` fields. Mirrors
   ``x13result.jl:23-40``. The temp ``outfolder`` is removed by a
-  :func:`weakref.finalize` callback when the result is garbage-collected
+  [`weakref.finalize`][weakref.finalize] callback when the result is garbage-collected
   (mirrors Julia's ``finalizer`` at ``x13result.jl:37-38``); the
   callback uses an exponential-backoff retry loop on Windows
-  :class:`PermissionError` (locked in decision 24 sub-decision 4).
-* :func:`run` — execute the X-13 binary on a populated :class:`X13spec`
-  (or a raw spec string + frequency) and parse the resulting output
-  directory. Mirrors ``x13result.jl:76-237``.
-* :func:`loadresult` — :class:`X13lazy` to parsed-object dispatcher.
-  Mirrors ``x13result.jl:240-285``.
-* Eight per-format readers: :func:`x13read_series`,
-  :func:`x13read_workspace_table`, :func:`x13read_key_values`,
-  :func:`x13read_udg`, :func:`x13read_estimates`, :func:`x13read_model`,
-  :func:`x13read_identify`, :func:`x13read_seatsseries`,
-  :func:`x13read_err`.
+  [`PermissionError`][PermissionError] (locked in decision 24 sub-decision 4).
+* [`run`][tsecon.x13._result.run] — execute the X-13 binary on a populated
+  [`X13spec`][tsecon.x13._spec.X13spec] (or a raw spec string + frequency) and parse the resulting
+  output directory. Mirrors ``x13result.jl:76-237``.
+* [`loadresult`][tsecon.x13._result.loadresult] — [`X13lazy`][tsecon.x13._result.X13lazy] to
+  parsed-object dispatcher. Mirrors ``x13result.jl:240-285``.
+* Eight per-format readers: [`x13read_series`][tsecon.x13._result.x13read_series],
+  [`x13read_workspace_table`][tsecon.x13._result.x13read_workspace_table],
+  [`x13read_key_values`][tsecon.x13._result.x13read_key_values],
+  [`x13read_udg`][tsecon.x13._result.x13read_udg],
+  [`x13read_estimates`][tsecon.x13._result.x13read_estimates],
+  [`x13read_model`][tsecon.x13._result.x13read_model],
+  [`x13read_identify`][tsecon.x13._result.x13read_identify],
+  [`x13read_seatsseries`][tsecon.x13._result.x13read_seatsseries],
+  [`x13read_err`][tsecon.x13._result.x13read_err].
 
 The Julia ``run`` accepts ``load::Union{Symbol, Vector{Symbol}}``; the
 Python port accepts ``load: str | Sequence[str] = "none"`` with the
@@ -49,17 +53,18 @@ Cleanup
 
 Two cleanup paths exist (mirroring the Julia upstream):
 
-* **Per-result cleanup.** Each :class:`X13result` registers a
-  :func:`weakref.finalize` callback at construction that removes its
+* **Per-result cleanup.** Each [`X13result`][tsecon.x13._result.X13result] registers a
+  [`weakref.finalize`][weakref.finalize] callback at construction that removes its
   ``outfolder`` when the result is GC'd. The callback retries
-  :func:`shutil.rmtree` with an exponential backoff
-  (``0.1 / 0.2 / 0.4`` s) on Windows :class:`PermissionError` to let
+  [`shutil.rmtree`][shutil.rmtree] with an exponential backoff
+  (``0.1 / 0.2 / 0.4`` s) on Windows [`PermissionError`][PermissionError] to let
   antivirus / Defender release file handles; on the final retry it
   falls back to ``ignore_errors=True`` so a stuck cleanup never
   raises.
-* **Stale-folder sweep.** :func:`tsecon.x13.cleanup` (in :mod:`_x13`)
-  removes ``x13_*`` folders from :func:`tempfile.gettempdir` that the
-  process leaked (e.g. due to a hard kill before the finalizer ran).
+* **Stale-folder sweep.** [`tsecon.x13.cleanup`][tsecon.x13._x13.cleanup] (in
+  [`_x13`][tsecon.x13._x13]) removes ``x13_*`` folders from
+  [`tempfile.gettempdir`][tempfile.gettempdir] that the process leaked (e.g. due to a hard kill
+  before the finalizer ran).
 
 Concurrency note
 ----------------
@@ -68,8 +73,8 @@ The Julia upstream wraps the X-13 binary invocation in
 ``cd(spec.folder) do ... end`` (``x13result.jl:108``), which changes
 the process-wide cwd and does not play well with concurrent runs. The
 Python port passes ``cwd=spec.folder`` to
-:func:`subprocess.run` instead — per-subprocess scoping, so concurrent
-:func:`run` calls from threads are safe.
+[`subprocess.run`][subprocess.run] instead — per-subprocess scoping, so concurrent
+[`run`][tsecon.x13._result.run] calls from threads are safe.
 """
 
 from __future__ import annotations
@@ -131,15 +136,15 @@ __all__ = [
 
 
 class WorkspaceTable(Workspace):
-    """A :class:`Workspace` whose entries are equal-length vectors.
+    """A [`Workspace`][tsecon.workspace.Workspace] whose entries are equal-length vectors.
 
     Mirrors Julia ``WorkspaceTable`` at ``X13.jl:12-22``. The X-13 binary
     emits a number of multi-column tabular outputs (autocorrelation
     plots, sliding-spans summaries, R/I/O tables, …) where the natural
     Python representation is "a dict of equal-length lists". The
     underlying storage is the inherited ``_c`` dict; what differs is
-    :meth:`__repr__`, which prints as a column-aligned table rather
-    than the keyed list :class:`Workspace` produces.
+    `__repr__`, which prints as a column-aligned table rather
+    than the keyed list [`Workspace`][tsecon.workspace.Workspace] produces.
 
     Construction mirrors the parent: ``WorkspaceTable()``,
     ``WorkspaceTable(a=[1, 2], b=[3, 4])``,
@@ -214,9 +219,10 @@ class X13lazy:
 
     Mirrors Julia ``X13lazy`` at ``x13result.jl:43-47``. Holds the path
     to the output file, the file extension (which selects the parser),
-    and the data frequency (needed for :func:`x13read_series` /
-    :func:`x13read_seatsseries`). :class:`X13ResultWorkspace` swaps the
-    instance for the parsed object on first attribute / key access.
+    and the data frequency (needed for [`x13read_series`][tsecon.x13._result.x13read_series] /
+    [`x13read_seatsseries`][tsecon.x13._result.x13read_seatsseries]).
+    [`X13ResultWorkspace`][tsecon.x13._result.X13ResultWorkspace] swaps the instance for the parsed
+    object on first attribute / key access.
     """
 
     file: str
@@ -231,17 +237,17 @@ class X13lazy:
 
 
 class X13ResultWorkspace(Workspace):
-    """A :class:`Workspace` that materialises :class:`X13lazy` entries on first access.
+    """A `Workspace` that materialises `X13lazy` entries on first access.
 
     Mirrors Julia ``X13ResultWorkspace`` at ``X13.jl:24-35`` +
     ``Base.getproperty(::X13ResultWorkspace)`` at ``x13result.jl:49-56``.
-    Accessing an entry that is an :class:`X13lazy` triggers a call to
-    :func:`loadresult`; the parsed object is written back into the
+    Accessing an entry that is an [`X13lazy`][tsecon.x13._result.X13lazy] triggers a call to
+    [`loadresult`][tsecon.x13._result.loadresult]; the parsed object is written back into the
     underlying ``_c`` dict, so subsequent accesses skip the parse.
 
     Both ``ws.foo`` (attribute) and ``ws["foo"]`` (key) access paths go
     through the same materialisation. Subset access (``ws[["a", "b"]]``)
-    returns a plain :class:`Workspace` per the parent contract; lazy
+    returns a plain [`Workspace`][tsecon.workspace.Workspace] per the parent contract; lazy
     entries inside such a subset are *not* materialised eagerly.
     """
 
@@ -279,33 +285,35 @@ class X13result:
     """Top-level container for one X-13 run's outputs.
 
     Mirrors Julia ``X13result`` at ``x13result.jl:23-40``. Construct via
-    :func:`run`; direct construction is documented but considered
+    [`run`][tsecon.x13._result.run]; direct construction is documented but considered
     internal.
 
     Attributes
     ----------
     spec
-        The :class:`X13spec` that was run.
+        The [`X13spec`][tsecon.x13._spec.X13spec] that was run.
     outfolder
         Absolute path to the temp directory the run produced.
-        Auto-removed when this :class:`X13result` is garbage-collected
-        (via :func:`weakref.finalize` — see module docstring).
+        Auto-removed when this [`X13result`][tsecon.x13._result.X13result] is garbage-collected
+        (via [`weakref.finalize`][weakref.finalize] — see module docstring).
     series
-        :class:`X13ResultWorkspace` of TSeries / MVTSeries outputs.
+        [`X13ResultWorkspace`][tsecon.x13._result.X13ResultWorkspace] of TSeries / MVTSeries
+        outputs.
     tables
-        :class:`X13ResultWorkspace` of :class:`WorkspaceTable` outputs
-        (multi-column equal-length tables: acf, pcf, R/I/O, …).
+        [`X13ResultWorkspace`][tsecon.x13._result.X13ResultWorkspace] of
+        [`WorkspaceTable`][tsecon.x13._result.WorkspaceTable] outputs (multi-column equal-length
+        tables: acf, pcf, R/I/O, …).
     text
-        :class:`X13ResultWorkspace` of plain-string outputs (the
+        [`X13ResultWorkspace`][tsecon.x13._result.X13ResultWorkspace] of plain-string outputs (the
         ``.out`` echo of the input spec, summaries, ``.err`` content).
     other
-        :class:`X13ResultWorkspace` for everything else — UDG diagnostic
-        codes, model / estimate / identify outputs.
+        [`X13ResultWorkspace`][tsecon.x13._result.X13ResultWorkspace] for everything else — UDG
+        diagnostic codes, model / estimate / identify outputs.
     stdout
         The captured stdout from the X-13 binary.
     errors / warnings / notes
         Lists of strings parsed from the ``.err`` channel by
-        :func:`x13read_err`.
+        [`x13read_err`][tsecon.x13._result.x13read_err].
     """
 
     __slots__ = (
@@ -352,7 +360,7 @@ def _format_x13result(r: X13result) -> str:
 
     Mirrors Julia ``Base.show(::IO, ::MIME"text/plain", ::X13result)`` at
     ``x13result.jl:884-944``. The Python version skips the
-    screen-size truncation logic for the same reason :func:`_format_workspace_table`
+    screen-size truncation logic for the same reason `_format_workspace_table`
     does.
     """
     lines = ["X13 results"]
@@ -389,8 +397,8 @@ _CLEANUP_BACKOFF_S: Final[tuple[float, ...]] = (0.1, 0.2, 0.4)
 def _cleanup_outfolder(outfolder: str) -> None:
     """Remove the X-13 temp directory, retrying on Windows PermissionError.
 
-    Module-level (not a method) so :func:`weakref.finalize` can register
-    it without capturing the owning :class:`X13result` in a closure —
+    Module-level (not a method) so [`weakref.finalize`][weakref.finalize] can register
+    it without capturing the owning [`X13result`][tsecon.x13._result.X13result] in a closure —
     a closure would keep the result alive forever and the finalizer
     would never fire.
     """
@@ -449,7 +457,7 @@ def _tryparse_float(s: str, default: float | None = None) -> float | None:
 
 
 def _add_layers(ws: Workspace) -> None:
-    """Convert dotted keys into nested :class:`Workspace` entries.
+    """Convert dotted keys into nested [`Workspace`][tsecon.workspace.Workspace] entries.
 
     Mirrors Julia ``_add_layers!`` at ``x13result.jl:707-732``. The
     X-13 UDG output uses dotted keys like ``k.other.udf.roots.ar.01``
@@ -523,7 +531,7 @@ def x13read_key_values(  # noqa: PLR0912, PLR0915 - tracks Julia's per-value-typ
     lines: Sequence[str],
     separator: re.Pattern[str] | str = re.compile(r"[\t:]"),
 ) -> Workspace:
-    r"""Parse an X-13 key/value output file into a :class:`Workspace`.
+    r"""Parse an X-13 key/value output file into a [`Workspace`][tsecon.workspace.Workspace].
 
     Mirrors Julia ``x13read_key_values`` at ``x13result.jl:316-390``. The
     key is the text before the first separator match; the value is the
@@ -536,7 +544,7 @@ def x13read_key_values(  # noqa: PLR0912, PLR0915 - tracks Julia's per-value-typ
     either a tab or a colon. The ``"udg"`` parser passes ``": "``
     instead (mirrors the upstream regex / string switch).
 
-    After all keys are loaded, :func:`_add_layers` rewrites dotted keys
+    After all keys are loaded, `_add_layers` rewrites dotted keys
     into nested workspaces.
     """
     ws = Workspace()
@@ -607,7 +615,7 @@ def _parse_x13_date(s: str) -> str:
     """Parse an X-13 ``"Mon D, YYYY"`` date into an ISO-format string.
 
     Mirrors Julia ``Dates.Date(s, "u d, y")``. We return a string
-    (``"YYYY-MM-DD"``) rather than a :class:`datetime.date` because:
+    (``"YYYY-MM-DD"``) rather than a [`datetime.date`][datetime.date] because:
     (a) the X-13 output dates are pure metadata (the date the binary
     was built / run), not used for downstream computation; (b) keeping
     them as strings sidesteps a calendar-vs-frequency surface area
@@ -649,7 +657,7 @@ def x13read_udg(file: str | os.PathLike[str]) -> Workspace:
 
     Mirrors Julia ``x13read_udg`` at ``x13result.jl:392-395``. Reads
     the file as text, splits on newlines, and dispatches to
-    :func:`x13read_key_values` with separator ``": "``.
+    [`x13read_key_values`][tsecon.x13._result.x13read_key_values] with separator ``": "``.
     """
     text = Path(file).read_text(encoding="utf-8", errors="replace")
     lines = text.split("\n")
@@ -664,7 +672,7 @@ def x13read_udg(file: str | os.PathLike[str]) -> Workspace:
 def x13read_workspace_table(  # noqa: PLR0912 - mirrors Julia's per-ext branch ladder
     lines: Sequence[str], *, ext: str = "nospecialrules"
 ) -> WorkspaceTable:
-    """Parse an X-13 multi-column tabular output into a :class:`WorkspaceTable`.
+    """Parse an X-13 multi-column tabular output into a `WorkspaceTable`.
 
     Mirrors Julia ``x13read_workspace_table`` at ``x13result.jl:398-453``.
     The first line is a tab-separated header row; subsequent lines are
@@ -770,9 +778,9 @@ def x13read_series(file: str | os.PathLike[str], freq: Frequency) -> TSeries | M
 
     Returns
     -------
-    * :class:`MVTSeries` when there are 2+ data columns,
-    * :class:`TSeries` when there is exactly 1 data column,
-    * empty :class:`TSeries` over the inferred range when the header
+    * [`MVTSeries`][tsecon.mvtseries.MVTSeries] when there are 2+ data columns,
+    * [`TSeries`][tsecon.tseries.TSeries] when there is exactly 1 data column,
+    * empty [`TSeries`][tsecon.tseries.TSeries] over the inferred range when the header
         row has no data columns past the date column (mirrors the Julia
         ``length(headers) == 0`` branch).
     """
@@ -955,7 +963,7 @@ def x13read_model(file: str | os.PathLike[str]) -> Workspace:
     Mirrors Julia ``x13read_model`` at ``x13result.jl:579-613``. The
     file contains zero, one, or both of an ``arima{model=...}`` block
     and a ``regression{...}`` block; each is dispatched to
-    :func:`_x13read_model_block`.
+    `_x13read_model_block`.
     """
     text = Path(file).read_text(encoding="utf-8", errors="replace")
     lines = text.split("\n")
@@ -1057,14 +1065,14 @@ def _x13read_model_block(  # noqa: PLR0912, PLR0915 - tracks Julia's per-key par
 
 
 def loadresult(lazy_or_file: X13lazy | str | os.PathLike[str], /, *args: Any) -> Any:
-    """Materialise an :class:`X13lazy` into the parsed object.
+    """Materialise an [`X13lazy`][tsecon.x13._result.X13lazy] into the parsed object.
 
     Mirrors Julia ``loadresult`` at ``x13result.jl:240-285``. Two
     calling conventions:
 
     * ``loadresult(X13lazy(file, ext, freq))`` — the usual shape, used
-      by :class:`X13ResultWorkspace` when an attribute / key access
-      hits a lazy entry.
+      by [`X13ResultWorkspace`][tsecon.x13._result.X13ResultWorkspace] when an attribute / key
+      access hits a lazy entry.
     * ``loadresult(file, ext, freq)`` — same as above but with the
       three arguments passed positionally. Mirrors Julia's two-arity
       overload.
@@ -1085,7 +1093,7 @@ def loadresult(lazy_or_file: X13lazy | str | os.PathLike[str], /, *args: Any) ->
 def _dispatch_loadresult(  # noqa: PLR0911 - one return per extension class is the clearest shape
     file: str, ext: str, freq: Frequency
 ) -> Any:
-    """Dispatch the per-extension parser table behind :func:`loadresult`."""
+    """Dispatch the per-extension parser table behind `loadresult`."""
     if ext in _SERIES_EXTENSIONS:
         return x13read_series(file, freq)
     if ext in _TABLE_EXTENSIONS:
@@ -1146,15 +1154,15 @@ def _normalise_load(load: str | Sequence[str]) -> tuple[bool, set[str]]:
 
 
 def _resolve_binary() -> str | None:
-    """Return the path to the X-13 binary, or :data:`None` if not available.
+    """Return the path to the X-13 binary, or [`None`][None] if not available.
 
     Resolution order (mirrors Julia ``x13result.jl:103-107``):
 
-    1. If :func:`tsecon.getoption` ``"x13path"`` is non-empty, use that.
+    1. If [`tsecon.getoption`][tsecon._options.getoption] ``"x13path"`` is non-empty, use that.
     2. Else look for the bundled binary at ``tsecon/x13/_binary/x13as``
        (lands in M2.6 alongside the wheels matrix; until then this
-       check returns :data:`None`).
-    3. Otherwise :data:`None` — :func:`run` raises a clear error.
+       check returns [`None`][None]).
+    3. Otherwise [`None`][None] — [`run`][tsecon.x13._result.run] raises a clear error.
     """
     x13path = getoption("x13path")
     if isinstance(x13path, str) and x13path:
@@ -1178,12 +1186,12 @@ def run(
     allow_errors: bool = False,
     load: str | Sequence[str] = "none",
 ) -> X13result:
-    """Run X-13ARIMA-SEATS on a :class:`X13spec` or raw spec string.
+    """Run X-13ARIMA-SEATS on a [`X13spec`][tsecon.x13._spec.X13spec] or raw spec string.
 
     Mirrors Julia ``X13.run`` (two methods at ``x13result.jl:76-88``):
 
-    * ``run(spec, *, ...)`` — pass an :class:`X13spec`; the spec is
-      serialised via :func:`tsecon.x13.x13write` and written to
+    * ``run(spec, *, ...)`` — pass an [`X13spec`][tsecon.x13._spec.X13spec]; the spec is
+      serialised via [`tsecon.x13.x13write`][tsecon.x13._write.x13write] and written to
       ``<outfolder>/spec.spc``.
     * ``run(specstring, freq, *, ...)`` — pass a pre-formatted
       ``.spc`` text plus the frequency the binary should assume; the
@@ -1192,15 +1200,15 @@ def run(
     Parameters
     ----------
     spec
-        An :class:`X13spec` (the usual shape) or a raw spec string.
+        An [`X13spec`][tsecon.x13._spec.X13spec] (the usual shape) or a raw spec string.
     freq
         Required when ``spec`` is a string; ignored otherwise.
     verbose
         Echo warnings / notes from the X-13 ``.err`` channel after the
-        run finishes. Default :data:`True`.
+        run finishes. Default [`True`][True].
     allow_errors
-        If :data:`False` (default), raise :exc:`RuntimeError` when the
-        X-13 binary reports errors. If :data:`True`, emit them as
+        If [`False`][False] (default), raise [`RuntimeError`][RuntimeError] when the
+        X-13 binary reports errors. If [`True`][True], emit them as
         warnings and return the result anyway.
     load
         Which output tables to eagerly parse. ``"none"`` (default) and

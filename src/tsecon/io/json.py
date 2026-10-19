@@ -172,7 +172,7 @@ def to_jsonable(obj: Any) -> Any:
 
 
 def from_jsonable(obj: Any) -> Any:
-    """Inverse of :func:`to_jsonable`: rebuild tsecon objects from a JSON tree."""
+    """Inverse of `to_jsonable`: rebuild tsecon objects from a JSON tree."""
     if isinstance(obj, dict):
         tag = obj.get("_type")
         if tag is not None:

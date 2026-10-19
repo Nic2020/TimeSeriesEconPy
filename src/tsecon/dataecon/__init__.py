@@ -332,9 +332,9 @@ class DataEconFile:
         stored newline-joined, so a name can contain neither a newline nor NUL;
         duplicate names and a zero-column object are refused rather than read
         back as a narrower value. A plain matrix is read with
-        :meth:`read_array` instead. A multivariate object whose elements are
+        `read_array` instead. A multivariate object whose elements are
         dates, durations, Int128/UInt128 or ComplexF16, or which carries a
-        preserved reconstruction marker, returns a :class:`StoredMVTSeries`:
+        preserved reconstruction marker, returns a `StoredMVTSeries`:
         the row anchor, the column names, a rows-by-columns carrier with the
         exact stored bytes and the element descriptor, with
         ``to_interpreted()`` as the explicit conversion. The element rules
@@ -402,7 +402,7 @@ class DataEconFile:
 
         An ``MVTSeries`` stores its dated row axis, its newline-joined column
         names and a column-major payload. Its element rules are the ordinary
-        numeric and Boolean ones; a :class:`StoredMVTSeries` adds the
+        numeric and Boolean ones; a `StoredMVTSeries` adds the
         represented element families and preserved markers with the
         ``StoredSeries`` rules below (the element frequency is independent of
         the row axis, empty carriers keep Julia's element token, markers are
@@ -490,15 +490,15 @@ class DataEconFile:
         five dimensions) return an owning NumPy ``str_`` array of the stored
         shape under the same conditions, provided that fixed-width array
         would not exceed ``MAX_UNICODE_BYTES`` (count times the longest
-        element times four). Anything else returns a :class:`StoredText`,
+        element times four). Anything else returns a [`StoredText`][tsecon.dataecon.StoredText],
         which keeps each element's exact bytes, the preserved marker and the
         shape, with ``tolist()``/``to_numpy()`` as explicit decodes.
         Elements carrying a date, duration, 128-bit or ComplexF16 encoding, or
-        a preserved reconstruction marker, return a :class:`StoredArray`: a
+        a preserved reconstruction marker, return a [`StoredArray`][tsecon.dataecon.StoredArray]: a
         contiguous carrier plus its stored element descriptor, with
         ``to_interpreted()`` as the explicit conversion. A ``StoredArray`` has
         no first date; a dated matrix is an ``MVTSeries`` read with
-        :meth:`read_series` instead.
+        `read_series` instead.
 
         Reconstruction text is matched against a finite table and never
         evaluated. A marker whose conversion the stored values cannot satisfy
@@ -523,13 +523,13 @@ class DataEconFile:
 
         Text is written from a flat or rectangular nested sequence of ``str``,
         a NumPy ``str_`` array of one to five dimensions (any layout), or a
-        :class:`StoredText`, which also carries a preserved marker, exact bytes
-        and a shape. Matrices and tensors are packed column-major like numeric
+        [`StoredText`][tsecon.dataecon.StoredText], which also carries a preserved marker, exact
+        bytes and a shape. Matrices and tensors are packed column-major like numeric
         ones. Element bytes are sized in UTF-8, not characters. An element
         cannot contain NUL, because that byte separates the packed elements.
         NumPy ``bytes_`` and object arrays are refused rather than converted.
 
-        :class:`StoredArray` writes its carrier, element descriptor and any
+        [`StoredArray`][tsecon.dataecon.StoredArray] writes its carrier, element descriptor and any
         preserved markers unchanged. Python integer ranges are accepted only as
         ``range(1, stop)`` because DataEcon stores their length but not their
         starting value. ``MITRange`` retains its frequency and first code,
@@ -622,7 +622,7 @@ class DataEconFile:
         codes and are not range-checked. A stored Julia ``Bool`` reads as
         ``np.int8``, exactly as Julia itself reloads it.
 
-        Everything else returns a :class:`StoredScalar` holding the exact
+        Everything else returns a `StoredScalar` holding the exact
         stored form (payload bytes, type code, frequency and ``jtype`` text):
         sixteen-byte Int128/UInt128 and four-byte ComplexF16 objects, text that
         is not a single NUL-terminated valid UTF-8 string (Julia's own loader
@@ -681,8 +681,8 @@ class DataEconFile:
         a different fraction), an exact ``datetime.date`` or naive
         millisecond ``datetime.datetime`` as Float64 unix seconds plus
         ``Date``/``DateTime`` (timezone-aware values ``TypeError``,
-        sub-millisecond values ``ValueError``), and :class:`IntegerComplex` as
-        two Float64 plus ``Complex{Int64}``. A :class:`StoredScalar` writes
+        sub-millisecond values ``ValueError``), and `IntegerComplex` as
+        two Float64 plus ``Complex{Int64}``. A `StoredScalar` writes
         its payload, type, frequency and marker exactly, so a read value is
         rewritten byte for byte even where Julia's own writer cannot
         reproduce it; its constructors cover Int128/UInt128, ComplexF16,
@@ -780,7 +780,7 @@ class DataEconFile:
     def object_info_by_id(self, object_id: int) -> ObjectInfo:
         """Describe an object by its native id (the explicit advanced interface).
 
-        Ids come from :attr:`ObjectInfo.id` or :meth:`object_id`; a stale id
+        Ids come from `ObjectInfo.id` or `object_id`; a stale id
         raises ``DataEconError`` (code -989) and a negative one ``ValueError``.
         """
         with self._lock:
@@ -811,7 +811,7 @@ class DataEconFile:
     def list_objects(
         self, path: str = ROOT_PATH, *, recursive: bool = False, max_depth: int | None = None
     ) -> list[ObjectInfo]:
-        """List the members of a catalog as owned :class:`ObjectInfo` records.
+        """List the members of a catalog as owned `ObjectInfo` records.
 
         Members are sorted by the UTF-8 bytes of their names (the order the
         native library returns); catalogs are included as entries. With
@@ -897,11 +897,11 @@ class DataEconFile:
         Each member is stored under its key through the typed writer its
         Python type selects: a nested ``Workspace`` becomes a catalog holding
         its own members; ``TSeries``, ``MVTSeries`` and ``StoredSeries`` go
-        through :meth:`write_series`; NumPy arrays, ``StoredArray``,
+        through `write_series`; NumPy arrays, ``StoredArray``,
         ``StoredText``, ``list``/``tuple`` text, ``range`` and ``MITRange``
-        through :meth:`write_array`; ``bool``, ``int``, ``float``, ``complex``,
+        through `write_array`; ``bool``, ``int``, ``float``, ``complex``,
         ``str``, ``MIT``, ``Duration`` and NumPy scalars through
-        :meth:`write_scalar`, each with that method's own validation, markers
+        `write_scalar`, each with that method's own validation, markers
         and residue rules and encoded once. Members are visited depth-first in
         insertion order from an explicit stack, so any nesting depth is fine.
         A key must be a valid object name (nonempty, not blank, no ``/`` or
@@ -913,8 +913,8 @@ class DataEconFile:
         under ``parent``, write ``Workspace(name=ws)`` into ``parent``.
 
         By default a member that cannot be stored is skipped and recorded in
-        the returned :class:`WorkspaceReport` with its full path, category and
-        reason, and the traversal continues (Julia logs and continues): a
+        the returned [`WorkspaceReport`][tsecon.dataecon.WorkspaceReport] with its full path,
+        category and reason, and the traversal continues (Julia logs and continues): a
         value of an unsupported type, a value the typed writer refuses, an
         invalid key, an existing name without ``overwrite``, a native store
         failure, or a nested Workspace that is its own ancestor (a cycle; the
@@ -924,7 +924,7 @@ class DataEconFile:
         raises its original ``TypeError``, ``ValueError`` or
         ``DataEconError`` with a note naming the member; members already
         stored stay stored. Neither mode is a transaction: nothing is rolled
-        back, and a native failure leaves the residue :meth:`write_series`
+        back, and a native failure leaves the residue `write_series`
         documents (a partial object, a possible later close failure).
 
         With ``overwrite=True`` a member replaces an existing object of its
@@ -951,9 +951,9 @@ class DataEconFile:
     def read_workspace(self, path: str = ROOT_PATH, *, strict: bool = False) -> LoadedWorkspace:
         """Load a catalog and everything below it into a ``Workspace`` (Julia's ``readdb``).
 
-        Returns a :class:`LoadedWorkspace` named tuple ``(workspace, report)``.
-        Every member is read with the typed reader for its stored class and
-        type - :meth:`read_scalar`, :meth:`read_series` or :meth:`read_array`
+        Returns a [`LoadedWorkspace`][tsecon.dataecon.LoadedWorkspace] named tuple
+        ``(workspace, report)``. Every member is read with the typed reader for its stored class and
+        type - `read_scalar`, `read_series` or `read_array`
         - and inserted unchanged, so representations are exactly what those
         readers return (``StoredSeries``/``StoredArray``/``StoredText``
         carriers with their markers, empty series with their axis, ``range``
@@ -980,7 +980,7 @@ class DataEconFile:
         failing member inside a catalog is reported alone and its siblings
         survive. With ``strict=True`` the first such member raises its
         original exception with a note naming it. ``path`` must be a catalog
-        (``ValueError`` otherwise; use :meth:`read_object` for one object).
+        (``ValueError`` otherwise; use `read_object` for one object).
         Attributes other than the codec's markers are not read.
         """
         with self._lock:
@@ -995,9 +995,9 @@ class DataEconFile:
     def write_object(self, path: str, value: object, *, overwrite: bool = False) -> None:
         """Store one value through the typed writer for its type (Julia's ``write_data``).
 
-        The dispatch is the one :meth:`write_workspace` uses; the typed
+        The dispatch is the one `write_workspace` uses; the typed
         method's rules apply unchanged. A ``Workspace`` is refused with
-        ``TypeError`` (store it with :meth:`write_workspace`), as is any type
+        ``TypeError`` (store it with `write_workspace`), as is any type
         without a storage class.
         """
         family = classify(value)
@@ -1021,8 +1021,8 @@ class DataEconFile:
         """Read one object with the typed reader its stored class selects (Julia's ``read_data``).
 
         Scalars, dated series/MVTSeries and plain arrays return exactly what
-        :meth:`read_scalar`, :meth:`read_series` and :meth:`read_array`
-        return. A catalog raises ``ValueError`` (use :meth:`read_workspace`);
+        `read_scalar`, `read_series` and `read_array`
+        return. A catalog raises ``ValueError`` (use `read_workspace`);
         a native-only object type raises ``TypeError``.
         """
         with self._lock:
@@ -1074,7 +1074,7 @@ class DataEconFile:
         once it is longer than any name), so the loop always ends; a damaged
         name (one holding NUL) can never be proved and raises ``ValueError``,
         as does a SQL NULL value. Each value is then read individually with
-        :meth:`get_attribute`, so the enumeration is exact for valid UTF-8
+        `get_attribute`, so the enumeration is exact for valid UTF-8
         attribute names and values without NUL;
         a foreign value containing NUL is cut at that NUL, as in Julia.
         """
@@ -1202,7 +1202,7 @@ def save_workspace(
     ``mode="a"`` creates or appends (Julia's ``append=true``); ``mode="w"``
     empties an existing file first. The file is closed on every exit path;
     the function owns the handle only for this call. Everything else follows
-    :meth:`DataEconFile.write_workspace`, including its report and residue.
+    `DataEconFile.write_workspace`, including its report and residue.
     """
     # Argument validation precedes the open: mode "w" truncates an existing
     # file on open, so a wrong Workspace or path argument must be refused
@@ -1225,7 +1225,7 @@ def load_workspace(
 
     The returned Workspace and its values own their storage and stay usable
     after the file is closed; the function owns the handle only for this
-    call. Everything else follows :meth:`DataEconFile.read_workspace`.
+    call. Everything else follows `DataEconFile.read_workspace`.
     """
     _normalize(path)
     with open_dataecon(file, "r") as db:

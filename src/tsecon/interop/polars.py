@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: MIT
 """polars DataFrame interop (lazy / optional).
 
-polars is *not* a hard dependency: this module raises :class:`ImportError`
+polars is *not* a hard dependency: this module raises [`ImportError`][ImportError]
 with an install hint when called without polars installed.
 
 polars has no row-index concept, so the time axis is always a regular
@@ -10,31 +10,31 @@ column. The default name is ``"time"`` (override with ``time_col=``).
 Public API
 ----------
 
-* :func:`to_polars` — ``TSeries`` / ``MVTSeries`` / ``Workspace`` →
-  :class:`polars.DataFrame`.
-* :func:`from_polars` — :class:`polars.DataFrame` → ``TSeries`` /
+* [`to_polars`][tsecon.interop.polars.to_polars] — ``TSeries`` / ``MVTSeries`` / ``Workspace`` →
+  `polars.DataFrame`.
+* [`from_polars`][tsecon.interop.polars.from_polars] — `polars.DataFrame` → ``TSeries`` /
   ``MVTSeries`` / ``Workspace``.
 
-Required DataFrame shape (for :func:`from_polars`)
+Required DataFrame shape (for `from_polars`)
 --------------------------------------------------
 
 The DataFrame must contain a column named ``time_col`` (default
 ``"time"``) of one of the following dtypes:
 
-* :class:`polars.Date` or :class:`polars.Datetime` — the ``freq=`` kwarg
+* `polars.Date` or `polars.Datetime` — the ``freq=`` kwarg
   is **required**; polars carries no period semantics so the frequency
-  cannot be auto-inferred. Pass a :class:`~tsecon.Daily` /
-  :class:`~tsecon.BDaily` / :class:`~tsecon.Weekly` / :class:`~tsecon.Monthly` /
-  :class:`~tsecon.Quarterly` / :class:`~tsecon.HalfYearly` /
-  :class:`~tsecon.Yearly` instance.
-* Any integer dtype — interpreted as :class:`~tsecon.frequencies.Unit`
+  cannot be auto-inferred. Pass a [`Daily`][tsecon.frequencies.Daily] /
+  [`BDaily`][tsecon.frequencies.BDaily] / [`Weekly`][tsecon.frequencies.Weekly] /
+  [`Monthly`][tsecon.frequencies.Monthly] / [`Quarterly`][tsecon.frequencies.Quarterly] /
+  [`HalfYearly`][tsecon.frequencies.HalfYearly] / [`Yearly`][tsecon.frequencies.Yearly] instance.
+* Any integer dtype — interpreted as [`Unit`][tsecon.frequencies.Unit]
   by default; pass ``freq=Unit()`` explicitly to be explicit. The
   column values are taken as the raw ``MIT.value`` integers.
 
 The time column must be **strictly ascending and contiguous** (no gaps,
-no duplicates). Sparse or unsorted input raises :class:`ValueError`;
+no duplicates). Sparse or unsorted input raises [`ValueError`][ValueError];
 callers who need gap-filling should pre-process with polars before
-calling :func:`from_polars`.
+calling [`from_polars`][tsecon.interop.polars.from_polars].
 
 For **wide** DataFrames (default, ``wide=True``), every non-time column
 becomes a variable. For **long** DataFrames (``wide=False``), ``time_col``,
@@ -44,19 +44,19 @@ into wide form before conversion.
 Return type
 -----------
 
-* :class:`~tsecon.Workspace` when ``to_workspace=True`` (one named
+* [`Workspace`][tsecon.workspace.Workspace] when ``to_workspace=True`` (one named
   TSeries per non-time column, in DataFrame column order; per-column
   dtypes preserved).
-* :class:`~tsecon.TSeries` when the wide form has a single non-time
+* [`TSeries`][tsecon.tseries.TSeries] when the wide form has a single non-time
   column (and ``to_workspace=False``).
-* :class:`~tsecon.MVTSeries` otherwise.
+* [`MVTSeries`][tsecon.mvtseries.MVTSeries] otherwise.
 
-Output shape (for :func:`to_polars`)
+Output shape (for `to_polars`)
 ------------------------------------
 
-The time column dtype is :class:`polars.Date` for Daily / BDaily / Weekly
+The time column dtype is `polars.Date` for Daily / BDaily / Weekly
 and YP frequencies (using period-end dates by default; ``date_ref="begin"``
-swaps to period-begin), and :class:`polars.Int64` for Unit (raw MIT
+swaps to period-begin), and `polars.Int64` for Unit (raw MIT
 values).
 """
 
@@ -110,10 +110,10 @@ def to_polars(
     Parameters
     ----------
     obj
-        A :class:`~tsecon.TSeries` (→ DataFrame with ``time_col`` plus a
+        A [`TSeries`][tsecon.tseries.TSeries] (→ DataFrame with ``time_col`` plus a
         single value column named ``value_col``), an
-        :class:`~tsecon.MVTSeries` (→ DataFrame with ``time_col`` plus one
-        column per variable), or a :class:`~tsecon.Workspace` of TSeries /
+        [`MVTSeries`][tsecon.mvtseries.MVTSeries] (→ DataFrame with ``time_col`` plus one
+        column per variable), or a [`Workspace`][tsecon.workspace.Workspace] of TSeries /
         MVTSeries members of a common frequency.
     time_col
         Name of the emitted time column. Default ``"time"``.
@@ -267,12 +267,12 @@ def from_polars(
     Parameters
     ----------
     obj
-        A :class:`polars.DataFrame`. Must contain ``time_col``.
+        A `polars.DataFrame`. Must contain ``time_col``.
     freq
-        Required when the time column dtype is :class:`polars.Date` /
-        :class:`polars.Datetime` — polars carries no period semantics, so
+        Required when the time column dtype is `polars.Date` /
+        `polars.Datetime` — polars carries no period semantics, so
         the frequency cannot be auto-inferred. For an integer time column
-        the default is :class:`~tsecon.frequencies.Unit`.
+        the default is [`Unit`][tsecon.frequencies.Unit].
     wide
         When ``True`` (the default) every non-time column becomes a
         variable. When ``False`` the DataFrame is in long format with
@@ -286,7 +286,7 @@ def from_polars(
         single-value-column wide DataFrame returns a TSeries; otherwise
         an MVTSeries is returned.
     to_workspace
-        When ``True``, return a :class:`~tsecon.Workspace` with one named
+        When ``True``, return a [`Workspace`][tsecon.workspace.Workspace] with one named
         TSeries per non-time column. Preserves per-column dtypes (unlike
         the MVTSeries return, which forces a single shared dtype). Wins
         over the single-value-column TSeries shortcut.

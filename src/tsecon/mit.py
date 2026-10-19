@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: MIT
 """MIT (moment-in-time) and Duration types.
 
-Mirrors ``TimeSeriesEcon.jl``'s ``momentintime.jl``. An :class:`MIT` carries a
-frequency and an integer value; :class:`Duration` is the same shape but
+Mirrors ``TimeSeriesEcon.jl``'s ``momentintime.jl``. An [`MIT`][tsecon.mit.MIT] carries a
+frequency and an integer value; [`Duration`][tsecon.mit.Duration] is the same shape but
 represents a *distance* between two MITs of the same frequency.
 
 * ``MIT - MIT`` → ``Duration`` (same frequency required).
@@ -12,9 +12,9 @@ represents a *distance* between two MITs of the same frequency.
 * Adding/subtracting a plain ``int`` is allowed and interpreted as a duration
   in the MIT's own frequency.
 
-Constructor functions :func:`qq`, :func:`mm`, :func:`yy`, :func:`daily`,
-:func:`bdaily`, :func:`weekly` are the Pythonic equivalent of the Julia
-literal-suffix syntax ``2020Q1``, ``2020M3``, ``2020Y``, etc.
+Constructor functions [`qq`][tsecon.mit.qq], [`mm`][tsecon.mit.mm], [`yy`][tsecon.mit.yy],
+[`daily`][tsecon.mit.daily], [`bdaily`][tsecon.mit.bdaily], [`weekly`][tsecon.mit.weekly] are the
+Pythonic equivalent of the Julia literal-suffix syntax ``2020Q1``, ``2020M3``, ``2020Y``, etc.
 
 Equality with plain integers is **not** supported (unlike Julia, where
 ``MIT(Quarterly, 5) == 5`` is true). The Julia idiom violates Python's
@@ -68,7 +68,7 @@ __all__ = [
 BDailyBias = Union["str"]
 """One of ``"strict"``, ``"previous"``, ``"next"``, ``"nearest"``.
 
-Determines how :func:`bdaily` resolves a date that falls on a weekend.
+Determines how [`bdaily`][tsecon.mit.bdaily] resolves a date that falls on a weekend.
 ``"strict"`` (the default, matching Julia) raises rather than guessing.
 """
 
@@ -96,10 +96,10 @@ def _freq_name(x: object) -> str:
 class MIT:
     """A frequency-tagged moment in time.
 
-    Construct via :meth:`from_yp` for year/period frequencies, or via the
-    convenience constructors :func:`qq`, :func:`mm`, :func:`yy`, :func:`daily`,
-    :func:`bdaily`, :func:`weekly`. Direct ``MIT(frequency, value)``
-    construction takes a raw integer offset.
+    Construct via [`from_yp`][tsecon.mit.MIT.from_yp] for year/period frequencies, or via the
+    convenience constructors [`qq`][tsecon.mit.qq], [`mm`][tsecon.mit.mm], [`yy`][tsecon.mit.yy],
+    [`daily`][tsecon.mit.daily], [`bdaily`][tsecon.mit.bdaily], [`weekly`][tsecon.mit.weekly].
+    Direct ``MIT(frequency, value)`` construction takes a raw integer offset.
     """
 
     frequency: Frequency
@@ -250,7 +250,7 @@ class MIT:
 
         Mirrors Julia's ``start:stop`` syntax for MITs. Python's slice/colon
         cannot be overloaded outside of indexing, so this method is the
-        idiomatic spelling. The free function :func:`tsecon.mitrange.mitrange`
+        idiomatic spelling. The free function [`tsecon.mitrange.mitrange`][tsecon.mitrange.mitrange]
         also works.
         """
         from tsecon.mitrange import MITRange  # noqa: PLC0415  (avoid circular import)
@@ -474,8 +474,8 @@ def mit2yp(x: MIT) -> tuple[int, int]:
     """Recover ``(year, period)`` from a YP- or Daily-/BDaily-frequency MIT.
 
     For ``YPFrequency`` subclasses this is the canonical decomposition
-    ``int(mit) == N * year + (period - 1)``. For :class:`Daily` and
-    :class:`BDaily` it returns the year and the 1-based index of the day
+    ``int(mit) == N * year + (period - 1)``. For [`Daily`][tsecon.frequencies.Daily] and
+    [`BDaily`][tsecon.frequencies.BDaily] it returns the year and the 1-based index of the day
     within that year.
     """
     f = x.frequency
@@ -575,7 +575,7 @@ def daily(d: _dt.date) -> MIT: ...
 @overload
 def daily(d: str) -> MIT: ...
 def daily(d: _dt.date | str) -> MIT:
-    """Construct an ``MIT{Daily}`` from a :class:`datetime.date` or ISO string."""
+    """Construct an ``MIT{Daily}`` from a [`datetime.date`][datetime.date] or ISO string."""
     date = _parse_date(d)
     return MIT(Daily(), date.toordinal())
 
@@ -688,7 +688,7 @@ def _days_in_month(year_: int, month_: int) -> int:
 
 
 def mit_to_date(m: MIT, *, ref: str = "end") -> _dt.date:
-    """Convert an MIT to a :class:`datetime.date`.
+    """Convert an MIT to a [`datetime.date`][datetime.date].
 
     For multi-day frequencies (Yearly, HalfYearly, Quarterly, Monthly,
     Weekly) ``ref`` controls whether the *end* of the period (default) or

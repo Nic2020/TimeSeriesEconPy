@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: MIT
-"""Plotly backend for :func:`tsecon.plot`.
+"""Plotly backend for [`tsecon.plot`][tsecon.plotting.plot].
 
 Renders TSeries (single or many) and MVTSeries (panel grid) onto a
-:class:`plotly.graph_objects.Figure`. YP frequencies use a numeric x-axis
+`plotly.graph_objects.Figure`. YP frequencies use a numeric x-axis
 with explicit ``tickvals`` / ``ticktext`` (plotly cannot apply a Python
 callable as a tick formatter to a numeric axis); calendar frequencies
 (Daily / BDaily / Weekly) use a datetime axis; Unit frequencies use an
@@ -76,11 +76,11 @@ def plot_tseries_many(
     fig: go.Figure | None = None,
     **kwargs: Any,
 ) -> go.Figure:
-    """Plot one or more :class:`TSeries` onto a single Plotly figure.
+    """Plot one or more [`TSeries`][tsecon.tseries.TSeries] onto a single Plotly figure.
 
     All series must share a frequency. ``kwargs`` are forwarded as-is to
-    :class:`plotly.graph_objects.Scatter`. Returns a
-    :class:`plotly.graph_objects.Figure`.
+    `plotly.graph_objects.Scatter`. Returns a
+    `plotly.graph_objects.Figure`.
     """
     if not series:
         msg = "plot_tseries_many requires at least one TSeries"
@@ -160,10 +160,10 @@ def plot_mvtseries_panel(
     fig: go.Figure | None = None,
     **kwargs: Any,
 ) -> go.Figure:
-    """Plot one or more :class:`MVTSeries` as a panel of subplots, one per variable.
+    """Plot one or more `MVTSeries` as a panel of subplots, one per variable.
 
-    Returns a :class:`plotly.graph_objects.Figure` with the panel layout
-    determined by :func:`tsecon.plotting._common.panel_grid`. Each dataset
+    Returns a `plotly.graph_objects.Figure` with the panel layout
+    determined by `tsecon.plotting._common.panel_grid`. Each dataset
     contributes one trace per variable subplot; missing variables are
     skipped per-dataset (the subplot still draws for the datasets that
     have it).

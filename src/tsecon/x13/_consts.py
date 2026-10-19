@@ -6,19 +6,19 @@ Mirrors ``TimeSeriesEcon.jl/src/x13/x13consts.jl`` (1,058 LOC). Landed in
 
 Contents:
 
-* :data:`_SERIES_EXTENSIONS` — extensions parsed as :class:`~tsecon.tseries.TSeries`.
-* :data:`_PROBABLY_SERIES_EXTENSIONS` — best-effort series-parsed extensions.
-* :data:`_TABLE_EXTENSIONS` — multi-column equal-length tables.
-* :data:`_KV_LIST_EXTENSIONS` — key/value :class:`~tsecon.workspace.Workspace` pairs.
-* :data:`_HUMAN_TEXT_EXTENSIONS` — plain-string outputs (logs, summaries).
-* :data:`_ORDERED_MONTH_NAMES` — twelve lowercase three-letter month abbreviations.
-* :data:`_MONTHS_AND_QUARTERS` — month-name to 1-based month-of-year mapping.
-* :data:`_OUTPUT_ALT_NAMES` — per-spec ``short_code -> long_name`` mapping.
-* :data:`_OUTPUT_SAVE_TABLES` — per-spec ordered list of save-able output codes.
-* :data:`_OUTPUT_DESCRIPTIONS` — per-spec ``short_code -> description`` mapping.
-* :data:`_OUTPUT_DESCRIPTIONS_FLAT` — derived flat ``short_code -> description``
+* `_SERIES_EXTENSIONS` — extensions parsed as [`TSeries`][tsecon.tseries.TSeries].
+* `_PROBABLY_SERIES_EXTENSIONS` — best-effort series-parsed extensions.
+* `_TABLE_EXTENSIONS` — multi-column equal-length tables.
+* `_KV_LIST_EXTENSIONS` — key/value [`Workspace`][tsecon.workspace.Workspace] pairs.
+* `_HUMAN_TEXT_EXTENSIONS` — plain-string outputs (logs, summaries).
+* `_ORDERED_MONTH_NAMES` — twelve lowercase three-letter month abbreviations.
+* `_MONTHS_AND_QUARTERS` — month-name to 1-based month-of-year mapping.
+* `_OUTPUT_ALT_NAMES` — per-spec ``short_code -> long_name`` mapping.
+* `_OUTPUT_SAVE_TABLES` — per-spec ordered list of save-able output codes.
+* `_OUTPUT_DESCRIPTIONS` — per-spec ``short_code -> description`` mapping.
+* `_OUTPUT_DESCRIPTIONS_FLAT` — derived flat ``short_code -> description``
   mapping.
-* :data:`_OUTPUT_UDG_DESCRIPTION` — UDG (Census-Bureau-defined diagnostic) code
+* `_OUTPUT_UDG_DESCRIPTION` — UDG (Census-Bureau-defined diagnostic) code
   to description mapping; flat.
 
 All constants are module-private; siblings (``_spec.py``, ``_write.py``,

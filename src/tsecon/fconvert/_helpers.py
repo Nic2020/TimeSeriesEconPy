@@ -4,26 +4,28 @@
 Mirrors ``TimeSeriesEcon.jl/src/fconvert/fconvert_helpers.jl``. Public surface
 re-exported from ``tsecon.fconvert``:
 
-* :func:`repeat_uneven` — broadcast each input value across a per-input output
-  count (``np.repeat`` with a vector of repeats).
-* :func:`divide_uneven` — like :func:`repeat_uneven` but each input is divided
-  evenly across its output cells.
-* :func:`linear_uneven` — linearly interpolate across input values according to
-  per-input output counts. Used by the ``method="linear"`` higher-frequency
+* [`repeat_uneven`][tsecon.fconvert.repeat_uneven] — broadcast each input value across a per-input
+  output count (``np.repeat`` with a vector of repeats).
+* [`divide_uneven`][tsecon.fconvert.divide_uneven] — like
+  [`repeat_uneven`][tsecon.fconvert.repeat_uneven] but each input is divided evenly across its
+  output cells.
+* [`linear_uneven`][tsecon.fconvert.linear_uneven] — linearly interpolate across input values
+  according to per-input output counts. Used by the ``method="linear"`` higher-frequency
   conversion.
-* :func:`strip_tseries` / :func:`strip_tseries_inplace` — trim leading and
-  trailing typenan entries from a :class:`~tsecon.tseries.TSeries`.
+* [`strip_tseries`][tsecon.fconvert.strip_tseries] /
+  [`strip_tseries_inplace`][tsecon.fconvert.strip_tseries_inplace] — trim leading and trailing
+  typenan entries from a [`TSeries`][tsecon.tseries.TSeries].
 
 Internal helpers (used by ``fconvert._mit`` and ``fconvert._tseries``):
 
-* :func:`_valid_range` — inner range of non-typenan entries in a TSeries.
-* :func:`_get_start_truncation_yp` / :func:`_get_end_truncation_yp` —
+* `_valid_range` — inner range of non-typenan entries in a TSeries.
+* `_get_start_truncation_yp` / `_get_end_truncation_yp` —
   alignment-truncation deciders for the YP→YP lower-frequency conversion.
-* :func:`_get_out_indices` — list of dates → list of MITs in a target
+* `_get_out_indices` — list of dates → list of MITs in a target
   YP-or-Weekly frequency (the period each date falls into).
-* :func:`_fconvert_using_dates_parts` — date-based variant of
-  :func:`fconvert_range`, used for any conversion where the source or target is
-  Calendar (Daily / BDaily / Weekly) or for Weekly targets from YP sources.
+* `_fconvert_using_dates_parts` — date-based variant of
+  [`fconvert_range`][tsecon.fconvert.fconvert_range], used for any conversion where the source or
+  target is Calendar (Daily / BDaily / Weekly) or for Weekly targets from YP sources.
 """
 
 from __future__ import annotations
@@ -77,7 +79,7 @@ def repeat_uneven(x: npt.ArrayLike, inner: npt.ArrayLike, **_kwargs: object) -> 
     ``repeat_uneven``: ``repeat_uneven([1, 2, 4], [2, 1, 4]) ==
     [1, 1, 2, 4, 4, 4, 4]``. Extra keyword arguments are accepted and
     ignored — required so this helper is drop-in callable from
-    :func:`tsecon.fconvert.fconvert` (which always forwards ``ref`` and
+    [`tsecon.fconvert.fconvert`][tsecon.fconvert.fconvert] (which always forwards ``ref`` and
     ``outrange``).
     """
     arr = np.asarray(x)
@@ -193,7 +195,7 @@ def _valid_range(t: TSeries) -> MITRange:
 
 
 def strip_tseries(t: TSeries) -> TSeries:
-    """Return a new :class:`TSeries` with leading and trailing typenan trimmed.
+    """Return a new [`TSeries`][tsecon.tseries.TSeries] with leading and trailing typenan trimmed.
 
     Mirrors Julia's ``Base.strip(t::TSeries)``. The original is unchanged.
     An all-typenan input returns an empty TSeries anchored at ``firstdate``.
@@ -277,8 +279,9 @@ def _get_out_indices(f_to: Frequency, dates: list[_dt.date]) -> list[MIT]:
     """Return the list of ``f_to``-frequency MITs that contain each ``dates[i]``.
 
     Mirrors Julia's ``_get_out_indices`` (and ``_get_out_indices_actual``).
-    ``f_to`` must be a :class:`Monthly`, :class:`Quarterly`, :class:`HalfYearly`,
-    :class:`Yearly`, or :class:`Weekly` instance.
+    ``f_to`` must be a [`Monthly`][tsecon.frequencies.Monthly],
+    [`Quarterly`][tsecon.frequencies.Quarterly], [`HalfYearly`][tsecon.frequencies.HalfYearly],
+    [`Yearly`][tsecon.frequencies.Yearly], or [`Weekly`][tsecon.frequencies.Weekly] instance.
     """
     if isinstance(f_to, Weekly):
         end_day = f_to.end_day
@@ -334,7 +337,7 @@ def _get_out_indices(f_to: Frequency, dates: list[_dt.date]) -> list[MIT]:
 def _target_to_source_mit(source_freq: Frequency, target_mit: MIT, *, ref: Ref) -> MIT:
     """Convert ``target_mit`` back to ``source_freq``, aligned to ``ref`` of the target period.
 
-    Used inside :func:`_fconvert_using_dates_parts` to ask "is the source MIT
+    Used inside `_fconvert_using_dates_parts` to ask "is the source MIT
     that anchors the target period's begin/end equal to the actual range
     endpoint?". Mirrors the Julia ``fconvert(F_from, fi, ref=:begin)`` /
     ``fconvert(F_from, li, ref=:end)`` calls.
@@ -342,8 +345,8 @@ def _target_to_source_mit(source_freq: Frequency, target_mit: MIT, *, ref: Ref) 
     For Daily / BDaily / Weekly sources we work in integer ordinal space, so
     we can produce ``MIT(Daily(), -2)`` etc. without hitting Python's
     pre-0001 date limit. For pre-0001 YP-target periods (which would otherwise
-    crash :func:`mit_to_date`) we return a sentinel "very small" source MIT —
-    the truncation comparisons in :func:`_fconvert_using_dates_parts` only care
+    crash [`mit_to_date`][tsecon.mit.mit_to_date]) we return a sentinel "very small" source MIT —
+    the truncation comparisons in `_fconvert_using_dates_parts` only care
     about ordering against the actual range first/last source MIT, both of
     which are ≥ 1 in our model.
     """
@@ -373,7 +376,8 @@ def _target_period_ordinal(target_mit: MIT, *, ref: Ref) -> int:
     """Return the proleptic-Gregorian day ordinal of target_mit's begin/end.
 
     Uses integer arithmetic so callers can produce ``MIT(Daily(), ord)`` for
-    ordinals ≤ 0 (which would otherwise crash :func:`datetime.date.fromordinal`).
+    ordinals ≤ 0 (which would otherwise crash
+    [`datetime.date.fromordinal`][datetime.date.fromordinal]).
     """
     f = target_mit.frequency
     v = target_mit.value
@@ -397,7 +401,7 @@ def _bdaily_from_ordinal(ordinal: int, *, ref: Ref) -> MIT:
     or next (for ref="begin"). Pre-0001-01-01 ordinals are clamped to
     ``MIT(BDaily(), 0)`` or ``MIT(BDaily(), 1)`` — sentinel anchors that
     suffice for the truncation comparisons performed by
-    :func:`_fconvert_using_dates_parts`.
+    `_fconvert_using_dates_parts`.
     """
     if ordinal >= 1:
         return bdaily(_dt.date.fromordinal(ordinal), bias="previous" if ref == "end" else "next")
@@ -495,7 +499,7 @@ def _fconvert_using_dates_parts(
 def _resolve_holidays_map(holidays_map: object | None) -> object:
     """Return a usable BDaily Boolean TSeries, consulting the global option if needed.
 
-    Raises :class:`ValueError` if ``holidays_map`` is None and the global
+    Raises [`ValueError`][ValueError] if ``holidays_map`` is None and the global
     ``bdaily_holidays_map`` option is unset (mirrors the Julia ArgumentError).
     """
     if holidays_map is not None:

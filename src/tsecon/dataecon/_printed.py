@@ -300,7 +300,7 @@ _IMPLICIT_ELEMENTS = ("Int64", "Float64", "String")
 
 
 def text_symbol(items: tuple[bytes, ...], shape: tuple[int, ...]) -> str:
-    """``Symbol(::Array{String,N})``: Julia's printed String array (see :func:`array_string`)."""
+    """``Symbol(::Array{String,N})``: Julia's printed String array (see `array_string`)."""
     cells = np.empty(len(items), dtype=object)
     for index, item in enumerate(items):
         cells[index] = julia_string_repr(item)
@@ -320,7 +320,7 @@ def element_strings(  # noqa: PLR0911 - one form per element family
     hex width, floats in Julia's shortest form (``show`` keeps ``f`` as the
     Float32 exponent marker: ``1.0f10``), complex values with typed components
     (``1.0f0 + 2.0f0im``, ``Float16(1.0) + Float16(2.0)im``), MIT and
-    Duration elements through :func:`mit_string` and the code. ``values`` are
+    Duration elements through `mit_string` and the code. ``values`` are
     the flat elements in Julia's (column-major) order.
     """
     if kind == "date":

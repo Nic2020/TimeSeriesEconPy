@@ -13,8 +13,9 @@ Public API mirrors the symmetry between the two backends:
 * ``to_polars(obj, *, time_col=...)`` / ``from_polars(obj, *, freq=..., wide=...,
   time_col=...)``
 
-Instance method delegates are attached to :class:`~tsecon.TSeries`,
-:class:`~tsecon.MVTSeries`, and :class:`~tsecon.Workspace` at import time.
+Instance method delegates are attached to [`TSeries`][tsecon.tseries.TSeries],
+[`MVTSeries`][tsecon.mvtseries.MVTSeries], and [`Workspace`][tsecon.workspace.Workspace] at import
+time.
 """
 
 from __future__ import annotations
@@ -38,7 +39,7 @@ __all__ = ["from_pandas", "from_polars", "to_pandas", "to_polars"]
 def _self_to_pandas(self: Any, **kwargs: Any) -> Any:
     """Convert this object to a pandas DataFrame / Series.
 
-    See :func:`tsecon.interop.to_pandas` for the supported kwargs.
+    See [`tsecon.interop.to_pandas`][tsecon.interop.pandas.to_pandas] for the supported kwargs.
     """
     return to_pandas(self, **kwargs)
 
@@ -46,7 +47,7 @@ def _self_to_pandas(self: Any, **kwargs: Any) -> Any:
 def _self_to_polars(self: Any, **kwargs: Any) -> Any:
     """Convert this object to a polars DataFrame.
 
-    See :func:`tsecon.interop.to_polars` for the supported kwargs.
+    See [`tsecon.interop.to_polars`][tsecon.interop.polars.to_polars] for the supported kwargs.
     """
     return to_polars(self, **kwargs)
 

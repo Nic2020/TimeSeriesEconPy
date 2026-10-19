@@ -14,12 +14,14 @@ True
 
 The hierarchy:
 
-* :class:`Frequency` — abstract supertype.
-* :class:`Unit` — dimensionless (no calendar).
-* :class:`CalendarFrequency` — abstract; all calendar-aware frequencies.
-* :class:`YPFrequency` — abstract; calendar frequencies defined by a fixed
-  number of periods per year (Yearly / HalfYearly / Quarterly / Monthly).
-* :class:`Daily`, :class:`BDaily`, :class:`Weekly` — non-YP calendar frequencies.
+* [`Frequency`][tsecon.frequencies.Frequency] — abstract supertype.
+* [`Unit`][tsecon.frequencies.Unit] — dimensionless (no calendar).
+* [`CalendarFrequency`][tsecon.frequencies.CalendarFrequency] — abstract; all calendar-aware
+  frequencies.
+* [`YPFrequency`][tsecon.frequencies.YPFrequency] — abstract; calendar frequencies defined by a
+  fixed number of periods per year (Yearly / HalfYearly / Quarterly / Monthly).
+* [`Daily`][tsecon.frequencies.Daily], [`BDaily`][tsecon.frequencies.BDaily],
+  [`Weekly`][tsecon.frequencies.Weekly] — non-YP calendar frequencies.
 
 The cached frozen-dataclass form of each leaf class gives Python the
 singleton-identity semantics (`Yearly() is Yearly()`) that Julia gets
@@ -68,7 +70,7 @@ class Frequency:
     """Abstract supertype for all frequencies.
 
     Concrete subclasses use cached singletons via ``__new__``; do not
-    instantiate :class:`Frequency` directly.
+    instantiate [`Frequency`][tsecon.frequencies.Frequency] directly.
     """
 
 
@@ -81,7 +83,7 @@ class CalendarFrequency(Frequency):
 class YPFrequency(CalendarFrequency):
     """Abstract supertype for fixed-periods-per-year calendar frequencies.
 
-    Subclasses provide a class-level :attr:`periods_per_year` integer N. An
+    Subclasses provide a class-level `periods_per_year` integer N. An
     ``MIT{F}`` value for ``F <: YPFrequency`` decomposes into a (year, period)
     pair via ``int(mit) = N * year + (period - 1)``.
     """
@@ -373,35 +375,35 @@ def _is_kind(x: object, cls: type[Frequency]) -> bool:
 
 
 def is_yearly(x: object) -> bool:
-    """Return True if ``x`` is (or is an instance of) :class:`Yearly`."""
+    """Return True if ``x`` is (or is an instance of) [`Yearly`][tsecon.frequencies.Yearly]."""
     return _is_kind(x, Yearly)
 
 
 def is_halfyearly(x: object) -> bool:
-    """Return True if ``x`` is (or is an instance of) :class:`HalfYearly`."""
+    """Return True if ``x`` is (or is an instance of) `HalfYearly`."""
     return _is_kind(x, HalfYearly)
 
 
 def is_quarterly(x: object) -> bool:
-    """Return True if ``x`` is (or is an instance of) :class:`Quarterly`."""
+    """Return True if ``x`` is (or is an instance of) `Quarterly`."""
     return _is_kind(x, Quarterly)
 
 
 def is_monthly(x: object) -> bool:
-    """Return True if ``x`` is (or is an instance of) :class:`Monthly`."""
+    """Return True if ``x`` is (or is an instance of) [`Monthly`][tsecon.frequencies.Monthly]."""
     return _is_kind(x, Monthly)
 
 
 def is_weekly(x: object) -> bool:
-    """Return True if ``x`` is (or is an instance of) :class:`Weekly`."""
+    """Return True if ``x`` is (or is an instance of) [`Weekly`][tsecon.frequencies.Weekly]."""
     return _is_kind(x, Weekly)
 
 
 def is_daily(x: object) -> bool:
-    """Return True if ``x`` is (or is an instance of) :class:`Daily`."""
+    """Return True if ``x`` is (or is an instance of) [`Daily`][tsecon.frequencies.Daily]."""
     return _is_kind(x, Daily)
 
 
 def is_bdaily(x: object) -> bool:
-    """Return True if ``x`` is (or is an instance of) :class:`BDaily`."""
+    """Return True if ``x`` is (or is an instance of) [`BDaily`][tsecon.frequencies.BDaily]."""
     return _is_kind(x, BDaily)

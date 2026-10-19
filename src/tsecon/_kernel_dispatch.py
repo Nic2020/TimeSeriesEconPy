@@ -9,14 +9,14 @@ rationale.
 
 The pattern has two pieces:
 
-1. :func:`_is_kernel_eligible` — returns ``True`` iff every supplied
+1. `_is_kernel_eligible` — returns ``True`` iff every supplied
    array is ``float64`` AND ``C_CONTIGUOUS``. This is the kernel
    fast-path contract; the four M1.5 kernels share it because all four
    ``.pyx`` extensions were compiled with typed memoryviews specialised
    for that shape (a non-``float64`` or non-contiguous array would
    either raise ``BufferError`` or silently misinterpret the buffer).
 
-2. :func:`_dispatch_kernel` — picks the Cython kernel when its
+2. `_dispatch_kernel` — picks the Cython kernel when its
    module-local availability flag is ``True``, else the NumPy
    reference. Each kernel module keeps its own ``_CYTHON_AVAILABLE``
    constant (the four extensions can in principle be built
@@ -24,7 +24,7 @@ The pattern has two pieces:
    single ``hatch_build.py`` hook) and passes it in; the helper itself
    stays pure.
 
-Call-site recipe (mirrors :mod:`tsecon._stats`):
+Call-site recipe (mirrors [`tsecon._stats`][tsecon._stats]):
 
 .. code-block:: python
 
@@ -65,7 +65,7 @@ def _is_kernel_eligible(*arrays: np.ndarray) -> bool:
     The canonical fast-path contract for the four M1.5 Cython kernels.
     Combine with each kernel module's ``_CYTHON_AVAILABLE`` flag at the
     call site (typically by chaining this check with
-    :func:`_dispatch_kernel`).
+    `_dispatch_kernel`).
 
     Parameters
     ----------
@@ -94,7 +94,7 @@ def _dispatch_kernel(
     """Call ``cython_fn(*args)`` when ``cython_available`` is ``True``, else ``numpy_fn(*args)``.
 
     Caller is responsible for pre-validating eligibility (typically via
-    :func:`_is_kernel_eligible` or a kernel-specific shim like
+    `_is_kernel_eligible` or a kernel-specific shim like
     ``_ravel_for_kernel``); this helper only picks between the two
     pre-validated kernel implementations.
 

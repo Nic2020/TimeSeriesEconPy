@@ -2,9 +2,9 @@
 """TSeries — frequency-tagged 1-D time series.
 
 Mirrors ``TimeSeriesEcon.jl``'s ``TSeries``: a value array paired with a
-frequency-tagged ``firstdate`` (an :class:`~tsecon.mit.MIT`).
+frequency-tagged ``firstdate`` (an [`MIT`][tsecon.mit.MIT]).
 
-Design: composition over an :class:`numpy.ndarray` plus the
+Design: composition over an [`numpy.ndarray`][numpy.ndarray] plus the
 ``__array_ufunc__`` / ``__array_function__`` / ``__array__`` protocols. No
 subclassing of ``ndarray`` (subclassing is a well-known source of
 return-type surprises around the views returned by indexing).
@@ -21,15 +21,15 @@ Indexing:
 
 Assignment with an out-of-range MIT or MITRange auto-extends the underlying
 storage, filling the gap with the dtype's NaN sentinel (NaN for floats,
-``iinfo(dtype).max`` for ints — see :func:`_typenan`).
+``iinfo(dtype).max`` for ints — see `_typenan`).
 
 Arithmetic and ufuncs flow through ``__array_ufunc__``: TSeries-vs-TSeries
 operations align by MIT (intersection range, same-frequency required);
 TSeries-vs-scalar and TSeries-vs-array broadcast over the existing range.
 
-Whole-object comparison goes via :meth:`TSeries.equals` /
-:meth:`TSeries.allclose`. The Python ``==`` / ``<`` / ``>`` operators are
-elementwise (NumPy semantics), so ``TSeries`` is intentionally unhashable.
+Whole-object comparison goes via [`TSeries.equals`][tsecon.tseries.TSeries.equals] /
+[`TSeries.allclose`][tsecon.tseries.TSeries.allclose]. The Python ``==`` / ``<`` / ``>`` operators
+are elementwise (NumPy semantics), so ``TSeries`` is intentionally unhashable.
 """
 
 from __future__ import annotations
@@ -135,11 +135,12 @@ class TSeries:
     """A 1-D NumPy array paired with a frequency-tagged ``firstdate``.
 
     Construct with ``TSeries(firstdate, values)`` where ``firstdate`` is an
-    :class:`~tsecon.mit.MIT` or :class:`~tsecon.mitrange.MITRange`. When the
+    [`MIT`][tsecon.mit.MIT] or [`MITRange`][tsecon.mitrange.MITRange]. When the
     first argument is an MITRange, the second may be omitted (uninitialized,
     NaN-filled storage), a scalar (fill), or a length-matching array. See
-    the class-level constructors :meth:`empty`, :meth:`zeros`, :meth:`ones`,
-    :meth:`fill` for keyword-named convenience constructors.
+    the class-level constructors [`empty`][tsecon.tseries.TSeries.empty],
+    [`zeros`][tsecon.tseries.TSeries.zeros], [`ones`][tsecon.tseries.TSeries.ones],
+    [`fill`][tsecon.tseries.TSeries.fill] for keyword-named convenience constructors.
     """
 
     __slots__ = ("_firstdate", "_parent", "_values")
@@ -185,8 +186,8 @@ class TSeries:
         Passing an already-compatible ``ndarray`` as ``values`` *wraps* the
         buffer rather than copying it (matching xarray's ``DataArray``).
         Set ``copy=True`` to force an independent allocation, or call
-        :meth:`copy` / :func:`copy.deepcopy` post-construction. The
-        wrap-vs-copy contract extends to the callable form: the array returned
+        [`copy`][tsecon.tseries.TSeries.copy] / [`copy.deepcopy`][copy.deepcopy] post-construction.
+        The wrap-vs-copy contract extends to the callable form: the array returned
         by the callable is the user's, so the default is to wrap.
 
         Examples
@@ -378,7 +379,7 @@ class TSeries:
         """Return an independent copy with its own storage.
 
         The ``deep`` kwarg is accepted for API uniformity with container
-        types (:class:`~tsecon.workspace.Workspace`, MVTSeries) where a
+        types ([`Workspace`][tsecon.workspace.Workspace], MVTSeries) where a
         shallow copy would share value references. TSeries has no nested
         containers — the underlying ndarray is always copied — so
         ``deep=True`` is a semantic no-op here.
@@ -962,7 +963,7 @@ _TSERIES_HTML_TAIL_ROWS: Final[int] = 8
 def _repr_html_tseries(t: TSeries) -> str:
     """HTML rendering of a TSeries for Jupyter / VS Code / notebook hosts.
 
-    Mirrors the row-truncation rules of :func:`_format_tseries` so the HTML
+    Mirrors the row-truncation rules of `_format_tseries` so the HTML
     view stays in lock-step with the text repr: long series render as
     ``head_8`` / ``⋮`` / ``tail_8`` once ``n > _TSERIES_HTML_TRUNCATE_AT``.
     Plain ``<table>`` element, no CSS classes — host environments

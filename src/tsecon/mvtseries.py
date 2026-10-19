@@ -170,8 +170,8 @@ class MVTSeries:
         Parameters
         ----------
         firstdate_or_range
-            An :class:`~tsecon.mit.MIT` (giving the first row date) or a
-            :class:`~tsecon.mitrange.MITRange` (giving both first date and
+            An [`MIT`][tsecon.mit.MIT] (giving the first row date) or a
+            [`MITRange`][tsecon.mitrange.MITRange] (giving both first date and
             number of rows). If omitted and column kwargs are provided, the
             range is taken to be ``rangeof_span(*columns.values())``.
         names
@@ -183,8 +183,8 @@ class MVTSeries:
             * a 2-D ``ndarray`` (or 1-D for a single-column MVTSeries),
             * a scalar (fill),
             * a callable initializer ``init(nrows, ncols) -> ndarray``
-              such as :func:`numpy.zeros` / :func:`numpy.ones`,
-            * a :class:`~tsecon.tseries.TSeries` (init each column from it),
+              such as [`numpy.zeros`][numpy.zeros] / [`numpy.ones`][numpy.ones],
+            * a [`TSeries`][tsecon.tseries.TSeries] (init each column from it),
             * ``None`` (uninitialized → NaN-filled / typenan-filled).
         dtype
             Optional dtype override. Defaults to ``float64`` for empty /
@@ -196,7 +196,7 @@ class MVTSeries:
         **columns
             Alternative spelling: ``MVTSeries(rng, a=..., b=...)`` builds
             an MVTSeries with one column per kwarg. The value can be a
-            :class:`~tsecon.tseries.TSeries`, a 1-D array, or a scalar
+            [`TSeries`][tsecon.tseries.TSeries], a 1-D array, or a scalar
             (filled). If ``firstdate_or_range`` is omitted, the range is
             ``rangeof_span`` of all kwarg values that have a range.
 
@@ -542,8 +542,8 @@ class MVTSeries:
         """Return an independent copy with its own matrix buffer.
 
         ``deep`` is accepted for API uniformity with
-        :meth:`~tsecon.tseries.TSeries.copy` and
-        :meth:`~tsecon.workspace.Workspace.copy`; for MVTSeries it is a
+        [`copy`][tsecon.tseries.TSeries.copy] and
+        [`copy`][tsecon.workspace.Workspace.copy]; for MVTSeries it is a
         semantic no-op because the only mutable referents below the
         wrapper are the matrix buffer (always copied) and the per-column
         TSeries views (which are rebuilt to point at the fresh buffer).
@@ -1744,7 +1744,7 @@ def _format_mvtseries(
 
     Mirrors ``mvts_show.jl``: per-column right-alignment based on the widest
     formatted value in that column (or the column-name width, whichever is
-    larger); long names are truncated at :data:`_NAME_TRUNCATE_AT` characters
+    larger); long names are truncated at `_NAME_TRUNCATE_AT` characters
     plus an ellipsis. When the natural total width exceeds the available
     terminal width, columns from the middle are dropped and replaced with
     a ``…`` separator. When the natural row count exceeds the available
@@ -1858,10 +1858,10 @@ def _format_cell(v: Any) -> str:
 def _repr_html_mvtseries(m: MVTSeries) -> str:
     """HTML rendering of an MVTSeries for Jupyter / VS Code / notebook hosts.
 
-    Mirrors the row-truncation rule of :func:`_format_mvtseries`
+    Mirrors the row-truncation rule of `_format_mvtseries`
     (``nrows > _DEFAULT_DISPLAY_HEIGHT - 6`` → keep ``top_n`` and ``bot_n``
     rows around a ``⋮`` divider). Column-name truncation reuses
-    :data:`_NAME_TRUNCATE_AT`. Horizontal (column) truncation is
+    `_NAME_TRUNCATE_AT`. Horizontal (column) truncation is
     intentionally dropped — notebook hosts handle horizontal overflow
     via scroll boxes, where the text repr targets a fixed terminal width.
     Plain ``<table>`` element, no CSS classes — host environments

@@ -11,11 +11,11 @@ Mirrors the BDaily branches of ``TimeSeriesEcon.jl``'s ``tseries.jl``
 
 The holidays-map convention is the Julia one: ``True`` marks a regular
 business day, ``False`` marks a holiday. ``skip_holidays=True`` (without a
-``holidays_map`` kwarg) reads the calendar from :func:`tsecon.getoption`
+``holidays_map`` kwarg) reads the calendar from [`tsecon.getoption`][tsecon._options.getoption]
 (option name ``"bdaily_holidays_map"``); a missing or wrong-shape global map
-raises :class:`ValueError` to match Julia's ``ArgumentError``.
+raises [`ValueError`][ValueError] to match Julia's ``ArgumentError``.
 
-These functions are BDaily-only; they raise :class:`TypeError` when called
+These functions are BDaily-only; they raise [`TypeError`][TypeError] when called
 on a non-BDaily series.
 """
 
@@ -55,16 +55,16 @@ def cleanedvalues(
     * ``holidays_map`` is given → use that map; entries where the map is
       ``False`` are dropped.
     * ``holidays_map is None`` and ``skip_all_nans=True`` → drop NaN entries.
-      For an :class:`~tsecon.mvtseries.MVTSeries`, only rows where *all*
+      For an [`MVTSeries`][tsecon.mvtseries.MVTSeries], only rows where *all*
       columns are NaN are dropped; rows where some columns are NaN and some
-      are not emit a :class:`UserWarning` and are also dropped.
+      are not emit a [`UserWarning`][UserWarning] and are also dropped.
     * ``holidays_map is None`` and ``skip_holidays=True`` → fetch the global
       map from ``getoption("bdaily_holidays_map")``; raise if missing.
     * No kwargs → return the underlying values unchanged.
 
-    The 1-D return is ``t.values`` for a :class:`~tsecon.tseries.TSeries`; the
+    The 1-D return is ``t.values`` for a [`TSeries`][tsecon.tseries.TSeries]; the
     2-D return is ``mvts.values`` (an ``(rows, cols)`` view) for an
-    :class:`~tsecon.mvtseries.MVTSeries`.
+    [`MVTSeries`][tsecon.mvtseries.MVTSeries].
     """
     _require_bdaily(t)
     if holidays_map is not None:
@@ -87,7 +87,7 @@ def cleanedvalues(
 def bdvalues(t: TSeries | MVTSeries, *, holidays_map: TSeries | None = None) -> np.ndarray:
     """Return values of ``t`` masked by ``holidays_map``.
 
-    ``holidays_map`` must be a BDaily Boolean :class:`~tsecon.tseries.TSeries`
+    ``holidays_map`` must be a BDaily Boolean [`TSeries`][tsecon.tseries.TSeries]
     that spans ``t.range``. Entries where the map is ``False`` are dropped;
     the result is the underlying ndarray (1-D for TSeries, 2-D for MVTSeries)
     indexed by the Boolean mask.
@@ -122,7 +122,7 @@ def bdaily_row_keep_mask(
     """Return a ``(nrows,)`` bool keep-mask, or ``None`` when no filter is requested.
 
     ``True`` flags rows that survive the BDaily filter; ``False`` flags rows
-    dropped by ``cleanedvalues``. The companion to :func:`cleanedvalues` —
+    dropped by ``cleanedvalues``. The companion to [`cleanedvalues`][tsecon.cleanedvalues] —
     where ``cleanedvalues`` returns the filtered matrix (rows dropped), this
     returns the boolean mask itself so callers that need the original
     positions (e.g. ``axis=1`` per-row reductions producing an output TSeries
@@ -185,7 +185,7 @@ def replace_nans_if_warranted(
     """In-place NaN infill on a (shifted) BDaily TSeries.
 
     Mirrors Julia's ``replace_nans_if_warranted!``. Called by the BDaily
-    overload of :func:`tsecon.shift` after the firstdate has been adjusted by
+    overload of [`tsecon.shift`][tsecon._math.shift] after the firstdate has been adjusted by
     ``-k``. With ``skip_all_nans=True`` every NaN in ``ts.values`` is
     replaced by the nearest valid forward (for ``k > 0``) or backward
     (for ``k < 0``) value. With ``skip_holidays=True`` or ``holidays_map=...``
@@ -281,7 +281,7 @@ def _slice_holidays_with_pad(holidays_map: TSeries, rng: MITRange, k: int) -> np
 
     Mirrors Julia's
     ``holidays_map[ts_range[begin]-abs(k):ts_range[end]+abs(k)]``. The slice
-    is indexed in :func:`replace_nans_if_warranted` by ``i + abs(k)``, where
+    is indexed in `replace_nans_if_warranted` by ``i + abs(k)``, where
     ``i`` is the zero-based index inside the shifted series.
     """
     _validate_holidays_arg(holidays_map)

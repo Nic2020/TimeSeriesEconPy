@@ -7,17 +7,17 @@ that those values cannot carry losslessly: Int128/UInt128 and ComplexF16
 widths, strings that are not valid UTF-8 or hold an interior NUL, and any
 scalar whose ``jtype`` attribute asks the loader to rebuild another type
 (``Symbol``, ``Date``, ``Rational{Int64}``, ``Complex{Int8}``, a custom
-type, ...). :class:`StoredScalar` keeps such a scalar exactly as stored: the
+type, ...). `StoredScalar` keeps such a scalar exactly as stored: the
 payload bytes, the native type code, the frequency code of a date or
 duration and the marker text. Reading never converts and never evaluates;
 writing a ``StoredScalar`` back reproduces the stored object byte for byte,
 including markers Julia's own writer cannot reproduce.
 
-Interpretation is explicit. :meth:`StoredScalar.to_interpreted` returns the
+Interpretation is explicit. `StoredScalar.to_interpreted` returns the
 value the pinned Julia loader would build, through a finite table of marker
-routes backed by :mod:`._exact` (Julia's own ``Rational{T}``, integer
+routes backed by `_exact` (Julia's own ``Rational{T}``, integer
 ``Complex{T}`` and ``Dates`` arithmetic) and the numeric conversion kernels of
-:mod:`._interpret` (the same routes the series containers use). Values Julia
+`_interpret` (the same routes the series containers use). Values Julia
 cannot load raise ``ValueError``; markers with no supported interpretation
 raise ``TypeError`` and remain preserved. Explicit accessors (``to_int``,
 ``to_float``, ``to_fraction``, ``to_date``, ``to_datetime64``, ...) expose one
@@ -522,7 +522,7 @@ class StoredScalar:
 
         Julia's writer stores the two components as Float64 (``Float64(num) /
         Float64(den)`` each) and its loader rebuilds each with ``Rational{T}``'s
-        continued-fraction reconstruction. As for :meth:`fraction`, the write is
+        continued-fraction reconstruction. As for `fraction`, the write is
         accepted by default only when both components reload exactly;
         ``exact=False`` stores the floats when Julia can load *some* rational
         pair from them and leaves the loss explicit.
@@ -716,8 +716,8 @@ class StoredScalar:
         (years 1..9999 only; ``to_calendar()`` and ``to_datetime64()`` offer
         explicit alternatives with their own bounds), ``Rational{T}`` gives
         ``fractions.Fraction`` (``+/-1//0`` raises; use ``to_float()``), integer
-        ``Complex{T}`` gives :class:`IntegerComplex`, ``Complex{Rational{T}}``
-        gives :class:`RationalComplex`, ``BigInt`` gives ``int``, ``BigFloat``
+        ``Complex{T}`` gives `IntegerComplex`, ``Complex{Rational{T}}``
+        gives `RationalComplex`, ``BigInt`` gives ``int``, ``BigFloat``
         gives the exact ``decimal.Decimal``, and numeric element and abstract
         ``Any``/``Real``/``Number``/``Integer``/``Signed``/``Unsigned``/
         ``AbstractFloat``/``Union{Int64,Float64}`` names give the converted
@@ -969,7 +969,7 @@ class StoredScalar:
         return Fraction(num, den)
 
     def to_rational_complex(self) -> RationalComplex:
-        """Return the :class:`RationalComplex` Julia rebuilds for a ``Complex{Rational{T}}`` marker.
+        """Return the `RationalComplex` Julia rebuilds for a ``Complex{Rational{T}}`` marker.
 
         Each component follows the ``Rational{T}`` route of its payload width
         (an integer, MIT or Duration payload contributes ``n//1`` and a zero
@@ -1016,7 +1016,7 @@ class StoredScalar:
         raise TypeError(f"Julia has no {target} conversion from a {self.julia_name} payload.")
 
     def to_integer_complex(self) -> IntegerComplex:
-        """Return the exact :class:`IntegerComplex` Julia rebuilds for an integer ``Complex{T}``."""
+        """Return the exact `IntegerComplex` Julia rebuilds for an integer ``Complex{T}``."""
         token = None if self.marker is None else resolve_spelling(self.marker)
         parameter = None if token is None else self._complex_parameter(token)
         if parameter is None:
@@ -1050,7 +1050,7 @@ class StoredScalar:
         raise TypeError(f"Julia has no Complex conversion from a {self.julia_name} payload.")
 
     def to_dated_complex(self) -> DatedComplex:
-        """Return the :class:`DatedComplex` Julia rebuilds under ``Complex``/``Complex{MIT{F}}``.
+        """Return the `DatedComplex` Julia rebuilds under ``Complex``/``Complex{MIT{F}}``.
 
         ``convert(Complex, x)`` on an MIT or Duration payload is
         ``Complex(x, zero(x))``; the explicit ``Complex{MIT{F}}`` token also

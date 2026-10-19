@@ -2,7 +2,7 @@
 """Shared helpers for the pandas / polars interop adapters.
 
 These are intentionally library-agnostic: they convert between tsecon's
-:class:`~tsecon.frequencies.Frequency` and the strings / dates used by both
+[`Frequency`][tsecon.frequencies.Frequency] and the strings / dates used by both
 DataFrame backends. Neither pandas nor polars is imported here.
 """
 
@@ -71,11 +71,12 @@ def supports_pandas_period(freq: Frequency) -> bool:
 
 
 def freq_to_pandas_freqstr(freq: Frequency) -> str:
-    """Map a tsecon :class:`Frequency` to a pandas frequency-alias string.
+    """Map a tsecon [`Frequency`][tsecon.frequencies.Frequency] to a pandas frequency-alias string.
 
     Used to construct ``pd.PeriodIndex`` instances and (for Daily / BDaily)
-    ``pd.date_range`` calls. Raises :class:`TypeError` for frequencies
-    pandas cannot represent (currently :class:`HalfYearly` and :class:`Unit`).
+    ``pd.date_range`` calls. Raises [`TypeError`][TypeError] for frequencies
+    pandas cannot represent (currently [`HalfYearly`][tsecon.frequencies.HalfYearly] and
+    [`Unit`][tsecon.frequencies.Unit]).
 
     Notes
     -----
@@ -112,12 +113,12 @@ def freq_to_pandas_freqstr(freq: Frequency) -> str:
 
 
 def freq_from_pandas_freqstr(freqstr: str) -> Frequency:
-    """Inverse of :func:`freq_to_pandas_freqstr`.
+    """Inverse of `freq_to_pandas_freqstr`.
 
     Accepts both pandas 2.x aliases (``Y-DEC``, ``Q-DEC``, ``M``) and the
     pandas 3.x ``E``/``S`` (period-end / period-start) suffixed variants
     (``YE-DEC``, ``QE-DEC``, ``ME``, ``YS``, ``QS-DEC``). The legacy ``A-``
-    annual alias is also accepted. Raises :class:`ValueError` if the string
+    annual alias is also accepted. Raises [`ValueError`][ValueError] if the string
     is not recognised.
     """
     s = freqstr.upper()
@@ -170,14 +171,14 @@ def mits_to_dates(mits: Iterable[MIT], *, ref: str = "end") -> list[_dt.date]:
 
 
 def mitrange_to_dates(rng: MITRange, *, ref: str = "end") -> list[_dt.date]:
-    """Convert every MIT in ``rng`` to a date via :func:`mit_to_date`."""
+    """Convert every MIT in ``rng`` to a date via [`mit_to_date`][tsecon.mit.mit_to_date]."""
     return [mit_to_date(m, ref=ref) for m in rng]
 
 
 def mit_from_date(d: _dt.date, freq: Frequency) -> MIT:
     """Recover an MIT from a date, given the target frequency.
 
-    Inverse of :func:`mit_to_date` (with ``ref="end"``) for calendar
+    Inverse of [`mit_to_date`][tsecon.mit.mit_to_date] (with ``ref="end"``) for calendar
     frequencies. For YP frequencies, the date is mapped to the *period that
     contains it* — the same behaviour as ``daily(d)`` followed by an
     fconvert from Daily, but computed directly without temporary TSeries.

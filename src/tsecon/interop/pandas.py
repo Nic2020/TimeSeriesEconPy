@@ -1,44 +1,44 @@
 # SPDX-License-Identifier: MIT
 """pandas DataFrame interop (lazy / optional).
 
-pandas is *not* a hard dependency: this module raises :class:`ImportError`
+pandas is *not* a hard dependency: this module raises [`ImportError`][ImportError]
 with an install hint when called without pandas installed.
 
 Public API
 ----------
 
-* :func:`to_pandas` — ``TSeries`` / ``MVTSeries`` / ``Workspace`` →
+* [`to_pandas`][tsecon.interop.pandas.to_pandas] — ``TSeries`` / ``MVTSeries`` / ``Workspace`` →
   ``pd.Series`` / ``pd.DataFrame``.
-* :func:`from_pandas` — ``pd.Series`` / ``pd.DataFrame`` → ``TSeries`` /
-  ``MVTSeries`` / ``Workspace``.
+* [`from_pandas`][tsecon.interop.pandas.from_pandas] — ``pd.Series`` / ``pd.DataFrame`` →
+  ``TSeries`` / ``MVTSeries`` / ``Workspace``.
 
-Required DataFrame shape (for :func:`from_pandas`)
+Required DataFrame shape (for `from_pandas`)
 --------------------------------------------------
 
 The time axis must live on **one** of:
 
 * the row **index**, of one of the following types:
 
-  * :class:`pd.PeriodIndex` — frequency inferred from ``.freqstr``; no
+  * `pd.PeriodIndex` — frequency inferred from ``.freqstr``; no
     ``freq=`` kwarg needed. Supports pandas 2.x (``Q-DEC``, ``M``, ...)
     *and* pandas 3.x (``QE-DEC``, ``ME``, ``YE-DEC``, ...) aliases.
-  * :class:`pd.DatetimeIndex` — frequency cannot be auto-inferred; the
-    ``freq=`` kwarg is **required** (one of :class:`~tsecon.Daily`,
-    :class:`~tsecon.BDaily`, :class:`~tsecon.Weekly`, etc.).
-  * :class:`pd.RangeIndex` or any integer index — interpreted as
-    :class:`~tsecon.frequencies.Unit` by default; pass ``freq=Unit()``
+  * `pd.DatetimeIndex` — frequency cannot be auto-inferred; the
+    ``freq=`` kwarg is **required** (one of [`Daily`][tsecon.frequencies.Daily],
+    [`BDaily`][tsecon.frequencies.BDaily], [`Weekly`][tsecon.frequencies.Weekly], etc.).
+  * `pd.RangeIndex` or any integer index — interpreted as
+    [`Unit`][tsecon.frequencies.Unit] by default; pass ``freq=Unit()``
     explicitly to be explicit.
-  * Object dtype of :class:`~tsecon.MIT` instances — the frequency is
+  * Object dtype of [`MIT`][tsecon.mit.MIT] instances — the frequency is
     read off the MITs themselves; all MITs must share a single
     frequency. This is the round-trip target of
-    :func:`to_pandas(..., index="mit")`.
+    `to_pandas(..., index="mit")`.
 
 * a column named ``time_col`` (must be passed explicitly). The same
   type / dtype rules apply, with a Date / Datetime column matching
-  :class:`pd.DatetimeIndex`.
+  `pd.DatetimeIndex`.
 
 The time axis must be **strictly ascending and contiguous** (no gaps, no
-duplicates). Sparse or unsorted inputs raise :class:`ValueError`; callers
+duplicates). Sparse or unsorted inputs raise [`ValueError`][ValueError]; callers
 who need gap-filling should ``sort_index().asfreq(...)`` on the pandas
 side first.
 
@@ -50,28 +50,28 @@ into wide form before conversion.
 Return type
 -----------
 
-* :class:`~tsecon.TSeries` when the input is a Series.
-* :class:`~tsecon.Workspace` when ``to_workspace=True`` (one named
+* [`TSeries`][tsecon.tseries.TSeries] when the input is a Series.
+* [`Workspace`][tsecon.workspace.Workspace] when ``to_workspace=True`` (one named
   TSeries per non-time column, in DataFrame column order; per-column
   dtypes preserved).
-* :class:`~tsecon.MVTSeries` otherwise (one column per variable, single
+* [`MVTSeries`][tsecon.mvtseries.MVTSeries] otherwise (one column per variable, single
   shared dtype, numeric-only).
 
-Output shape (for :func:`to_pandas`)
+Output shape (for `to_pandas`)
 ------------------------------------
 
 The ``index`` argument controls how the time axis is materialised:
 
-* ``"auto"`` — :class:`pd.PeriodIndex` for Yearly / Quarterly / Monthly /
-  Weekly, :class:`pd.DatetimeIndex` (period-end dates) for Daily / BDaily,
-  :class:`pd.RangeIndex` for Unit, and an object-dtype Index of MIT for
+* ``"auto"`` — `pd.PeriodIndex` for Yearly / Quarterly / Monthly /
+  Weekly, `pd.DatetimeIndex` (period-end dates) for Daily / BDaily,
+  `pd.RangeIndex` for Unit, and an object-dtype Index of MIT for
   HalfYearly (which pandas has no period analogue for).
 * ``"mit"`` — always emit an object-dtype Index of MIT instances. The only
   fully lossless option (re-`from_pandas` round-trips exactly).
-* ``"date"`` — always emit a :class:`pd.DatetimeIndex` of period-end dates
+* ``"date"`` — always emit a `pd.DatetimeIndex` of period-end dates
   (or period-begin dates if ``date_ref="begin"``). Lossy for non-Daily
   frequencies on round-trip unless ``freq=`` is passed back to
-  :func:`from_pandas`.
+  [`from_pandas`][tsecon.interop.pandas.from_pandas].
 """
 
 from __future__ import annotations
@@ -136,9 +136,9 @@ def to_pandas(
     Parameters
     ----------
     obj
-        A :class:`~tsecon.TSeries` (→ ``pd.Series``), a
-        :class:`~tsecon.MVTSeries` (→ ``pd.DataFrame`` with one column per
-        variable), or a :class:`~tsecon.Workspace` containing only
+        A [`TSeries`][tsecon.tseries.TSeries] (→ ``pd.Series``), a
+        [`MVTSeries`][tsecon.mvtseries.MVTSeries] (→ ``pd.DataFrame`` with one column per
+        variable), or a [`Workspace`][tsecon.workspace.Workspace] containing only
         TSeries / MVTSeries members of a common frequency
         (→ ``pd.DataFrame``).
     index
@@ -291,7 +291,7 @@ def from_pandas(
     obj
         A ``pd.Series`` (→ TSeries) or ``pd.DataFrame``.
     freq
-        Required when the time axis is a :class:`pd.DatetimeIndex` (or a
+        Required when the time axis is a `pd.DatetimeIndex` (or a
         date-typed column) that has no inferable period semantics — pandas
         DatetimeIndex without ``.freq`` cannot be safely auto-classified
         between Daily / Weekly / Monthly / Quarterly / Yearly. Optional
@@ -314,7 +314,7 @@ def from_pandas(
         Required when ``wide=False``.
     to_workspace
         When ``True`` and ``obj`` is a DataFrame, return a
-        :class:`~tsecon.Workspace` with one named TSeries per non-time
+        [`Workspace`][tsecon.workspace.Workspace] with one named TSeries per non-time
         column rather than a single MVTSeries. Useful when round-tripping
         a heterogeneous Workspace through pandas or when downstream code
         expects a Workspace. The default (``False``) preserves the
@@ -376,7 +376,7 @@ def _frame_to_workspace(
 
     Members are added in the DataFrame's column order. Each TSeries spans
     the full DataFrame range; the per-column dtype is preserved
-    (unlike :func:`_frame_to_mvtseries` which forces a single shared dtype
+    (unlike `_frame_to_mvtseries` which forces a single shared dtype
     across all columns).
     """
     mits, data_df = _split_frame_time_and_data(pd, df, freq=freq, time_col=time_col)
@@ -402,7 +402,7 @@ def _split_frame_time_and_data(
     """Resolve a DataFrame's time axis to a list of MITs and the data subframe.
 
     Encapsulates the "is the time axis on the index or in a column" branch
-    so both :func:`_frame_to_mvtseries` and :func:`_frame_to_workspace`
+    so both `_frame_to_mvtseries` and `_frame_to_workspace`
     share the resolution logic.
     """
     if time_col is not None:

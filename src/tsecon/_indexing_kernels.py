@@ -50,7 +50,7 @@ Kernel contract
   ``len(indices)`` containing ``values[indices[i]]`` for each ``i``.
 
 The kernel performs no input validation — the public
-:func:`tsecon.indexing.lookup` wrapper handles type / shape / bounds
+[`tsecon.indexing.lookup`][tsecon.indexing.lookup] wrapper handles type / shape / bounds
 checks before invoking the kernel. The kernel assumes:
 
 * ``values.ndim == 1`` and ``indices.ndim == 1``
@@ -78,7 +78,7 @@ def gather_numpy(
     eliminates NumPy's per-call dispatch overhead in exchange for a
     marginal further speedup.
 
-    The implementation uses :func:`numpy.take` rather than fancy
+    The implementation uses [`numpy.take`][numpy.take] rather than fancy
     indexing for two reasons: ``take`` always allocates a fresh array
     (matching the kernel contract — callers must be able to mutate the
     result without aliasing ``values``), and it skips the ``__array_*``
